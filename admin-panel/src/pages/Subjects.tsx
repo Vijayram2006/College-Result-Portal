@@ -1,0 +1,665 @@
+import React, { useState } from "react";
+import {
+  BookOpen,
+  Plus,
+  Search,
+  CheckCircle2,
+  Filter,
+  Layers,
+  GraduationCap,
+  Sparkles,
+  Edit3,
+  Trash2,
+  ShieldCheck,
+  Award,
+  AlertCircle,
+  FileCheck,
+  X,
+} from "lucide-react";
+
+export interface SubjectItem {
+  id: string;
+  code: string;
+  title: string;
+  category: "Core Mandatory" | "Professional Elective" | "Open Elective";
+  credits: number;
+  department: string;
+  semester: string;
+  faculty: string;
+  status: "COE FINALIZED" | "PENDING APPROVAL";
+  studentsEnrolled?: number;
+}
+
+const initialSubjects: SubjectItem[] = [
+  // Core Subjects
+  {
+    id: "1",
+    code: "CS301",
+    title: "Data Structures & Algorithms",
+    category: "Core Mandatory",
+    credits: 4,
+    department: "Computer Science & Engineering",
+    semester: "Semester III",
+    faculty: "Dr. Raghav Iyer",
+    status: "COE FINALIZED",
+    studentsEnrolled: 210,
+  },
+  {
+    id: "2",
+    code: "CS302",
+    title: "Computer Organization & Architecture",
+    category: "Core Mandatory",
+    credits: 4,
+    department: "Computer Science & Engineering",
+    semester: "Semester III",
+    faculty: "Prof. Arjun Rao",
+    status: "COE FINALIZED",
+    studentsEnrolled: 210,
+  },
+  {
+    id: "3",
+    code: "CS303",
+    title: "Object Oriented Programming with Java",
+    category: "Core Mandatory",
+    credits: 3,
+    department: "Computer Science & Engineering",
+    semester: "Semester III",
+    faculty: "Dr. Priya Nair",
+    status: "COE FINALIZED",
+    studentsEnrolled: 210,
+  },
+  {
+    id: "4",
+    code: "CS304L",
+    title: "Data Structures & Java Laboratory",
+    category: "Core Mandatory",
+    credits: 2,
+    department: "Computer Science & Engineering",
+    semester: "Semester III",
+    faculty: "Dr. Raghav Iyer",
+    status: "COE FINALIZED",
+    studentsEnrolled: 210,
+  },
+  // Elective Subjects
+  {
+    id: "5",
+    code: "CS305E",
+    title: "Machine Learning & Intelligent Systems",
+    category: "Professional Elective",
+    credits: 4,
+    department: "Computer Science & Engineering",
+    semester: "Semester III",
+    faculty: "Dr. Ananya Menon",
+    status: "COE FINALIZED",
+    studentsEnrolled: 86,
+  },
+  {
+    id: "6",
+    code: "CS306E",
+    title: "Cloud Native Computing & Microservices",
+    category: "Professional Elective",
+    credits: 4,
+    department: "Computer Science & Engineering",
+    semester: "Semester III",
+    faculty: "Prof. Vikram Shah",
+    status: "COE FINALIZED",
+    studentsEnrolled: 64,
+  },
+  {
+    id: "7",
+    code: "CS307E",
+    title: "Cyber Security & Information Assurance",
+    category: "Professional Elective",
+    credits: 4,
+    department: "Computer Science & Engineering",
+    semester: "Semester III",
+    faculty: "Dr. Raghav Iyer",
+    status: "COE FINALIZED",
+    studentsEnrolled: 42,
+  },
+  {
+    id: "8",
+    code: "CS308E",
+    title: "Data Science & Big Data Engineering",
+    category: "Professional Elective",
+    credits: 4,
+    department: "Computer Science & Engineering",
+    semester: "Semester III",
+    faculty: "Dr. Priya Nair",
+    status: "PENDING APPROVAL",
+    studentsEnrolled: 18,
+  },
+  {
+    id: "9",
+    code: "CS401",
+    title: "Operating Systems Architecture",
+    category: "Core Mandatory",
+    credits: 4,
+    department: "Computer Science & Engineering",
+    semester: "Semester IV",
+    faculty: "Prof. Vikram Shah",
+    status: "COE FINALIZED",
+    studentsEnrolled: 195,
+  },
+  {
+    id: "10",
+    code: "CS402",
+    title: "Database Management Systems",
+    category: "Core Mandatory",
+    credits: 4,
+    department: "Computer Science & Engineering",
+    semester: "Semester IV",
+    faculty: "Dr. Priya Nair",
+    status: "COE FINALIZED",
+    studentsEnrolled: 195,
+  },
+  {
+    id: "11",
+    code: "CS405E",
+    title: "Full Stack Web Engineering (React & Node)",
+    category: "Professional Elective",
+    credits: 4,
+    department: "Computer Science & Engineering",
+    semester: "Semester IV",
+    faculty: "Prof. Arjun Rao",
+    status: "COE FINALIZED",
+    studentsEnrolled: 110,
+  },
+  {
+    id: "12",
+    code: "OE101",
+    title: "Renewable Energy & Sustainable Systems",
+    category: "Open Elective",
+    credits: 3,
+    department: "Electrical Engineering",
+    semester: "Semester V",
+    faculty: "Dr. M. Joseph",
+    status: "COE FINALIZED",
+    studentsEnrolled: 140,
+  },
+];
+
+export const SubjectsPage: React.FC = () => {
+  const [subjects, setSubjects] = useState<SubjectItem[]>(initialSubjects);
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("All");
+  const [semesterFilter, setSemesterFilter] = useState<string>("All");
+  const [isAllFinalized, setIsAllFinalized] = useState(false);
+
+  // Modal State for Adding New Subject
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [newCode, setNewCode] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [newCategory, setNewCategory] = useState<"Core Mandatory" | "Professional Elective" | "Open Elective">("Core Mandatory");
+  const [newCredits, setNewCredits] = useState(4);
+  const [newSemester, setNewSemester] = useState("Semester III");
+  const [newDept, setNewDept] = useState("Computer Science & Engineering");
+  const [newFaculty, setNewFaculty] = useState("");
+
+  const handleFinalizeAll = () => {
+    setSubjects((prev) =>
+      prev.map((sub) => ({ ...sub, status: "COE FINALIZED" as const }))
+    );
+    setIsAllFinalized(true);
+    alert("COE Official Finalization Completed! All core and elective subjects are now approved and active for examinations.");
+  };
+
+  const handleAddSubject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCode || !newTitle) {
+      alert("Please enter subject code and title.");
+      return;
+    }
+    const newSubject: SubjectItem = {
+      id: String(Date.now()),
+      code: newCode,
+      title: newTitle,
+      category: newCategory,
+      credits: Number(newCredits),
+      department: newDept,
+      semester: newSemester,
+      faculty: newFaculty || "Faculty In-Charge",
+      status: "COE FINALIZED",
+      studentsEnrolled: 0,
+    };
+    setSubjects((prev) => [newSubject, ...prev]);
+    setIsAddOpen(false);
+    setNewCode("");
+    setNewTitle("");
+    setNewFaculty("");
+    alert(`Subject '${newCode} - ${newTitle}' added and finalized into subject catalog!`);
+  };
+
+  const handleDeleteSubject = (id: string, title: string) => {
+    if (window.confirm(`Delete subject '${title}' from subject catalog?`)) {
+      setSubjects((prev) => prev.filter((s) => s.id !== id));
+    }
+  };
+
+  const filteredSubjects = subjects.filter((sub) => {
+    const matchesSearch =
+      `${sub.code} ${sub.title} ${sub.faculty} ${sub.department}`
+        .toLowerCase()
+        .includes(search.toLowerCase());
+    const matchesCategory =
+      categoryFilter === "All" || sub.category === categoryFilter;
+    const matchesSemester =
+      semesterFilter === "All" || sub.semester === semesterFilter;
+    return matchesSearch && matchesCategory && matchesSemester;
+  });
+
+  const coreCount = subjects.filter((s) => s.category === "Core Mandatory").length;
+  const electiveCount = subjects.filter((s) => s.category !== "Core Mandatory").length;
+  const pendingCount = subjects.filter((s) => s.status === "PENDING APPROVAL").length;
+
+  return (
+    <div className="space-y-8 w-full">
+      {/* Top Banner & Header */}
+      <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-[#D4A72C]/30 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+        <div>
+          <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-black uppercase px-3 py-1 rounded tracking-widest inline-block mb-2.5 shadow-sm">
+            CONTROLLER OF EXAMINATIONS · SUBJECT CATALOG
+          </span>
+          <h2 className="font-display text-2xl sm:text-3xl font-black tracking-tight text-white">
+            Subjects & Electives Management
+          </h2>
+          <p className="text-xs text-white/70 mt-1.5 max-w-2xl font-medium leading-relaxed">
+            Official curriculum catalog for all academic semesters. The Controller of Examinations (COE) finalizes all core mandatory and elective subjects here for student registration and examination processing.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <button
+            onClick={() => setIsAddOpen(true)}
+            className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-extrabold text-xs border border-white/20 transition shadow flex items-center gap-2"
+          >
+            <Plus size={16} className="text-[#D4A72C]" /> Add Subject / Elective
+          </button>
+
+          <button
+            onClick={handleFinalizeAll}
+            className={`px-6 py-3 rounded-2xl font-extrabold text-xs transition shadow-lg flex items-center gap-2 active:scale-95 border ${
+              pendingCount === 0 || isAllFinalized
+                ? "bg-emerald-600 text-white border-emerald-400/40"
+                : "bg-[#D4A72C] text-[#0B192C] hover:bg-[#c39722] border-[#D4A72C]"
+            }`}
+          >
+            <FileCheck size={17} />
+            <span>
+              {pendingCount === 0 || isAllFinalized
+                ? "ALL SUBJECTS COE FINALIZED"
+                : `Finalize All Subjects (${pendingCount} Pending)`}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
+        <div className="bg-white p-5 rounded-3xl border border-[#E5E1D8] shadow-sm flex items-center gap-4">
+          <div className="h-12 w-12 rounded-2xl bg-[#0B192C] text-[#D4A72C] flex items-center justify-center shrink-0">
+            <BookOpen size={22} />
+          </div>
+          <div>
+            <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider block">
+              Total Subjects
+            </span>
+            <span className="font-display font-black text-2xl text-[#0B192C]">
+              {subjects.length} Courses
+            </span>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-3xl border border-[#E5E1D8] shadow-sm flex items-center gap-4">
+          <div className="h-12 w-12 rounded-2xl bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center shrink-0">
+            <Layers size={22} />
+          </div>
+          <div>
+            <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider block">
+              Core Mandatory
+            </span>
+            <span className="font-display font-black text-2xl text-[#0B192C]">
+              {coreCount} Core
+            </span>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-3xl border border-[#E5E1D8] shadow-sm flex items-center gap-4">
+          <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-800 border border-amber-200 flex items-center justify-center shrink-0">
+            <Sparkles size={22} />
+          </div>
+          <div>
+            <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider block">
+              Elective Subjects
+            </span>
+            <span className="font-display font-black text-2xl text-[#B08014]">
+              {electiveCount} Electives
+            </span>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-3xl border border-[#E5E1D8] shadow-sm flex items-center gap-4">
+          <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center shrink-0">
+            <ShieldCheck size={22} />
+          </div>
+          <div>
+            <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider block">
+              COE Approval State
+            </span>
+            <span className="font-display font-black text-lg text-emerald-800">
+              {pendingCount === 0 ? "FINALIZED" : `${pendingCount} Pending`}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Subjects Table & Filters Container */}
+      <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-xl p-6 sm:p-8 space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E5E1D8] pb-5">
+          <div>
+            <h3 className="font-display font-extrabold text-xl text-[#0B192C]">
+              Official Academic Subjects & Elective Directory
+            </h3>
+            <p className="text-xs text-gray-500 font-medium mt-0.5">
+              Review and finalize core subjects and student-selected electives.
+            </p>
+          </div>
+
+          {/* Filters Bar */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[220px]">
+              <Search
+                size={15}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search code, title, faculty..."
+                className="w-full h-10 pl-9 pr-3.5 rounded-2xl border border-[#E5E1D8] bg-[#F8F5EE]/70 text-xs font-semibold text-[#0B192C] focus:bg-white focus:outline-none focus:border-[#0B192C] transition shadow-sm"
+              />
+            </div>
+
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="h-10 rounded-2xl border border-[#E5E1D8] bg-[#F8F5EE]/70 px-3 text-xs font-extrabold text-[#0B192C] focus:bg-white focus:outline-none transition shadow-sm"
+            >
+              <option value="All">All Categories</option>
+              <option value="Core Mandatory">Core Mandatory</option>
+              <option value="Professional Elective">Professional Elective</option>
+              <option value="Open Elective">Open Elective</option>
+            </select>
+
+            <select
+              value={semesterFilter}
+              onChange={(e) => setSemesterFilter(e.target.value)}
+              className="h-10 rounded-2xl border border-[#E5E1D8] bg-[#F8F5EE]/70 px-3 text-xs font-extrabold text-[#0B192C] focus:bg-white focus:outline-none transition shadow-sm"
+            >
+              <option value="All">All Semesters</option>
+              <option value="Semester III">Semester III</option>
+              <option value="Semester IV">Semester IV</option>
+              <option value="Semester V">Semester V</option>
+              <option value="Semester VI">Semester VI</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Subjects Table */}
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider">
+              <tr>
+                <th className="p-4">Course Code</th>
+                <th className="p-4">Subject Title</th>
+                <th className="p-4">Category / Type</th>
+                <th className="p-4 text-center">Credits</th>
+                <th className="p-4">Semester & Dept</th>
+                <th className="p-4">Faculty In-Charge</th>
+                <th className="p-4 text-center">COE Status</th>
+                <th className="p-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#E5E1D8] bg-white">
+              {filteredSubjects.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-gray-500 font-semibold text-xs">
+                    No subjects found matching filters.
+                  </td>
+                </tr>
+              ) : (
+                filteredSubjects.map((sub) => (
+                  <tr key={sub.id} className="hover:bg-[#F8F5EE]/60 transition">
+                    <td className="p-4">
+                      <span className="font-mono text-xs font-black text-[#B08014] bg-[#D4A72C]/15 px-2.5 py-1 rounded-md border border-[#D4A72C]/30 shadow-sm">
+                        {sub.code}
+                      </span>
+                    </td>
+                    <td className="p-4 font-extrabold text-[#0B192C] text-sm">
+                      {sub.title}
+                      {sub.studentsEnrolled && sub.studentsEnrolled > 0 ? (
+                        <span className="block text-[10px] font-bold text-gray-400 mt-0.5">
+                          Enrolled: {sub.studentsEnrolled} Students
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="p-4">
+                      <span
+                        className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-black uppercase shadow-sm border ${
+                          sub.category === "Core Mandatory"
+                            ? "bg-blue-50 text-blue-800 border-blue-200"
+                            : sub.category === "Professional Elective"
+                            ? "bg-amber-50 text-amber-900 border-amber-200"
+                            : "bg-purple-50 text-purple-800 border-purple-200"
+                        }`}
+                      >
+                        {sub.category}
+                      </span>
+                    </td>
+                    <td className="p-4 text-center font-black text-[#0B192C]">
+                      {sub.credits} Credits
+                    </td>
+                    <td className="p-4">
+                      <span className="font-extrabold text-gray-800 block text-xs">
+                        {sub.semester}
+                      </span>
+                      <span className="text-[10px] font-bold text-gray-400 block truncate max-w-[150px]">
+                        {sub.department}
+                      </span>
+                    </td>
+                    <td className="p-4 font-semibold text-gray-700">
+                      {sub.faculty}
+                    </td>
+                    <td className="p-4 text-center">
+                      <span
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black border shadow-sm ${
+                          sub.status === "COE FINALIZED"
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                            : "bg-amber-50 text-amber-800 border-amber-300"
+                        }`}
+                      >
+                        <ShieldCheck size={13} />
+                        {sub.status}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setSubjects((prev) =>
+                              prev.map((s) =>
+                                s.id === sub.id
+                                  ? {
+                                      ...s,
+                                      status:
+                                        s.status === "COE FINALIZED"
+                                          ? "PENDING APPROVAL"
+                                          : "COE FINALIZED",
+                                    }
+                                  : s
+                              )
+                            );
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-[#0B192C] text-white font-extrabold text-[10px] hover:bg-[#152744] transition shadow-sm"
+                          title="Toggle COE Approval"
+                        >
+                          Toggle COE
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSubject(sub.id, sub.title)}
+                          className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition border border-red-200"
+                          title="Delete Subject"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ADD SUBJECT MODAL */}
+      {isAddOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B192C]/60 p-4 backdrop-blur-md">
+          <div className="w-full max-w-lg rounded-3xl border border-[#D4A72C]/40 bg-white p-7 shadow-2xl reveal-up">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-2.5 text-[#0B192C]">
+                <div className="p-2 rounded-xl bg-[#0B192C] text-[#D4A72C]">
+                  <BookOpen size={18} />
+                </div>
+                <h3 className="text-base font-black text-[#0B192C]">
+                  Add Subject / Elective to COE Catalog
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsAddOpen(false)}
+                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddSubject} className="mt-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
+                    Subject Code *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newCode}
+                    onChange={(e) => setNewCode(e.target.value)}
+                    placeholder="e.g. CS309E"
+                    className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3.5 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
+                    Credits *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    max={6}
+                    value={newCredits}
+                    onChange={(e) => setNewCredits(Number(e.target.value))}
+                    className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3.5 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
+                  Subject Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="e.g. Artificial Intelligence & Ethics"
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3.5 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
+                    Category Type *
+                  </label>
+                  <select
+                    value={newCategory}
+                    onChange={(e) =>
+                      setNewCategory(
+                        e.target.value as "Core Mandatory" | "Professional Elective" | "Open Elective"
+                      )
+                    }
+                    className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
+                  >
+                    <option value="Core Mandatory">Core Mandatory</option>
+                    <option value="Professional Elective">Professional Elective</option>
+                    <option value="Open Elective">Open Elective</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
+                    Semester
+                  </label>
+                  <select
+                    value={newSemester}
+                    onChange={(e) => setNewSemester(e.target.value)}
+                    className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
+                  >
+                    <option value="Semester I">Semester I</option>
+                    <option value="Semester II">Semester II</option>
+                    <option value="Semester III">Semester III</option>
+                    <option value="Semester IV">Semester IV</option>
+                    <option value="Semester V">Semester V</option>
+                    <option value="Semester VI">Semester VI</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
+                  Faculty In-Charge
+                </label>
+                <input
+                  type="text"
+                  value={newFaculty}
+                  onChange={(e) => setNewFaculty(e.target.value)}
+                  placeholder="e.g. Dr. Ananya Menon"
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3.5 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddOpen(false)}
+                  className="rounded-2xl border border-slate-200 px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-2xl bg-[#0B192C] hover:bg-[#152744] px-6 py-2.5 text-xs font-extrabold text-white border border-[#D4A72C]/40 shadow-lg"
+                >
+                  Finalize & Save Subject
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
