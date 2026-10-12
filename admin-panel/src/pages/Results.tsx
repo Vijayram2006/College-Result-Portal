@@ -89,7 +89,7 @@ export const ResultsPage: React.FC = () => {
             href="/admin/results/upload"
             className="flex items-center gap-2 bg-[#0B192C] hover:bg-[#0B192C]/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow-md"
           >
-            <Upload size={14} /> Upload New Sheet
+            <Upload size={14} /> Student Data
           </Link>
         </div>
       </div>
@@ -104,10 +104,10 @@ export const ResultsPage: React.FC = () => {
             <Upload size={20} />
           </div>
           <h3 className="font-bold text-sm text-[#0B192C] group-hover:text-[#D4A72C] transition flex items-center justify-between">
-            1. Excel / CSV Importer <ArrowRight size={16} />
+            1. Student Data Importer <ArrowRight size={16} />
           </h3>
           <p className="text-xs text-[#667085] mt-1">
-            Upload candidate mark sheets with drag & drop parsing.
+            Upload student records (Register Number, Name, DOB) with drag & drop parsing.
           </p>
         </Link>
 
@@ -119,10 +119,10 @@ export const ResultsPage: React.FC = () => {
             <CheckCircle2 size={20} />
           </div>
           <h3 className="font-bold text-sm text-[#0B192C] group-hover:text-[#C98A18] transition flex items-center justify-between">
-            2. Result Validation Engine <ArrowRight size={16} />
+            2. Student Mark Entry Hub <ArrowRight size={16} />
           </h3>
           <p className="text-xs text-[#667085] mt-1">
-            Automated schema checks, range bounds, and register number verification.
+            Question-wise evaluation sheets (Part A, B, C) and official mark confirmation.
           </p>
         </Link>
 

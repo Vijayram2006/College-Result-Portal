@@ -447,18 +447,18 @@ function StudentResultView() {
   const [selectedSection, setSelectedSection] = useState("All");
 
   const hodStudentsData = [
-    { reg: "KVELL2025CSE001", name: "Aarav Sharma", year: "3rd Year", sem: "Semester V", section: "CSE A", average: 88, status: "PASS" },
+    { reg: "KVELL2025CSE001", name: "Aarav Sharma", year: "1st Year", sem: "Semester I", section: "CSE A", average: 88, status: "PASS" },
     { reg: "KVELL2025CSE002", name: "Ananya Roy", year: "1st Year", sem: "Semester I", section: "CSE A", average: 92, status: "PASS" },
-    { reg: "KVELL2025CSE003", name: "Devansh Patel", year: "2nd Year", sem: "Semester III", section: "CSE B", average: 34, status: "FAIL" },
-    { reg: "KVELL2025CSE004", name: "Diya Sengupta", year: "4th Year", sem: "Semester VII", section: "CSE A", average: 95, status: "PASS" },
-    { reg: "KVELL2025CSE005", name: "Ishaan Verma", year: "1st Year", sem: "Semester II", section: "CSE B", average: 76, status: "PASS" },
-    { reg: "KVELL2025CSE006", name: "Kavya Nair", year: "2nd Year", sem: "Semester IV", section: "CSE A", average: 38, status: "FAIL" },
-    { reg: "KVELL2025CSE007", name: "Manav Joshi", year: "3rd Year", sem: "Semester VI", section: "CSE B", average: 81, status: "PASS" },
-    { reg: "KVELL2025CSE008", name: "Meera Reddy", year: "4th Year", sem: "Semester VIII", section: "CSE B", average: 90, status: "PASS" },
-    { reg: "KVELL2025CSE018", name: "Rohan Sharma", year: "1st Year", sem: "Semester II", section: "CSE A", average: 84, status: "PASS" },
-    { reg: "KVELL2025CSE041", name: "Aarav Sharma", year: "2nd Year", sem: "Semester III", section: "CSE A", average: 79, status: "PASS" },
-    { reg: "KVELL2025IT009", name: "Siddharth Das", year: "3rd Year", sem: "Semester V", section: "IT A", average: 32, status: "FAIL" },
-    { reg: "KVELL2025IT010", name: "Tanvi Kulkarni", year: "4th Year", sem: "Semester VII", section: "IT A", average: 87, status: "PASS" },
+    { reg: "KVELL2025CSE003", name: "Devansh Patel", year: "1st Year", sem: "Semester I", section: "CSE B", average: 34, status: "FAIL" },
+    { reg: "KVELL2025CSE004", name: "Diya Sengupta", year: "1st Year", sem: "Semester I", section: "CSE A", average: 95, status: "PASS" },
+    { reg: "KVELL2025CSE005", name: "Ishaan Verma", year: "1st Year", sem: "Semester I", section: "CSE B", average: 76, status: "PASS" },
+    { reg: "KVELL2025CSE006", name: "Kavya Nair", year: "1st Year", sem: "Semester I", section: "CSE A", average: 38, status: "FAIL" },
+    { reg: "KVELL2025CSE007", name: "Manav Joshi", year: "1st Year", sem: "Semester I", section: "CSE B", average: 81, status: "PASS" },
+    { reg: "KVELL2025CSE008", name: "Meera Reddy", year: "1st Year", sem: "Semester I", section: "CSE B", average: 90, status: "PASS" },
+    { reg: "KVELL2025CSE018", name: "Rohan Sharma", year: "1st Year", sem: "Semester I", section: "CSE A", average: 84, status: "PASS" },
+    { reg: "KVELL2025CSE041", name: "Aarav Sharma", year: "1st Year", sem: "Semester I", section: "CSE A", average: 79, status: "PASS" },
+    { reg: "KVELL2025IT009", name: "Siddharth Das", year: "1st Year", sem: "Semester I", section: "IT A", average: 32, status: "FAIL" },
+    { reg: "KVELL2025IT010", name: "Tanvi Kulkarni", year: "1st Year", sem: "Semester I", section: "IT A", average: 87, status: "PASS" },
   ];
 
   const filteredStudents = hodStudentsData.filter((s) => {
@@ -992,9 +992,9 @@ function SubjectsPage({ onToast }: { onToast: (message: string) => void }) {
   const selectedSubject = subjectRows.find((subj: any) => subj.id === selectedSubjectId);
   return <div className="space-y-6">
     <PageIntro eyebrow="Faculty workspace" title="My subjects" description="Manage assigned subjects, sections, and assessment progress." action={<button onClick={() => setShowCreate((current) => !current)} className="inline-flex items-center gap-2 rounded-md bg-[#FC6226] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-[#E04F18]"><BookOpen size={14} />{showCreate ? "Close subject form" : "Add subject"}</button>} />
-    {showCreate && <Panel className="border-[#F5D8B4] bg-[#FFE8C2]/40 p-5"><SectionHeading title="Create a new subject" detail="This subject will be available for faculty marks entry and review." /><div className="grid gap-3 md:grid-cols-4"><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Subject code</label><input value={newSubject.code} onChange={(event) => setNewSubject({ ...newSubject, code: event.target.value.toUpperCase() })} placeholder="CS609" className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs focus:border-[#FC6226] focus:outline-none" /></div><div className="md:col-span-1"><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Subject name</label><input value={newSubject.name} onChange={(event) => setNewSubject({ ...newSubject, name: event.target.value })} placeholder="Advanced Algorithms" className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs focus:border-[#FC6226] focus:outline-none" /></div><FieldSelect label="Semester" value={newSubject.semester} options={["VI", "V", "IV"]} /><FieldSelect label="Section" value={newSubject.section} options={["CSE A", "CSE B", "IT A"]} /></div><div className="mt-4 flex justify-end"><button disabled={createSubject.isPending || !newSubject.code || !newSubject.name} onClick={() => createSubject.mutate({ ...newSubject, createdBy: "demo-faculty" })} className="rounded-md bg-[#FC6226] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#E04F18] disabled:cursor-not-allowed disabled:opacity-50">{createSubject.isPending ? "Creating…" : "Create subject"}</button></div></Panel>}
-    <Panel className="p-4"><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div className="relative min-w-0 flex-1 md:max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search subjects" className="h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#FC6226] focus:outline-none" /></div><div className="flex gap-2"><select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 focus:border-[#FC6226] focus:outline-none"><option>All semesters</option><option>Semester VI</option><option>Semester V</option></select><select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 focus:border-[#FC6226] focus:outline-none"><option>All sections</option><option>Section A</option><option>Section B</option></select></div></div></Panel>
-    <div className="grid gap-4 md:grid-cols-2">{visible.map((subject: any, index: number) => { const tone = subject.averageScore >= 75 ? "success" : "warning"; return <Panel key={subject.id} className={cn("reveal-up p-5", `reveal-up-delay-${Math.min(index + 1, 3)}`)}><div className="flex items-start justify-between gap-3"><div><span className="text-[11px] font-bold tracking-[0.14em] text-[#FC6226]">{subject.code}</span><h2 className="mt-2 text-[16px] font-semibold text-slate-900">{subject.name}</h2></div><StatusBadge tone={tone}>{tone === "success" ? "On track" : "Review"}</StatusBadge></div><div className="mt-5 grid grid-cols-3 gap-3 border-y border-slate-100 py-4"><div><p className="text-[11px] text-slate-400">Semester</p><p className="mt-1 text-xs font-semibold text-slate-700">{subject.semester}</p></div><div><p className="text-[11px] text-slate-400">Section</p><p className="mt-1 text-xs font-semibold text-slate-700">{subject.section}</p></div><div><p className="text-[11px] text-slate-400">Students</p><p className="mt-1 text-xs font-semibold text-slate-700">{subject.studentCount}</p></div></div><div className="mt-4 flex items-center justify-between"><div><p className="text-[11px] text-slate-400">Average score</p><p className="mt-1 text-xl font-semibold tracking-[-0.03em] text-slate-900">{subject.averageScore}%</p></div><div className="w-28"><div className="mb-1.5 flex justify-between text-[10px] text-slate-400"><span>Performance</span><span>{subject.averageScore}%</span></div><MiniProgress value={subject.averageScore} color={tone === "success" ? "#FC6226" : "#b45309"} /></div></div><button onClick={() => setSelectedSubjectId(subject.id)} className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-[#FC6226] hover:underline">View details <ChevronRight size={14} /></button></Panel> })}{visible.length === 0 && <EmptyState title="No subjects found" detail="Try a different search term or create a new subject." />}</div>
+    {showCreate && <Panel className="border-[#F5D8B4] bg-[#FFE8C2]/40 p-5"><SectionHeading title="Create a new subject" detail="This subject will be available for faculty marks entry and review." /><div className="grid gap-3 md:grid-cols-4"><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Subject code</label><input value={newSubject.code} onChange={(event) => setNewSubject({ ...newSubject, code: event.target.value.toUpperCase() })} placeholder="CS609" className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs focus:border-[#FC6226] focus:outline-none" /></div><div className="md:col-span-1"><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Subject name</label><input value={newSubject.name} onChange={(event) => setNewSubject({ ...newSubject, name: event.target.value })} placeholder="Advanced Algorithms" className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs focus:border-[#FC6226] focus:outline-none" /></div><FieldSelect label="Semester" value={newSubject.semester} options={["I"]} /><FieldSelect label="Section" value={newSubject.section} options={["CSE A", "CSE B", "IT A"]} /></div><div className="mt-4 flex justify-end"><button disabled={createSubject.isPending || !newSubject.code || !newSubject.name} onClick={() => createSubject.mutate({ ...newSubject, createdBy: "demo-faculty" })} className="rounded-md bg-[#FC6226] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#E04F18] disabled:cursor-not-allowed disabled:opacity-50">{createSubject.isPending ? "Creating…" : "Create subject"}</button></div></Panel>}
+    <Panel className="p-4"><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div className="relative min-w-0 flex-1 md:max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search subjects" className="h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#FC6226] focus:outline-none" /></div><div className="flex gap-2"><select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 focus:border-[#FC6226] focus:outline-none"><option>Semester I</option></select><select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 focus:border-[#FC6226] focus:outline-none"><option>All sections</option><option>Section A</option><option>Section B</option></select></div></div></Panel>
+    <div className="grid gap-4 md:grid-cols-2">{visible.map((subject: any, index: number) => { const tone = subject.averageScore >= 75 ? "success" : "warning"; return <Panel key={subject.id} className={cn("reveal-up p-5", `reveal-up-delay-${Math.min(index + 1, 3)}`)}><div className="flex items-start justify-between gap-3"><div><span className="text-[11px] font-bold tracking-[0.14em] text-[#FC6226]">{subject.code}</span><h2 className="mt-2 text-[16px] font-semibold text-slate-900">{subject.name}</h2></div><StatusBadge tone={tone}>{tone === "success" ? "On track" : "Review"}</StatusBadge></div><div className="mt-5 grid grid-cols-3 gap-3 border-y border-slate-100 py-4"><div><p className="text-[11px] text-slate-400">Semester</p><p className="mt-1 text-xs font-semibold text-slate-700">{subject.semester}</p></div><div><p className="text-[11px] text-slate-400">Section</p><p className="mt-1 text-xs font-semibold text-slate-700">{subject.section}</p></div><div><p className="text-[11px] text-slate-400">Students</p><p className="mt-1 text-xs font-semibold text-slate-700">{subject.studentCount}</p></div></div><div className="mt-4 flex items-center justify-between"><div><p className="text-[11px] text-slate-400">Average score</p><p className="mt-1 text-xl font-semibold tracking-[-0.03em] text-slate-900">{subject.averageScore}%</p></div><div className="w-28"><div className="mb-1.5 flex justify-between text-[10px] text-slate-400"><span>Performance</span><span>{subject.averageScore}%</span></div><MiniProgress value={subject.averageScore} color={tone === "success" ? "#FC6226" : "#b45309"} /></div></div><button onClick={() => setSelectedSubjectId(subject.id)} className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-[#FC6226] hover:underline">View details <ChevronRight size={14} /></button></Panel> })}</div>
     {selectedSubject && <Panel className="border-[#F5D8B4] bg-[#FFE8C2]/40 p-5"><div className="flex items-start justify-between gap-4"><div><p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#8C2F00]">Subject detail</p><h2 className="mt-2 text-lg font-semibold text-slate-900">{selectedSubject.name}</h2><p className="mt-1 text-xs text-slate-500">{selectedSubject.code} · Semester {selectedSubject.semester} · {selectedSubject.section}</p></div><button onClick={() => setSelectedSubjectId(null)} className="rounded-md p-1.5 text-slate-400 hover:bg-white hover:text-slate-700" aria-label="Close subject details"><X size={16} /></button></div><div className="mt-5 grid gap-3 sm:grid-cols-4"><MetricTile label="Students" value={`${selectedSubject.studentCount}`} /><MetricTile label="Average score" value={`${selectedSubject.averageScore}%`} /><MetricTile label="Review status" value="Active" tone="success" /><MetricTile label="Department" value="CSE" /></div></Panel>}
   </div>;
 }
@@ -1012,8 +1012,8 @@ function MarksPage({ role, onToast }: { role: Role; onToast: (message: string) =
   });
 
   const subjectRows = subjectsQuery.data ?? [];
-  const [academicYear, setAcademicYear] = useState("2025–26");
-  const [semester, setSemester] = useState("VI");
+  const [academicYear, setAcademicYear] = useState("2026-27");
+  const [semester, setSemester] = useState("I");
   const [section, setSection] = useState("CSE A");
   const [subjectId, setSubjectId] = useState<number | undefined>(undefined);
   const [assessment, setAssessment] = useState<"IA-1" | "IA-2">("IA-1");
@@ -1192,13 +1192,11 @@ function MarksPage({ role, onToast }: { role: Role; onToast: (message: string) =
 
       <Panel className="p-4">
         <div className="grid gap-3 md:grid-cols-5">
-          <FieldSelect label="Academic year" value={academicYear} options={["2025–26", "2024–25"]} onChange={setAcademicYear} />
+          <FieldSelect label="Academic year" value={academicYear} options={["2026-27"]} onChange={setAcademicYear} />
           <div>
             <label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Semester</label>
             <select value={semester} onChange={(event) => setSemester(event.target.value)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs focus:border-[#FC6226] focus:outline-none">
-              <option>VI</option>
-              <option>V</option>
-              <option>IV</option>
+              <option>I</option>
             </select>
           </div>
           <FieldSelect
@@ -1395,7 +1393,7 @@ function PerformancePage({ role, onToast, studentReg, studentName, onReturn }: {
 
 function StudentsPage({ onView, role }: { onView: (student: (typeof students)[number]) => void; role: Role }) {
   const [search, setSearch] = useState("");
-  const [academicYear, setAcademicYear] = useState("2025–26");
+  const [academicYear, setAcademicYear] = useState("2026-27");
   const [section, setSection] = useState("All sections");
   const usersQuery = trpc.admin.users.useQuery({ actorRole: "Admin" });
   const reportQuery = trpc.reports.rows.useQuery({}, { enabled: role === "HOD" });
@@ -1406,7 +1404,7 @@ function StudentsPage({ onView, role }: { onView: (student: (typeof students)[nu
       reg: u.openId || u.username,
       name: u.name,
       section: u.department?.includes("IT") ? "IT A" : "CSE A",
-      semester: "VI",
+      semester: "Semester I",
       average: 82,
       status: u.status === "ACTIVE" ? "On track" : "Monitor",
     }));
@@ -1418,12 +1416,12 @@ function StudentsPage({ onView, role }: { onView: (student: (typeof students)[nu
 
   const visible = allStudentsList.filter((student) => `${student.name} ${student.reg} ${student.section}`.toLowerCase().includes(search.toLowerCase()) && (role !== "HOD" || section === "All sections" || student.section === section));
   const reviewRows = (reportQuery.data ?? []).filter((row) => row.submission.status === "PENDING_DEAN" || row.submission.status === "HOD_APPROVED" || row.submission.status === "FINAL_APPROVED" || (row.submission.status as string) === "submitted_to_dean" || (row.submission.status as string) === "approved").flatMap((row) => { let parsed: Record<string, number> = {}; try { parsed = JSON.parse(row.submission.marksJson); } catch { } const regs = Array.from(new Set(Object.keys(parsed).map((key) => key.replace(/-(internal|test|quiz|seminar)$/, "")))); return regs.map((reg) => { const matched = students.find((student) => student.reg === reg); const total = ["internal", "test", "quiz", "seminar"].reduce((sum, component) => sum + Number(parsed[`${reg}-${component}`] ?? 0), 0); return { key: `${row.submission.id}-${reg}`, reg, name: matched?.name ?? reg, subject: row.subject?.name ?? "Subject", section: row.submission.section, assessment: row.submission.assessment, total, percentage: Math.round((total / 80) * 100) }; }); });
-  return <div className="space-y-6"><PageIntro eyebrow={role === "HOD" ? "Department directory" : "Faculty workspace"} title="Students" description={role === "HOD" ? "Select academic year and section to review students and their submitted marks." : "Search and review your assigned student records."} /><Panel className="p-4"><div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">{role !== "HOD" && <div className="relative w-full md:max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search students" className="h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-xs" /></div>}{role === "HOD" && <div className="flex flex-wrap gap-2"><div><label className="mb-1 block text-[10px] font-semibold text-slate-500">Academic year</label><select value={academicYear} onChange={(event) => setAcademicYear(event.target.value)} className="h-10 rounded-md border border-slate-200 bg-white px-3 text-xs"><option>2025–26</option><option>2024–25</option></select></div><div><label className="mb-1 block text-[10px] font-semibold text-slate-500">Section</label><select value={section} onChange={(event) => setSection(event.target.value)} className="h-10 rounded-md border border-slate-200 bg-white px-3 text-xs"><option>All sections</option><option>CSE A</option><option>CSE B</option></select></div></div>}</div></Panel><Panel className="overflow-hidden"><div className="mobile-table-scroll"><table className="w-full min-w-[680px] text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Student</th><th className="px-4 py-3">Section</th><th className="px-4 py-3">Semester</th><th className="px-4 py-3">Average performance</th><th className="px-5 py-3 text-right">Status</th>{role !== "HOD" && <th className="px-5 py-3 text-right">View</th>}</tr></thead><tbody className="divide-y divide-slate-100">{visible.map((student) => <tr key={student.reg}><td className="px-5 py-3.5"><p className="text-xs font-semibold text-slate-800">{student.name}</p><p className="mt-0.5 text-[11px] text-slate-400">{student.reg}</p></td><td className="px-4 py-3.5 text-xs text-slate-600">{student.section}</td><td className="px-4 py-3.5 text-xs text-slate-600">{student.semester}</td><td className="px-4 py-3.5"><div className="flex w-36 items-center gap-2"><MiniProgress value={student.average} color={student.average >= 75 ? "#FC6226" : student.average >= 65 ? "#b45309" : "#b91c1c"} /><span className="text-xs font-semibold text-slate-800">{student.average}%</span></div></td><td className="px-5 py-3.5 text-right"><StatusBadge tone={student.status === "On track" ? "success" : student.status === "Monitor" ? "warning" : "danger"}>{student.status}</StatusBadge></td>{role !== "HOD" && <td className="px-5 py-3.5 text-right"><button onClick={() => onView(student)} className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#FC6226] hover:underline"><Eye size={14} />View</button></td>}</tr>)}</tbody></table></div><div className="border-t border-slate-100 px-5 py-4"><p className="text-[11px] text-slate-400">Showing {visible.length} students for {academicYear}{role === "HOD" && section !== "All sections" ? ` · ${section}` : ""}</p></div></Panel>{role === "HOD" && <Panel className="overflow-hidden"><div className="border-b border-slate-100 p-5"><SectionHeading title="Submitted student marks" detail="Read-only marks from faculty submissions after HOD review" /></div><div className="mobile-table-scroll"><table className="w-full min-w-[820px] text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Student</th><th className="px-4 py-3">Subject</th><th className="px-4 py-3">Section</th><th className="px-4 py-3">Assessment</th><th className="px-4 py-3">Marks</th><th className="px-5 py-3 text-right">Mode</th></tr></thead><tbody className="divide-y divide-slate-100">{reviewRows.map((row) => <tr key={row.key}><td className="px-5 py-3.5"><p className="text-xs font-semibold text-slate-800">{row.name}</p><p className="mt-0.5 text-[11px] text-slate-400">{row.reg}</p></td><td className="px-4 py-3.5 text-xs text-slate-600">{row.subject}</td><td className="px-4 py-3.5 text-xs text-slate-600">{row.section}</td><td className="px-4 py-3.5 text-xs text-slate-600">{row.assessment}</td><td className="px-4 py-3.5 text-xs font-bold text-slate-800">{row.total}/80 · {row.percentage}%</td><td className="px-5 py-3.5 text-right"><StatusBadge tone="neutral">Read only</StatusBadge></td></tr>)}</tbody></table></div>{reviewRows.length === 0 && <p className="p-8 text-center text-xs text-slate-500">No HOD-reviewed student marks are available for the current data.</p>}</Panel>}</div>;
+  return <div className="space-y-6"><PageIntro eyebrow={role === "HOD" ? "Department directory" : "Faculty workspace"} title="Students" description={role === "HOD" ? "Select academic year and section to review students and their submitted marks." : "Search and review your assigned student records."} /><Panel className="p-4"><div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">{role !== "HOD" && <div className="relative w-full md:max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search students" className="h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-xs" /></div>}{role === "HOD" && <div className="flex flex-wrap gap-2"><div><label className="mb-1 block text-[10px] font-semibold text-slate-500">Academic year</label><select value={academicYear} onChange={(event) => setAcademicYear(event.target.value)} className="h-10 rounded-md border border-slate-200 bg-white px-3 text-xs"><option>2026-27</option></select></div><div><label className="mb-1 block text-[10px] font-semibold text-slate-500">Section</label><select value={section} onChange={(event) => setSection(event.target.value)} className="h-10 rounded-md border border-slate-200 bg-white px-3 text-xs"><option>All sections</option><option>CSE A</option><option>CSE B</option></select></div></div>}</div></Panel><Panel className="overflow-hidden"><div className="mobile-table-scroll"><table className="w-full min-w-[680px] text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Student</th><th className="px-4 py-3">Section</th><th className="px-4 py-3">Semester</th><th className="px-4 py-3">Average performance</th><th className="px-5 py-3 text-right">Status</th>{role !== "HOD" && <th className="px-5 py-3 text-right">View</th>}</tr></thead><tbody className="divide-y divide-slate-100">{visible.map((student) => <tr key={student.reg}><td className="px-5 py-3.5"><p className="text-xs font-semibold text-slate-800">{student.name}</p><p className="mt-0.5 text-[11px] text-slate-400">{student.reg}</p></td><td className="px-4 py-3.5 text-xs text-slate-600">{student.section}</td><td className="px-4 py-3.5 text-xs text-slate-600">{student.semester}</td><td className="px-4 py-3.5"><div className="flex w-36 items-center gap-2"><MiniProgress value={student.average} color={student.average >= 75 ? "#FC6226" : student.average >= 65 ? "#b45309" : "#b91c1c"} /><span className="text-xs font-semibold text-slate-800">{student.average}%</span></div></td><td className="px-5 py-3.5 text-right"><StatusBadge tone={student.status === "On track" ? "success" : student.status === "Monitor" ? "warning" : "danger"}>{student.status}</StatusBadge></td>{role !== "HOD" && <td className="px-5 py-3.5 text-right"><button onClick={() => onView(student)} className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#FC6226] hover:underline"><Eye size={14} />View</button></td>}</tr>)}</tbody></table></div><div className="border-t border-slate-100 px-5 py-4"><p className="text-[11px] text-slate-400">Showing {visible.length} students for {academicYear}{role === "HOD" && section !== "All sections" ? ` · ${section}` : ""}</p></div></Panel>{role === "HOD" && <Panel className="overflow-hidden"><div className="border-b border-slate-100 p-5"><SectionHeading title="Submitted student marks" detail="Read-only marks from faculty submissions after HOD review" /></div><div className="mobile-table-scroll"><table className="w-full min-w-[820px] text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Student</th><th className="px-4 py-3">Subject</th><th className="px-4 py-3">Section</th><th className="px-4 py-3">Assessment</th><th className="px-4 py-3">Marks</th><th className="px-5 py-3 text-right">Mode</th></tr></thead><tbody className="divide-y divide-slate-100">{reviewRows.map((row) => <tr key={row.key}><td className="px-5 py-3.5"><p className="text-xs font-semibold text-slate-800">{row.name}</p><p className="mt-0.5 text-[11px] text-slate-400">{row.reg}</p></td><td className="px-4 py-3.5 text-xs text-slate-600">{row.subject}</td><td className="px-4 py-3.5 text-xs text-slate-600">{row.section}</td><td className="px-4 py-3.5 text-xs text-slate-600">{row.assessment}</td><td className="px-4 py-3.5 text-xs font-bold text-slate-800">{row.total}/80 · {row.percentage}%</td><td className="px-5 py-3.5 text-right"><StatusBadge tone="neutral">Read only</StatusBadge></td></tr>)}</tbody></table></div>{reviewRows.length === 0 && <p className="p-8 text-center text-xs text-slate-500">No HOD-reviewed student marks are available for the current data.</p>}</Panel>}</div>;
 }
 
 function ReportsPage({ onToast }: { onToast: (message: string) => void }) {
   const subjectsQuery = trpc.subjects.list.useQuery();
-  const [semester, setSemester] = useState("VI");
+  const [semester, setSemester] = useState("I");
   const [section, setSection] = useState("All sections");
   const [subjectId, setSubjectId] = useState<number | undefined>(undefined);
   const reportsQuery = trpc.reports.rows.useQuery({ semester, section: section === "All sections" ? undefined : section, subjectId });
@@ -2147,7 +2145,7 @@ function AdminPage({ onToast }: { onToast: (message: string) => void }) {
 }
 
 function ElectivesComponent({ onToast }: { onToast: (msg: string) => void }) {
-  const [semester, setSemester] = useState("Semester III");
+  const [semester, setSemester] = useState("Semester I");
   const [deptKey, setDeptKey] = useState("Computer Science & Engineering");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
@@ -2360,10 +2358,7 @@ function ElectivesComponent({ onToast }: { onToast: (msg: string) => void }) {
                     onChange={(e) => setSemester(e.target.value)}
                     className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
                   >
-                    <option value="Semester III">Semester III (3rd Sem)</option>
-                    <option value="Semester IV">Semester IV (4th Sem)</option>
-                    <option value="Semester V">Semester V (5th Sem)</option>
-                    <option value="Semester VI">Semester VI (6th Sem)</option>
+                    <option value="Semester I">Semester I (1st Sem)</option>
                   </select>
                 </div>
 
@@ -2502,7 +2497,7 @@ function ElectiveDemandComponent({ onToast }: { onToast: (msg: string) => void }
         <div className="border-b border-[#E5E1D8] pb-4 flex justify-between items-center">
           <div>
             <h3 className="font-extrabold text-xl text-[#0B192C]">
-              Semester III · Professional Elective - I Demand Ranking
+              Semester I · Professional Elective Demand Ranking
             </h3>
             <p className="text-xs text-slate-500 font-medium">
               Ordered by total student selections (COUNT DESC)
@@ -2708,7 +2703,7 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
               </span>
             </div>
             <p className="mt-1.5 text-[11px] leading-4 font-semibold text-slate-300">
-              Academic Year 2025–26 · Semester VI
+              Academic Year 2026-27 · Semester I
             </p>
           </div>
         </div>
@@ -2977,7 +2972,7 @@ function LoginPage({
       onAuthenticated("Student", {
         reg: matched ? (matched.openId || matched.username) : (isSem3 ? "KVELL2025CSE041" : (regNumber || "KVELL2025CSE018")),
         name: matched ? matched.name : (isSem3 ? "Aarav Sharma" : "Rohan Sharma"),
-        semester: isSem3 ? 3 : 2,
+        semester: 1,
       });
     } else if (selectedRole === "HOD") {
       const trimmed = (username || "").trim().toLowerCase();
@@ -3362,12 +3357,9 @@ function StudentDashboard({
 
   const kvellSealLogo = "/kvell-logo.png";
 
-  const romanSemesters = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
-  const ordinalSemesters = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"];
-
-  const semRoman = romanSemesters[currentSemesterNum - 1] ?? "III";
-  const semOrdinal = ordinalSemesters[currentSemesterNum - 1] ?? "3rd";
-  const isElectiveEligible = currentSemesterNum >= 3;
+  const semRoman = "I";
+  const semOrdinal = "1st";
+  const isElectiveEligible = false;
 
   const semesterCoursesData: Record<
     number,
@@ -3688,7 +3680,7 @@ function StudentDashboard({
                       SEMESTER & YEAR
                     </p>
                     <p className="text-sm font-extrabold text-[#0B192C] mt-1">
-                      Semester {semRoman} ({semOrdinal} Semester • Academic Year 2025–26)
+                      Semester {semRoman} ({semOrdinal} Semester • Academic Year 2026-27)
                     </p>
                   </div>
 
@@ -4032,7 +4024,7 @@ function StudentDashboard({
               </div>
               <div>
                 <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">SEMESTER & EXAM MONTH</p>
-                <p className="font-extrabold text-[#0B192C] mt-1">Semester VI (May 2025)</p>
+                <p className="font-extrabold text-[#0B192C] mt-1">Semester I (Academic Year 2026-27)</p>
               </div>
             </div>
 
@@ -4112,7 +4104,7 @@ export default function Home() {
   }>({
     reg: "KVELL2025CSE018",
     name: "Rohan Sharma",
-    semester: 2,
+    semester: 1,
   });
   const [activeHod, setActiveHod] = useState<{ name: string; department: string }>({
     name: "JAYAPRADHA",

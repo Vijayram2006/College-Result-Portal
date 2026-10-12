@@ -25,163 +25,33 @@ export interface SubjectItem {
   credits: number;
   department: string;
   semester: string;
+  academicYear?: string;
   faculty: string;
   status: "COE FINALIZED" | "PENDING APPROVAL";
   studentsEnrolled?: number;
 }
 
-const initialSubjects: SubjectItem[] = [
-  // Core Subjects
-  {
-    id: "1",
-    code: "CS301",
-    title: "Data Structures & Algorithms",
-    category: "Core Mandatory",
-    credits: 4,
-    department: "Computer Science & Engineering",
-    semester: "Semester III",
-    faculty: "Dr. Raghav Iyer",
-    status: "COE FINALIZED",
-    studentsEnrolled: 210,
-  },
-  {
-    id: "2",
-    code: "CS302",
-    title: "Computer Organization & Architecture",
-    category: "Core Mandatory",
-    credits: 4,
-    department: "Computer Science & Engineering",
-    semester: "Semester III",
-    faculty: "Prof. Arjun Rao",
-    status: "COE FINALIZED",
-    studentsEnrolled: 210,
-  },
-  {
-    id: "3",
-    code: "CS303",
-    title: "Object Oriented Programming with Java",
-    category: "Core Mandatory",
-    credits: 3,
-    department: "Computer Science & Engineering",
-    semester: "Semester III",
-    faculty: "Dr. Priya Nair",
-    status: "COE FINALIZED",
-    studentsEnrolled: 210,
-  },
-  {
-    id: "4",
-    code: "CS304L",
-    title: "Data Structures & Java Laboratory",
-    category: "Core Mandatory",
-    credits: 2,
-    department: "Computer Science & Engineering",
-    semester: "Semester III",
-    faculty: "Dr. Raghav Iyer",
-    status: "COE FINALIZED",
-    studentsEnrolled: 210,
-  },
-  // Elective Subjects
-  {
-    id: "5",
-    code: "CS305E",
-    title: "Machine Learning & Intelligent Systems",
-    category: "Professional Elective",
-    credits: 4,
-    department: "Computer Science & Engineering",
-    semester: "Semester III",
-    faculty: "Dr. Ananya Menon",
-    status: "COE FINALIZED",
-    studentsEnrolled: 86,
-  },
-  {
-    id: "6",
-    code: "CS306E",
-    title: "Cloud Native Computing & Microservices",
-    category: "Professional Elective",
-    credits: 4,
-    department: "Computer Science & Engineering",
-    semester: "Semester III",
-    faculty: "Prof. Vikram Shah",
-    status: "COE FINALIZED",
-    studentsEnrolled: 64,
-  },
-  {
-    id: "7",
-    code: "CS307E",
-    title: "Cyber Security & Information Assurance",
-    category: "Professional Elective",
-    credits: 4,
-    department: "Computer Science & Engineering",
-    semester: "Semester III",
-    faculty: "Dr. Raghav Iyer",
-    status: "COE FINALIZED",
-    studentsEnrolled: 42,
-  },
-  {
-    id: "8",
-    code: "CS308E",
-    title: "Data Science & Big Data Engineering",
-    category: "Professional Elective",
-    credits: 4,
-    department: "Computer Science & Engineering",
-    semester: "Semester III",
-    faculty: "Dr. Priya Nair",
-    status: "PENDING APPROVAL",
-    studentsEnrolled: 18,
-  },
-  {
-    id: "9",
-    code: "CS401",
-    title: "Operating Systems Architecture",
-    category: "Core Mandatory",
-    credits: 4,
-    department: "Computer Science & Engineering",
-    semester: "Semester IV",
-    faculty: "Prof. Vikram Shah",
-    status: "COE FINALIZED",
-    studentsEnrolled: 195,
-  },
-  {
-    id: "10",
-    code: "CS402",
-    title: "Database Management Systems",
-    category: "Core Mandatory",
-    credits: 4,
-    department: "Computer Science & Engineering",
-    semester: "Semester IV",
-    faculty: "Dr. Priya Nair",
-    status: "COE FINALIZED",
-    studentsEnrolled: 195,
-  },
-  {
-    id: "11",
-    code: "CS405E",
-    title: "Full Stack Web Engineering (React & Node)",
-    category: "Professional Elective",
-    credits: 4,
-    department: "Computer Science & Engineering",
-    semester: "Semester IV",
-    faculty: "Prof. Arjun Rao",
-    status: "COE FINALIZED",
-    studentsEnrolled: 110,
-  },
-  {
-    id: "12",
-    code: "OE101",
-    title: "Renewable Energy & Sustainable Systems",
-    category: "Open Elective",
-    credits: 3,
-    department: "Electrical Engineering",
-    semester: "Semester V",
-    faculty: "Dr. M. Joseph",
-    status: "COE FINALIZED",
-    studentsEnrolled: 140,
-  },
-];
+const initialSubjects: SubjectItem[] = [];
 
 export const SubjectsPage: React.FC = () => {
-  const [subjects, setSubjects] = useState<SubjectItem[]>(initialSubjects);
+  const [subjects, setSubjects] = useState<SubjectItem[]>(() => {
+    try {
+      const saved = localStorage.getItem("kvell_admin_subjects");
+      if (!saved) return [];
+      const parsed: SubjectItem[] = JSON.parse(saved);
+      const migrated = parsed.map((s) => ({
+        ...s,
+        academicYear: "2026-27",
+        semester: "Semester I",
+      }));
+      localStorage.setItem("kvell_admin_subjects", JSON.stringify(migrated));
+      return migrated;
+    } catch {
+      return [];
+    }
+  });
   const [search, setSearch] = useState("");
+  const [deptFilter, setDeptFilter] = useState<string>("All");
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
   const [semesterFilter, setSemesterFilter] = useState<string>("All");
   const [isAllFinalized, setIsAllFinalized] = useState(false);
@@ -192,14 +62,19 @@ export const SubjectsPage: React.FC = () => {
   const [newTitle, setNewTitle] = useState("");
   const [newCategory, setNewCategory] = useState<"Core Mandatory" | "Professional Elective" | "Open Elective">("Core Mandatory");
   const [newCredits, setNewCredits] = useState(4);
-  const [newSemester, setNewSemester] = useState("Semester III");
+  const [newSemester, setNewSemester] = useState("Semester I");
   const [newDept, setNewDept] = useState("Computer Science & Engineering");
   const [newFaculty, setNewFaculty] = useState("");
 
   const handleFinalizeAll = () => {
-    setSubjects((prev) =>
-      prev.map((sub) => ({ ...sub, status: "COE FINALIZED" as const }))
-    );
+    const updated = subjects.map((sub) => ({ ...sub, status: "COE FINALIZED" as const }));
+    setSubjects(updated);
+    try {
+      localStorage.setItem("kvell_admin_subjects", JSON.stringify(updated));
+      window.dispatchEvent(new Event("kvell_subjects_updated"));
+    } catch (e) {
+      console.error(e);
+    }
     setIsAllFinalized(true);
     alert("COE Official Finalization Completed! All core and elective subjects are now approved and active for examinations.");
   };
@@ -212,27 +87,55 @@ export const SubjectsPage: React.FC = () => {
     }
     const newSubject: SubjectItem = {
       id: String(Date.now()),
-      code: newCode,
-      title: newTitle,
+      code: newCode.trim().toUpperCase(),
+      title: newTitle.trim(),
       category: newCategory,
       credits: Number(newCredits),
       department: newDept,
-      semester: newSemester,
-      faculty: newFaculty || "Faculty In-Charge",
+      semester: "Semester I",
+      academicYear: "2026-27",
+      faculty: newFaculty.trim() || "Faculty In-Charge",
       status: "COE FINALIZED",
       studentsEnrolled: 0,
     };
-    setSubjects((prev) => [newSubject, ...prev]);
+    const updated = [newSubject, ...subjects];
+    setSubjects(updated);
+    try {
+      localStorage.setItem("kvell_admin_subjects", JSON.stringify(updated));
+      window.dispatchEvent(new Event("kvell_subjects_updated"));
+    } catch (e) {
+      console.error(e);
+    }
     setIsAddOpen(false);
     setNewCode("");
     setNewTitle("");
+    setNewDept("Computer Science & Engineering");
     setNewFaculty("");
-    alert(`Subject '${newCode} - ${newTitle}' added and finalized into subject catalog!`);
+    alert(`Subject '${newSubject.code} - ${newSubject.title}' added to Semester I (2026-27)!`);
   };
 
   const handleDeleteSubject = (id: string, title: string) => {
     if (window.confirm(`Delete subject '${title}' from subject catalog?`)) {
-      setSubjects((prev) => prev.filter((s) => s.id !== id));
+      const updated = subjects.filter((s) => s.id !== id);
+      setSubjects(updated);
+      try {
+        localStorage.setItem("kvell_admin_subjects", JSON.stringify(updated));
+        window.dispatchEvent(new Event("kvell_subjects_updated"));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
+  const handleClearAllSubjects = () => {
+    if (window.confirm("Are you sure you want to remove all subjects from the catalog? This will make the subject catalog completely empty.")) {
+      setSubjects([]);
+      try {
+        localStorage.setItem("kvell_admin_subjects", JSON.stringify([]));
+        window.dispatchEvent(new Event("kvell_subjects_updated"));
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
@@ -241,11 +144,13 @@ export const SubjectsPage: React.FC = () => {
       `${sub.code} ${sub.title} ${sub.faculty} ${sub.department}`
         .toLowerCase()
         .includes(search.toLowerCase());
+    const matchesDept =
+      deptFilter === "All" || sub.department.toLowerCase().includes(deptFilter.toLowerCase());
     const matchesCategory =
       categoryFilter === "All" || sub.category === categoryFilter;
     const matchesSemester =
       semesterFilter === "All" || sub.semester === semesterFilter;
-    return matchesSearch && matchesCategory && matchesSemester;
+    return matchesSearch && matchesDept && matchesCategory && matchesSemester;
   });
 
   const coreCount = subjects.filter((s) => s.category === "Core Mandatory").length;
@@ -269,6 +174,16 @@ export const SubjectsPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 shrink-0">
+          {subjects.length > 0 && (
+            <button
+              onClick={handleClearAllSubjects}
+              className="px-4 py-3 rounded-2xl bg-red-500/20 hover:bg-red-500/30 text-red-200 font-extrabold text-xs border border-red-400/30 transition shadow flex items-center gap-2"
+              title="Remove all subjects from catalog"
+            >
+              <Trash2 size={16} /> Clear All Subjects
+            </button>
+          )}
+
           <button
             onClick={() => setIsAddOpen(true)}
             className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-extrabold text-xs border border-white/20 transition shadow flex items-center gap-2"
@@ -382,6 +297,20 @@ export const SubjectsPage: React.FC = () => {
             </div>
 
             <select
+              value={deptFilter}
+              onChange={(e) => setDeptFilter(e.target.value)}
+              className="h-10 rounded-2xl border border-[#E5E1D8] bg-[#F8F5EE]/70 px-3 text-xs font-extrabold text-[#0B192C] focus:bg-white focus:outline-none transition shadow-sm"
+            >
+              <option value="All">All Departments</option>
+              <option value="Artificial Intelligence & Data Science">AIDS</option>
+              <option value="Computer Science & Engineering">CSE</option>
+              <option value="Electronics & Communication Engineering">ECE</option>
+              <option value="Information Technology">IT</option>
+              <option value="Electrical & Electronics Engineering">EEE</option>
+              <option value="Mechanical Engineering">MECH</option>
+            </select>
+
+            <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="h-10 rounded-2xl border border-[#E5E1D8] bg-[#F8F5EE]/70 px-3 text-xs font-extrabold text-[#0B192C] focus:bg-white focus:outline-none transition shadow-sm"
@@ -397,11 +326,8 @@ export const SubjectsPage: React.FC = () => {
               onChange={(e) => setSemesterFilter(e.target.value)}
               className="h-10 rounded-2xl border border-[#E5E1D8] bg-[#F8F5EE]/70 px-3 text-xs font-extrabold text-[#0B192C] focus:bg-white focus:outline-none transition shadow-sm"
             >
-              <option value="All">All Semesters</option>
-              <option value="Semester III">Semester III</option>
-              <option value="Semester IV">Semester IV</option>
-              <option value="Semester V">Semester V</option>
-              <option value="Semester VI">Semester VI</option>
+              <option value="All">All Semesters (Semester I)</option>
+              <option value="Semester I">Semester I</option>
             </select>
           </div>
         </div>
@@ -424,8 +350,32 @@ export const SubjectsPage: React.FC = () => {
             <tbody className="divide-y divide-[#E5E1D8] bg-white">
               {filteredSubjects.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-gray-500 font-semibold text-xs">
-                    No subjects found matching filters.
+                  <td colSpan={8} className="p-12 text-center text-gray-500 font-semibold text-xs">
+                    <div className="flex flex-col items-center justify-center gap-3 max-w-sm mx-auto">
+                      <div className="w-14 h-14 rounded-2xl bg-[#0B192C]/5 text-[#0B192C] flex items-center justify-center border border-[#E5E1D8]">
+                        <BookOpen size={26} className="text-[#B08014]" />
+                      </div>
+                      <div>
+                        <h4 className="font-display font-extrabold text-[#0B192C] text-sm">
+                          {subjects.length === 0 ? "Subject Catalog is Empty" : "No Matching Subjects Found"}
+                        </h4>
+                        <p className="text-gray-400 text-xs mt-1 leading-relaxed">
+                          {subjects.length === 0
+                            ? "All subjects have been cleared. Click \"+ Add Subject / Elective\" above to register official curriculum courses."
+                            : "No subjects matched the applied search and category filters. Try clearing the filter."}
+                        </p>
+                      </div>
+                      {subjects.length === 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setIsAddOpen(true)}
+                          className="mt-2 px-4 py-2 rounded-xl bg-[#0B192C] text-white font-extrabold text-xs hover:bg-[#132943] transition shadow flex items-center gap-2"
+                        >
+                          <Plus size={14} className="text-[#D4A72C]" />
+                          <span>Add New Subject</span>
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -462,7 +412,7 @@ export const SubjectsPage: React.FC = () => {
                     </td>
                     <td className="p-4">
                       <span className="font-extrabold text-gray-800 block text-xs">
-                        {sub.semester}
+                        Semester I <span className="text-[#B08014] font-black">(2026-27)</span>
                       </span>
                       <span className="text-[10px] font-bold text-gray-400 block truncate max-w-[150px]">
                         {sub.department}
@@ -589,6 +539,36 @@ export const SubjectsPage: React.FC = () => {
                 />
               </div>
 
+              <div>
+                <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
+                  Department *
+                </label>
+                <select
+                  value={newDept}
+                  onChange={(e) => setNewDept(e.target.value)}
+                  className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3.5 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
+                >
+                  <option value="Artificial Intelligence & Data Science">
+                    Artificial Intelligence & Data Science (AIDS)
+                  </option>
+                  <option value="Computer Science & Engineering">
+                    Computer Science & Engineering (CSE)
+                  </option>
+                  <option value="Electronics & Communication Engineering">
+                    Electronics & Communication Engineering (ECE)
+                  </option>
+                  <option value="Information Technology">
+                    Information Technology (IT)
+                  </option>
+                  <option value="Electrical & Electronics Engineering">
+                    Electrical & Electronics Engineering (EEE)
+                  </option>
+                  <option value="Mechanical Engineering">
+                    Mechanical Engineering (MECH)
+                  </option>
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
@@ -611,20 +591,12 @@ export const SubjectsPage: React.FC = () => {
 
                 <div>
                   <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
-                    Semester
+                    Academic Year & Semester *
                   </label>
-                  <select
-                    value={newSemester}
-                    onChange={(e) => setNewSemester(e.target.value)}
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
-                  >
-                    <option value="Semester I">Semester I</option>
-                    <option value="Semester II">Semester II</option>
-                    <option value="Semester III">Semester III</option>
-                    <option value="Semester IV">Semester IV</option>
-                    <option value="Semester V">Semester V</option>
-                    <option value="Semester VI">Semester VI</option>
-                  </select>
+                  <div className="h-11 w-full rounded-2xl border border-[#D4A72C]/40 bg-[#D4A72C]/10 px-3.5 flex items-center justify-between text-xs font-extrabold text-[#0B192C]">
+                    <span>Semester I</span>
+                    <span className="bg-[#0B192C] text-[#D4A72C] px-2 py-0.5 rounded text-[10px] font-mono font-bold">2026-27</span>
+                  </div>
                 </div>
               </div>
 

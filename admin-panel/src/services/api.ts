@@ -94,6 +94,7 @@ export interface CourseRecord {
 export interface ResultRecordItem {
   regNo: string;
   studentName: string;
+  dob?: string;
   deptKey: string;
   courseCode: string;
   courseTitle: string;
@@ -225,20 +226,77 @@ export const adminDashboardApi = {
       const res = await apiClient.get<AdminDashboardStats>("/admin/dashboard");
       return res.data;
     } catch {
-      // Fallback default statistics
+      let totalStudents = 0;
+      let totalCourses = 0;
+      let totalDepartments = 0;
+      let pendingResults = 0;
+      let publishedResults = 0;
+      let overallPassPercentage = 0;
+      let recentUploads: AdminDashboardStats["recentUploads"] = [];
+
+      try {
+        const rawSubjects = localStorage.getItem("kvell_admin_subjects");
+        if (rawSubjects) {
+          const subjects = JSON.parse(rawSubjects);
+          if (Array.isArray(subjects)) {
+            totalCourses = subjects.length;
+            const depts = new Set(subjects.map((s: any) => s.department).filter(Boolean));
+            totalDepartments = depts.size;
+          }
+        }
+      } catch {}
+
+      try {
+        const rawBatches = localStorage.getItem("kvell_custom_batches");
+        if (rawBatches) {
+          const batches = JSON.parse(rawBatches);
+          if (Array.isArray(batches)) {
+            publishedResults = batches.filter((b: any) => b.publicationStatus === "PUBLISHED").length;
+            pendingResults = batches.filter((b: any) => b.publicationStatus !== "PUBLISHED").length;
+            recentUploads = batches.map((b: any) => ({
+              batchId: b.id,
+              department: b.departmentName || b.departmentKey?.toUpperCase() || "General",
+              semester: b.semester,
+              students: b.totalStudents || 0,
+              status: b.publicationStatus || "DRAFT",
+              date: b.uploadDate || "",
+            }));
+            const passRates = batches
+              .map((b: any) => Number(b.passPercentage) || 0)
+              .filter((p: number) => p > 0);
+            if (passRates.length > 0) {
+              overallPassPercentage = Number(
+                (passRates.reduce((a: number, b: number) => a + b, 0) / passRates.length).toFixed(1)
+              );
+            }
+          }
+        }
+      } catch {}
+
+      try {
+        const regNos = new Set<string>();
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith("kvell_marks_")) {
+            const raw = localStorage.getItem(k);
+            if (raw) {
+              const students = JSON.parse(raw);
+              Object.keys(students).forEach((reg) => regNos.add(reg));
+            }
+          }
+        }
+        totalStudents = regNos.size;
+      } catch {}
+
       return {
-        totalStudents: 686,
-        totalFaculty: 42,
-        totalDepartments: 5,
-        totalCourses: 48,
-        pendingResults: 3,
-        publishedResults: 14,
-        overallPassPercentage: 96.4,
-        recentUploads: [
-          { batchId: "RES-2025-CSE-S6", department: "Computer Science & Engineering", semester: "Semester VI", students: 124, status: "PUBLISHED", date: "2026-09-24 14:30" },
-          { batchId: "RES-2025-ECE-S6", department: "Electronics & Communication", semester: "Semester VI", students: 110, status: "VALIDATED", date: "2026-09-24 16:15" },
-          { batchId: "RES-2025-MECH-S4", department: "Mechanical Engineering", semester: "Semester IV", students: 95, status: "DRAFT", date: "2026-09-25 09:10" },
-        ],
+        totalStudents,
+        totalFaculty: 0,
+        totalDepartments,
+        totalCourses,
+        pendingResults,
+        publishedResults,
+        overallPassPercentage,
+        recentUploads,
       };
     }
   },
@@ -356,6 +414,53 @@ export const adminResultsApi = {
       /* ignore */
     }
     return { success: true };
+  },
+
+  async deleteBatchesBySemester(deptKey: string, semester: string): Promise<{ success: boolean; deletedCount: number }> {
+    let deletedCount = 0;
+    try {
+      const raw = localStorage.getItem("kvell_custom_batches");
+      if (raw) {
+        const list: ResultBatchRecord[] = JSON.parse(raw);
+        const remaining = list.filter((b) => {
+          const match =
+            (b.departmentKey || "").toLowerCase() === deptKey.toLowerCase() &&
+            (b.semester || "").toLowerCase() === semester.toLowerCase();
+          if (match) deletedCount++;
+          return !match;
+        });
+        localStorage.setItem("kvell_custom_batches", JSON.stringify(remaining));
+        window.dispatchEvent(new Event("storage"));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return { success: true, deletedCount };
+  },
+
+  async deleteBatchesBySubject(deptKey: string, semester: string, subjectCode: string): Promise<{ success: boolean; deletedCount: number }> {
+    let deletedCount = 0;
+    try {
+      const raw = localStorage.getItem("kvell_custom_batches");
+      if (raw) {
+        const list: ResultBatchRecord[] = JSON.parse(raw);
+        const remaining = list.filter((b) => {
+          const deptMatch = (b.departmentKey || "").toLowerCase() === deptKey.toLowerCase();
+          const semMatch = (b.semester || "").toLowerCase() === semester.toLowerCase();
+          const codeMatch =
+            (b.batchTitle || "").toLowerCase().includes(subjectCode.toLowerCase()) ||
+            b.records?.some((r) => (r.courseCode || "").toLowerCase() === subjectCode.toLowerCase());
+          const match = deptMatch && semMatch && codeMatch;
+          if (match) deletedCount++;
+          return !match;
+        });
+        localStorage.setItem("kvell_custom_batches", JSON.stringify(remaining));
+        window.dispatchEvent(new Event("storage"));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return { success: true, deletedCount };
   },
 
   async getAuditLogs(): Promise<AuditLogRecord[]> {

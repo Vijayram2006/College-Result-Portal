@@ -18,8 +18,8 @@ import { SubjectsPage } from "./pages/Subjects";
 const pageTitles: Record<string, string> = {
   "/admin/dashboard": "University Admin Dashboard",
   "/admin/results": "Result Management Hub",
-  "/admin/results/upload": "Upload Result Sheets",
-  "/admin/results/validation": "Result Verification & Schema Check",
+  "/admin/results/upload": "Student Data",
+  "/admin/results/validation": "Student Mark Entry",
   "/admin/results/published": "Published Examination Results",
   "/admin/analytics": "Institutional Analytics",
   "/admin/audit-logs": "Administrative Audit Trail",

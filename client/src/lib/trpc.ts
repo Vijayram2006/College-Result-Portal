@@ -60,12 +60,26 @@ const baseTrpc: any = {
   },
   subjects: {
     list: {
-      useQuery: createQueryHook(() => [
-        { id: 1, code: "CS601", name: "Deep Learning & Neural Networks", semester: "VI", section: "CSE A", studentCount: 64, averageScore: 82 },
-        { id: 2, code: "CS602", name: "Compiler Design & Language Processors", semester: "VI", section: "CSE A", studentCount: 64, averageScore: 78 },
-        { id: 3, code: "CS603", name: "Cloud Computing & Distributed Systems", semester: "VI", section: "CSE B", studentCount: 58, averageScore: 74 },
-        { id: 4, code: "CS604", name: "Cyber Security & Cryptography", semester: "VI", section: "CSE B", studentCount: 58, averageScore: 85 },
-      ]),
+      useQuery: createQueryHook(() => {
+        try {
+          const raw = localStorage.getItem("kvell_admin_subjects");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              return parsed.map((s, idx) => ({
+                id: s.id || idx + 1,
+                code: s.code,
+                name: s.title || s.name,
+                semester: s.semester || "Semester I",
+                section: "CSE A",
+                studentCount: s.studentsEnrolled || 0,
+                averageScore: 0,
+              }));
+            }
+          }
+        } catch {}
+        return [];
+      }),
     },
     create: {
       useMutation: createMutationHook((val) => ({ id: Date.now(), ...val })),

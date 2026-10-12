@@ -17,7 +17,20 @@ export const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<AdminDashboardStats | null>(null);
 
   useEffect(() => {
-    adminDashboardApi.getStats().then(setStats);
+    const load = () => {
+      adminDashboardApi.getStats().then(setStats);
+    };
+    load();
+    window.addEventListener("kvell_marks_updated", load);
+    window.addEventListener("kvell_subjects_updated", load);
+    window.addEventListener("storage", load);
+    window.addEventListener("focus", load);
+    return () => {
+      window.removeEventListener("kvell_marks_updated", load);
+      window.removeEventListener("kvell_subjects_updated", load);
+      window.removeEventListener("storage", load);
+      window.removeEventListener("focus", load);
+    };
   }, []);
 
   return (
@@ -41,7 +54,7 @@ export const Dashboard: React.FC = () => {
             href="/admin/results/upload"
             className="px-5 py-3 rounded-xl bg-[#D4A72C] text-[#0B192C] font-extrabold text-xs hover:bg-[#b08014] transition shadow flex items-center gap-2"
           >
-            <Upload size={16} /> Upload Results Excel/CSV
+            <Upload size={16} /> Student Data Excel/CSV
           </Link>
           <Link
             href="/admin/results/published"
@@ -62,8 +75,14 @@ export const Dashboard: React.FC = () => {
             <span className="font-display font-black text-2xl sm:text-3xl text-[#0B192C] mt-1 block">
               {stats?.totalStudents || 0}
             </span>
-            <span className="text-[10px] font-semibold text-[#1D8A5A] mt-1 block flex items-center gap-1">
-              <CheckCircle2 size={12} /> Active Enrolled
+            <span className="text-[10px] font-semibold text-[#667085] mt-1 block flex items-center gap-1">
+              {stats?.totalStudents ? (
+                <>
+                  <CheckCircle2 size={12} className="text-[#1D8A5A]" /> Active Enrolled
+                </>
+              ) : (
+                "No Enrolled Students"
+              )}
             </span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-[#0B192C]/5 text-[#0B192C] flex items-center justify-center shrink-0">
@@ -80,7 +99,7 @@ export const Dashboard: React.FC = () => {
               {stats?.totalFaculty || 0}
             </span>
             <span className="text-[10px] font-semibold text-[#667085] mt-1 block">
-              Across 5 Departments
+              {stats?.totalFaculty ? `${stats.totalFaculty} Assigned Faculty` : "No Faculty Recorded"}
             </span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-[#0B192C]/5 text-[#0B192C] flex items-center justify-center shrink-0">
@@ -94,10 +113,10 @@ export const Dashboard: React.FC = () => {
               Total Departments
             </span>
             <span className="font-display font-black text-2xl sm:text-3xl text-[#0B192C] mt-1 block">
-              {stats?.totalDepartments || 5}
+              {stats?.totalDepartments || 0}
             </span>
             <span className="text-[10px] font-semibold text-[#B08014] mt-1 block font-mono">
-              CSE, ECE, MECH, EEE, IT
+              {stats?.totalDepartments ? `${stats.totalDepartments} Active Departments` : "No Active Departments"}
             </span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-[#0B192C]/5 text-[#0B192C] flex items-center justify-center shrink-0">
@@ -114,7 +133,7 @@ export const Dashboard: React.FC = () => {
               {stats?.totalCourses || 0}
             </span>
             <span className="text-[10px] font-semibold text-[#667085] mt-1 block">
-              UG Engineering
+              {stats?.totalCourses ? `${stats.totalCourses} Registered Courses` : "No Courses Registered"}
             </span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-[#0B192C]/5 text-[#0B192C] flex items-center justify-center shrink-0">
@@ -212,7 +231,7 @@ export const Dashboard: React.FC = () => {
               {!stats?.recentUploads || stats.recentUploads.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-gray-500 font-semibold text-xs">
-                    No upload batches recorded. Click "Upload Results" to add student mark sheets.
+                    No upload batches recorded. Click "Student Data" to add student records.
                   </td>
                 </tr>
               ) : (

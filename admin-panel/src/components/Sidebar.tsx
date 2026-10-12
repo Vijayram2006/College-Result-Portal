@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
   Upload,
   CheckCircle2,
+  PenLine,
   Globe,
   BarChart3,
   ClipboardList,
@@ -138,7 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
                     }`}
                   >
                     <Upload size={14} />
-                    <span>Upload Results</span>
+                    <span>Student Data</span>
                   </Link>
 
                   <Link
@@ -150,8 +151,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
                         : "text-white/70 hover:text-white hover:bg-white/5"
                     }`}
                   >
-                    <CheckCircle2 size={14} />
-                    <span>Validation</span>
+                    <PenLine size={14} />
+                    <span>Mark Entry</span>
                   </Link>
 
                   <Link

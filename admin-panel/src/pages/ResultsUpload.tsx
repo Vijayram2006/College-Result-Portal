@@ -1,13 +1,126 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
   UploadCloud,
   FileSpreadsheet,
   ArrowRight,
+  Download,
+  Trash2,
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  UserPlus,
+  Plus,
+  ArrowUpDown,
+  Search,
+  Users,
+  GraduationCap,
+  Calendar,
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import { addAuditLog } from "../services/api";
+import { addAuditLog, adminResultsApi } from "../services/api";
 import { getRealLocalTimestamp } from "../utils/dateUtils";
+
+// Date formatter for DOB parsing (supports string, Date instance, and Excel serial numbers)
+const formatDob = (rawDob: any): string => {
+  if (!rawDob && rawDob !== 0) return "";
+  if (rawDob instanceof Date) {
+    const y = rawDob.getFullYear();
+    const m = String(rawDob.getMonth() + 1).padStart(2, "0");
+    const d = String(rawDob.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  if (typeof rawDob === "number") {
+    // Excel serial number to date
+    const date = new Date(Math.round((rawDob - 25569) * 86400 * 1000));
+    if (!isNaN(date.getTime())) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+  }
+  const str = String(rawDob).trim();
+  // Check if DD/MM/YYYY or DD-MM-YYYY format
+  const ddmmyyyyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (ddmmyyyyMatch) {
+    const day = ddmmyyyyMatch[1].padStart(2, "0");
+    const month = ddmmyyyyMatch[2].padStart(2, "0");
+    const year = ddmmyyyyMatch[3];
+    return `${year}-${month}-${day}`;
+  }
+  return str;
+};
+
+export type StudentCategory = "regular" | "lateral";
+
+export interface StudentRecordItem {
+  "Register Number": string;
+  "Name": string;
+  "DOB": string;
+  "Department"?: string;
+  "Category"?: StudentCategory;
+  "Year"?: string;
+  regNo: string;
+  studentName: string;
+  dob: string;
+  dept?: string;
+  category: StudentCategory;
+  year?: string;
+  [key: string]: any;
+}
+
+// Available Year of Study Options
+export const yearOptions = [
+  { value: "1st Year", label: "1st Year (I Year)", defaultSem: "Semester I" },
+];
+
+/**
+ * Universal Student Sorting Algorithm:
+ * 1. Regular category students are ALWAYS placed first.
+ * 2. Lateral category students are ALWAYS appended at the very end only.
+ * 3. Within each category group:
+ *    - Mode "regNo": Natural numeric & alphanumeric ascending order (e.g. 1, 2, 3, 4, 5...)
+ *    - Mode "name": Alphabetical ascending order (A to Z)
+ */
+export const sortStudentRecords = (
+  list: any[],
+  mode: "regNo" | "name" = "regNo"
+): any[] => {
+  return [...list].sort((a, b) => {
+    const catA = String(a.category || a.Category || "regular").toLowerCase().trim();
+    const catB = String(b.category || b.Category || "regular").toLowerCase().trim();
+    const isLateralA = catA === "lateral";
+    const isLateralB = catB === "lateral";
+
+    // Lateral students are appended at last only!
+    if (isLateralA !== isLateralB) {
+      return isLateralA ? 1 : -1;
+    }
+
+    // Within the same category group:
+    if (mode === "name") {
+      const nameA = String(a["Name"] || a.studentName || a.name || "").trim();
+      const nameB = String(b["Name"] || b.studentName || b.name || "").trim();
+      const nameCmp = nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+      if (nameCmp !== 0) return nameCmp;
+
+      const regA = String(a["Register Number"] || a.regNo || "").trim();
+      const regB = String(b["Register Number"] || b.regNo || "").trim();
+      return regA.localeCompare(regB, undefined, { numeric: true, sensitivity: "base" });
+    } else {
+      // Register Number order (natural numeric e.g. 1, 2, 3, 4, 5 or KVELL...001, 002)
+      const regA = String(a["Register Number"] || a.regNo || "").trim();
+      const regB = String(b["Register Number"] || b.regNo || "").trim();
+      const regCmp = regA.localeCompare(regB, undefined, { numeric: true, sensitivity: "base" });
+      if (regCmp !== 0) return regCmp;
+
+      const nameA = String(a["Name"] || a.studentName || a.name || "").trim();
+      const nameB = String(b["Name"] || b.studentName || b.name || "").trim();
+      return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+    }
+  });
+};
 
 export const ResultsUpload: React.FC = () => {
   const [, navigate] = useLocation();
@@ -17,11 +130,60 @@ export const ResultsUpload: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [parsedData, setParsedData] = useState<any[]>([]);
 
-  // Target Metadata State
+  // Target Metadata State (Subject Code removed, Year option added)
   const [deptKey, setDeptKey] = useState("cse");
-  const [semester, setSemester] = useState("Semester VI");
-  const [academicYear, setAcademicYear] = useState("2025 - 2026");
-  const [examMonthYear, setExamMonthYear] = useState("May 2025");
+  const [studyYear, setStudyYear] = useState("1st Year");
+  const [semester, setSemester] = useState("Semester I");
+  const [academicYear, setAcademicYear] = useState("2026 - 2027");
+
+  // Sorting & Filtering State
+  const [sortMode, setSortMode] = useState<"regNo" | "name">("regNo");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Add Student Modal State
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  const [addRegNo, setAddRegNo] = useState("");
+  const [addName, setAddName] = useState("");
+  const [addDob, setAddDob] = useState("");
+  const [addDept, setAddDept] = useState("cse");
+  const [addStudentYear, setAddStudentYear] = useState("1st Year");
+  const [addCategory, setAddCategory] = useState<StudentCategory>("regular");
+
+  // Status & Feedback message state
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error" | "info";
+    message: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // On mount: load existing student data from sessionStorage if present
+  useEffect(() => {
+    const raw = sessionStorage.getItem("kvell_uploaded_results");
+    if (raw) {
+      try {
+        const existing = JSON.parse(raw);
+        if (Array.isArray(existing) && existing.length > 0) {
+          setParsedData(sortStudentRecords(existing, sortMode));
+        }
+      } catch (e) {
+        console.error("Error reading saved student records", e);
+      }
+    }
+  }, []);
+
+  const handleDeptChange = (newDept: string) => {
+    setDeptKey(newDept);
+    setAddDept(newDept);
+  };
+
+  // Change Year: Auto-select recommended semester
+  const handleYearChange = (newYear: string) => {
+    setStudyYear(newYear);
+    const found = yearOptions.find((y) => y.value === newYear);
+    if (found) {
+      setSemester(found.defaultSem);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -31,25 +193,216 @@ export const ResultsUpload: React.FC = () => {
     }
   };
 
+  // Parse Excel with NON-DESTRUCTIVE merge (does not affect previous data)
   const parseFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
         const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: "binary" });
+        const wb = XLSX.read(bstr, { type: "binary", cellDates: true });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws);
-        setParsedData(data);
+        const rawJson: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+        // Normalize data ensuring Register Number, Name, DOB, Dept, Category, Year are extracted
+        const normalized = rawJson.map((r, idx) => {
+          const rawReg =
+            r["Register Number"] ??
+            r["REGISTER NUMBER"] ??
+            r["Register No"] ??
+            r["REGISTER NO"] ??
+            r["Reg No"] ??
+            r["regNo"] ??
+            r["REG_NO"] ??
+            r["RegNo"] ??
+            r["RegisterNo"] ??
+            r["Register"] ??
+            `KVELL2025${deptKey.toUpperCase()}${String(100 + idx).padStart(3, "0")}`;
+
+          const rawName =
+            r["Name"] ??
+            r["NAME"] ??
+            r["Student Name"] ??
+            r["STUDENT NAME"] ??
+            r["studentName"] ??
+            r["Candidate Name"] ??
+            r["Candidate"] ??
+            `Candidate ${String(rawReg).trim()}`;
+
+          const rawDob =
+            r["DOB"] ??
+            r["dob"] ??
+            r["Date of Birth"] ??
+            r["DATE OF BIRTH"] ??
+            r["DateOfBirth"] ??
+            r["date_of_birth"] ??
+            r["Birth Date"] ??
+            "";
+
+          const rawCat =
+            r["Category"] ??
+            r["CATEGORY"] ??
+            r["category"] ??
+            r["Admission Type"] ??
+            r["ADMISSION TYPE"] ??
+            r["Type"] ??
+            r["Cat"] ??
+            "regular";
+
+          const formattedDob = formatDob(rawDob);
+          const cleanCategory: StudentCategory = String(rawCat).toLowerCase().includes("lateral")
+            ? "lateral"
+            : "regular";
+
+          const cleanReg = String(rawReg).trim().toUpperCase();
+
+          return {
+            ...r,
+            "Register Number": cleanReg,
+            "Name": String(rawName).trim(),
+            "DOB": formattedDob,
+            "Department": deptKey.toUpperCase(),
+            "Category": cleanCategory,
+            "Year": studyYear,
+            regNo: cleanReg,
+            studentName: String(rawName).trim(),
+            dob: formattedDob,
+            dept: deptKey.toUpperCase(),
+            category: cleanCategory,
+            year: studyYear,
+          };
+        });
+
+        // Non-destructive merge: keep previous data and append/update with new records
+        const recordMap = new Map<string, any>();
+        parsedData.forEach((item) => {
+          const reg = String(item["Register Number"] || item.regNo).trim().toUpperCase();
+          if (reg) recordMap.set(reg, item);
+        });
+
+        normalized.forEach((item) => {
+          const reg = String(item["Register Number"] || item.regNo).trim().toUpperCase();
+          if (reg) recordMap.set(reg, item);
+        });
+
+        const mergedSorted = sortStudentRecords(Array.from(recordMap.values()), sortMode);
+        setParsedData(mergedSorted);
+        sessionStorage.setItem("kvell_uploaded_results", JSON.stringify(mergedSorted));
+
+        setFeedback({
+          type: "success",
+          message: `Successfully merged ${normalized.length} records from "${file.name}". Previous data was preserved. Total students: ${mergedSorted.length} for ${deptKey.toUpperCase()} • ${studyYear} (${semester}).`,
+        });
       } catch (err) {
         console.error("Error parsing Excel file", err);
+        setFeedback({
+          type: "error",
+          message: "Failed to parse spreadsheet. Please ensure the file is a valid .xlsx or .csv.",
+        });
       }
     };
     reader.readAsBinaryString(file);
   };
 
+  // Add Student Handler (Modal Form Submit)
+  const handleAddStudentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addRegNo.trim()) {
+      setFeedback({ type: "error", message: "Register Number is required." });
+      return;
+    }
+    if (!addName.trim()) {
+      setFeedback({ type: "error", message: "Student Name is required." });
+      return;
+    }
+
+    const cleanReg = addRegNo.trim().toUpperCase();
+    const formattedDob = formatDob(addDob) || "2004-05-14";
+
+    const newRecord: StudentRecordItem = {
+      "Register Number": cleanReg,
+      "Name": addName.trim(),
+      "DOB": formattedDob,
+      "Department": addDept.toUpperCase(),
+      "Category": addCategory,
+      "Year": addStudentYear,
+      regNo: cleanReg,
+      studentName: addName.trim(),
+      dob: formattedDob,
+      dept: addDept.toUpperCase(),
+      category: addCategory,
+      year: addStudentYear,
+    };
+
+    // Filter out existing record with same regNo to avoid duplicates, but preserve ALL prior students
+    const filtered = parsedData.filter(
+      (s) => String(s.regNo || s["Register Number"]).trim().toUpperCase() !== cleanReg
+    );
+
+    // Merge and automatically sort: Regular first, Lateral at the end!
+    const updated = sortStudentRecords([...filtered, newRecord], sortMode);
+    setParsedData(updated);
+    sessionStorage.setItem("kvell_uploaded_results", JSON.stringify(updated));
+
+    // Reset Form
+    setAddRegNo("");
+    setAddName("");
+    setAddDob("");
+    setAddCategory("regular");
+    setShowAddStudentModal(false);
+
+    setFeedback({
+      type: "success",
+      message: `Student "${newRecord.studentName}" (${newRecord.regNo}) added successfully as ${newRecord.category.toUpperCase()} entry in ${newRecord.dept} (${newRecord.year}). Total students: ${updated.length}.`,
+    });
+  };
+
+  // Delete Individual Student
+  const handleDeleteStudent = (regNo: string) => {
+    const updated = parsedData.filter(
+      (s) => String(s.regNo || s["Register Number"]).trim().toUpperCase() !== regNo.trim().toUpperCase()
+    );
+    setParsedData(updated);
+    sessionStorage.setItem("kvell_uploaded_results", JSON.stringify(updated));
+    setFeedback({
+      type: "info",
+      message: `Student record (${regNo}) deleted. Total remaining: ${updated.length}.`,
+    });
+  };
+
+  // Change Sort Mode (Register Number vs Alphabetical Name)
+  const handleToggleSort = (newMode: "regNo" | "name") => {
+    setSortMode(newMode);
+    const reSorted = sortStudentRecords(parsedData, newMode);
+    setParsedData(reSorted);
+    sessionStorage.setItem("kvell_uploaded_results", JSON.stringify(reSorted));
+  };
+
+  const handleDownloadTemplate = () => {
+    const sampleData = [
+      { "Register Number": "1", "Name": "Aarav Sharma", "DOB": "2004-05-14", "Category": "Regular" },
+      { "Register Number": "2", "Name": "Meera Nair", "DOB": "2004-08-22", "Category": "Regular" },
+      { "Register Number": "4", "Name": "Rohan Gupta", "DOB": "2003-11-30", "Category": "Regular" },
+      { "Register Number": "5", "Name": "Priyanka Sen", "DOB": "2004-02-18", "Category": "Regular" },
+      { "Register Number": "3", "Name": "Vignesh Kumar", "DOB": "2003-09-12", "Category": "Lateral" },
+    ];
+    const ws = XLSX.utils.json_to_sheet(sampleData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Student Data");
+    XLSX.writeFile(
+      wb,
+      `Student_Data_Template_${deptKey.toUpperCase()}_${studyYear.replace(/\s+/g, "")}_${semester.replace(/\s+/g, "")}.xlsx`
+    );
+  };
+
   const handleStartUpload = () => {
-    if (!selectedFile) return;
+    if (parsedData.length === 0) {
+      setFeedback({
+        type: "error",
+        message: "Please upload an Excel spreadsheet or add student records using '+ Add Student' first.",
+      });
+      return;
+    }
     setIsUploading(true);
     let progress = 0;
     const interval = setInterval(() => {
@@ -64,21 +417,107 @@ export const ResultsUpload: React.FC = () => {
           "kvell_upload_meta",
           JSON.stringify({
             deptKey,
+            studyYear,
             semester,
             academicYear,
-            examMonthYear,
+            examMonthYear: "May 2025",
           })
         );
         addAuditLog({
-          action: "UPLOADED_RESULT",
-          target: selectedFile.name,
+          action: "UPLOADED_STUDENT_DATA",
+          target: selectedFile ? selectedFile.name : `Manual Entry (${parsedData.length} students)`,
           timestamp: getRealLocalTimestamp(),
-          description: `Uploaded examination spreadsheet "${selectedFile.name}" for ${deptKey.toUpperCase()} ${semester} (${parsedData.length} records).`,
+          description: `Confirmed Student Data for ${deptKey.toUpperCase()} ${studyYear} - ${semester} (${parsedData.length} student records).`,
         });
         navigate("/admin/results/validation");
       }
-    }, 300);
+    }, 250);
   };
+
+  // Delete Complete Target Semester Data
+  const handleDeleteTargetSemester = async () => {
+    const confirmText = `Are you sure you want to delete ALL student data for Target Semester "${semester}" in ${deptKey.toUpperCase()}?\n\nThis will remove all published and draft records for this semester. This action cannot be undone.`;
+    if (!window.confirm(confirmText)) return;
+
+    setIsDeleting(true);
+    try {
+      const result = await adminResultsApi.deleteBatchesBySemester(deptKey, semester);
+      addAuditLog({
+        action: "DELETED_TARGET_SEMESTER_DATA",
+        target: `${deptKey.toUpperCase()} - ${semester}`,
+        timestamp: getRealLocalTimestamp(),
+        description: `Deleted complete student data for department ${deptKey.toUpperCase()}, ${semester} (${result.deletedCount} batches removed).`,
+      });
+      setSelectedFile(null);
+      setParsedData([]);
+      sessionStorage.removeItem("kvell_uploaded_results");
+      setFeedback({
+        type: "success",
+        message: `Complete target semester data for ${deptKey.toUpperCase()} ${semester} has been successfully deleted (${result.deletedCount} batch records removed).`,
+      });
+    } catch (err) {
+      console.error("Error deleting target semester data:", err);
+      setFeedback({
+        type: "error",
+        message: `Failed to delete target semester data for ${semester}. Please try again.`,
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Delete Target Year Data
+  const handleDeleteTargetYearData = async () => {
+    const confirmText = `Are you sure you want to delete student data for "${studyYear}" under ${deptKey.toUpperCase()} - ${semester}?\n\nThis will remove student data matching this specific target year. This action cannot be undone.`;
+    if (!window.confirm(confirmText)) return;
+
+    setIsDeleting(true);
+    try {
+      // Clear current year records from state
+      const remaining = parsedData.filter(
+        (s) => (s["Year"] || s.year) !== studyYear
+      );
+      setParsedData(remaining);
+      sessionStorage.setItem("kvell_uploaded_results", JSON.stringify(remaining));
+
+      addAuditLog({
+        action: "DELETED_TARGET_YEAR_DATA",
+        target: `${deptKey.toUpperCase()} - ${studyYear} (${semester})`,
+        timestamp: getRealLocalTimestamp(),
+        description: `Deleted target student data for department ${deptKey.toUpperCase()}, ${studyYear}, ${semester}.`,
+      });
+
+      setFeedback({
+        type: "success",
+        message: `Target student data for ${deptKey.toUpperCase()} ${studyYear} (${semester}) has been successfully removed.`,
+      });
+    } catch (err) {
+      console.error("Error deleting target year data:", err);
+      setFeedback({
+        type: "error",
+        message: `Failed to delete target student data for ${studyYear}. Please try again.`,
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Counts for Regular vs Lateral
+  const regularCount = parsedData.filter(
+    (s) => String(s.category || s.Category || "regular").toLowerCase().trim() !== "lateral"
+  ).length;
+  const lateralCount = parsedData.filter(
+    (s) => String(s.category || s.Category || "regular").toLowerCase().trim() === "lateral"
+  ).length;
+
+  // Filtered view for search query
+  const displayedStudents = parsedData.filter((s) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    const reg = String(s["Register Number"] || s.regNo || "").toLowerCase();
+    const name = String(s["Name"] || s.studentName || "").toLowerCase();
+    return reg.includes(q) || name.includes(q);
+  });
 
   return (
     <div className="space-y-8 w-full">
@@ -86,47 +525,100 @@ export const ResultsUpload: React.FC = () => {
       <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
           <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-widest inline-block mb-2">
-            STEP 1 OF 3 • EXCEL / CSV UPLOAD & TARGET SEMESTER SELECTION
+            STEP 1 OF 3 • EXCEL / CSV UPLOAD & STUDENT REGISTRY MANAGEMENT
           </span>
           <h2 className="font-display text-2xl font-bold">
-            Semester Result Upload Interface
+            Student Data
           </h2>
           <p className="text-xs text-white/70 mt-1 max-w-xl">
-            Select the target department, academic year, and semester before uploading student examination marksheet spreadsheet (.xlsx or .csv).
+            Select target department, study year, and semester. Upload Excel spreadsheets or use the <strong>Add Student</strong> button. Older records are preserved and merged, with regular students sorted first and lateral entries appended at the end.
           </p>
         </div>
 
-        <div className="p-4 rounded-2xl bg-white/10 border border-white/20 text-xs font-semibold space-y-1">
-          <span className="text-[#D4A72C] font-bold block uppercase text-[10px]">Expected Columns:</span>
-          <span className="block text-white/80">Register Number • Student Name • Sub 1 • Sub 2 • Sub 3 • Sub 4 • Sub 5</span>
-          <span className="block text-white/80">Results are based on grade only (O, A+, A, B+, B, C, F)</span>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setAddDept(deptKey);
+              setAddStudentYear(studyYear);
+              setAddRegNo("");
+              setAddName("");
+              setAddDob("");
+              setAddCategory("regular");
+              setShowAddStudentModal(true);
+            }}
+            className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs transition shadow-lg flex items-center justify-center gap-2 active:scale-95"
+          >
+            <UserPlus size={16} />
+            <span>+ Add Student</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDownloadTemplate}
+            className="px-4 py-2.5 rounded-xl bg-[#D4A72C] hover:bg-[#b08014] text-[#0B192C] font-extrabold text-xs transition shadow flex items-center justify-center gap-2 active:scale-95"
+          >
+            <Download size={14} />
+            <span>Sample Excel Template</span>
+          </button>
         </div>
       </div>
 
-      {/* Target Semester & Examination Metadata Selection Card */}
-      <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-sm p-6 space-y-4">
-        <div className="border-b border-[#E5E1D8] pb-3 flex justify-between items-center">
+      {/* Real-time Feedback Banner */}
+      {feedback && (
+        <div
+          className={`p-4 rounded-2xl border flex items-center justify-between text-xs font-bold transition shadow-sm ${
+            feedback.type === "success"
+              ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+              : feedback.type === "error"
+              ? "bg-red-50 text-red-900 border-red-200"
+              : "bg-blue-50 text-blue-900 border-blue-200"
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            {feedback.type === "success" ? (
+              <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+            ) : feedback.type === "error" ? (
+              <AlertTriangle size={18} className="text-red-600 shrink-0" />
+            ) : (
+              <Info size={18} className="text-blue-600 shrink-0" />
+            )}
+            <span>{feedback.message}</span>
+          </div>
+          <button
+            onClick={() => setFeedback(null)}
+            className="text-gray-400 hover:text-gray-700 ml-4 font-mono text-sm"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Target Department, Year & Semester Selection Card (Subject Code Removed, Year Added) */}
+      <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-sm p-6 space-y-6">
+        <div className="border-b border-[#E5E1D8] pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h3 className="font-display font-bold text-base text-[#0B192C]">
-              1. Select Target Department & Semester
+              1. Select Target Department, Year & Semester
             </h3>
             <p className="text-xs text-gray-500">
-              Results will be mapped and assigned to the selected academic period
+              Student data will be mapped and assigned to the selected department, study year and academic period
             </p>
           </div>
-          <span className="px-3 py-1 rounded-full bg-[#D4A72C]/20 text-[#0B192C] font-extrabold text-[10px] uppercase">
+          <span className="px-3 py-1 rounded-full bg-[#D4A72C]/20 text-[#0B192C] font-extrabold text-[10px] uppercase w-fit">
             Mandatory Batch Mapping
           </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+          {/* Department */}
           <div>
             <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
               Department
             </label>
             <select
               value={deptKey}
-              onChange={(e) => setDeptKey(e.target.value)}
+              onChange={(e) => handleDeptChange(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
             >
               <option value="cse">Computer Science & Engineering (CSE)</option>
@@ -137,6 +629,26 @@ export const ResultsUpload: React.FC = () => {
             </select>
           </div>
 
+          {/* Year of Study (Replaced Subject Code, contains the years) */}
+          <div>
+            <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5 flex items-center justify-between">
+              <span>Year (Study Year)</span>
+              <span className="text-[10px] text-[#B08014] font-bold">1st to 4th Year</span>
+            </label>
+            <select
+              value={studyYear}
+              onChange={(e) => handleYearChange(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
+            >
+              {yearOptions.map((y) => (
+                <option key={y.value} value={y.value}>
+                  {y.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Target Semester */}
           <div>
             <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
               Target Semester
@@ -147,16 +659,10 @@ export const ResultsUpload: React.FC = () => {
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
             >
               <option value="Semester I">Semester I</option>
-              <option value="Semester II">Semester II</option>
-              <option value="Semester III">Semester III</option>
-              <option value="Semester IV">Semester IV</option>
-              <option value="Semester V">Semester V</option>
-              <option value="Semester VI">Semester VI</option>
-              <option value="Semester VII">Semester VII</option>
-              <option value="Semester VIII">Semester VIII</option>
             </select>
           </div>
 
+          {/* Academic Year */}
           <div>
             <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
               Academic Year
@@ -166,37 +672,87 @@ export const ResultsUpload: React.FC = () => {
               onChange={(e) => setAcademicYear(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
             >
-              <option value="2025 - 2026">2025 - 2026</option>
-              <option value="2024 - 2025">2024 - 2025</option>
-              <option value="2023 - 2024">2023 - 2024</option>
+              <option value="2026 - 2027">2026 - 2027</option>
             </select>
           </div>
+        </div>
 
-          <div>
-            <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
-              Exam Session / Month
-            </label>
-            <select
-              value={examMonthYear}
-              onChange={(e) => setExamMonthYear(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
+        {/* Selected Target Summary & Target Deletion Actions */}
+        <div className="pt-4 border-t border-[#E5E1D8] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-bold text-gray-500 uppercase">Active Target:</span>
+            <span className="px-2.5 py-1 rounded-lg bg-[#0B192C] text-white font-mono font-bold text-xs">
+              {deptKey.toUpperCase()}
+            </span>
+            <span className="px-2.5 py-1 rounded-lg bg-[#D4A72C]/20 text-[#0B192C] border border-[#D4A72C] font-bold text-xs">
+              {studyYear}
+            </span>
+            <span className="px-2.5 py-1 rounded-lg bg-[#F8F5EE] text-[#0B192C] border border-[#E5E1D8] font-bold text-xs">
+              {semester}
+            </span>
+            <span className="px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700 border border-gray-200 font-mono text-xs">
+              {academicYear}
+            </span>
+            {parsedData.length > 0 && (
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-xs">
+                {parsedData.length} Students Loaded
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDeleteTargetSemester}
+              disabled={isDeleting}
+              className="px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm active:scale-95 disabled:opacity-50"
+              title={`Delete all student records and batches for ${deptKey.toUpperCase()} ${semester}`}
             >
-              <option value="May 2025">May 2025 End Semester</option>
-              <option value="Dec 2025">Dec 2025 End Semester</option>
-              <option value="May 2024">May 2024 End Semester</option>
-              <option value="Nov 2024">Nov 2024 End Semester</option>
-            </select>
+              <Trash2 size={13} className="text-red-600" />
+              <span>Delete Target Semester Data</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDeleteTargetYearData}
+              disabled={isDeleting}
+              className="px-4 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm active:scale-95 disabled:opacity-50"
+              title={`Delete student records matching ${studyYear}`}
+            >
+              <Trash2 size={13} className="text-amber-700" />
+              <span>Delete Target Year Data ({studyYear})</span>
+            </button>
           </div>
         </div>
       </div>
 
       {/* Drag & Drop Upload Container */}
-      <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-sm p-6 sm:p-10 text-center space-y-6">
-        <h3 className="font-display font-bold text-base text-[#0B192C] text-left border-b border-[#E5E1D8] pb-3">
-          2. Upload Spreadsheet File
-        </h3>
+      <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-sm p-6 sm:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5E1D8] pb-3">
+          <div>
+            <h3 className="font-display font-bold text-base text-[#0B192C]">
+              2. Upload Student Spreadsheet (Non-Destructive Append)
+            </h3>
+            <p className="text-xs text-gray-500">
+              Uploading a new file will merge with existing students for {studyYear} without affecting previous data.
+            </p>
+          </div>
 
-        <div className="border-2 border-dashed border-[#D4A72C] rounded-2xl p-8 sm:p-12 bg-[#F8F5EE]/40 hover:bg-[#F8F5EE] transition flex flex-col items-center justify-center relative">
+          <button
+            type="button"
+            onClick={() => {
+              setAddDept(deptKey);
+              setAddStudentYear(studyYear);
+              setShowAddStudentModal(true);
+            }}
+            className="px-3.5 py-2 rounded-xl bg-[#0B192C] hover:bg-[#132943] text-white font-bold text-xs transition flex items-center gap-1.5 shadow"
+          >
+            <UserPlus size={14} className="text-[#D4A72C]" />
+            <span>+ Add Student Manually</span>
+          </button>
+        </div>
+
+        <div className="border-2 border-dashed border-[#D4A72C] rounded-2xl p-6 sm:p-10 bg-[#F8F5EE]/40 hover:bg-[#F8F5EE] transition flex flex-col items-center justify-center relative text-center">
           <input
             type="file"
             accept=".xlsx, .xls, .csv"
@@ -204,72 +760,405 @@ export const ResultsUpload: React.FC = () => {
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
           />
 
-          <div className="w-16 h-16 rounded-2xl bg-[#0B192C]/10 text-[#0B192C] flex items-center justify-center mb-4">
-            <UploadCloud size={32} />
+          <div className="w-14 h-14 rounded-2xl bg-[#0B192C]/10 text-[#0B192C] flex items-center justify-center mb-3">
+            <UploadCloud size={28} />
           </div>
 
-          <h3 className="font-display font-bold text-xl text-[#0B192C]">
-            Drag & Drop Examination Spreadsheet Here
+          <h3 className="font-display font-bold text-lg text-[#0B192C]">
+            Drag & Drop Student Data Spreadsheet (.xlsx, .csv)
           </h3>
-          <p className="text-xs text-gray-500 mt-1">
-            Supports Microsoft Excel (.xlsx, .xls) and CSV (.csv) files for {semester} ({deptKey.toUpperCase()})
+          <p className="text-xs text-gray-500 mt-1 max-w-lg">
+            Expected Columns: <strong>Register Number</strong> • <strong>Name</strong> • <strong>DOB</strong> • <strong>Category (Optional: Regular / Lateral)</strong>
           </p>
 
           <button
             type="button"
-            className="mt-6 px-6 py-3 rounded-xl bg-[#0B192C] text-white font-extrabold text-xs hover:bg-[#132943] transition shadow flex items-center gap-2 pointer-events-none"
+            className="mt-4 px-5 py-2.5 rounded-xl bg-[#0B192C] text-white font-extrabold text-xs transition shadow flex items-center gap-2 pointer-events-none"
           >
-            <FileSpreadsheet size={16} className="text-[#D4A72C]" /> Browse File from Computer
+            <FileSpreadsheet size={15} className="text-[#D4A72C]" /> Browse File
           </button>
         </div>
+      </div>
 
-        {/* Selected File Details & Upload Progress */}
-        {selectedFile && (
-          <div className="bg-[#F8F5EE] rounded-2xl p-6 border border-[#E5E1D8] text-left space-y-4 max-w-2xl mx-auto">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <FileSpreadsheet size={24} className="text-[#1D8A5A]" />
-                <div>
-                  <span className="font-bold text-sm text-[#0B192C] block">{selectedFile.name}</span>
-                  <span className="text-[10px] text-gray-500 font-mono">
-                    Size: {(selectedFile.size / 1024).toFixed(1)} KB • {parsedData.length || "Checking..."} Records Found
-                  </span>
-                </div>
+      {/* Step 3: Interactive Student Registry & Order Management */}
+      {parsedData.length > 0 && (
+        <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-sm p-6 sm:p-8 space-y-5">
+          {/* Registry Header */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#E5E1D8] pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Users size={20} className="text-[#0B192C]" />
+                <h3 className="font-display font-bold text-lg text-[#0B192C]">
+                  Current Student Data Registry ({parsedData.length})
+                </h3>
               </div>
-
-              <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold">
-                Target: {semester}
-              </span>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Target: {deptKey.toUpperCase()} • {studyYear} ({semester}) • Regular students sorted first, lateral entries appended at last.
+              </p>
             </div>
 
-            {isUploading && (
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs font-bold text-gray-600">
-                  <span>Uploading & Mapping Spreadsheet to {semester}...</span>
-                  <span>{uploadProgress}%</span>
-                </div>
-                <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-                  <div
-                    className="bg-[#0B192C] h-full transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
-                  />
-                </div>
-              </div>
-            )}
+            {/* Counts & Controls */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                Regular: {regularCount}
+              </span>
+              <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200">
+                Lateral Entry (At Last): {lateralCount}
+              </span>
 
-            <div className="pt-2 flex justify-end">
+              {/* Sorting Mode Toggles */}
+              <div className="inline-flex rounded-xl border border-gray-300 p-0.5 bg-gray-50 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => handleToggleSort("regNo")}
+                  className={`px-3 py-1.5 rounded-lg transition ${
+                    sortMode === "regNo"
+                      ? "bg-[#0B192C] text-white shadow-sm"
+                      : "text-gray-700 hover:bg-gray-200"
+                  }`}
+                  title="Sort by Register Number in natural order (1, 2, 3, 4, 5...)"
+                >
+                  Reg No (1,2,3...)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleToggleSort("name")}
+                  className={`px-3 py-1.5 rounded-lg transition ${
+                    sortMode === "name"
+                      ? "bg-[#0B192C] text-white shadow-sm"
+                      : "text-gray-700 hover:bg-gray-200"
+                  }`}
+                  title="Sort student names alphabetically (A to Z)"
+                >
+                  Alphabetical (A - Z)
+                </button>
+              </div>
+
               <button
-                onClick={handleStartUpload}
-                disabled={isUploading}
-                className="px-6 py-3 rounded-xl bg-[#0B192C] text-white text-xs font-extrabold hover:bg-[#132943] transition shadow flex items-center gap-2"
+                type="button"
+                onClick={() => {
+                  setAddDept(deptKey);
+                  setAddStudentYear(studyYear);
+                  setShowAddStudentModal(true);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition flex items-center gap-1.5 shadow"
               >
-                <span>Proceed to Automated Validation</span>
-                <ArrowRight size={16} className="text-[#D4A72C]" />
+                <Plus size={14} /> Add Student
               </button>
             </div>
           </div>
-        )}
-      </div>
+
+          {/* Search Bar */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by Register Number or Name..."
+                className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
+              />
+            </div>
+
+            <span className="text-xs text-gray-500 font-semibold">
+              Showing {displayedStudents.length} of {parsedData.length} records
+            </span>
+          </div>
+
+          {/* Student Table */}
+          <div className="border border-[#E5E1D8] rounded-2xl overflow-hidden shadow-inner">
+            <div className="overflow-x-auto max-h-96">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-[#0B192C] text-white sticky top-0 z-10 font-bold uppercase tracking-wider text-[10px]">
+                  <tr>
+                    <th className="p-3 text-center w-12">#</th>
+                    <th className="p-3">Register Number</th>
+                    <th className="p-3">Student Name</th>
+                    <th className="p-3">DOB</th>
+                    <th className="p-3">Department</th>
+                    <th className="p-3">Year</th>
+                    <th className="p-3 text-center">Admission Category</th>
+                    <th className="p-3 text-right w-20">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E5E1D8] bg-white">
+                  {displayedStudents.map((student, idx) => {
+                    const isLateral =
+                      String(student.category || student.Category || "regular").toLowerCase().trim() === "lateral";
+                    const reg = student["Register Number"] || student.regNo;
+                    const name = student["Name"] || student.studentName;
+                    const dob = student["DOB"] || student.dob || "—";
+                    const dept = student["Department"] || student.dept || deptKey.toUpperCase();
+                    const sYear = student["Year"] || student.year || studyYear;
+
+                    return (
+                      <tr
+                        key={reg}
+                        className={`transition hover:bg-[#F8F5EE]/80 ${
+                          isLateral ? "bg-purple-50/40" : ""
+                        }`}
+                      >
+                        <td className="p-3 text-center font-mono font-bold text-gray-500">
+                          {idx + 1}
+                        </td>
+                        <td className="p-3 font-mono font-bold text-[#0B192C]">
+                          {reg}
+                        </td>
+                        <td className="p-3 font-bold text-gray-900">
+                          {name}
+                        </td>
+                        <td className="p-3 font-mono text-gray-600">
+                          {dob}
+                        </td>
+                        <td className="p-3 font-semibold text-gray-700">
+                          {dept}
+                        </td>
+                        <td className="p-3 font-medium text-gray-600">
+                          {sYear}
+                        </td>
+                        <td className="p-3 text-center">
+                          {isLateral ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-900 border border-purple-300 inline-flex items-center gap-1">
+                              LATERAL ENTRY (APPENDED LAST)
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-900 border border-blue-300 inline-flex items-center gap-1">
+                              REGULAR
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteStudent(reg)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+                            title={`Remove ${name} (${reg})`}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Bottom Actions Bar */}
+          <div className="pt-3 border-t border-[#E5E1D8] flex flex-col sm:flex-row items-center justify-between gap-4">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm("Are you sure you want to clear all loaded student records?")) {
+                  setParsedData([]);
+                  sessionStorage.removeItem("kvell_uploaded_results");
+                  setSelectedFile(null);
+                }
+              }}
+              className="text-xs text-red-600 font-bold hover:underline"
+            >
+              Clear All Loaded Records
+            </button>
+
+            <button
+              type="button"
+              onClick={handleStartUpload}
+              disabled={isUploading}
+              className="px-6 py-3 rounded-xl bg-[#0B192C] hover:bg-[#132943] text-white text-xs font-extrabold transition shadow-lg flex items-center gap-2 active:scale-95"
+            >
+              <span>Proceed to Mark Entry ({parsedData.length} Students)</span>
+              <ArrowRight size={16} className="text-[#D4A72C]" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Add Student Modal Form */}
+      {showAddStudentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 border border-[#E5E1D8] shadow-2xl space-y-6">
+            <div className="flex items-start justify-between border-b border-[#E5E1D8] pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0B192C] text-[#D4A72C] flex items-center justify-center">
+                  <UserPlus size={20} />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-lg text-[#0B192C]">
+                    Add Student Record
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Will append into existing records without affecting previous data
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddStudentModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 font-mono text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddStudentSubmit} className="space-y-4 text-xs">
+              {/* Register Number */}
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
+                  Register Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={addRegNo}
+                  onChange={(e) => setAddRegNo(e.target.value.toUpperCase())}
+                  placeholder="e.g. 3 or KVELL2025CSE003"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-mono font-bold text-sm focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
+                />
+                <span className="text-[10px] text-gray-500 mt-1 block">
+                  Numeric register numbers (e.g. 1, 2, 3...) will auto-slot into proper ascending order.
+                </span>
+              </div>
+
+              {/* Student Name */}
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
+                  Student Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={addName}
+                  onChange={(e) => setAddName(e.target.value)}
+                  placeholder="e.g. Karthik P"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold text-sm focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
+                />
+              </div>
+
+              {/* DOB, Department & Year in columns */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
+                    DOB <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={addDob}
+                    onChange={(e) => setAddDob(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
+                    Department <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={addDept}
+                    onChange={(e) => setAddDept(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
+                  >
+                    <option value="cse">CSE</option>
+                    <option value="ece">ECE</option>
+                    <option value="mech">MECH</option>
+                    <option value="eee">EEE</option>
+                    <option value="it">IT</option>
+                    <option value="aids">AI & DS</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
+                    Study Year <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={addStudentYear}
+                    onChange={(e) => setAddStudentYear(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
+                  >
+                    <option value="1st Year">1st Year</option>
+                    <option value="2nd Year">2nd Year</option>
+                    <option value="3rd Year">3rd Year</option>
+                    <option value="4th Year">4th Year</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Category Option: Regular or Lateral */}
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
+                  Category Option <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label
+                    className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                      addCategory === "regular"
+                        ? "bg-blue-50 border-blue-500 text-blue-950 font-bold shadow-sm"
+                        : "bg-[#F8F5EE] border-[#E5E1D8] text-gray-700 hover:bg-gray-100"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="addCategoryRadio"
+                      value="regular"
+                      checked={addCategory === "regular"}
+                      onChange={() => setAddCategory("regular")}
+                      className="accent-[#0B192C] w-4 h-4"
+                    />
+                    <div>
+                      <span className="block font-bold text-xs">Regular Entry</span>
+                      <span className="block text-[10px] text-gray-500">Sorted by Reg No / Name</span>
+                    </div>
+                  </label>
+
+                  <label
+                    className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                      addCategory === "lateral"
+                        ? "bg-purple-50 border-purple-500 text-purple-950 font-bold shadow-sm"
+                        : "bg-[#F8F5EE] border-[#E5E1D8] text-gray-700 hover:bg-gray-100"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="addCategoryRadio"
+                      value="lateral"
+                      checked={addCategory === "lateral"}
+                      onChange={() => {
+                        setAddCategory("lateral");
+                        setAddStudentYear("2nd Year"); // Lateral entry joins in 2nd year
+                      }}
+                      className="accent-[#0B192C] w-4 h-4"
+                    />
+                    <div>
+                      <span className="block font-bold text-xs">Lateral Entry</span>
+                      <span className="block text-[10px] text-purple-700 font-semibold">Appended at last only</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="pt-3 border-t border-[#E5E1D8] flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddStudentModal(false)}
+                  className="px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl bg-[#0B192C] hover:bg-[#132943] text-white font-extrabold shadow-md transition flex items-center gap-2 active:scale-95"
+                >
+                  <Plus size={16} className="text-[#D4A72C]" />
+                  <span>Save & Add Student</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

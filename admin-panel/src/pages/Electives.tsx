@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { BookOpen, Calendar, Clock, CheckCircle2, AlertCircle, Plus } from 'lucide-react';
 
 export const Electives: React.FC = () => {
-  const [semester, setSemester] = useState("Semester III");
+  const [semester, setSemester] = useState("Semester I");
   const [deptKey, setDeptKey] = useState("cse");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 

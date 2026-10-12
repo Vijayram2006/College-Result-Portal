@@ -70,7 +70,7 @@ export const ElectiveDemand: React.FC = () => {
         <div className="border-b border-[#E5E1D8] pb-4 flex justify-between items-center">
           <div>
             <h3 className="font-display font-bold text-lg text-[#0B192C]">
-              Semester III · Professional Elective - I Demand Ranking
+              Semester I · Professional Elective Demand Ranking
             </h3>
             <p className="text-xs text-gray-500">
               Ordered by total student selections (COUNT DESC)

@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Link, useLocation } from "wouter";
 import {
   BarChart3,
   TrendingUp,
@@ -8,6 +9,20 @@ import {
   Users,
   Download,
   Calendar,
+  Filter,
+  CheckCircle2,
+  AlertTriangle,
+  ArrowUpRight,
+  ArrowDownRight,
+  FileCheck2,
+  Layers,
+  Sparkles,
+  ChevronDown,
+  Search,
+  RefreshCw,
+  Trash2,
+  ExternalLink,
+  Info,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -23,209 +38,1152 @@ import {
   LineChart,
   Line,
   Legend,
+  AreaChart,
+  Area,
 } from "recharts";
 
-const departmentData = [
-  { name: "CSE & AI", total: 145, pass: 140, fail: 5, passRate: 96.5 },
-  { name: "ECE", total: 120, pass: 112, fail: 8, passRate: 93.3 },
-  { name: "EEE", total: 95, pass: 88, fail: 7, passRate: 92.6 },
-  { name: "Mech", total: 110, pass: 98, fail: 12, passRate: 89.0 },
-  { name: "Civil", total: 80, pass: 72, fail: 8, passRate: 90.0 },
-];
+type AssessmentFilter = "ALL" | "IA1" | "IA2" | "END_SEM";
 
-const gradeDistribution = [
-  { name: "O (Outstanding)", value: 240, color: "#2E7D5B" },
-  { name: "A+ (Excellent)", value: 180, color: "#0B192C" },
-  { name: "A (Very Good)", value: 110, color: "#D4A72C" },
-  { name: "B+ (Good)", value: 75, color: "#C98A18" },
-  { name: "B (Above Avg)", value: 30, color: "#667085" },
-  { name: "RA / Fail", value: 40, color: "#B54747" },
-];
+export interface LiveStudentMark {
+  regNo: string;
+  name: string;
+  dob?: string;
+  deptKey: string;
+  deptName: string;
+  semester: string;
+  subjectCode: string;
+  subjectTitle: string;
+  assessment: "IA1" | "IA2" | "END_SEM";
+  partA: number;
+  partBC: number;
+  totalMarks: number;
+  grade: string;
+  resultStatus: "PASS" | "FAIL";
+}
 
-const passRateTrends = [
-  { term: "Nov 2023", passPercentage: 91.2 },
-  { term: "May 2024", passPercentage: 93.4 },
-  { term: "Nov 2024", passPercentage: 94.1 },
-  { term: "May 2025", passPercentage: 96.4 },
-];
+const deptNamesMap: Record<string, string> = {
+  aids: "AIDS",
+  cse: "CSE",
+  ece: "ECE",
+  it: "IT",
+  eee: "EEE",
+  mech: "MECH",
+};
+
+/**
+ * Scans localStorage for live student marks saved during validation or publication
+ */
+export const fetchAllLiveMarks = (): LiveStudentMark[] => {
+  const marksMap = new Map<string, LiveStudentMark>();
+
+  // 1. Scan individual student mark entries (kvell_marks_${deptKey}_${semester}_${subjectCode})
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("kvell_marks_")) {
+        const parts = key.replace("kvell_marks_", "").split("_");
+        const fallbackDeptKey = parts[0] || "aids";
+        const fallbackSemester = parts[1] || "Semester I";
+        const fallbackSubjectCode = parts[2] || "MA8201";
+
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const studentDict: Record<string, any> = JSON.parse(raw);
+          Object.values(studentDict).forEach((s: any) => {
+            if (s && (s.hasMarks || s.grandTotal !== undefined || s.totalMarks !== undefined)) {
+              const aType = String(s.assessmentType || "IAT-1");
+              const assessment: "IA1" | "IA2" | "END_SEM" =
+                aType.includes("2") ? "IA2" : aType.includes("End") || aType.includes("Sem") ? "END_SEM" : "IA1";
+
+              const partA = Number(s.partATotal) || 0;
+              const partBC = Number(s.partBCTotal) || 0;
+              const totalMarks =
+                s.grandTotal !== undefined
+                  ? Number(s.grandTotal)
+                  : s.totalMarks !== undefined
+                  ? Number(s.totalMarks)
+                  : partA + partBC;
+
+              const grade =
+                s.grade ||
+                (totalMarks >= 90
+                  ? "O"
+                  : totalMarks >= 80
+                  ? "A+"
+                  : totalMarks >= 70
+                  ? "A"
+                  : totalMarks >= 60
+                  ? "B+"
+                  : totalMarks >= 50
+                  ? "B"
+                  : "RA");
+
+              const resultStatus = s.resultStatus || (totalMarks >= 40 ? "PASS" : "FAIL");
+              const finalDeptKey = s.deptKey || fallbackDeptKey;
+              const subjectCode = s.subjectCode || fallbackSubjectCode;
+
+              const uniqueKey = `${s.regNo}_${subjectCode}_${assessment}`;
+              marksMap.set(uniqueKey, {
+                regNo: s.regNo,
+                name: s.name,
+                dob: s.dob,
+                deptKey: finalDeptKey,
+                deptName: s.deptName || deptNamesMap[finalDeptKey] || finalDeptKey.toUpperCase(),
+                semester: s.semester || fallbackSemester,
+                subjectCode,
+                subjectTitle: s.subjectTitle || "Curriculum Subject",
+                assessment,
+                partA,
+                partBC,
+                totalMarks,
+                grade,
+                resultStatus,
+              });
+            }
+          });
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Error reading live marks from localStorage:", e);
+  }
+
+  // 2. Scan published results (kvell_published_results)
+  try {
+    const rawPublished = localStorage.getItem("kvell_published_results");
+    if (rawPublished) {
+      const list: any[] = JSON.parse(rawPublished);
+      if (Array.isArray(list)) {
+        list.forEach((r: any) => {
+          if (r && r.regNo && r.totalMarks !== undefined) {
+            const aType = String(r.assessment || r.examSession || "End Semester");
+            const assessment: "IA1" | "IA2" | "END_SEM" =
+              aType.includes("1") ? "IA1" : aType.includes("2") ? "IA2" : "END_SEM";
+            const subjectCode = r.subjectCode || r.courseCode || "MA8201";
+            const uniqueKey = `${r.regNo}_${subjectCode}_${assessment}`;
+
+            if (!marksMap.has(uniqueKey)) {
+              const deptKey = r.deptKey || "aids";
+              marksMap.set(uniqueKey, {
+                regNo: r.regNo,
+                name: r.name || r.studentName || "Candidate",
+                dob: r.dob,
+                deptKey,
+                deptName: r.dept || deptNamesMap[deptKey] || deptKey.toUpperCase(),
+                semester: r.semester || "Semester I",
+                subjectCode,
+                subjectTitle: r.subjectTitle || r.courseTitle || "Subject",
+                assessment,
+                partA: Number(r.internalMarks) || 0,
+                partBC: Number(r.externalMarks) || 0,
+                totalMarks: Number(r.totalMarks),
+                grade:
+                  r.grade ||
+                  (r.totalMarks >= 90
+                    ? "O"
+                    : r.totalMarks >= 80
+                    ? "A+"
+                    : r.totalMarks >= 70
+                    ? "A"
+                    : r.totalMarks >= 60
+                    ? "B+"
+                    : r.totalMarks >= 50
+                    ? "B"
+                    : "RA"),
+                resultStatus: r.result === "FAIL" || r.resultStatus === "FAIL" || r.totalMarks < 40 ? "FAIL" : "PASS",
+              });
+            }
+          }
+        });
+      }
+    }
+  } catch (e) {
+    console.error("Error reading published results from localStorage:", e);
+  }
+
+  // 3. Scan custom batches (kvell_custom_batches)
+  try {
+    const rawBatches = localStorage.getItem("kvell_custom_batches");
+    if (rawBatches) {
+      const batches: any[] = JSON.parse(rawBatches);
+      if (Array.isArray(batches)) {
+        batches.forEach((b: any) => {
+          if (b && Array.isArray(b.records)) {
+            b.records.forEach((r: any) => {
+              if (r && r.regNo && r.totalMarks !== undefined) {
+                const assessment: "IA1" | "IA2" | "END_SEM" =
+                  b.examMonthYear?.includes("IA1") ? "IA1" : b.examMonthYear?.includes("IA2") ? "IA2" : "END_SEM";
+                const subjectCode = r.courseCode || b.id || "MA8201";
+                const uniqueKey = `${r.regNo}_${subjectCode}_${assessment}`;
+
+                if (!marksMap.has(uniqueKey)) {
+                  const deptKey = r.deptKey || b.departmentKey || "aids";
+                  marksMap.set(uniqueKey, {
+                    regNo: r.regNo,
+                    name: r.studentName || r.name || "Candidate",
+                    dob: r.dob,
+                    deptKey,
+                    deptName: b.departmentName || deptNamesMap[deptKey] || deptKey.toUpperCase(),
+                    semester: b.semester || "Semester I",
+                    subjectCode,
+                    subjectTitle: r.courseTitle || b.batchTitle || "Subject",
+                    assessment,
+                    partA: Number(r.internalMarks) || 0,
+                    partBC: Number(r.externalMarks) || 0,
+                    totalMarks: Number(r.totalMarks),
+                    grade:
+                      r.grade ||
+                      (r.totalMarks >= 90
+                        ? "O"
+                        : r.totalMarks >= 80
+                        ? "A+"
+                        : r.totalMarks >= 70
+                        ? "A"
+                        : r.totalMarks >= 60
+                        ? "B+"
+                        : r.totalMarks >= 50
+                        ? "B"
+                        : "RA"),
+                    resultStatus: r.resultStatus === "FAIL" || r.totalMarks < 40 ? "FAIL" : "PASS",
+                  });
+                }
+              }
+            });
+          }
+        });
+      }
+    }
+  } catch (e) {
+    console.error("Error reading custom batches from localStorage:", e);
+  }
+
+  return Array.from(marksMap.values());
+};
 
 export const AnalyticsPage: React.FC = () => {
+  const [, navigate] = useLocation();
+
+  // Primary Assessment Focus Filter
+  const [assessment, setAssessment] = useState<AssessmentFilter>("ALL");
+
+  // Secondary Department & Semester Filter
+  const [deptFilter, setDeptFilter] = useState("all");
+  const [semesterFilter, setSemesterFilter] = useState("all");
+  const [searchStudent, setSearchStudent] = useState("");
+
+  // Live Marks State loaded from localStorage
+  const [liveMarks, setLiveMarks] = useState<LiveStudentMark[]>([]);
+  const [lastRefreshed, setLastRefreshed] = useState<string>("");
+
+  const refreshData = () => {
+    const marks = fetchAllLiveMarks();
+    setLiveMarks(marks);
+    setLastRefreshed(new Date().toLocaleTimeString());
+  };
+
+  useEffect(() => {
+    refreshData();
+
+    const handleStorageChange = () => refreshData();
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("kvell_marks_updated", handleStorageChange);
+    window.addEventListener("focus", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("kvell_marks_updated", handleStorageChange);
+      window.removeEventListener("focus", handleStorageChange);
+    };
+  }, []);
+
+  const handleClearAllMarks = () => {
+    if (
+      window.confirm(
+        "Are you sure you want to clear all entered examination marks? Analytics and graphs will become completely empty."
+      )
+    ) {
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith("kvell_marks_")) {
+            keysToRemove.push(k);
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
+        localStorage.removeItem("kvell_published_results");
+        localStorage.removeItem("kvell_custom_batches");
+        window.dispatchEvent(new Event("kvell_marks_updated"));
+        refreshData();
+        alert("All marks data successfully cleared. Analytics is now empty.");
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
+  // Filter live marks by Department and Semester
+  const filteredMarks = useMemo(() => {
+    return liveMarks.filter((m) => {
+      const matchDept = deptFilter === "all" || m.deptKey.toLowerCase() === deptFilter.toLowerCase();
+      const matchSem = semesterFilter === "all" || m.semester === semesterFilter;
+      return matchDept && matchSem;
+    });
+  }, [liveMarks, deptFilter, semesterFilter]);
+
+  // Target marks matching the current assessment tab
+  const assessmentMarks = useMemo(() => {
+    if (assessment === "ALL") return filteredMarks;
+    return filteredMarks.filter((m) => m.assessment === assessment);
+  }, [filteredMarks, assessment]);
+
+  const hasAnyMarks = liveMarks.length > 0;
+  const hasAssessmentMarks = assessmentMarks.length > 0;
+
+  // Active Key Performance Indicator (KPI) Stats
+  const activeStats = useMemo(() => {
+    if (assessmentMarks.length === 0) {
+      return {
+        title:
+          assessment === "IA1"
+            ? "Internal Assessment 1 (IAT-1)"
+            : assessment === "IA2"
+            ? "Internal Assessment 2 (IAT-2)"
+            : assessment === "END_SEM"
+            ? "End Semester Examinations"
+            : "Overall Multi-Assessment Cumulative",
+        avgScore: "0%",
+        passRate: "0%",
+        passRateDelta: "No live marks",
+        evaluatedCount: 0,
+        partAAvg: "0.0 / 20",
+        partBCAvg: "0.0 / 80",
+        topGradeRate: "0%",
+        arrearCount: 0,
+      };
+    }
+
+    const totalCount = assessmentMarks.length;
+    const avgScoreVal = assessmentMarks.reduce((acc, m) => acc + m.totalMarks, 0) / totalCount;
+    const passedCount = assessmentMarks.filter((m) => m.resultStatus === "PASS" || m.totalMarks >= 40).length;
+    const passRateVal = (passedCount / totalCount) * 100;
+    const partAVal = assessmentMarks.reduce((acc, m) => acc + m.partA, 0) / totalCount;
+    const partBCVal = assessmentMarks.reduce((acc, m) => acc + m.partBC, 0) / totalCount;
+    const distinctions = assessmentMarks.filter((m) => m.grade === "O" || m.grade === "A+").length;
+    const topGradeVal = (distinctions / totalCount) * 100;
+    const arrearCount = assessmentMarks.filter((m) => m.resultStatus === "FAIL" || m.totalMarks < 40).length;
+
+    return {
+      title:
+        assessment === "IA1"
+          ? "Internal Assessment 1 (IAT-1)"
+          : assessment === "IA2"
+          ? "Internal Assessment 2 (IAT-2)"
+          : assessment === "END_SEM"
+          ? "End Semester Examinations"
+          : "Overall Multi-Assessment Cumulative",
+      avgScore: `${avgScoreVal.toFixed(1)}%`,
+      passRate: `${passRateVal.toFixed(1)}%`,
+      passRateDelta: `${passedCount} of ${totalCount} Candidates Passed`,
+      evaluatedCount: totalCount,
+      partAAvg: `${partAVal.toFixed(1)} / 20`,
+      partBCAvg: `${partBCVal.toFixed(1)} / 80`,
+      topGradeRate: `${topGradeVal.toFixed(1)}%`,
+      arrearCount,
+    };
+  }, [assessmentMarks, assessment]);
+
+  // Transform Live Department Data for Bar Chart
+  const chartDeptData = useMemo(() => {
+    if (filteredMarks.length === 0) return [];
+
+    // Group marks by department
+    const deptGroups: Record<string, LiveStudentMark[]> = {};
+    filteredMarks.forEach((m) => {
+      const key = m.deptKey || "other";
+      if (!deptGroups[key]) deptGroups[key] = [];
+      deptGroups[key].push(m);
+    });
+
+    return Object.entries(deptGroups).map(([key, list]) => {
+      const name = deptNamesMap[key] || key.toUpperCase();
+
+      const ia1List = list.filter((m) => m.assessment === "IA1");
+      const ia2List = list.filter((m) => m.assessment === "IA2");
+      const endSemList = list.filter((m) => m.assessment === "END_SEM");
+
+      const ia1Avg = ia1List.length ? Number((ia1List.reduce((a, b) => a + b.totalMarks, 0) / ia1List.length).toFixed(1)) : 0;
+      const ia2Avg = ia2List.length ? Number((ia2List.reduce((a, b) => a + b.totalMarks, 0) / ia2List.length).toFixed(1)) : 0;
+      const endSemAvg = endSemList.length ? Number((endSemList.reduce((a, b) => a + b.totalMarks, 0) / endSemList.length).toFixed(1)) : 0;
+
+      // When specific assessment is selected
+      const targetList =
+        assessment === "IA1"
+          ? ia1List
+          : assessment === "IA2"
+          ? ia2List
+          : assessment === "END_SEM"
+          ? endSemList
+          : list;
+
+      const avgScore = targetList.length ? Number((targetList.reduce((a, b) => a + b.totalMarks, 0) / targetList.length).toFixed(1)) : 0;
+      const passedCount = targetList.filter((m) => m.resultStatus === "PASS" || m.totalMarks >= 40).length;
+      const passRate = targetList.length ? Number(((passedCount / targetList.length) * 100).toFixed(1)) : 0;
+      const partA = targetList.length ? Number((targetList.reduce((a, b) => a + b.partA, 0) / targetList.length).toFixed(1)) : 0;
+      const partBC = targetList.length ? Number((targetList.reduce((a, b) => a + b.partBC, 0) / targetList.length).toFixed(1)) : 0;
+
+      if (assessment === "ALL") {
+        return {
+          name,
+          IA1: ia1Avg,
+          IA2: ia2Avg,
+          EndSem: endSemAvg,
+          avgScore,
+          passRate,
+        };
+      }
+
+      return {
+        name,
+        avgScore,
+        passRate,
+        partA,
+        partBC,
+      };
+    });
+  }, [filteredMarks, assessment]);
+
+  // Live Grade Distribution for Pie Chart
+  const gradeDistributionData = useMemo(() => {
+    const list = assessmentMarks;
+    const counts = {
+      O: 0,
+      "A+": 0,
+      A: 0,
+      "B+": 0,
+      B: 0,
+      RA: 0,
+    };
+
+    list.forEach((m) => {
+      const g = m.grade;
+      if (g === "O") counts.O++;
+      else if (g === "A+") counts["A+"]++;
+      else if (g === "A") counts.A++;
+      else if (g === "B+") counts["B+"]++;
+      else if (g === "B") counts.B++;
+      else counts.RA++;
+    });
+
+    const items = [
+      { name: "O (Outstanding)", value: counts.O, color: "#2E7D5B" },
+      { name: "A+ (Excellent)", value: counts["A+"], color: "#0B192C" },
+      { name: "A (Very Good)", value: counts.A, color: "#D4A72C" },
+      { name: "B+ (Good)", value: counts["B+"], color: "#C98A18" },
+      { name: "B (Above Avg)", value: counts.B, color: "#667085" },
+      { name: "RA / Fail", value: counts.RA, color: "#B54747" },
+    ];
+
+    return items;
+  }, [assessmentMarks]);
+
+  // Live Milestone Progression Curve (IA1 -> IA2 -> End Semester)
+  const liveMilestones = useMemo(() => {
+    if (filteredMarks.length === 0) return [];
+
+    const getStats = (items: LiveStudentMark[]) => {
+      if (!items.length) return { avg: 0, pass: 0 };
+      const avg = Number((items.reduce((a, b) => a + b.totalMarks, 0) / items.length).toFixed(1));
+      const pass = Number(((items.filter((m) => m.resultStatus === "PASS" || m.totalMarks >= 40).length / items.length) * 100).toFixed(1));
+      return { avg, pass };
+    };
+
+    const ia1 = getStats(filteredMarks.filter((m) => m.assessment === "IA1"));
+    const ia2 = getStats(filteredMarks.filter((m) => m.assessment === "IA2"));
+    const endSem = getStats(filteredMarks.filter((m) => m.assessment === "END_SEM"));
+
+    // If Model Exam has no separate slot, interpolate between IA2 and EndSem or display milestones with data
+    const midAvg = ia2.avg && endSem.avg ? Number(((ia2.avg + endSem.avg) / 2).toFixed(1)) : ia2.avg || endSem.avg || 0;
+    const midPass = ia2.pass && endSem.pass ? Number(((ia2.pass + endSem.pass) / 2).toFixed(1)) : ia2.pass || endSem.pass || 0;
+
+    return [
+      { milestone: "IAT-1", averageScore: ia1.avg, passRate: ia1.pass },
+      { milestone: "IAT-2", averageScore: ia2.avg, passRate: ia2.pass },
+      { milestone: "Model Exam", averageScore: midAvg, passRate: midPass },
+      { milestone: "End Semester", averageScore: endSem.avg, passRate: endSem.pass },
+    ];
+  }, [filteredMarks]);
+
+  // Live Question Paper Part Mastery (Part A vs Part B+C)
+  const livePartMastery = useMemo(() => {
+    if (filteredMarks.length === 0) return [];
+
+    const getPartAvg = (items: LiveStudentMark[]) => {
+      if (!items.length) return { PartA: 0, PartBC: 0 };
+      const PartA = Number((items.reduce((a, b) => a + b.partA, 0) / items.length).toFixed(1));
+      const PartBC = Number((items.reduce((a, b) => a + b.partBC, 0) / items.length).toFixed(1));
+      return { PartA, PartBC };
+    };
+
+    const ia1 = getPartAvg(filteredMarks.filter((m) => m.assessment === "IA1"));
+    const ia2 = getPartAvg(filteredMarks.filter((m) => m.assessment === "IA2"));
+    const endSem = getPartAvg(filteredMarks.filter((m) => m.assessment === "END_SEM"));
+
+    return [
+      { assessment: "IA1 (IAT-1)", PartA: ia1.PartA, PartBC: ia1.PartBC },
+      { assessment: "IA2 (IAT-2)", PartA: ia2.PartA, PartBC: ia2.PartBC },
+      { assessment: "End Semester", PartA: endSem.PartA, PartBC: endSem.PartBC },
+    ];
+  }, [filteredMarks]);
+
+  // Live Student Progression Table Data
+  const studentRows = useMemo(() => {
+    // Group marks by regNo
+    const map: Record<string, { regNo: string; name: string; dept: string; ia1?: number; ia2?: number; endSem?: number; finalGrade: string }> = {};
+
+    filteredMarks.forEach((m) => {
+      if (!map[m.regNo]) {
+        map[m.regNo] = {
+          regNo: m.regNo,
+          name: m.name,
+          dept: m.deptName,
+          finalGrade: m.grade,
+        };
+      }
+      if (m.assessment === "IA1") map[m.regNo].ia1 = m.totalMarks;
+      if (m.assessment === "IA2") map[m.regNo].ia2 = m.totalMarks;
+      if (m.assessment === "END_SEM") {
+        map[m.regNo].endSem = m.totalMarks;
+        map[m.regNo].finalGrade = m.grade;
+      }
+    });
+
+    const rows = Object.values(map).map((s) => {
+      const first = s.ia1 !== undefined ? s.ia1 : s.ia2 !== undefined ? s.ia2 : s.endSem || 0;
+      const latest = s.endSem !== undefined ? s.endSem : s.ia2 !== undefined ? s.ia2 : s.ia1 || 0;
+      const improvement = latest - first;
+
+      return {
+        regNo: s.regNo,
+        name: s.name,
+        dept: s.dept,
+        ia1Mark: s.ia1,
+        ia2Mark: s.ia2,
+        endSemMark: s.endSem,
+        improvement,
+        finalGrade: s.finalGrade,
+      };
+    });
+
+    return rows.filter((s) => {
+      return (
+        s.name.toLowerCase().includes(searchStudent.toLowerCase()) ||
+        s.regNo.toLowerCase().includes(searchStudent.toLowerCase())
+      );
+    });
+  }, [filteredMarks, searchStudent]);
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-bold text-[#D4A72C] uppercase tracking-wider mb-1">
-            <BarChart3 size={14} />
-            Institutional Analytics
+    <div className="space-y-6 w-full">
+      {/* Header with Assessment Selector & Live Status */}
+      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-black text-[#D4A72C] uppercase tracking-wider mb-1">
+              <BarChart3 size={15} />
+              COE Examination Analytics Suite · LIVE DATA
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-[#0B192C]">
+              Continuous Assessment & Result Analytics
+            </h1>
+            <p className="text-xs text-gray-500 mt-1 max-w-xl">
+              Track real-time candidate scores and performance curves across <strong>IA1</strong>,{" "}
+              <strong>IA2</strong>, and <strong>End Semester Examinations</strong> as marks are entered.
+            </p>
           </div>
-          <h1 className="text-2xl font-black text-[#0B192C]">Academic & Result Analytics</h1>
-          <p className="text-xs text-[#667085] mt-1">
-            Comprehensive department pass rates, grade distributions, and historical performance trends.
-          </p>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={refreshData}
+              className="px-3.5 py-2.5 rounded-xl bg-[#F8F5EE] hover:bg-[#E5E1D8] text-[#0B192C] text-xs font-bold transition border border-[#E5E1D8] flex items-center gap-1.5 shadow-sm"
+              title="Refresh marks data from storage"
+            >
+              <RefreshCw size={14} className="text-[#D4A72C]" />
+              <span>Refresh</span>
+            </button>
+
+            {hasAnyMarks && (
+              <button
+                onClick={handleClearAllMarks}
+                className="px-3.5 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold transition border border-red-200 flex items-center gap-1.5 shadow-sm"
+                title="Reset all entered marks"
+              >
+                <Trash2 size={14} />
+                <span>Clear Marks</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => navigate("/admin/results/validation")}
+              className="px-4 py-2.5 rounded-xl bg-[#D4A72C] hover:bg-[#c39722] text-[#0B192C] text-xs font-extrabold transition shadow flex items-center gap-1.5"
+            >
+              <ExternalLink size={14} />
+              <span>Enter / Edit Marks</span>
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 text-xs px-3 py-2 rounded-xl text-gray-700 font-semibold">
-            <Calendar size={14} /> Academic Year: 2025 - 2026
+
+        {/* PRIMARY ASSESSMENT SELECTOR TABS */}
+        <div className="border-t border-[#E5E1D8] pt-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <span className="text-[10px] font-extrabold uppercase text-gray-400 block mb-1.5 tracking-wider">
+              Select Evaluation Assessment Focus
+            </span>
+            <div className="inline-flex p-1 rounded-2xl bg-[#F8F5EE] border border-[#E5E1D8] gap-1 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setAssessment("ALL")}
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
+                  assessment === "ALL"
+                    ? "bg-[#0B192C] text-white shadow-md"
+                    : "text-gray-700 hover:text-[#0B192C] hover:bg-white/60"
+                }`}
+              >
+                <Layers size={14} className={assessment === "ALL" ? "text-[#D4A72C]" : "text-gray-400"} />
+                <span>Comparative (IA1 vs IA2 vs End Sem)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAssessment("IA1")}
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
+                  assessment === "IA1"
+                    ? "bg-[#0B192C] text-white shadow-md"
+                    : "text-gray-700 hover:text-[#0B192C] hover:bg-white/60"
+                }`}
+              >
+                <FileCheck2 size={14} className={assessment === "IA1" ? "text-[#D4A72C]" : "text-gray-400"} />
+                <span>IA1 (IAT-1)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAssessment("IA2")}
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
+                  assessment === "IA2"
+                    ? "bg-[#0B192C] text-white shadow-md"
+                    : "text-gray-700 hover:text-[#0B192C] hover:bg-white/60"
+                }`}
+              >
+                <FileCheck2 size={14} className={assessment === "IA2" ? "text-[#D4A72C]" : "text-gray-400"} />
+                <span>IA2 (IAT-2)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAssessment("END_SEM")}
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
+                  assessment === "END_SEM"
+                    ? "bg-[#0B192C] text-white shadow-md"
+                    : "text-gray-700 hover:text-[#0B192C] hover:bg-white/60"
+                }`}
+              >
+                <Award size={14} className={assessment === "END_SEM" ? "text-[#D4A72C]" : "text-gray-400"} />
+                <span>End Semester Exam</span>
+              </button>
+            </div>
           </div>
+
+          {/* Filtering Dropdowns */}
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <div>
+              <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">
+                Department
+              </span>
+              <select
+                value={deptFilter}
+                onChange={(e) => setDeptFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] font-bold text-[#0B192C] focus:outline-none"
+              >
+                <option value="all">All Departments</option>
+                <option value="aids">AIDS</option>
+                <option value="cse">CSE</option>
+                <option value="ece">ECE</option>
+                <option value="it">IT</option>
+                <option value="eee">EEE</option>
+                <option value="mech">MECH</option>
+              </select>
+            </div>
+
+            <div>
+              <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">
+                Semester
+              </span>
+              <select
+                value={semesterFilter}
+                onChange={(e) => setSemesterFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] font-bold text-[#0B192C] focus:outline-none"
+              >
+                <option value="all">All Semesters (Semester I)</option>
+                <option value="Semester I">Semester I</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* EMPTY DATA NOTICE BANNER */}
+      {!hasAnyMarks && (
+        <div className="bg-[#FFF4D6] border-2 border-[#F5D8B4] rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#0B192C] text-[#D4A72C] flex items-center justify-center shrink-0 shadow-md">
+              <BarChart3 size={24} />
+            </div>
+            <div>
+              <span className="bg-[#8C2F00] text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded tracking-wider inline-block mb-1.5">
+                LIVE GRAPH ENGINE ACTIVE
+              </span>
+              <h3 className="font-display font-black text-lg text-[#0B192C]">
+                Analytics and Graphs are Currently Empty
+              </h3>
+              <p className="text-xs text-[#8C2F00]/90 mt-1 max-w-xl font-medium leading-relaxed">
+                No examination marks have been entered yet. As soon as you add or change student marks in{" "}
+                <strong>Results Validation & Evaluation</strong>, all charts, department comparison bars, and letter grade distributions will update here live.
+              </p>
+            </div>
+          </div>
+
           <button
-            onClick={() => alert("Analytics report exported as PDF")}
-            className="flex items-center gap-2 bg-[#0B192C] text-white font-bold text-xs px-4 py-2 rounded-xl hover:bg-[#0B192C]/90 transition shadow-sm"
+            onClick={() => navigate("/admin/results/validation")}
+            className="px-5 py-3 rounded-2xl bg-[#0B192C] hover:bg-[#132943] text-white font-extrabold text-xs transition shadow-md flex items-center gap-2 shrink-0"
           >
-            <Download size={14} /> Export Report
+            <Sparkles size={15} className="text-[#D4A72C]" />
+            <span>Enter Student Marks Now</span>
           </button>
         </div>
-      </div>
+      )}
 
-      {/* Overview Stat Widgets */}
+      {/* Dynamic Key Performance Indicator (KPI) Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-[#2E7D5B]/10 text-[#2E7D5B] flex items-center justify-center font-black">
-            <TrendingUp size={24} />
-          </div>
-          <div>
-            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
-              University Pass Rate
+        {/* Metric 1: Average Score */}
+        <div className="bg-white p-5 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-gray-400">
+            <span className="text-[10px] font-black uppercase tracking-wider">
+              {assessment === "ALL" ? "Average Cumulative Score" : `${assessment} Average Marks`}
             </span>
-            <span className="text-2xl font-black text-[#0B192C]">96.4%</span>
-            <span className="text-[10px] text-[#2E7D5B] font-bold block mt-0.5">+2.3% from previous term</span>
+            <div className="w-8 h-8 rounded-xl bg-[#0B192C]/5 text-[#0B192C] flex items-center justify-center font-black">
+              <TrendingUp size={16} />
+            </div>
           </div>
+          <span className="font-display font-black text-3xl text-[#0B192C] block">
+            {activeStats.avgScore}
+          </span>
+          <span className="text-[11px] font-bold text-[#2E7D5B] inline-flex items-center gap-1">
+            <ArrowUpRight size={13} /> {activeStats.passRateDelta}
+          </span>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-[#0B192C]/10 text-[#0B192C] flex items-center justify-center font-black">
-            <Users size={24} />
-          </div>
-          <div>
-            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
-              Evaluated Students
+        {/* Metric 2: Pass Rate */}
+        <div className="bg-white p-5 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-gray-400">
+            <span className="text-[10px] font-black uppercase tracking-wider">
+              {assessment === "ALL" ? "Overall Pass Rate" : `${assessment} Pass Rate`}
             </span>
-            <span className="text-2xl font-black text-[#0B192C]">686</span>
-            <span className="text-[10px] text-gray-500 font-bold block mt-0.5">Across 5 Departments</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#2E7D5B] flex items-center justify-center font-black">
+              <CheckCircle2 size={16} />
+            </div>
           </div>
+          <span className="font-display font-black text-3xl text-[#2E7D5B] block">
+            {activeStats.passRate}
+          </span>
+          <span className="text-[11px] font-semibold text-gray-500 block">
+            Threshold: ≥ 40 Marks
+          </span>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-[#D4A72C]/10 text-[#C98A18] flex items-center justify-center font-black">
-            <Award size={24} />
-          </div>
-          <div>
-            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
-              First Class Distinction
+        {/* Metric 3: Question Format Averages */}
+        <div className="bg-white p-5 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-gray-400">
+            <span className="text-[10px] font-black uppercase tracking-wider">
+              Part A vs Part B+C Avg
             </span>
-            <span className="text-2xl font-black text-[#0B192C]">61.2%</span>
-            <span className="text-[10px] text-[#C98A18] font-bold block mt-0.5">CGPA ≥ 8.5</span>
+            <div className="w-8 h-8 rounded-xl bg-[#D4A72C]/10 text-[#C98A18] flex items-center justify-center font-black">
+              <FileCheck2 size={16} />
+            </div>
           </div>
+          <div className="flex items-baseline gap-2">
+            <span className="font-mono font-black text-xl text-[#0B192C]">
+              {activeStats.partAAvg}
+            </span>
+            <span className="text-gray-400 text-xs">/</span>
+            <span className="font-mono font-black text-xl text-[#B08014]">
+              {activeStats.partBCAvg}
+            </span>
+          </div>
+          <span className="text-[11px] font-bold text-gray-500 block">
+            Part A (Short) • Part B+C (Long)
+          </span>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-[#B54747]/10 text-[#B54747] flex items-center justify-center font-black">
-            <BookOpen size={24} />
-          </div>
-          <div>
-            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
-              Re-appearance (RA)
+        {/* Metric 4: Distinction vs Arrears */}
+        <div className="bg-white p-5 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-gray-400">
+            <span className="text-[10px] font-black uppercase tracking-wider">
+              High Distinctions (O & A+)
             </span>
-            <span className="text-2xl font-black text-[#B54747]">3.6%</span>
-            <span className="text-[10px] text-[#B54747] font-bold block mt-0.5">25 Students total</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-[#B08014] flex items-center justify-center font-black">
+              <Award size={16} />
+            </div>
           </div>
+          <span className="font-display font-black text-3xl text-[#0B192C] block">
+            {activeStats.topGradeRate}
+          </span>
+          <span className="text-[11px] font-bold text-[#B54747] block">
+            {activeStats.arrearCount} Candidates with Backlogs (RA)
+          </span>
         </div>
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Department Pass Comparison Chart */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b pb-3">
+      {/* Main Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Chart 1: Department Performance */}
+        <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E5E1D8] pb-3">
             <div>
-              <h3 className="font-bold text-base text-[#0B192C]">Department Pass Rate Comparison</h3>
-              <p className="text-xs text-gray-500">Number of passing candidates vs arrear candidates</p>
+              <h3 className="font-display font-bold text-base text-[#0B192C]">
+                {assessment === "ALL"
+                  ? "Department Assessment Comparison (IA1 vs IA2 vs End Sem)"
+                  : `Department Performance Breakdown for ${activeStats.title}`}
+              </h3>
+              <p className="text-xs text-gray-500">
+                {assessment === "ALL"
+                  ? "Live comparative student score averages showing internal progression"
+                  : `Average marks achieved across departments for ${assessment}`}
+              </p>
             </div>
-            <span className="text-xs font-bold text-[#D4A72C] bg-[#D4A72C]/10 px-2.5 py-1 rounded-full">
-              May 2025
+            <span className="px-3 py-1 rounded-full bg-[#D4A72C]/20 text-[#0B192C] text-[10px] font-extrabold uppercase w-fit">
+              {assessment === "ALL" ? "Multi-Exam Benchmark" : `Filtered: ${assessment}`}
             </span>
           </div>
-          <div className="h-72 w-full pt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={departmentData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#172033" }} />
-                <YAxis tick={{ fontSize: 12, fill: "#172033" }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#0B192C", borderRadius: "12px", color: "#fff" }}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="pass" name="Passed" fill="#2E7D5B" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="fail" name="RA / Backlog" fill="#B54747" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+
+          <div className="h-80 w-full pt-2">
+            {!hasAssessmentMarks || chartDeptData.length === 0 ? (
+              <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 bg-[#F8F5EE]/40 rounded-2xl border-2 border-dashed border-[#E5E1D8]">
+                <BarChart3 size={36} className="text-gray-300 mb-2" />
+                <p className="font-bold text-gray-700 text-sm">No Department Marks to Display</p>
+                <p className="text-gray-400 text-xs mt-1 max-w-sm">
+                  Add student examination scores to see live bar charts of department averages.
+                </p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                {assessment === "ALL" ? (
+                  <BarChart data={chartDeptData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                    <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#0B192C", fontWeight: "bold" }} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: "#667085" }} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#0B192C", borderRadius: "14px", color: "#fff", border: "none" }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12, paddingTop: "8px" }} />
+                    <Bar dataKey="IA1" name="IA1 (IAT-1) Avg %" fill="#4A709C" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="IA2" name="IA2 (IAT-2) Avg %" fill="#D4A72C" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="EndSem" name="End Semester Avg %" fill="#2E7D5B" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                ) : (
+                  <BarChart data={chartDeptData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                    <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#0B192C", fontWeight: "bold" }} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: "#667085" }} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#0B192C", borderRadius: "14px", color: "#fff", border: "none" }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12, paddingTop: "8px" }} />
+                    <Bar dataKey="avgScore" name={`${assessment} Avg Marks %`} fill="#0B192C" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="passRate" name={`${assessment} Pass Rate %`} fill="#2E7D5B" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                )}
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
-        {/* Grade Distribution Pie Chart */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm space-y-4">
-          <div className="border-b pb-3">
-            <h3 className="font-bold text-base text-[#0B192C]">Grade Distribution</h3>
-            <p className="text-xs text-gray-500">Breakdown of awarded letter grades</p>
+        {/* Chart 2: Grade Distribution for Selected Assessment */}
+        <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-4 flex flex-col justify-between">
+          <div className="border-b border-[#E5E1D8] pb-3">
+            <h3 className="font-display font-bold text-base text-[#0B192C]">
+              Grade Distribution ({assessment === "ALL" ? "Cumulative" : assessment})
+            </h3>
+            <p className="text-xs text-gray-500">Letter grade spectrum awarded from live entered marks</p>
           </div>
+
           <div className="h-60 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={gradeDistribution}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {gradeDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            {!hasAssessmentMarks ? (
+              <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 bg-[#F8F5EE]/40 rounded-2xl border-2 border-dashed border-[#E5E1D8]">
+                <PieIcon size={32} className="text-gray-300 mb-2" />
+                <p className="font-bold text-gray-700 text-xs">No Grade Data</p>
+                <p className="text-gray-400 text-[11px] mt-0.5">Grades will populate as marks are entered.</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={gradeDistributionData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={85}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {gradeDistributionData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "#0B192C", borderRadius: "12px", color: "#fff", border: "none" }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-2 text-xs pt-2">
-            {gradeDistribution.map((g) => (
+
+          <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+            {gradeDistributionData.map((g) => (
               <div key={g.name} className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: g.color }} />
-                <span className="text-gray-700 font-semibold">{g.name}</span>
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: g.color }} />
+                <span className="text-gray-700 font-semibold truncate">{g.name}</span>
+                <span className="font-bold text-[#0B192C] ml-auto">{g.value}</span>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Historical Pass Trend */}
-      <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b pb-3">
-          <div>
-            <h3 className="font-bold text-base text-[#0B192C]">Multi-Semester Pass Percentage Trend</h3>
-            <p className="text-xs text-gray-500">Track institutional pass rate progression over time</p>
+      {/* Secondary Charts: Progression Curve & Part A vs Part B+C Breakdown */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Progression Curve Across IA1 -> IA2 -> End Semester */}
+        <div className="bg-white p-6 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-[#E5E1D8] pb-3">
+            <div>
+              <h3 className="font-display font-bold text-base text-[#0B192C]">
+                Continuous Assessment Growth Trajectory
+              </h3>
+              <p className="text-xs text-gray-500">
+                Score improvements from IAT-1 through IAT-2 and End Semester
+              </p>
+            </div>
+            <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-black border border-emerald-200">
+              Live Trend Curve
+            </span>
+          </div>
+
+          <div className="h-64 w-full pt-2">
+            {!hasAnyMarks || liveMilestones.every((m) => m.averageScore === 0) ? (
+              <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 bg-[#F8F5EE]/40 rounded-2xl border-2 border-dashed border-[#E5E1D8]">
+                <TrendingUp size={32} className="text-gray-300 mb-2" />
+                <p className="font-bold text-gray-700 text-xs">No Progression Trajectory Available</p>
+                <p className="text-gray-400 text-[11px] mt-0.5">Calculated dynamically when marks are recorded.</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={liveMilestones}>
+                  <defs>
+                    <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#D4A72C" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#D4A72C" stopOpacity={0.0} />
+                    </linearGradient>
+                    <linearGradient id="passGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2E7D5B" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#2E7D5B" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis dataKey="milestone" tick={{ fontSize: 11, fill: "#0B192C", fontWeight: "bold" }} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#667085" }} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "#0B192C", borderRadius: "12px", color: "#fff", border: "none" }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Area
+                    type="monotone"
+                    dataKey="averageScore"
+                    name="Class Average Score %"
+                    stroke="#D4A72C"
+                    strokeWidth={3}
+                    fillOpacity={1}
+                    fill="url(#scoreGradient)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="passRate"
+                    name="Overall Pass Rate %"
+                    stroke="#2E7D5B"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#passGradient)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
-        <div className="h-64 w-full pt-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={passRateTrends}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <XAxis dataKey="term" tick={{ fontSize: 12, fill: "#172033" }} />
-              <YAxis domain={[85, 100]} tick={{ fontSize: 12, fill: "#172033" }} />
-              <Tooltip contentStyle={{ backgroundColor: "#0B192C", borderRadius: "12px", color: "#fff" }} />
-              <Line
-                type="monotone"
-                dataKey="passPercentage"
-                name="Pass Rate (%)"
-                stroke="#D4A72C"
-                strokeWidth={3}
-                dot={{ fill: "#0B192C", r: 6 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+
+        {/* Question Type Competency: Part A vs Part B+C */}
+        <div className="bg-white p-6 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-[#E5E1D8] pb-3">
+            <div>
+              <h3 className="font-display font-bold text-base text-[#0B192C]">
+                Question Paper Part Mastery (Part A vs Part B+C)
+              </h3>
+              <p className="text-xs text-gray-500">
+                Concept short questions (Max 20) vs Core descriptive questions (Max 80)
+              </p>
+            </div>
+            <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-800 text-[10px] font-black border border-blue-200">
+              Exam Format Breakdown
+            </span>
+          </div>
+
+          <div className="h-64 w-full pt-2">
+            {!hasAnyMarks || livePartMastery.every((p) => p.PartA === 0 && p.PartBC === 0) ? (
+              <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 bg-[#F8F5EE]/40 rounded-2xl border-2 border-dashed border-[#E5E1D8]">
+                <FileCheck2 size={32} className="text-gray-300 mb-2" />
+                <p className="font-bold text-gray-700 text-xs">No Part A / Part B+C Breakdown Available</p>
+                <p className="text-gray-400 text-[11px] mt-0.5">Populates automatically from question-level evaluation marks.</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={livePartMastery}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                  <XAxis dataKey="assessment" tick={{ fontSize: 11, fill: "#0B192C", fontWeight: "bold" }} />
+                  <YAxis domain={[0, 80]} tick={{ fontSize: 11, fill: "#667085" }} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "#0B192C", borderRadius: "12px", color: "#fff", border: "none" }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="PartA" name="Part A Avg Marks (/20)" fill="#D4A72C" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="PartBC" name="Part B+C Avg Marks (/80)" fill="#0B192C" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Student Assessment Performance Directory Table */}
+      <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-sm p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5E1D8] pb-4">
+          <div>
+            <h3 className="font-display font-bold text-lg text-[#0B192C]">
+              Candidate Multi-Assessment Progression Roster
+            </h3>
+            <p className="text-xs text-gray-500">
+              Live candidate evaluation performance comparing IA1, IA2, and End Semester marks
+            </p>
+          </div>
+
+          <div className="relative w-full sm:w-72">
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchStudent}
+              onChange={(e) => setSearchStudent(e.target.value)}
+              placeholder="Search reg no or student name..."
+              className="w-full h-9 pl-9 pr-3 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-xs font-semibold focus:outline-none focus:border-[#0B192C]"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider">
+              <tr>
+                <th className="p-3.5">Registration Number</th>
+                <th className="p-3.5">Student Name</th>
+                <th className="p-3.5">Department</th>
+                <th className="p-3.5 text-center">IA1 (IAT-1)</th>
+                <th className="p-3.5 text-center">IA2 (IAT-2)</th>
+                <th className="p-3.5 text-center">End Semester</th>
+                <th className="p-3.5 text-center">Progression</th>
+                <th className="p-3.5 text-center">Final Grade</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#E5E1D8]">
+              {studentRows.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-10 text-center text-gray-500 font-semibold">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Users size={28} className="text-gray-300" />
+                      <p className="text-gray-700 font-bold text-xs">
+                        {hasAnyMarks ? "No matching students found." : "No student marks recorded yet."}
+                      </p>
+                      <p className="text-gray-400 text-[11px]">
+                        {hasAnyMarks
+                          ? "Try a different search query."
+                          : "Enter marks in Results Validation to see live student scores here."}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                studentRows.map((s) => (
+                  <tr key={s.regNo} className="hover:bg-[#F8F5EE]/70 transition">
+                    <td className="p-3.5 font-mono font-bold text-[#0B192C]">{s.regNo}</td>
+                    <td className="p-3.5 font-bold text-gray-900">{s.name}</td>
+                    <td className="p-3.5 font-semibold text-gray-700">{s.dept}</td>
+                    <td className="p-3.5 text-center font-mono font-bold text-gray-800">
+                      {s.ia1Mark !== undefined ? (
+                        <>
+                          {s.ia1Mark} <span className="text-[10px] text-gray-400">/100</span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300 font-normal">—</span>
+                      )}
+                    </td>
+                    <td className="p-3.5 text-center font-mono font-bold text-[#B08014]">
+                      {s.ia2Mark !== undefined ? (
+                        <>
+                          {s.ia2Mark} <span className="text-[10px] text-gray-400">/100</span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300 font-normal">—</span>
+                      )}
+                    </td>
+                    <td className="p-3.5 text-center font-mono font-black text-sm text-[#0B192C]">
+                      {s.endSemMark !== undefined ? (
+                        <>
+                          {s.endSemMark} <span className="text-[10px] text-gray-400">/100</span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300 font-normal">—</span>
+                      )}
+                    </td>
+                    <td className="p-3.5 text-center">
+                      <span
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold inline-flex items-center gap-0.5 border ${
+                          s.improvement >= 0
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            : "bg-red-50 text-red-800 border-red-200"
+                        }`}
+                      >
+                        {s.improvement >= 0 ? `+${s.improvement}` : s.improvement}%
+                      </span>
+                    </td>
+                    <td className="p-3.5 text-center">
+                      <span className="px-2.5 py-0.5 rounded font-black text-xs bg-[#D4A72C]/20 text-[#0B192C] border border-[#D4A72C]">
+                        {s.finalGrade}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   );
 };
+
+export default AnalyticsPage;
