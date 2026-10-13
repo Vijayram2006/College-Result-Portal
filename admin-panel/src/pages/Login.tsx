@@ -32,7 +32,8 @@ export const Login: React.FC = () => {
 
     try {
       const res = await adminAuthApi.login(username, password);
-      if (res.role === "ADMIN") {
+      const allowedRoles = ["ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY"];
+      if (allowedRoles.includes(res.role)) {
         navigate("/admin/dashboard");
       } else {
         setError("Access Denied: 403 Forbidden. Only accounts with Controller of Examination role can log in.");
@@ -40,11 +41,50 @@ export const Login: React.FC = () => {
       }
     } catch (err: any) {
       // Fallback demo authentication for admin portal
-      if (username.trim()) {
+      const clean = username.trim().toUpperCase();
+      if (clean.includes("NURSING")) {
+        localStorage.setItem("kvell_admin_token", "demo-coe-nursing-token");
+        localStorage.setItem(
+          "kvell_admin_user",
+          JSON.stringify({
+            id: "ADM-NUR-001",
+            name: "Dr. Controller of Examinations (Nursing)",
+            username: "COE_NURSING",
+            email: "coe.nursing@kvell.edu.in",
+            role: "COE_NURSING",
+            collegeKey: "nursing",
+            collegeName: "KVELL College of Nursing",
+          })
+        );
+        navigate("/admin/dashboard");
+      } else if (clean.includes("PHARM")) {
+        localStorage.setItem("kvell_admin_token", "demo-coe-pharmacy-token");
+        localStorage.setItem(
+          "kvell_admin_user",
+          JSON.stringify({
+            id: "ADM-PHARM-001",
+            name: "Dr. Controller of Examinations (Pharmacy)",
+            username: "COE_PHARMACY",
+            email: "coe.pharmacy@kvell.edu.in",
+            role: "COE_PHARMACY",
+            collegeKey: "pharmacy",
+            collegeName: "KVELL College of Pharmacy",
+          })
+        );
+        navigate("/admin/dashboard");
+      } else if (clean.length > 0) {
         localStorage.setItem("kvell_admin_token", "demo-coe-admin-token");
         localStorage.setItem(
           "kvell_admin_user",
-          JSON.stringify({ id: "coe-1", name: "Controller of Examinations", email: "coe@kvell.edu.in", role: "ADMIN" })
+          JSON.stringify({
+            id: "ADM-001",
+            name: "Dr. Controller of Examinations (Engineering)",
+            username: "ADMIN",
+            email: "admin@kvell.edu.in",
+            role: "COE_ENGINEERING",
+            collegeKey: "engineering",
+            collegeName: "KVELL Institute of Technology",
+          })
         );
         navigate("/admin/dashboard");
       } else {
@@ -196,22 +236,76 @@ export const Login: React.FC = () => {
                 </button>
               </form>
 
-              {/* Demo Quick Sign-in Helper */}
+              {/* Demo Quick Sign-in Helper with Multi-College RBAC */}
               <div className="mt-6 pt-5 border-t border-slate-200 text-center">
-                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2">
-                  DEMO QUICK SIGN IN:
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2.5">
+                  RBAC DEMO QUICK SIGN-IN (SEPARATE COE ROLES):
                 </span>
-                <div className="flex items-center justify-center gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   <button
+                    type="button"
+                    onClick={() => {
+                      setUsername("COE_NURSING");
+                      setPassword("nursing123");
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200 font-bold text-xs transition flex items-center justify-between shadow-sm group"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="text-base">🏥</span>
+                      <span className="text-left">
+                        <span className="block font-black text-[#0B192C]">Nursing College COE</span>
+                        <span className="block text-[10px] font-mono text-sky-700">User ID: COE_NURSING</span>
+                      </span>
+                    </span>
+                    <span className="text-[10px] bg-sky-200/70 text-sky-900 font-black px-2 py-0.5 rounded-full">
+                      Zero Data (Clean)
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUsername("COE_PHARMACY");
+                      setPassword("pharmacy123");
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 font-bold text-xs transition flex items-center justify-between shadow-sm group"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="text-base">💊</span>
+                      <span className="text-left">
+                        <span className="block font-black text-[#0B192C]">Pharmacy College COE</span>
+                        <span className="block text-[10px] font-mono text-emerald-700">User ID: COE_PHARMACY</span>
+                      </span>
+                    </span>
+                    <span className="text-[10px] bg-emerald-200/70 text-emerald-900 font-black px-2 py-0.5 rounded-full">
+                      Zero Data (Clean)
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => {
                       setUsername("ADMIN");
                       setPassword("admin123");
                     }}
-                    className="px-4 py-2 rounded-full bg-[#0B192C]/10 text-[#0B192C] font-bold text-[11px] hover:bg-[#0B192C]/20 transition inline-flex items-center gap-1.5 shadow-sm"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-bold text-xs transition flex items-center justify-between shadow-sm group"
                   >
-                    🔑 Controller of Examination Login
+                    <span className="flex items-center gap-2">
+                      <span className="text-base">⚙️</span>
+                      <span className="text-left">
+                        <span className="block font-black text-[#0B192C]">Engineering College COE</span>
+                        <span className="block text-[10px] font-mono text-amber-700">User ID: ADMIN</span>
+                      </span>
+                    </span>
+                    <span className="text-[10px] bg-amber-200/70 text-amber-900 font-black px-2 py-0.5 rounded-full">
+                      Existing Data
+                    </span>
                   </button>
                 </div>
+
+                <p className="mt-3 text-[10px] text-slate-400 font-medium">
+                  Protected by Role Based Access Control (RBAC). Same login interface with dedicated institutional domains.
+                </p>
               </div>
 
           </div>

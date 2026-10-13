@@ -21,101 +21,34 @@ import {
 } from "lucide-react";
 import { adminResultsApi, ResultBatchRecord, ResultRecordItem, addAuditLog } from "../services/api";
 import { getRealLocalTimestamp } from "../utils/dateUtils";
+import { getStoredDepartments, Department } from "./Departments";
+import { aidsSem1Students } from "../data/aidsStudents";
+import { cseSem1Students, bmeSem1Students, seedDummyMarksForDepts, generateStudentMarkDetail, ensureDummyMarksLoaded } from "../data/dummyMarksData";
+import { departmentSubjectsCatalog } from "../data/curriculumSubjects";
+import { getScopedKey, getActiveCollege, getActiveCollegeKey, isEngineeringCollege } from "../utils/rbac";
 
-// Department & Subject Catalog (Includes AIDS & MA8201 from examination paper)
-const departmentCatalog: Record<string, { name: string; subjects: { code: string; title: string }[] }> = {
-  aids: {
-    name: "Artificial Intelligence & Data Science",
-    subjects: [
-      { code: "MA8201", title: "Matrices and Calculus" },
-      { code: "AD301", title: "Foundations of Data Science" },
-      { code: "AD302", title: "Artificial Intelligence & Machine Learning" },
-      { code: "CS301", title: "Data Structures & Algorithms" },
-    ],
-  },
-  cse: {
-    name: "Computer Science & Engineering",
-    subjects: [
-      { code: "CS301", title: "Data Structures & Algorithms" },
-      { code: "CS302", title: "Computer Organization & Architecture" },
-      { code: "CS303", title: "Object Oriented Programming with Java" },
-      { code: "MA8201", title: "Matrices and Calculus" },
-      { code: "CS501", title: "Database Management Systems" },
-    ],
-  },
-  ece: {
-    name: "Electronics & Communication",
-    subjects: [
-      { code: "EC301", title: "Electronic Circuits & Devices" },
-      { code: "EC302", title: "Digital Electronics & Logic Design" },
-      { code: "EC501", title: "Microprocessors & Microcontrollers" },
-      { code: "MA8201", title: "Matrices and Calculus" },
-    ],
-  },
-  mech: {
-    name: "Mechanical Engineering",
-    subjects: [
-      { code: "ME301", title: "Engineering Thermodynamics" },
-      { code: "ME302", title: "Fluid Mechanics & Machinery" },
-      { code: "ME501", title: "Design of Machine Elements" },
-      { code: "MA8201", title: "Matrices and Calculus" },
-    ],
-  },
-  eee: {
-    name: "Electrical & Electronics",
-    subjects: [
-      { code: "EE301", title: "Electric Circuits & Networks" },
-      { code: "EE302", title: "Electrical Machines - I" },
-      { code: "EE501", title: "Power System Analysis" },
-      { code: "MA8201", title: "Matrices and Calculus" },
-    ],
-  },
-  it: {
-    name: "Information Technology",
-    subjects: [
-      { code: "IT301", title: "Web Technologies & Frameworks" },
-      { code: "IT302", title: "Computer Networks & Protocols" },
-      { code: "IT501", title: "Software Engineering & Agile" },
-      { code: "MA8201", title: "Matrices and Calculus" },
-    ],
-  },
-};
-
-// Initial student registry for realistic evaluation
+// Initial student registry populated with AIDS, CSE, and BME Semester 1 students
 const baseStudentsByDept: Record<string, { regNo: string; name: string; dob: string }[]> = {
-  aids: [
-    { regNo: "20260110226020", name: "Aarav Sharma", dob: "2004-05-14" },
-    { regNo: "20260110226021", name: "Meera Nair", dob: "2004-08-22" },
-    { regNo: "20260110226022", name: "Rohan Gupta", dob: "2003-11-30" },
-    { regNo: "20260110226023", name: "Priyanka Sen", dob: "2004-02-18" },
-    { regNo: "20260110226024", name: "Karthik P", dob: "2004-09-05" },
-    { regNo: "20260110226025", name: "Sneha Reddy", dob: "2004-07-11" },
-  ],
-  cse: [
-    { regNo: "KVELL2025CSE001", name: "Aarav Sharma", dob: "2004-05-14" },
-    { regNo: "KVELL2025CSE002", name: "Meera Nair", dob: "2004-08-22" },
-    { regNo: "KVELL2025CSE003", name: "Rohan Gupta", dob: "2003-11-30" },
-    { regNo: "KVELL2025CSE004", name: "Priyanka Sen", dob: "2004-02-18" },
-    { regNo: "KVELL2025CSE005", name: "Karthik P", dob: "2004-09-05" },
-    { regNo: "KVELL2025CSE006", name: "Aditya Verma", dob: "2004-01-12" },
-  ],
-  ece: [
-    { regNo: "KVELL2025ECE001", name: "Vikramaditya Verma", dob: "2004-03-15" },
-    { regNo: "KVELL2025ECE002", name: "Ananya Deshmukh", dob: "2004-06-20" },
-    { regNo: "KVELL2025ECE003", name: "Siddharth Roy", dob: "2003-10-08" },
-  ],
-  mech: [
-    { regNo: "KVELL2025MECH001", name: "Rahul Menon", dob: "2004-04-12" },
-    { regNo: "KVELL2025MECH002", name: "Divya Krishnan", dob: "2004-09-27" },
-  ],
-  eee: [
-    { regNo: "KVELL2025EEE001", name: "Suresh Balaji", dob: "2004-07-04" },
-    { regNo: "KVELL2025EEE002", name: "Deepika Rao", dob: "2004-12-19" },
-  ],
-  it: [
-    { regNo: "KVELL2025IT001", name: "Harish Kumar", dob: "2004-08-16" },
-    { regNo: "KVELL2025IT002", name: "Lavanya Natarajan", dob: "2004-11-23" },
-  ],
+  aids: aidsSem1Students.map((s) => ({
+    regNo: s.regNo,
+    name: s.name,
+    dob: "2005-06-15",
+  })),
+  ads: aidsSem1Students.map((s) => ({
+    regNo: s.regNo,
+    name: s.name,
+    dob: "2005-06-15",
+  })),
+  cse: cseSem1Students.map((s) => ({
+    regNo: s.regNo,
+    name: s.name,
+    dob: s.dob || "2005-04-18",
+  })),
+  bme: bmeSem1Students.map((s) => ({
+    regNo: s.regNo,
+    name: s.name,
+    dob: s.dob || "2005-08-22",
+  })),
 };
 
 interface StudentMarkData {
@@ -146,7 +79,7 @@ export const ResultsValidation: React.FC = () => {
   const [deptKey, setDeptKey] = useState("aids");
   const [semester, setSemester] = useState("Semester I");
   const [academicYear, setAcademicYear] = useState("2026 - 2027");
-  const [subjectCode, setSubjectCode] = useState("MA8201");
+  const [subjectCode, setSubjectCode] = useState("UC26C01T");
   const [customSubjectCode, setCustomSubjectCode] = useState("");
   const [isCustomSubject, setIsCustomSubject] = useState(false);
 
@@ -155,7 +88,7 @@ export const ResultsValidation: React.FC = () => {
     { id?: string; code: string; title: string; department?: string; category?: string; semester?: string; academicYear?: string }[]
   >(() => {
     try {
-      const saved = localStorage.getItem("kvell_admin_subjects");
+      const saved = localStorage.getItem(getScopedKey("kvell_admin_subjects"));
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -165,7 +98,7 @@ export const ResultsValidation: React.FC = () => {
   useEffect(() => {
     const syncSubjects = () => {
       try {
-        const saved = localStorage.getItem("kvell_admin_subjects");
+        const saved = localStorage.getItem(getScopedKey("kvell_admin_subjects"));
         if (saved) {
           setAdminSubjects(JSON.parse(saved));
         } else {
@@ -219,16 +152,45 @@ export const ResultsValidation: React.FC = () => {
 
   const [partBCMarks, setPartBCMarks] = useState<Record<number, QuestionBC>>(initialPartBC);
 
-  // Active Department and Available Subjects (Combining Admin Subjects with Department Catalog)
-  const activeDept = departmentCatalog[deptKey] || departmentCatalog.aids;
+  const [storedDepts, setStoredDepts] = useState<Department[]>([]);
+
+  useEffect(() => {
+    // Automatically seed dummy marks for CSE, ADS, BME if not already seeded
+    try {
+      const seeded = localStorage.getItem("kvell_dummy_marks_seeded_v1");
+      if (!seeded) {
+        seedDummyMarksForDepts();
+        localStorage.setItem("kvell_dummy_marks_seeded_v1", "true");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    const list = getStoredDepartments();
+    setStoredDepts(list);
+    if (list.length > 0 && (!deptKey || !list.some((d) => d.key === deptKey))) {
+      setDeptKey(list[0].key);
+    }
+  }, []);
+
+  // Active Department and Available Subjects (Combining Admin Subjects with Official Curriculum Catalog)
+  const currentDeptObj = storedDepts.find((d) => d.key === deptKey);
+  const activeDept = currentDeptObj || { name: deptKey || "General", subjects: [] };
 
   const deptKeyToName: Record<string, string> = {
+    ...Object.fromEntries(storedDepts.map((d) => [d.key, d.name])),
     aids: "Artificial Intelligence & Data Science",
-    cse: "Computer Science & Engineering",
-    ece: "Electronics & Communication",
+    cse: "Computer Science and Engineering",
+    auto: "Automobile Engineering",
+    bme: "Biomedical Engineering",
+    biotech: "Biotech",
+    ece: "ECE (Electronics and Communication Engineering)",
+    eee: "EEE (Electrical and Electronics Engineering)",
+    civil: "CIVIL Engineering",
+    robotics: "Robotics and Automation",
     mech: "Mechanical Engineering",
-    eee: "Electrical & Electronics",
-    it: "Information Technology",
+    mba: "Master of Business Administration (MBA)",
+    mca: "Master of Computer Applications (MCA)",
   };
 
   const availableSubjects: { code: string; title: string; source: "admin" | "catalog" }[] = React.useMemo(() => {
@@ -252,7 +214,20 @@ export const ResultsValidation: React.FC = () => {
       }
     });
 
-    // 2. If no matching subjects for this dept, include other added admin subjects
+    // 2. Official Curriculum Catalog subjects for the chosen department (Engineering only)
+    if (isEngineeringCollege()) {
+      const catalogEntry = departmentSubjectsCatalog[k] || departmentSubjectsCatalog[deptKey];
+      const catalogSubjects = catalogEntry?.subjects || [];
+      catalogSubjects.forEach((sub) => {
+        const c = (sub.code || "").trim().toUpperCase();
+        if (c && !seen.has(c)) {
+          seen.add(c);
+          list.push({ code: c, title: sub.title || sub.code, source: "catalog" });
+        }
+      });
+    }
+
+    // 3. If no matching subjects for this dept, include other added admin subjects
     if (matchedAdmin.length === 0 && adminSubjects.length > 0) {
       adminSubjects.forEach((sub) => {
         const c = (sub.code || "").trim().toUpperCase();
@@ -263,16 +238,11 @@ export const ResultsValidation: React.FC = () => {
       });
     }
 
-    // 3. Fallback catalog subjects
-    (activeDept.subjects || []).forEach((sub) => {
-      const c = (sub.code || "").trim().toUpperCase();
-      if (c && !seen.has(c)) {
-        seen.add(c);
-        list.push({ code: c, title: sub.title, source: "catalog" });
-      }
-    });
-
-    return list.length > 0 ? list : [{ code: "MA8201", title: "Matrices and Calculus", source: "catalog" }];
+    if (list.length > 0) return list;
+    if (isEngineeringCollege()) {
+      return [{ code: "UC26C01T", title: "Induction & Professional English", source: "catalog" }];
+    }
+    return [];
   }, [deptKey, adminSubjects, activeDept]);
 
   // Keep subjectCode selected and valid
@@ -288,8 +258,8 @@ export const ResultsValidation: React.FC = () => {
   const activeSubject =
     availableSubjects.find((s) => s.code === (isCustomSubject ? customSubjectCode : subjectCode)) ||
     availableSubjects[0];
-  const effectiveSubjectCode = isCustomSubject ? customSubjectCode.trim().toUpperCase() || "MA8201" : subjectCode;
-  const effectiveSubjectTitle = activeSubject?.title || "Matrices and Calculus";
+  const effectiveSubjectCode = isCustomSubject ? customSubjectCode.trim().toUpperCase() || "UC26C01T" : subjectCode;
+  const effectiveSubjectTitle = activeSubject?.title || (isCustomSubject ? "Custom Subject" : "Course Subject");
 
   // Check if target was passed via sessionStorage from Step 1 (Student Data)
   useEffect(() => {
@@ -297,7 +267,7 @@ export const ResultsValidation: React.FC = () => {
     if (metaRaw) {
       try {
         const meta = JSON.parse(metaRaw);
-        if (meta.deptKey && departmentCatalog[meta.deptKey]) {
+        if (meta.deptKey) {
           setDeptKey(meta.deptKey);
         }
         if (meta.semester) setSemester("Semester I");
@@ -321,34 +291,81 @@ export const ResultsValidation: React.FC = () => {
   const handleFetchData = () => {
     setIsFetching(true);
     setTimeout(() => {
-      // 1. Check if uploaded spreadsheet exists in sessionStorage
-      const rawUpload = sessionStorage.getItem("kvell_uploaded_results");
+      // 1. Resolve department key with alias normalization (e.g., ads -> aids)
+      const rawK = (deptKey || "aids").toLowerCase().trim();
+      const k = rawK === "ads" || rawK.includes("artificial") ? "aids" : rawK;
+
       let candidateList: { regNo: string; name: string; dob: string; category?: "regular" | "lateral" }[] = [];
+
+      // Check department-specific uploaded spreadsheet
+      const studentPrefix = getScopedKey("kvell_dept_students_");
+      const rawUpload =
+        sessionStorage.getItem(`${studentPrefix}${k}`) ||
+        localStorage.getItem(`${studentPrefix}${k}`) ||
+        sessionStorage.getItem(`${studentPrefix}${rawK}`) ||
+        localStorage.getItem(`${studentPrefix}${rawK}`);
 
       if (rawUpload) {
         try {
           const parsed = JSON.parse(rawUpload);
           if (Array.isArray(parsed) && parsed.length > 0) {
             candidateList = parsed.map((p, idx) => ({
-              regNo: String(p["Register Number"] || p.regNo || `202601102260${20 + idx}`).trim().toUpperCase(),
+              regNo: String(p["Register Number"] || p.regNo || "").trim().toUpperCase(),
               name: String(p["Name"] || p.studentName || `Candidate ${idx + 1}`).trim(),
-              dob: p["DOB"] || p.dob || "2004-05-14",
-              category: String(p["Category"] || p.category || "regular").toLowerCase().includes("lateral")
+              dob: p["DOB"] || p.dob || "2005-06-15",
+              category: (String(p["Category"] || p.category || "regular").toLowerCase().includes("lateral")
                 ? "lateral"
-                : "regular",
-            }));
+                : "regular") as "regular" | "lateral",
+            })).filter((c) => c.regNo);
           }
         } catch (e) {
           console.error(e);
         }
       }
 
-      // If no session upload or different department, fallback to department registry
+      // 2. Also check if students were added in Students Directory
       if (candidateList.length === 0) {
-        candidateList = (baseStudentsByDept[deptKey] || baseStudentsByDept.aids).map((s) => ({
-          ...s,
-          category: "regular" as const,
-        }));
+        try {
+          const rawStudents = localStorage.getItem(getScopedKey("kvell_students"));
+          if (rawStudents) {
+            const list = JSON.parse(rawStudents);
+            if (Array.isArray(list) && list.length > 0) {
+              const matched = list.filter((s: any) => {
+                const sKey = String(s.deptKey || "").toLowerCase();
+                const sName = String(s.deptName || "").toLowerCase();
+                return (
+                  sKey === k ||
+                  (k === "aids" && (sKey === "ads" || sName.includes("artificial"))) ||
+                  (k === "cse" && sName.includes("computer science")) ||
+                  (k === "bme" && sName.includes("biomedical"))
+                );
+              });
+              if (matched.length > 0) {
+                candidateList = matched.map((s: any) => ({
+                  regNo: s.regNo,
+                  name: s.name,
+                  dob: s.dob || "2005-06-15",
+                  category: (s.category || "regular") as any,
+                }));
+              }
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      // 3. Fallback to base registry ONLY for Engineering college
+      if (isEngineeringCollege() && candidateList.length === 0) {
+        const fallback = baseStudentsByDept[k] || (k === "aids" ? baseStudentsByDept.aids : []);
+        if (fallback.length > 0) {
+          candidateList = fallback.map((s, idx) => ({
+            regNo: s.regNo,
+            name: s.name,
+            dob: s.dob || "2005-06-15",
+            category: (k === "aids" && idx >= 45 ? "lateral" : "regular") as any,
+          }));
+        }
       }
 
       // Universal sorting: Regular first, Lateral at the end only, sorted by numeric Reg No
@@ -360,7 +377,7 @@ export const ResultsValidation: React.FC = () => {
       });
 
       // Check saved marks from localStorage for this department & subject
-      const storageKey = `kvell_marks_${deptKey}_${semester}_${effectiveSubjectCode}`;
+      const storageKey = getScopedKey(`kvell_marks_${k}_${semester}_${effectiveSubjectCode}`);
       let savedMarksMap: Record<string, any> = {};
       try {
         const saved = localStorage.getItem(storageKey);
@@ -369,33 +386,53 @@ export const ResultsValidation: React.FC = () => {
         console.error(e);
       }
 
-      const formatted: StudentMarkData[] = candidateList.map((c) => {
-        const existing = savedMarksMap[c.regNo];
-        if (existing) {
-          return {
-            ...c,
-            hasMarks: true,
-            partATotal: existing.partATotal,
-            partBCTotal: existing.partBCTotal,
-            grandTotal: existing.grandTotal,
-            grade: existing.grade,
-            resultStatus: existing.resultStatus,
-            partA: existing.partA || Array(10).fill(0),
-            partBC: existing.partBC || initialPartBC,
-          };
+      let hasGeneratedMarks = false;
+      const formatted: StudentMarkData[] = candidateList.map((c, idx) => {
+        let existing = savedMarksMap[c.regNo];
+
+        // For Engineering: auto-populate realistic marks if none
+        if (isEngineeringCollege()) {
+          if (!existing || !existing.hasMarks || !existing.grandTotal) {
+            const seed = (k.charCodeAt(0) * 17) + (effectiveSubjectCode.charCodeAt(0) * 7) + (idx * 11) + 23;
+            const markDetail = generateStudentMarkDetail(c.regNo, c.name, seed);
+            existing = markDetail;
+            savedMarksMap[c.regNo] = markDetail;
+            hasGeneratedMarks = true;
+          }
         }
+
+        const hasMarks = !!(existing && (existing.hasMarks || existing.grandTotal !== undefined));
+
         return {
           ...c,
-          hasMarks: false,
-          partATotal: 0,
-          partBCTotal: 0,
-          grandTotal: 0,
-          grade: "—",
-          resultStatus: "FAIL",
-          partA: Array(10).fill(0),
-          partBC: initialPartBC,
+          hasMarks,
+          partATotal: existing?.partATotal || 0,
+          partBCTotal: existing?.partBCTotal || 0,
+          grandTotal: existing?.grandTotal || 0,
+          grade: existing?.grade || "RA",
+          resultStatus: existing?.resultStatus || "FAIL",
+          partA: existing?.partA || Array(10).fill(0),
+          partBC: existing?.partBC || initialPartBC,
+          assessmentType: existing?.assessmentType || "End Semester",
+          deptKey: k,
+          deptName: deptKeyToName[k] || activeDept.name,
+          semester,
+          subjectCode: effectiveSubjectCode,
+          subjectTitle: effectiveSubjectTitle,
         };
       });
+
+      if (hasGeneratedMarks) {
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(savedMarksMap));
+          if (k === "aids") {
+            localStorage.setItem(`kvell_marks_ads_${semester}_${effectiveSubjectCode}`, JSON.stringify(savedMarksMap));
+          }
+          window.dispatchEvent(new Event("kvell_marks_updated"));
+        } catch (e) {
+          console.error(e);
+        }
+      }
 
       setStudents(formatted);
       setIsDataFetched(true);
@@ -404,10 +441,15 @@ export const ResultsValidation: React.FC = () => {
       setShowMarkEntryForm(false);
       setFeedback({
         type: "success",
-        message: `Fetched ${formatted.length} student records for ${activeDept.name} • ${semester} • ${effectiveSubjectCode}. Click a student name to enter marks.`,
+        message: `Loaded ${formatted.length} students with official marks for ${activeDept.name} • ${semester} • ${effectiveSubjectCode}. Click any row to view/edit marks.`,
       });
-    }, 400);
+    }, 200);
   };
+
+  // Auto-fetch data on mount or when dept/subject changes so marks are visible immediately!
+  useEffect(() => {
+    handleFetchData();
+  }, [deptKey, semester, effectiveSubjectCode]);
 
   // Initiate mark entry: prompt examiner name & designation first (fields start empty)
   const handleInitiateMarkEntry = (student: StudentMarkData) => {
@@ -524,7 +566,7 @@ export const ResultsValidation: React.FC = () => {
     setSelectedStudent(updatedStudent);
 
     // Persist to localStorage
-    const storageKey = `kvell_marks_${deptKey}_${semester}_${effectiveSubjectCode}`;
+    const storageKey = getScopedKey(`kvell_marks_${deptKey}_${semester}_${effectiveSubjectCode}`);
     let savedMarksMap: Record<string, any> = {};
     try {
       const saved = localStorage.getItem(storageKey);
@@ -679,9 +721,27 @@ export const ResultsValidation: React.FC = () => {
               Student data will be mapped and assigned to the selected academic period and subject
             </p>
           </div>
-          <span className="px-3 py-1 rounded-full bg-[#D4A72C]/20 text-[#0B192C] font-extrabold text-[10px] uppercase w-fit">
-            MANDATORY BATCH MAPPING
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                seedDummyMarksForDepts();
+                handleFetchData();
+                setFeedback({
+                  type: "success",
+                  message: "Dummy marks generated and loaded for CSE, ADS, and BME students!",
+                });
+              }}
+              className="px-3 py-1.5 rounded-xl bg-[#D4A72C]/20 hover:bg-[#D4A72C]/30 text-[#0B192C] font-extrabold text-[10px] flex items-center gap-1.5 transition border border-[#D4A72C]/40 shadow-sm"
+              title="Populate realistic dummy marks for CSE, ADS, and BME students"
+            >
+              <Sparkles size={12} className="text-[#B08014]" />
+              Seed Dummy Marks (CSE, ADS, BME)
+            </button>
+            <span className="px-3 py-1 rounded-full bg-[#D4A72C]/20 text-[#0B192C] font-extrabold text-[10px] uppercase w-fit">
+              MANDATORY BATCH MAPPING
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
@@ -694,12 +754,15 @@ export const ResultsValidation: React.FC = () => {
               onChange={(e) => handleDeptChange(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
             >
-              <option value="aids">Artificial Intelligence & Data Science (AIDS)</option>
-              <option value="cse">Computer Science & Engineering (CSE)</option>
-              <option value="ece">Electronics & Communication (ECE)</option>
-              <option value="mech">Mechanical Engineering (MECH)</option>
-              <option value="eee">Electrical & Electronics (EEE)</option>
-              <option value="it">Information Technology (IT)</option>
+              {storedDepts.length > 0 ? (
+                storedDepts.map((d) => (
+                  <option key={d.key} value={d.key}>
+                    {d.name} ({d.code})
+                  </option>
+                ))
+              ) : (
+                <option value="general">No departments yet — Add in Departments tab</option>
+              )}
             </select>
           </div>
 
@@ -751,7 +814,7 @@ export const ResultsValidation: React.FC = () => {
                 type="text"
                 value={customSubjectCode}
                 onChange={(e) => setCustomSubjectCode(e.target.value.toUpperCase())}
-                placeholder="e.g. MA8201"
+                placeholder="e.g. UC26C01T"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
               />
             ) : (

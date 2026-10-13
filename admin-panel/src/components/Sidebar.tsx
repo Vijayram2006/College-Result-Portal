@@ -23,6 +23,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { adminAuthApi } from "../services/api";
+import { getActiveCollege } from "../utils/rbac";
 
 const kvellSealLogo = "/kvell-logo.png";
 
@@ -36,6 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
   const [resultsOpen, setResultsOpen] = useState(true);
 
   const currentUser = adminAuthApi.getCurrentUser();
+  const college = getActiveCollege();
 
   const handleLogout = () => {
     adminAuthApi.logout();
@@ -62,19 +64,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
       >
         {/* Top Header & Branding */}
         <div>
-          <div className="p-5 border-b border-white/10 flex items-center justify-between">
+          <div className="p-4 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img
                 src={kvellSealLogo}
                 alt="KVELL Seal"
-                className="h-11 w-11 rounded-full bg-white p-0.5 border border-[#D4A72C]"
+                className="h-10 w-10 rounded-full bg-white p-0.5 border border-[#D4A72C] shrink-0"
               />
-              <div>
-                <span className="font-display font-black text-sm tracking-tight text-white block">
+              <div className="overflow-hidden">
+                <span className="font-display font-black text-sm tracking-tight text-white block truncate uppercase">
                   KVELL UNIVERSITY
                 </span>
-                <span className="text-[10px] font-bold text-[#D4A72C] tracking-wider uppercase block">
-                  Controller of Examination Panel
+                <span className="text-[11px] font-extrabold text-[#D4A72C] tracking-wider uppercase block truncate">
+                  {college.shortName}
                 </span>
               </div>
             </div>
@@ -172,12 +174,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
             </div>
 
             
-            {/* Subject Management Section */}
+            {/* Academic Structure Section */}
             <div className="pt-3 pb-1">
               <span className="text-[10px] font-extrabold text-white/40 uppercase tracking-widest px-3.5">
-                Subject Management & Finalization
+                Academic Structure & Catalog
               </span>
             </div>
+
+            <Link
+              href="/admin/departments"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${
+                isActive("/admin/departments")
+                  ? "bg-[#D4A72C] text-[#0B192C] shadow-md"
+                  : "text-white/80 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <Building2 size={17} />
+              <span>Departments</span>
+            </Link>
 
             <Link
               href="/admin/subjects"
@@ -265,14 +280,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5 overflow-hidden">
               <div className="w-8 h-8 rounded-full bg-[#D4A72C]/20 border border-[#D4A72C] text-[#D4A72C] font-bold text-xs flex items-center justify-center shrink-0">
-                ADM
+                {college.code}
               </div>
               <div className="overflow-hidden">
                 <span className="block text-xs font-bold text-white truncate">
-                  {currentUser?.name || "Controller of Exams"}
+                  {currentUser?.name || college.coeTitle}
                 </span>
-                <span className="block text-[9px] font-extrabold uppercase text-[#D4A72C] tracking-wider">
-                  ROLE: CONTROLLER OF EXAMINATION
+                <span className="block text-[9px] font-extrabold uppercase text-[#D4A72C] tracking-wider truncate">
+                  ROLE: {currentUser?.role || college.role}
                 </span>
               </div>
             </div>

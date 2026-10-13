@@ -189,3 +189,106 @@ export const hodApi = {
     return response.data;
   },
 };
+
+export interface ResultRecordItem {
+  regNo: string;
+  studentName: string;
+  dob?: string;
+  deptKey: string;
+  courseCode: string;
+  courseTitle: string;
+  semester: string;
+  internalMarks: number;
+  externalMarks: number;
+  totalMarks: number;
+  grade: string;
+  gradePoints: number;
+  resultStatus: "PASS" | "FAIL";
+}
+
+export interface ResultBatchRecord {
+  id: string;
+  batchTitle: string;
+  departmentKey: string;
+  departmentName: string;
+  semester: string;
+  academicYear: string;
+  examMonthYear: string;
+  uploadDate: string;
+  uploadedBy: string;
+  totalStudents: number;
+  passedStudents: number;
+  passPercentage: number;
+  publicationStatus: "DRAFT" | "VALIDATED" | "PUBLISHED";
+  publishedAt?: string;
+  publishedBy?: string;
+  records: ResultRecordItem[];
+}
+
+export interface AuditLogRecord {
+  id: string;
+  adminId: string;
+  adminName: string;
+  action: string;
+  target: string;
+  timestamp: string;
+  ipAddress: string;
+  description: string;
+}
+
+export function addAuditLog(log: {
+  action: string;
+  target: string;
+  timestamp?: string;
+  description: string;
+}) {
+  try {
+    const logsKey = "kvell_audit_logs";
+    const raw = localStorage.getItem(logsKey);
+    const logs = raw ? JSON.parse(raw) : [];
+    const newEntry = {
+      id: `LOG-${1000 + logs.length + 1}`,
+      adminId: "FACULTY-01",
+      adminName: "Faculty Evaluator",
+      ipAddress: "127.0.0.1",
+      action: log.action,
+      target: log.target,
+      timestamp: log.timestamp || new Date().toISOString(),
+      description: log.description,
+    };
+    logs.unshift(newEntry);
+    localStorage.setItem(logsKey, JSON.stringify(logs));
+    window.dispatchEvent(new Event("storage"));
+  } catch (e) {
+    console.error("Error adding audit log:", e);
+  }
+}
+
+export const adminResultsApi = {
+  async getResultBatches(): Promise<ResultBatchRecord[]> {
+    try {
+      const raw = localStorage.getItem("kvell_custom_batches");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async createResultBatch(newBatch: ResultBatchRecord): Promise<{ success: boolean; batch: ResultBatchRecord }> {
+    try {
+      const raw = localStorage.getItem("kvell_custom_batches");
+      const list: ResultBatchRecord[] = raw ? JSON.parse(raw) : [];
+      list.unshift(newBatch);
+      localStorage.setItem("kvell_custom_batches", JSON.stringify(list));
+    } catch (e) {
+      console.error(e);
+    }
+
+    try {
+      const res = await apiClient.post<{ success: boolean; batch: ResultBatchRecord }>("/admin/results", newBatch);
+      return res.data;
+    } catch {
+      return { success: true, batch: newBatch };
+    }
+  },
+};

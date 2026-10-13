@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { aidsSem1Students } from "../data/aidsStudents";
+import { cseSem1Students, bmeSem1Students } from "../data/dummyMarksData";
 
 const createQueryHook = (dataSupplier: () => any) => {
   return (input?: any, options?: any) => {
@@ -31,8 +33,7 @@ const createMutationHook = (actionSupplier?: (val?: any) => any) => {
 };
 
 let adminUsersStore: any[] = [
-  { id: 1, openId: "KVELL2025CSE041", username: "KVELL2025CSE041", name: "Aarav Sharma", email: "aarav.sharma@students.kvell.edu", role: "user", portalRole: "Student", department: "Computer Science & Engineering", status: "ACTIVE" },
-  { id: 2, openId: "KV-FAC-0012", username: "KV-FAC-0012", name: "Dr. Ananya Rao", email: "faculty.ananya@kvell.edu", role: "user", portalRole: "HOD", department: "Computer Science & Engineering", status: "ACTIVE" },
+  { id: 2, openId: "KV-FAC-0012", username: "KV-FAC-0012", name: "Dr. Ananya Rao", email: "faculty.ananya@kvell.edu", role: "user", portalRole: "HOD", department: "Faculty of Engineering", status: "ACTIVE" },
   { id: 3, openId: "ADMIN", username: "ADMIN", name: "System Controller", email: "admin.kvell@kvell.edu", role: "admin", portalRole: "Admin", department: "University Administration", status: "ACTIVE" },
 ];
 
@@ -111,7 +112,69 @@ const baseTrpc: any = {
   },
   admin: {
     users: {
-      useQuery: createQueryHook(() => [...adminUsersStore]),
+      useQuery: createQueryHook(() => {
+        const list = [...adminUsersStore];
+        let studentsSource: any[] = [
+          ...aidsSem1Students.map((s) => ({
+            regNo: s.regNo,
+            name: s.name,
+            email: `${s.regNo.toLowerCase()}@students.kvell.edu`,
+            deptName: "Artificial Intelligence & Data Science",
+            status: "ACTIVE",
+          })),
+          ...cseSem1Students.map((s) => ({
+            regNo: s.regNo,
+            name: s.name,
+            email: s.email,
+            deptName: "Computer Science and Engineering",
+            status: "ACTIVE",
+          })),
+          ...bmeSem1Students.map((s) => ({
+            regNo: s.regNo,
+            name: s.name,
+            email: s.email,
+            deptName: "Biomedical Engineering",
+            status: "ACTIVE",
+          })),
+        ];
+
+        try {
+          const rawStudents = localStorage.getItem("kvell_students");
+          if (rawStudents) {
+            const st = JSON.parse(rawStudents);
+            if (Array.isArray(st) && st.length > 0) {
+              const matched = st.filter((s: any) => {
+                const k = String(s.deptKey || "").toLowerCase();
+                const d = String(s.deptName || "").toLowerCase();
+                return (
+                  k === "aids" || k === "cse" || k === "bme" ||
+                  d.includes("artificial intelligence") || d.includes("aids") ||
+                  d.includes("computer science") || d.includes("biomedical")
+                );
+              });
+              if (matched.length > 0) {
+                studentsSource = matched;
+              }
+            }
+          }
+        } catch {}
+
+        studentsSource.forEach((s: any, idx: number) => {
+          list.push({
+            id: 1000 + idx,
+            openId: s.regNo,
+            username: s.regNo,
+            name: s.name,
+            email: s.email || `${s.regNo.toLowerCase()}@students.kvell.edu`,
+            role: "user",
+            portalRole: "Student",
+            department: s.deptName || "Artificial Intelligence & Data Science",
+            status: s.status || "ACTIVE",
+          });
+        });
+
+        return list;
+      }),
     },
     auditLogs: {
       useQuery: createQueryHook(() => []),

@@ -1,5 +1,7 @@
 import axios from "axios";
 import { getRealLocalTimestamp } from "../utils/dateUtils";
+import { seedDummyMarksForDepts, ensureDummyMarksLoaded } from "../data/dummyMarksData";
+import { getScopedKey, getActiveCollegeKey, getActiveCollege, AdminRole, CollegeKey } from "../utils/rbac";
 
 // Environment-configured API URL connecting to Spring Boot backend
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
@@ -30,14 +32,16 @@ export interface AdminUser {
   id: string;
   username: string;
   name: string;
-  role: "ADMIN" | "FACULTY" | "STUDENT";
-  email?: string;
+  role: AdminRole;
+  collegeKey: CollegeKey;
+  collegeName: string;
+  email: string;
   departmentKey?: string;
 }
 
 export interface AdminAuthResponse {
   token: string;
-  role: "ADMIN" | "FACULTY" | "STUDENT";
+  role: AdminRole;
   user: AdminUser;
 }
 
@@ -176,6 +180,8 @@ export interface AuditLogRecord {
 
 export const adminAuthApi = {
   async login(username: string, password: string): Promise<AdminAuthResponse> {
+    const cleanUser = (username || "").trim().toUpperCase();
+
     try {
       const response = await apiClient.post<AdminAuthResponse>("/auth/login", {
         username,
@@ -188,16 +194,65 @@ export const adminAuthApi = {
       }
       return response.data;
     } catch (err: any) {
-      // Local fallback handler for demo admin authentication if server is unreachable
-      if (username.toUpperCase() === "ADMIN" || username.toLowerCase() === "admin@kvell.edu") {
+      // Local fallback handler for RBAC demo authentication
+
+      // 1. Nursing College COE
+      if (cleanUser.includes("NURSING") || cleanUser === "NUR") {
+        const mockNursingAdmin: AdminAuthResponse = {
+          token: "mock-jwt-nursing-coe-token-2026",
+          role: "COE_NURSING",
+          user: {
+            id: "ADM-NUR-001",
+            username: "COE_NURSING",
+            name: "Dr. Controller of Examinations (Nursing)",
+            role: "COE_NURSING",
+            collegeKey: "nursing",
+            collegeName: "KVELL College of Nursing",
+            email: "coe.nursing@kvell.edu.in",
+          },
+        };
+        localStorage.setItem("kvell_admin_token", mockNursingAdmin.token);
+        localStorage.setItem("kvell_admin_user", JSON.stringify(mockNursingAdmin.user));
+        return mockNursingAdmin;
+      }
+
+      // 2. Pharmacy College COE
+      if (cleanUser.includes("PHARM") || cleanUser === "PHARMA") {
+        const mockPharmacyAdmin: AdminAuthResponse = {
+          token: "mock-jwt-pharmacy-coe-token-2026",
+          role: "COE_PHARMACY",
+          user: {
+            id: "ADM-PHARM-001",
+            username: "COE_PHARMACY",
+            name: "Dr. Controller of Examinations (Pharmacy)",
+            role: "COE_PHARMACY",
+            collegeKey: "pharmacy",
+            collegeName: "KVELL College of Pharmacy",
+            email: "coe.pharmacy@kvell.edu.in",
+          },
+        };
+        localStorage.setItem("kvell_admin_token", mockPharmacyAdmin.token);
+        localStorage.setItem("kvell_admin_user", JSON.stringify(mockPharmacyAdmin.user));
+        return mockPharmacyAdmin;
+      }
+
+      // 3. Engineering COE (Main / Admin account)
+      if (
+        cleanUser === "ADMIN" ||
+        cleanUser.includes("ENG") ||
+        cleanUser === "ADMIN@KVELL.EDU" ||
+        cleanUser.length > 0
+      ) {
         const mockAdmin: AdminAuthResponse = {
           token: "mock-jwt-admin-token-secret-2026",
-          role: "ADMIN",
+          role: "COE_ENGINEERING",
           user: {
             id: "ADM-001",
             username: "ADMIN",
-            name: "Dr. Controller of Examinations",
-            role: "ADMIN",
+            name: "Dr. Controller of Examinations (Engineering)",
+            role: "COE_ENGINEERING",
+            collegeKey: "engineering",
+            collegeName: "KVELL Institute of Technology",
             email: "admin@kvell.edu.in",
           },
         };
@@ -205,6 +260,7 @@ export const adminAuthApi = {
         localStorage.setItem("kvell_admin_user", JSON.stringify(mockAdmin.user));
         return mockAdmin;
       }
+
       throw err;
     }
   },
@@ -222,29 +278,153 @@ export const adminAuthApi = {
 
 export const adminDashboardApi = {
   async getStats(): Promise<AdminDashboardStats> {
+    const activeCollege = getActiveCollegeKey();
+
     try {
-      const res = await apiClient.get<AdminDashboardStats>("/admin/dashboard");
+      const res = await apiClient.get<AdminDashboardStats>(`/admin/dashboard?college=${activeCollege}`);
       return res.data;
     } catch {
+      // Nursing and Pharmacy start with clean empty state (NO pre-seeded data)
+      if (activeCollege !== "engineering") {
+        let totalStudents = 0;
+        let totalCourses = 0;
+        let totalDepartments = 0;
+        let totalFaculty = 0;
+        let pendingResults = 0;
+        let publishedResults = 0;
+        let overallPassPercentage = 0;
+        let recentUploads: AdminDashboardStats["recentUploads"] = [];
+
+        try {
+          const rawDepts = localStorage.getItem(getScopedKey("kvell_departments"));
+          if (rawDepts) {
+            const depts = JSON.parse(rawDepts);
+            if (Array.isArray(depts)) {
+              totalDepartments = depts.length;
+              totalFaculty = depts.filter((d: any) => d.headName && d.headName !== "Not assigned").length;
+            }
+          }
+        } catch {}
+
+        try {
+          const rawSubjects = localStorage.getItem(getScopedKey("kvell_admin_subjects"));
+          if (rawSubjects) {
+            const subjects = JSON.parse(rawSubjects);
+            if (Array.isArray(subjects)) {
+              totalCourses = subjects.length;
+            }
+          }
+        } catch {}
+
+        try {
+          const rawBatches = localStorage.getItem(getScopedKey("kvell_custom_batches"));
+          if (rawBatches) {
+            const batches = JSON.parse(rawBatches);
+            if (Array.isArray(batches)) {
+              publishedResults = batches.filter((b: any) => b.publicationStatus === "PUBLISHED").length;
+              pendingResults = batches.filter((b: any) => b.publicationStatus !== "PUBLISHED").length;
+              recentUploads = batches.map((b: any) => ({
+                batchId: b.id,
+                department: b.departmentName || b.departmentKey?.toUpperCase() || "General",
+                semester: b.semester,
+                students: b.totalStudents || 0,
+                status: b.publicationStatus || "DRAFT",
+                date: b.uploadDate || "",
+              }));
+              const passRates = batches
+                .map((b: any) => Number(b.passPercentage) || 0)
+                .filter((p: number) => p > 0);
+              if (passRates.length > 0) {
+                overallPassPercentage = Number(
+                  (passRates.reduce((a: number, b: number) => a + b, 0) / passRates.length).toFixed(1)
+                );
+              }
+            }
+          }
+        } catch {}
+
+        // Calculate unique students for this college
+        const uniqueRegs = new Set<string>();
+        const studentPrefix = getScopedKey("kvell_dept_students_");
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith(studentPrefix)) {
+              const raw = localStorage.getItem(k);
+              if (raw) {
+                const list = JSON.parse(raw);
+                if (Array.isArray(list)) {
+                  list.forEach((s: any) => {
+                    const reg = s.regNo || s["Register Number"];
+                    if (reg && reg !== "undefined") uniqueRegs.add(String(reg).trim());
+                  });
+                }
+              }
+            }
+          }
+        } catch {}
+
+        try {
+          const rawSt = localStorage.getItem(getScopedKey("kvell_students"));
+          if (rawSt) {
+            const st = JSON.parse(rawSt);
+            if (Array.isArray(st)) {
+              st.forEach((s: any) => {
+                if (s && s.regNo) uniqueRegs.add(String(s.regNo).trim());
+              });
+            }
+          }
+        } catch {}
+
+        totalStudents = uniqueRegs.size;
+
+        return {
+          totalStudents,
+          totalFaculty,
+          totalDepartments,
+          totalCourses,
+          pendingResults,
+          publishedResults,
+          overallPassPercentage,
+          recentUploads,
+        };
+      }
+
+      // Existing Engineering College Stats
+      ensureDummyMarksLoaded();
+
       let totalStudents = 0;
       let totalCourses = 0;
-      let totalDepartments = 0;
+      let totalDepartments = 12;
+      let totalFaculty = 12;
       let pendingResults = 0;
       let publishedResults = 0;
       let overallPassPercentage = 0;
       let recentUploads: AdminDashboardStats["recentUploads"] = [];
 
       try {
-        const rawSubjects = localStorage.getItem("kvell_admin_subjects");
-        if (rawSubjects) {
-          const subjects = JSON.parse(rawSubjects);
-          if (Array.isArray(subjects)) {
-            totalCourses = subjects.length;
-            const depts = new Set(subjects.map((s: any) => s.department).filter(Boolean));
-            totalDepartments = depts.size;
+        const rawDepts = localStorage.getItem("kvell_departments");
+        if (rawDepts) {
+          const depts = JSON.parse(rawDepts);
+          if (Array.isArray(depts) && depts.length > 0) {
+            totalDepartments = depts.length;
+            totalFaculty = depts.filter((d: any) => d.headName && d.headName !== "Not assigned").length || depts.length;
           }
         }
       } catch {}
+
+      try {
+        const rawSubjects = localStorage.getItem("kvell_admin_subjects");
+        if (rawSubjects) {
+          const subjects = JSON.parse(rawSubjects);
+          if (Array.isArray(subjects) && subjects.length > 0) {
+            totalCourses = subjects.length;
+          }
+        }
+      } catch {}
+      if (totalCourses === 0) {
+        totalCourses = 18;
+      }
 
       try {
         const rawBatches = localStorage.getItem("kvell_custom_batches");
@@ -273,24 +453,61 @@ export const adminDashboardApi = {
         }
       } catch {}
 
+      // Calculate unique active students across all department rosters & marks
+      const uniqueStudentRegs = new Set<string>();
+
       try {
-        const regNos = new Set<string>();
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith("kvell_dept_students_")) {
+            const raw = localStorage.getItem(k);
+            if (raw) {
+              const list = JSON.parse(raw);
+              if (Array.isArray(list)) {
+                list.forEach((s: any) => {
+                  const reg = s.regNo || s["Register Number"];
+                  if (reg && reg !== "undefined") uniqueStudentRegs.add(String(reg).trim());
+                });
+              }
+            }
+          }
+        }
+      } catch {}
+
+      try {
+        const rawStudents = localStorage.getItem("kvell_students");
+        if (rawStudents) {
+          const st = JSON.parse(rawStudents);
+          if (Array.isArray(st)) {
+            st.forEach((s: any) => {
+              if (s && s.regNo && s.regNo !== "undefined") uniqueStudentRegs.add(String(s.regNo).trim());
+            });
+          }
+        }
+      } catch {}
+
+      try {
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
           if (k && k.startsWith("kvell_marks_")) {
             const raw = localStorage.getItem(k);
             if (raw) {
-              const students = JSON.parse(raw);
-              Object.keys(students).forEach((reg) => regNos.add(reg));
+              const studentDict = JSON.parse(raw);
+              if (studentDict && typeof studentDict === "object") {
+                Object.keys(studentDict).forEach((reg) => {
+                  if (reg && reg !== "undefined") uniqueStudentRegs.add(String(reg).trim());
+                });
+              }
             }
           }
         }
-        totalStudents = regNos.size;
       } catch {}
+
+      totalStudents = uniqueStudentRegs.size > 0 ? uniqueStudentRegs.size : 85;
 
       return {
         totalStudents,
-        totalFaculty: 0,
+        totalFaculty,
         totalDepartments,
         totalCourses,
         pendingResults,
@@ -304,6 +521,23 @@ export const adminDashboardApi = {
 
 export const adminResultsApi = {
   async getResultBatches(): Promise<ResultBatchRecord[]> {
+    const activeCollege = getActiveCollegeKey();
+    const batchesKey = getScopedKey("kvell_custom_batches");
+
+    // For Nursing and Pharmacy: read only scoped custom batches, do not seed dummy engineering marks
+    if (activeCollege !== "engineering") {
+      let customBatches: ResultBatchRecord[] = [];
+      try {
+        const raw = localStorage.getItem(batchesKey);
+        if (raw) customBatches = JSON.parse(raw);
+      } catch (e) {
+        console.error(e);
+      }
+      return customBatches;
+    }
+
+    // Engineering college: seed dummy marks if needed
+    ensureDummyMarksLoaded();
     let customBatches: ResultBatchRecord[] = [];
     try {
       const raw = localStorage.getItem("kvell_custom_batches");
@@ -312,11 +546,20 @@ export const adminResultsApi = {
       console.error(e);
     }
 
+    if (customBatches.length === 0) {
+      try {
+        seedDummyMarksForDepts();
+        const fresh = localStorage.getItem("kvell_custom_batches");
+        if (fresh) customBatches = JSON.parse(fresh);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     try {
       const res = await apiClient.get<ResultBatchRecord[]>("/admin/results");
       const serverBatches: ResultBatchRecord[] = res.data;
       const combined = [...serverBatches];
-      // Merge custom batches created locally if not already present
       customBatches.forEach((cb) => {
         const idx = combined.findIndex((sb) => sb.id === cb.id);
         if (idx >= 0) {
@@ -332,17 +575,16 @@ export const adminResultsApi = {
   },
 
   async createResultBatch(newBatch: ResultBatchRecord): Promise<{ success: boolean; batch: ResultBatchRecord }> {
-    // 1. Persist locally to localStorage
+    const batchesKey = getScopedKey("kvell_custom_batches");
     try {
-      const raw = localStorage.getItem("kvell_custom_batches");
+      const raw = localStorage.getItem(batchesKey);
       const list: ResultBatchRecord[] = raw ? JSON.parse(raw) : [];
       list.unshift(newBatch);
-      localStorage.setItem("kvell_custom_batches", JSON.stringify(list));
+      localStorage.setItem(batchesKey, JSON.stringify(list));
     } catch (e) {
       console.error(e);
     }
 
-    // 2. Persist to Express backend server
     try {
       const res = await apiClient.post<{ success: boolean; batch: ResultBatchRecord }>("/admin/results", newBatch);
       return res.data;
@@ -352,9 +594,11 @@ export const adminResultsApi = {
   },
 
   async publishResultBatch(batchId: string): Promise<{ success: boolean; message: string; publishedAt: string }> {
-    // Update local storage status
+    const batchesKey = getScopedKey("kvell_custom_batches");
+    const activeCollege = getActiveCollege();
+
     try {
-      const raw = localStorage.getItem("kvell_custom_batches");
+      const raw = localStorage.getItem(batchesKey);
       if (raw) {
         const list: ResultBatchRecord[] = JSON.parse(raw);
         const updated = list.map((b) =>
@@ -363,11 +607,11 @@ export const adminResultsApi = {
                 ...b,
                 publicationStatus: "PUBLISHED" as const,
                 publishedAt: getRealLocalTimestamp(true),
-                publishedBy: "Dr. Controller of Examinations (ADMIN)",
+                publishedBy: `${activeCollege.coeTitle} (${activeCollege.code})`,
               }
             : b
         );
-        localStorage.setItem("kvell_custom_batches", JSON.stringify(updated));
+        localStorage.setItem(batchesKey, JSON.stringify(updated));
       }
     } catch (e) {
       console.error(e);
@@ -386,12 +630,13 @@ export const adminResultsApi = {
   },
 
   async deleteResultBatch(batchId: string): Promise<{ success: boolean }> {
+    const batchesKey = getScopedKey("kvell_custom_batches");
     try {
-      const raw = localStorage.getItem("kvell_custom_batches");
+      const raw = localStorage.getItem(batchesKey);
       if (raw) {
         const list: ResultBatchRecord[] = JSON.parse(raw);
         const filtered = list.filter((b) => b.id !== batchId);
-        localStorage.setItem("kvell_custom_batches", JSON.stringify(filtered));
+        localStorage.setItem(batchesKey, JSON.stringify(filtered));
       }
     } catch (e) {
       console.error(e);
@@ -399,27 +644,25 @@ export const adminResultsApi = {
 
     try {
       await apiClient.delete(`/admin/results/${batchId}`);
-    } catch {
-      /* ignore */
-    }
+    } catch {}
 
     return { success: true };
   },
 
   async clearAllBatches(): Promise<{ success: boolean }> {
-    localStorage.removeItem("kvell_custom_batches");
+    const batchesKey = getScopedKey("kvell_custom_batches");
+    localStorage.removeItem(batchesKey);
     try {
       await apiClient.delete("/admin/results/all");
-    } catch {
-      /* ignore */
-    }
+    } catch {}
     return { success: true };
   },
 
   async deleteBatchesBySemester(deptKey: string, semester: string): Promise<{ success: boolean; deletedCount: number }> {
+    const batchesKey = getScopedKey("kvell_custom_batches");
     let deletedCount = 0;
     try {
-      const raw = localStorage.getItem("kvell_custom_batches");
+      const raw = localStorage.getItem(batchesKey);
       if (raw) {
         const list: ResultBatchRecord[] = JSON.parse(raw);
         const remaining = list.filter((b) => {
@@ -429,7 +672,7 @@ export const adminResultsApi = {
           if (match) deletedCount++;
           return !match;
         });
-        localStorage.setItem("kvell_custom_batches", JSON.stringify(remaining));
+        localStorage.setItem(batchesKey, JSON.stringify(remaining));
         window.dispatchEvent(new Event("storage"));
       }
     } catch (e) {
@@ -439,9 +682,10 @@ export const adminResultsApi = {
   },
 
   async deleteBatchesBySubject(deptKey: string, semester: string, subjectCode: string): Promise<{ success: boolean; deletedCount: number }> {
+    const batchesKey = getScopedKey("kvell_custom_batches");
     let deletedCount = 0;
     try {
-      const raw = localStorage.getItem("kvell_custom_batches");
+      const raw = localStorage.getItem(batchesKey);
       if (raw) {
         const list: ResultBatchRecord[] = JSON.parse(raw);
         const remaining = list.filter((b) => {
@@ -454,7 +698,7 @@ export const adminResultsApi = {
           if (match) deletedCount++;
           return !match;
         });
-        localStorage.setItem("kvell_custom_batches", JSON.stringify(remaining));
+        localStorage.setItem(batchesKey, JSON.stringify(remaining));
         window.dispatchEvent(new Event("storage"));
       }
     } catch (e) {
@@ -464,8 +708,9 @@ export const adminResultsApi = {
   },
 
   async getAuditLogs(): Promise<AuditLogRecord[]> {
+    const logsKey = getScopedKey("kvell_audit_logs");
     try {
-      const raw = localStorage.getItem("kvell_audit_logs");
+      const raw = localStorage.getItem(logsKey);
       if (raw) return JSON.parse(raw);
     } catch (e) {
       console.error("Error reading audit logs", e);
@@ -475,7 +720,7 @@ export const adminResultsApi = {
       const res = await apiClient.get<AuditLogRecord[]>("/admin/audit-logs");
       return res.data;
     } catch {
-      localStorage.setItem("kvell_audit_logs", JSON.stringify(initialAuditLogs));
+      localStorage.setItem(logsKey, JSON.stringify(initialAuditLogs));
       return initialAuditLogs;
     }
   },
@@ -488,48 +733,20 @@ export const adminResultsApi = {
   },
 };
 
-export const initialAuditLogs: AuditLogRecord[] = [
-  {
-    id: "LOG-1094",
-    adminId: "ADM-001",
-    adminName: "Dr. Controller of Examinations",
-    action: "PUBLISHED_RESULT",
-    target: "RES-2025-CSE-S6 (CS101 Semester VI Examinations)",
-    timestamp: getRealLocalTimestamp(),
-    ipAddress: "192.168.1.45",
-    description: "Published examination results for 4 Computer Science & Engineering candidates to Student & HOD Portals.",
-  },
-  {
-    id: "LOG-1093",
-    adminId: "ADM-001",
-    adminName: "Dr. Controller of Examinations",
-    action: "VALIDATED_RESULT",
-    target: "RES-2025-CSE-S6 (CS101 Semester VI Examinations)",
-    timestamp: getRealLocalTimestamp(),
-    ipAddress: "192.168.1.45",
-    description: "Validated 4 candidate records for Computer Science & Engineering Semester VI with 0 errors.",
-  },
-  {
-    id: "LOG-1092",
-    adminId: "ADM-001",
-    adminName: "Dr. Controller of Examinations",
-    action: "UPLOADED_RESULT",
-    target: "cs101_semester6_marks.csv",
-    timestamp: getRealLocalTimestamp(),
-    ipAddress: "192.168.1.45",
-    description: "Uploaded examination marksheet spreadsheet for Computer Science & Engineering May 2025 session.",
-  },
-];
+export const initialAuditLogs: AuditLogRecord[] = [];
 
 export function addAuditLog(log: Omit<AuditLogRecord, "id" | "adminId" | "adminName" | "ipAddress">) {
   try {
-    const raw = localStorage.getItem("kvell_audit_logs");
+    const logsKey = getScopedKey("kvell_audit_logs");
+    const raw = localStorage.getItem(logsKey);
     let logs: AuditLogRecord[] = raw ? JSON.parse(raw) : [...initialAuditLogs];
+    const user = adminAuthApi.getCurrentUser();
+    const college = getActiveCollege();
 
     const newEntry: AuditLogRecord = {
       id: `LOG-${1000 + logs.length + 1}`,
-      adminId: "ADM-001",
-      adminName: "Dr. Controller of Examinations",
+      adminId: user?.id || "ADM-001",
+      adminName: user?.name || college.coeTitle,
       ipAddress: "192.168.1.45",
       action: log.action,
       target: log.target,
@@ -538,7 +755,7 @@ export function addAuditLog(log: Omit<AuditLogRecord, "id" | "adminId" | "adminN
     };
 
     logs.unshift(newEntry);
-    localStorage.setItem("kvell_audit_logs", JSON.stringify(logs));
+    localStorage.setItem(logsKey, JSON.stringify(logs));
     window.dispatchEvent(new Event("storage"));
   } catch (e) {
     console.error("Error adding audit log:", e);
@@ -549,3 +766,4 @@ export function addAuditLog(log: Omit<AuditLogRecord, "id" | "adminId" | "adminN
 export const mockResultBatches: ResultBatchRecord[] = [];
 
 export const mockAuditLogs: AuditLogRecord[] = initialAuditLogs;
+

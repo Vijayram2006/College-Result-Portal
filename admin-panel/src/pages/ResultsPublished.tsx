@@ -10,8 +10,10 @@ import {
 } from "lucide-react";
 import { adminResultsApi, ResultBatchRecord, addAuditLog } from "../services/api";
 import { getRealLocalTimestamp } from "../utils/dateUtils";
+import { getScopedKey, getActiveCollege } from "../utils/rbac";
 
 export const ResultsPublished: React.FC = () => {
+  const college = getActiveCollege();
   const [batches, setBatches] = useState<ResultBatchRecord[]>([]);
   const [selectedBatchModal, setSelectedBatchModal] = useState<ResultBatchRecord | null>(null);
   const [publishConfirmBatch, setPublishConfirmBatch] = useState<ResultBatchRecord | null>(null);
@@ -53,9 +55,10 @@ export const ResultsPublished: React.FC = () => {
       console.warn("Server publish endpoint error, applying local persistence:", err);
     }
 
-    // Always persist PUBLISHED status in localStorage so Student & HOD Portals read it immediately
+    // Always persist PUBLISHED status in localStorage scoped to active college
     try {
-      const raw = localStorage.getItem("kvell_custom_batches");
+      const batchKey = getScopedKey("kvell_custom_batches");
+      const raw = localStorage.getItem(batchKey);
       let list: ResultBatchRecord[] = raw ? JSON.parse(raw) : [];
       let found = false;
 
@@ -66,7 +69,7 @@ export const ResultsPublished: React.FC = () => {
             ...b,
             publicationStatus: "PUBLISHED" as const,
             publishedAt: nowTimestamp,
-            publishedBy: "Dr. Controller of Examinations (ADMIN)",
+            publishedBy: `Dr. Controller of Examinations (${college.shortName.toUpperCase()})`,
           };
         }
         return b;
@@ -77,11 +80,11 @@ export const ResultsPublished: React.FC = () => {
           ...publishConfirmBatch,
           publicationStatus: "PUBLISHED" as const,
           publishedAt: nowTimestamp,
-          publishedBy: "Dr. Controller of Examinations (ADMIN)",
+          publishedBy: `Dr. Controller of Examinations (${college.shortName.toUpperCase()})`,
         });
       }
 
-      localStorage.setItem("kvell_custom_batches", JSON.stringify(list));
+      localStorage.setItem(batchKey, JSON.stringify(list));
       window.dispatchEvent(new Event("storage"));
     } catch (e) {
       console.error("Error writing published batch to localStorage", e);
@@ -94,14 +97,21 @@ export const ResultsPublished: React.FC = () => {
               ...b,
               publicationStatus: "PUBLISHED" as const,
               publishedAt: nowTimestamp,
-              publishedBy: "Dr. Controller of Examinations (ADMIN)",
+              publishedBy: `Dr. Controller of Examinations (${college.shortName.toUpperCase()})`,
             }
           : b
       )
     );
 
+    addAuditLog({
+      action: "COE_PUBLISHED_RESULTS",
+      target: `${publishConfirmBatch.id} (${publishConfirmBatch.batchTitle})`,
+      timestamp: nowTimestamp,
+      description: `Controller of Examinations officially verified and PUBLISHED examination results for batch "${publishConfirmBatch.batchTitle}" (${publishConfirmBatch.totalStudents} candidates). Evaluated and forwarded by ${publishConfirmBatch.uploadedBy}.`,
+    });
+
     setFeedbackMessage(
-      `Results for "${publishConfirmBatch.batchTitle}" successfully PUBLISHED! Visible live on Student & HOD Portals.`
+      `Results for "${publishConfirmBatch.batchTitle}" successfully PUBLISHED by COE! Visible live on Student & HOD Portals.`
     );
     setPublishConfirmBatch(null);
     setPublishing(false);
@@ -113,10 +123,10 @@ export const ResultsPublished: React.FC = () => {
       <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
           <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-widest inline-block mb-2">
-            RESULT PUBLICATION WORKFLOW (DRAFT → VALIDATED → PUBLISHED)
+            {college.icon} {college.shortName.toUpperCase()} · RESULT PUBLICATION WORKFLOW
           </span>
           <h2 className="font-display text-2xl font-bold">
-            Published Results Control
+            {college.name} Published Results Control
           </h2>
           <p className="text-xs text-white/70 mt-1 max-w-xl">
             Students can only view results that have reached <strong>PUBLISHED</strong> status. Admin confirmation is required to release validated results.
@@ -203,7 +213,7 @@ export const ResultsPublished: React.FC = () => {
                             : "bg-gray-100 text-gray-800 border border-gray-300"
                         }`}
                       >
-                        {b.publicationStatus}
+                        {b.publicationStatus === "VALIDATED" ? "AWAITING COE PUBLISH" : b.publicationStatus}
                       </span>
                     </td>
                     <td className="p-3.5 text-right space-x-2">
@@ -265,6 +275,10 @@ export const ResultsPublished: React.FC = () => {
                 <span className="font-bold text-[#0B192C]">{publishConfirmBatch.departmentName}</span>
               </div>
               <div className="flex justify-between">
+                <span>Forwarded By (Faculty):</span>
+                <span className="font-bold text-[#0B192C]">{publishConfirmBatch.uploadedBy || "Faculty Evaluator"}</span>
+              </div>
+              <div className="flex justify-between">
                 <span>Students Included:</span>
                 <span className="font-bold text-[#B08014]">{publishConfirmBatch.totalStudents} Candidates</span>
               </div>
@@ -285,9 +299,9 @@ export const ResultsPublished: React.FC = () => {
               <button
                 onClick={handlePublishConfirm}
                 disabled={publishing}
-                className="px-5 py-2.5 rounded-xl bg-[#2E7D5B] hover:bg-emerald-700 text-white text-xs font-extrabold shadow transition flex items-center gap-2"
+                className="px-5 py-2.5 rounded-xl bg-[#2E7D5B] hover:bg-emerald-700 text-white text-xs font-extrabold shadow transition flex items-center gap-2 active:scale-95"
               >
-                <Send size={14} /> {publishing ? "Verifying Token & Publishing..." : "Confirm Publish"}
+                <Send size={14} /> {publishing ? "Verifying Authority & Publishing..." : "Approve & Publish Official Results"}
               </button>
             </div>
           </div>

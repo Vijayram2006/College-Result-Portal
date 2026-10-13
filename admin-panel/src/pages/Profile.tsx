@@ -2,9 +2,11 @@ import React from "react";
 import { User, ShieldCheck, Mail, Building, Key, Lock, Clock, LogOut } from "lucide-react";
 import { adminAuthApi } from "../services/api";
 import { useLocation } from "wouter";
+import { getActiveCollege } from "../utils/rbac";
 
 export const ProfilePage: React.FC = () => {
   const [, navigate] = useLocation();
+  const college = getActiveCollege();
   const user = adminAuthApi.getCurrentUser() || {
     id: "ADM-001",
     username: "ADMIN",
@@ -25,7 +27,7 @@ export const ProfilePage: React.FC = () => {
         <div className="absolute right-0 top-0 bottom-0 w-64 bg-gradient-to-l from-[#D4A72C]/10 to-transparent pointer-events-none" />
         <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10">
           <div className="w-20 h-20 rounded-2xl bg-white/10 border-2 border-[#D4A72C] flex items-center justify-center text-[#D4A72C] text-3xl font-black shrink-0 shadow-md">
-            {user.name.charAt(0)}
+            {college.icon}
           </div>
           <div className="text-center sm:text-left space-y-1">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D4A72C] text-[#0B192C] text-[10px] font-extrabold uppercase tracking-wider">
@@ -33,7 +35,7 @@ export const ProfilePage: React.FC = () => {
             </div>
             <h1 className="text-2xl font-black">{user.name}</h1>
             <p className="text-xs text-white/70">
-              Office of the Controller of Examinations | KVELL Educational System
+              Office of the Controller of Examinations | {college.name}
             </p>
           </div>
         </div>
@@ -56,12 +58,16 @@ export const ProfilePage: React.FC = () => {
               <span className="font-bold text-[#0B192C]">{user.username}</span>
             </div>
             <div className="p-3 bg-gray-50 rounded-xl flex justify-between items-center">
+              <span className="text-gray-500 font-semibold">Institutional Entity:</span>
+              <span className="font-bold text-[#0B192C]">{college.name}</span>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-xl flex justify-between items-center">
               <span className="text-gray-500 font-semibold">Official Email:</span>
               <span className="font-bold text-[#0B192C]">{user.email || "admin@kvell.edu.in"}</span>
             </div>
             <div className="p-3 bg-gray-50 rounded-xl flex justify-between items-center">
-              <span className="text-gray-500 font-semibold">Department Jurisdiction:</span>
-              <span className="font-bold text-[#0B192C]">All Departments (University Wide)</span>
+              <span className="text-gray-500 font-semibold">RBAC Jurisdiction:</span>
+              <span className="font-bold text-[#0B192C]">{college.shortName} Domain (Scoped Access)</span>
             </div>
           </div>
         </div>

@@ -20,6 +20,9 @@ import {
 import * as XLSX from "xlsx";
 import { addAuditLog, adminResultsApi } from "../services/api";
 import { getRealLocalTimestamp } from "../utils/dateUtils";
+import { getStoredDepartments, Department } from "./Departments";
+import { aidsSem1Students } from "../data/aidsStudents";
+import { cseSem1Students, bmeSem1Students } from "../data/dummyMarksData";
 
 // Date formatter for DOB parsing (supports string, Date instance, and Excel serial numbers)
 const formatDob = (rawDob: any): string => {
@@ -122,6 +125,103 @@ export const sortStudentRecords = (
   });
 };
 
+import { getScopedKey, getActiveCollege, getActiveCollegeKey, isEngineeringCollege } from "../utils/rbac";
+
+// Department-scoped student storage helpers
+export const getDeptUploadedStudents = (dept: string): any[] => {
+  if (!dept) return [];
+  const rawK = dept.toLowerCase().trim();
+  const k = rawK === "ads" || rawK.includes("artificial") ? "aids" : rawK;
+  const storageKey = getScopedKey(`kvell_dept_students_${k}`);
+  try {
+    const raw = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.error("Error reading dept students", e);
+  }
+
+  // Pre-seeded students ONLY apply to Engineering college
+  if (isEngineeringCollege()) {
+    // 1. AIDS Semester 1 official students (50 students)
+    if (k === "aids" || k.includes("artificial intelligence")) {
+      return aidsSem1Students.map((s, idx) => ({
+        "Register Number": s.regNo,
+        "Name": s.name,
+        "DOB": "2005-06-15",
+        "Department": "AIDS",
+        "Category": (idx >= 45 ? "lateral" : "regular") as StudentCategory,
+        "Year": "1st Year",
+        regNo: s.regNo,
+        studentName: s.name,
+        dob: "2005-06-15",
+        dept: "AIDS",
+        deptKey: "aids",
+        category: (idx >= 45 ? "lateral" : "regular") as StudentCategory,
+        year: "1st Year",
+      }));
+    }
+
+    // 2. CSE Semester 1 official students (20 students)
+    if (k === "cse" || k.includes("computer science")) {
+      return cseSem1Students.map((s) => ({
+        "Register Number": s.regNo,
+        "Name": s.name,
+        "DOB": s.dob || "2005-04-18",
+        "Department": "CSE",
+        "Category": s.category as StudentCategory,
+        "Year": "1st Year",
+        regNo: s.regNo,
+        studentName: s.name,
+        dob: s.dob || "2005-04-18",
+        dept: "CSE",
+        deptKey: "cse",
+        category: s.category as StudentCategory,
+        year: "1st Year",
+      }));
+    }
+
+    // 3. BME Semester 1 official students (15 students)
+    if (k === "bme" || k.includes("biomedical")) {
+      return bmeSem1Students.map((s) => ({
+        "Register Number": s.regNo,
+        "Name": s.name,
+        "DOB": s.dob || "2005-08-22",
+        "Department": "BME",
+        "Category": s.category as StudentCategory,
+        "Year": "1st Year",
+        regNo: s.regNo,
+        studentName: s.name,
+        dob: s.dob || "2005-08-22",
+        dept: "BME",
+        deptKey: "bme",
+        category: s.category as StudentCategory,
+        year: "1st Year",
+      }));
+    }
+  }
+
+  // Nursing, Pharmacy, and other departments start clean with 0 students
+  return [];
+};
+
+export const saveDeptUploadedStudents = (dept: string, list: any[]) => {
+  if (!dept) return;
+  const k = dept.toLowerCase().trim();
+  const key = getScopedKey(`kvell_dept_students_${k}`);
+  try {
+    sessionStorage.setItem(key, JSON.stringify(list));
+    localStorage.setItem(key, JSON.stringify(list));
+    sessionStorage.setItem("kvell_uploaded_results", JSON.stringify(list));
+    window.dispatchEvent(new Event("kvell_dept_students_updated"));
+    window.dispatchEvent(new Event("storage"));
+  } catch (e) {
+    console.error("Error saving dept students", e);
+  }
+};
+
 export const ResultsUpload: React.FC = () => {
   const [, navigate] = useLocation();
 
@@ -131,7 +231,8 @@ export const ResultsUpload: React.FC = () => {
   const [parsedData, setParsedData] = useState<any[]>([]);
 
   // Target Metadata State (Subject Code removed, Year option added)
-  const [deptKey, setDeptKey] = useState("cse");
+  const [storedDepts, setStoredDepts] = useState<Department[]>([]);
+  const [deptKey, setDeptKey] = useState("");
   const [studyYear, setStudyYear] = useState("1st Year");
   const [semester, setSemester] = useState("Semester I");
   const [academicYear, setAcademicYear] = useState("2026 - 2027");
@@ -145,7 +246,7 @@ export const ResultsUpload: React.FC = () => {
   const [addRegNo, setAddRegNo] = useState("");
   const [addName, setAddName] = useState("");
   const [addDob, setAddDob] = useState("");
-  const [addDept, setAddDept] = useState("cse");
+  const [addDept, setAddDept] = useState("");
   const [addStudentYear, setAddStudentYear] = useState("1st Year");
   const [addCategory, setAddCategory] = useState<StudentCategory>("regular");
 
@@ -156,24 +257,54 @@ export const ResultsUpload: React.FC = () => {
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // On mount: load existing student data from sessionStorage if present
+  // Load available departments dynamically from storage
   useEffect(() => {
-    const raw = sessionStorage.getItem("kvell_uploaded_results");
-    if (raw) {
-      try {
-        const existing = JSON.parse(raw);
-        if (Array.isArray(existing) && existing.length > 0) {
-          setParsedData(sortStudentRecords(existing, sortMode));
-        }
-      } catch (e) {
-        console.error("Error reading saved student records", e);
+    const loadDepts = () => {
+      const list = getStoredDepartments();
+      setStoredDepts(list);
+      if (list.length > 0) {
+        setDeptKey((prev) => (prev && list.some((d) => d.key === prev) ? prev : list[0].key));
+        setAddDept((prev) => (prev && list.some((d) => d.key === prev) ? prev : list[0].key));
       }
-    }
+    };
+    loadDepts();
+    window.addEventListener("kvell_departments_updated", loadDepts);
+    window.addEventListener("storage", loadDepts);
+    return () => {
+      window.removeEventListener("kvell_departments_updated", loadDepts);
+      window.removeEventListener("storage", loadDepts);
+    };
   }, []);
+
+  // Load and synchronize student data scoped strictly to current deptKey
+  useEffect(() => {
+    if (!deptKey) return;
+    const deptStudents = getDeptUploadedStudents(deptKey);
+    setParsedData(sortStudentRecords(deptStudents, sortMode));
+    sessionStorage.setItem("kvell_uploaded_results", JSON.stringify(deptStudents));
+    setSelectedFile(null);
+  }, [deptKey, sortMode]);
+
+  const handleClearSheet = () => {
+    if (window.confirm(`Clear student records for ${deptKey.toUpperCase()}? This will not affect other departments.`)) {
+      saveDeptUploadedStudents(deptKey, []);
+      setParsedData([]);
+      setSelectedFile(null);
+      setFeedback({ type: "info", message: `Student records for ${deptKey.toUpperCase()} cleared.` });
+    }
+  };
 
   const handleDeptChange = (newDept: string) => {
     setDeptKey(newDept);
     setAddDept(newDept);
+    const deptStudents = getDeptUploadedStudents(newDept);
+    setParsedData(sortStudentRecords(deptStudents, sortMode));
+    sessionStorage.setItem("kvell_uploaded_results", JSON.stringify(deptStudents));
+    setSelectedFile(null);
+    setFeedback({
+      type: "info",
+      message: `Switched to ${newDept.toUpperCase()} department (${deptStudents.length} students loaded).`,
+    });
   };
 
   // Change Year: Auto-select recommended semester
@@ -273,9 +404,10 @@ export const ResultsUpload: React.FC = () => {
           };
         });
 
-        // Non-destructive merge: keep previous data and append/update with new records
+        // Merge strictly within this department's existing student list
+        const currentDeptList = getDeptUploadedStudents(deptKey);
         const recordMap = new Map<string, any>();
-        parsedData.forEach((item) => {
+        currentDeptList.forEach((item) => {
           const reg = String(item["Register Number"] || item.regNo).trim().toUpperCase();
           if (reg) recordMap.set(reg, item);
         });
@@ -287,11 +419,11 @@ export const ResultsUpload: React.FC = () => {
 
         const mergedSorted = sortStudentRecords(Array.from(recordMap.values()), sortMode);
         setParsedData(mergedSorted);
-        sessionStorage.setItem("kvell_uploaded_results", JSON.stringify(mergedSorted));
+        saveDeptUploadedStudents(deptKey, mergedSorted);
 
         setFeedback({
           type: "success",
-          message: `Successfully merged ${normalized.length} records from "${file.name}". Previous data was preserved. Total students: ${mergedSorted.length} for ${deptKey.toUpperCase()} • ${studyYear} (${semester}).`,
+          message: `Successfully loaded ${normalized.length} records for ${deptKey.toUpperCase()} from "${file.name}". Other departments were untouched. Total students in ${deptKey.toUpperCase()}: ${mergedSorted.length}.`,
         });
       } catch (err) {
         console.error("Error parsing Excel file", err);
@@ -334,15 +466,19 @@ export const ResultsUpload: React.FC = () => {
       year: addStudentYear,
     };
 
-    // Filter out existing record with same regNo to avoid duplicates, but preserve ALL prior students
-    const filtered = parsedData.filter(
+    // Merge within target department only!
+    const targetDeptKey = (addDept || deptKey).toLowerCase();
+    const currentDeptList = getDeptUploadedStudents(targetDeptKey);
+    const filtered = currentDeptList.filter(
       (s) => String(s.regNo || s["Register Number"]).trim().toUpperCase() !== cleanReg
     );
 
     // Merge and automatically sort: Regular first, Lateral at the end!
     const updated = sortStudentRecords([...filtered, newRecord], sortMode);
-    setParsedData(updated);
-    sessionStorage.setItem("kvell_uploaded_results", JSON.stringify(updated));
+    saveDeptUploadedStudents(targetDeptKey, updated);
+    if (targetDeptKey === deptKey.toLowerCase()) {
+      setParsedData(updated);
+    }
 
     // Reset Form
     setAddRegNo("");
@@ -353,20 +489,20 @@ export const ResultsUpload: React.FC = () => {
 
     setFeedback({
       type: "success",
-      message: `Student "${newRecord.studentName}" (${newRecord.regNo}) added successfully as ${newRecord.category.toUpperCase()} entry in ${newRecord.dept} (${newRecord.year}). Total students: ${updated.length}.`,
+      message: `Student "${newRecord.studentName}" (${newRecord.regNo}) added to ${targetDeptKey.toUpperCase()} (${newRecord.year}). Total students in ${targetDeptKey.toUpperCase()}: ${updated.length}.`,
     });
   };
 
-  // Delete Individual Student
+  // Delete Individual Student within active department
   const handleDeleteStudent = (regNo: string) => {
     const updated = parsedData.filter(
       (s) => String(s.regNo || s["Register Number"]).trim().toUpperCase() !== regNo.trim().toUpperCase()
     );
     setParsedData(updated);
-    sessionStorage.setItem("kvell_uploaded_results", JSON.stringify(updated));
+    saveDeptUploadedStudents(deptKey, updated);
     setFeedback({
       type: "info",
-      message: `Student record (${regNo}) deleted. Total remaining: ${updated.length}.`,
+      message: `Student record (${regNo}) deleted from ${deptKey.toUpperCase()}. Total remaining: ${updated.length}.`,
     });
   };
 
@@ -450,7 +586,7 @@ export const ResultsUpload: React.FC = () => {
       });
       setSelectedFile(null);
       setParsedData([]);
-      sessionStorage.removeItem("kvell_uploaded_results");
+      saveDeptUploadedStudents(deptKey, []);
       setFeedback({
         type: "success",
         message: `Complete target semester data for ${deptKey.toUpperCase()} ${semester} has been successfully deleted (${result.deletedCount} batch records removed).`,
@@ -473,12 +609,12 @@ export const ResultsUpload: React.FC = () => {
 
     setIsDeleting(true);
     try {
-      // Clear current year records from state
+      // Clear current year records from state and active department storage
       const remaining = parsedData.filter(
         (s) => (s["Year"] || s.year) !== studyYear
       );
       setParsedData(remaining);
-      sessionStorage.setItem("kvell_uploaded_results", JSON.stringify(remaining));
+      saveDeptUploadedStudents(deptKey, remaining);
 
       addAuditLog({
         action: "DELETED_TARGET_YEAR_DATA",
@@ -621,11 +757,15 @@ export const ResultsUpload: React.FC = () => {
               onChange={(e) => handleDeptChange(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
             >
-              <option value="cse">Computer Science & Engineering (CSE)</option>
-              <option value="ece">Electronics & Communication (ECE)</option>
-              <option value="mech">Mechanical Engineering (MECH)</option>
-              <option value="eee">Electrical & Electronics (EEE)</option>
-              <option value="it">Information Technology (IT)</option>
+              {storedDepts.length > 0 ? (
+                storedDepts.map((d) => (
+                  <option key={d.key} value={d.key}>
+                    {d.name} ({d.code})
+                  </option>
+                ))
+              ) : (
+                <option value="general">No departments yet — Add in Departments tab</option>
+              )}
             </select>
           </div>
 
@@ -845,6 +985,17 @@ export const ResultsUpload: React.FC = () => {
               >
                 <Plus size={14} /> Add Student
               </button>
+
+              {parsedData.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearSheet}
+                  className="px-3 py-1.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 font-bold text-xs transition flex items-center gap-1.5 shadow-sm"
+                  title="Clear all student rows currently in this sheet"
+                >
+                  <Trash2 size={13} /> Clear Sheet
+                </button>
+              )}
             </div>
           </div>
 
@@ -951,9 +1102,9 @@ export const ResultsUpload: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                if (window.confirm("Are you sure you want to clear all loaded student records?")) {
+                if (window.confirm(`Are you sure you want to clear loaded student records for ${deptKey.toUpperCase()}?`)) {
                   setParsedData([]);
-                  sessionStorage.removeItem("kvell_uploaded_results");
+                  saveDeptUploadedStudents(deptKey, []);
                   setSelectedFile(null);
                 }
               }}
@@ -1059,12 +1210,15 @@ export const ResultsUpload: React.FC = () => {
                     onChange={(e) => setAddDept(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
                   >
-                    <option value="cse">CSE</option>
-                    <option value="ece">ECE</option>
-                    <option value="mech">MECH</option>
-                    <option value="eee">EEE</option>
-                    <option value="it">IT</option>
-                    <option value="aids">AI & DS</option>
+                    {storedDepts.length > 0 ? (
+                      storedDepts.map((d) => (
+                        <option key={d.key} value={d.key}>
+                          {d.code} - {d.name}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="general">General</option>
+                    )}
                   </select>
                 </div>
 

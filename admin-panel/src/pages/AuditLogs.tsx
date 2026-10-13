@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ClipboardList,
   Search,
@@ -12,12 +12,18 @@ import {
   CheckCircle2,
   Upload,
 } from "lucide-react";
-import { mockAuditLogs, AuditLogRecord } from "../services/api";
+import { adminResultsApi, AuditLogRecord } from "../services/api";
+import { getActiveCollege } from "../utils/rbac";
 
 export const AuditLogsPage: React.FC = () => {
-  const [logs] = useState<AuditLogRecord[]>(mockAuditLogs);
+  const college = getActiveCollege();
+  const [logs, setLogs] = useState<AuditLogRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [actionFilter, setActionFilter] = useState("ALL");
+
+  useEffect(() => {
+    adminResultsApi.getAuditLogs().then(setLogs);
+  }, []);
 
   const filteredLogs = logs.filter((log) => {
     const matchesSearch =
@@ -65,11 +71,11 @@ export const AuditLogsPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-xs font-bold text-[#D4A72C] uppercase tracking-wider mb-1">
             <ClipboardList size={14} />
-            Institutional Governance & Compliance
+            {college.icon} {college.shortName} Governance & Compliance
           </div>
-          <h1 className="text-2xl font-black text-[#0B192C]">Administrative Audit Logs</h1>
+          <h1 className="text-2xl font-black text-[#0B192C]">{college.name} Administrative Audit Logs</h1>
           <p className="text-xs text-[#667085] mt-1">
-            Immutable log of all result uploads, validations, publications, and administrative system actions.
+            Immutable log of all result uploads, validations, publications, and administrative system actions for {college.shortName}.
           </p>
         </div>
         <div className="flex items-center gap-3">

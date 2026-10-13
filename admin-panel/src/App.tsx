@@ -14,9 +14,11 @@ import { AnalyticsPage } from "./pages/Analytics";
 import { AuditLogsPage } from "./pages/AuditLogs";
 import { ProfilePage } from "./pages/Profile";
 import { SubjectsPage } from "./pages/Subjects";
+import { DepartmentsPage } from "./pages/Departments";
 
 const pageTitles: Record<string, string> = {
   "/admin/dashboard": "University Admin Dashboard",
+  "/admin/departments": "University Department Directory & Management",
   "/admin/results": "Result Management Hub",
   "/admin/results/upload": "Student Data",
   "/admin/results/validation": "Student Mark Entry",
@@ -59,6 +61,14 @@ export const App: React.FC = () => {
         {() => (
           <AdminLayout>
             <ProtectedRoute component={Dashboard} />
+          </AdminLayout>
+        )}
+      </Route>
+
+      <Route path="/admin/departments">
+        {() => (
+          <AdminLayout>
+            <ProtectedRoute component={DepartmentsPage} />
           </AdminLayout>
         )}
       </Route>

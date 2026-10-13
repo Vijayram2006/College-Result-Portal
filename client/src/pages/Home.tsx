@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "../lib/trpc";
+import { aidsSem1Students } from "../data/aidsStudents";
+import { marksStudentsList, generalStudentsList, ensureDummyMarksLoaded, cseSem1Students, bmeSem1Students } from "../data/dummyMarksData";
 import * as XLSX from "xlsx";
+import { FacultyMarkEntry } from "../components/FacultyMarkEntry";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   AlertCircle,
   ArrowDownRight,
   ArrowLeft,
+  ArrowRight,
   ArrowUpRight,
   BarChart3,
   Bell,
@@ -204,15 +208,7 @@ const deanTrend = [
   { period: "2026", cse: 81, ece: 78, mech: 73, it: 82 },
 ];
 
-const students = [
-  { reg: "22CSE041", name: "Aarav Shah", section: "CSE A", semester: "VI", average: 86, status: "On track" },
-  { reg: "22CSE058", name: "Diya Nair", section: "CSE A", semester: "VI", average: 78, status: "On track" },
-  { reg: "22CSE073", name: "Kabir Rao", section: "CSE B", semester: "VI", average: 62, status: "Monitor" },
-  { reg: "22CSE089", name: "Nisha Thomas", section: "CSE B", semester: "VI", average: 58, status: "Needs support" },
-  { reg: "22CSE104", name: "Ishaan Verma", section: "CSE A", semester: "VI", average: 74, status: "On track" },
-  { reg: "22CSE118", name: "Mira Joseph", section: "CSE B", semester: "VI", average: 69, status: "Monitor" },
-  { reg: "22CSE126", name: "Aditya Bhat", section: "CSE A", semester: "VI", average: 91, status: "On track" },
-];
+const students: Array<{ reg: string; name: string; section: string; semester: string; average: number; status: string }> = generalStudentsList;
 
 const subjects = [
   { code: "CS601", name: "Data Structures", section: "CSE A", students: 64, average: 82, completion: 96, tone: "success" as const },
@@ -221,11 +217,7 @@ const subjects = [
   { code: "CS607", name: "Cloud Computing", section: "CSE B", students: 58, average: 76, completion: 94, tone: "success" as const },
 ];
 
-const attentionStudents = [
-  { reg: "22CSE089", student: "Nisha Thomas", subject: "DBMS", performance: 58, trend: "down", status: "Critical" },
-  { reg: "22CSE073", student: "Kabir Rao", subject: "Operating Systems", performance: 62, trend: "flat", status: "Monitor" },
-  { reg: "22CSE118", student: "Mira Joseph", subject: "Data Structures", performance: 69, trend: "up", status: "Monitor" },
-];
+const attentionStudents: Array<{ reg: string; student: string; subject: string; performance: number; trend: string; status: string }> = [];
 
 const facultyRows = [
   { name: "Dr. Ananya Menon", subjects: 4, students: 244, average: 76, completion: 92, status: "On track" },
@@ -234,20 +226,22 @@ const facultyRows = [
   { name: "Prof. Arjun Rao", subjects: 2, students: 128, average: 81, completion: 96, status: "On track" },
 ];
 
-const departments = [
-  { name: "Computer Science & Engineering", short: "CSE", faculty: 42, students: 1280, average: 81, improvement: "+4.8%", risk: 86, status: "Strong" },
-  { name: "Information Technology", short: "IT", faculty: 28, students: 842, average: 79, improvement: "+3.2%", risk: 54, status: "Strong" },
-  { name: "Electronics & Communication", short: "ECE", faculty: 36, students: 1064, average: 76, improvement: "+2.7%", risk: 72, status: "Stable" },
-  { name: "Mechanical Engineering", short: "ME", faculty: 31, students: 932, average: 73, improvement: "+1.9%", risk: 91, status: "Stable" },
+const departments: Array<{ name: string; short: string; faculty: number; students: number; average: number; improvement: string; risk: number; status: string }> = [
+  { name: "Artificial Intelligence & Data Science", short: "AIDS", faculty: 12, students: 50, average: 86, improvement: "+4.2%", risk: 2, status: "Healthy" },
+  { name: "Computer Science and Engineering", short: "CSE", faculty: 18, students: 20, average: 88, improvement: "+5.1%", risk: 1, status: "Healthy" },
+  { name: "Biomedical Engineering", short: "BME", faculty: 10, students: 15, average: 84, improvement: "+3.8%", risk: 1, status: "Healthy" },
+  { name: "Automobile Engineering", short: "AUTO", faculty: 8, students: 0, average: 78, improvement: "+1.2%", risk: 0, status: "Healthy" },
+  { name: "Biotech", short: "BIOTECH", faculty: 9, students: 0, average: 80, improvement: "+2.0%", risk: 0, status: "Healthy" },
+  { name: "Electronics & Communication Engineering", short: "ECE", faculty: 14, students: 0, average: 81, improvement: "+2.5%", risk: 0, status: "Healthy" },
+  { name: "Electrical & Electronics Engineering", short: "EEE", faculty: 11, students: 0, average: 79, improvement: "+1.9%", risk: 0, status: "Healthy" },
+  { name: "Civil Engineering", short: "CIVIL", faculty: 9, students: 0, average: 76, improvement: "+1.5%", risk: 0, status: "Healthy" },
+  { name: "Robotics and Automation", short: "R&A", faculty: 8, students: 0, average: 82, improvement: "+3.0%", risk: 0, status: "Healthy" },
+  { name: "Mechanical Engineering", short: "MECH", faculty: 15, students: 0, average: 77, improvement: "+1.7%", risk: 0, status: "Healthy" },
+  { name: "Master of Business Administration", short: "MBA", faculty: 12, students: 0, average: 83, improvement: "+2.4%", risk: 0, status: "Healthy" },
+  { name: "Master of Computer Applications", short: "MCA", faculty: 10, students: 0, average: 85, improvement: "+3.1%", risk: 0, status: "Healthy" },
 ];
 
-const marksStudents = [
-  { reg: "22CSE041", name: "Aarav Shah", sub1: "A+", sub2: "O", sub3: "A", sub4: "B+", sub5: "A+" },
-  { reg: "22CSE058", name: "Diya Nair", sub1: "O", sub2: "A+", sub3: "A+", sub4: "A", sub5: "O" },
-  { reg: "22CSE073", name: "Kabir Rao", sub1: "B+", sub2: "B", sub3: "C", sub4: "B", sub5: "B+" },
-  { reg: "22CSE089", name: "Nisha Thomas", sub1: "C", sub2: "F", sub3: "B", sub4: "C", sub5: "F" },
-  { reg: "22CSE104", name: "Ishaan Verma", sub1: "A+", sub2: "A", sub3: "A+", sub4: "O", sub5: "A" },
-];
+const marksStudents: Array<{ reg: string; name: string; sub1: string; sub2: string; sub3: string; sub4: string; sub5: string }> = marksStudentsList;
 
 const GRADE_OPTIONS = ["O", "A+", "A", "B+", "B", "C", "F"] as const;
 
@@ -374,6 +368,33 @@ function EmptyChartState({ label = "No data available" }: { label?: string }) {
 function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void }) {
   return (
     <div className="space-y-6">
+      {/* Official Mark Entry Hub Quick Action Banner */}
+      <div className="bg-[#0B192C] text-white rounded-2xl p-5 shadow-lg border border-[#D4A72C]/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-[#D4A72C] text-[#0B192C] flex items-center justify-center shrink-0 shadow-md">
+            <PenLine size={22} />
+          </div>
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-[#D4A72C] block">
+              OFFICIAL EXAMINATION MARKS ENTRY HUB
+            </span>
+            <h3 className="text-base font-extrabold text-white mt-0.5">
+              Candidate Paper Mark Entry &amp; Evaluation
+            </h3>
+            <p className="text-xs text-slate-300 font-medium">
+              Enter Part A (10 Qs) and Part B/C (sub-divisions a/b) marks with authenticated examiner sign-off.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => onNavigate("marks")}
+          className="px-5 py-2.5 rounded-xl bg-[#D4A72C] hover:bg-[#b08014] text-[#0B192C] font-black text-xs transition shadow-md flex items-center gap-2 shrink-0 active:scale-95"
+        >
+          <span>Open Mark Entry Portal</span>
+          <ArrowRight size={14} />
+        </button>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Assigned subjects" value="04" note="Across 2 sections" icon={BookOpen} trend="up" />
         <KpiCard label="Total students" value="244" note="Current semester" icon={UsersRound} trend="flat" />
@@ -446,20 +467,71 @@ function StudentResultView() {
   const [selectedYear, setSelectedYear] = useState("All");
   const [selectedSection, setSelectedSection] = useState("All");
 
-  const hodStudentsData = [
-    { reg: "KVELL2025CSE001", name: "Aarav Sharma", year: "1st Year", sem: "Semester I", section: "CSE A", average: 88, status: "PASS" },
-    { reg: "KVELL2025CSE002", name: "Ananya Roy", year: "1st Year", sem: "Semester I", section: "CSE A", average: 92, status: "PASS" },
-    { reg: "KVELL2025CSE003", name: "Devansh Patel", year: "1st Year", sem: "Semester I", section: "CSE B", average: 34, status: "FAIL" },
-    { reg: "KVELL2025CSE004", name: "Diya Sengupta", year: "1st Year", sem: "Semester I", section: "CSE A", average: 95, status: "PASS" },
-    { reg: "KVELL2025CSE005", name: "Ishaan Verma", year: "1st Year", sem: "Semester I", section: "CSE B", average: 76, status: "PASS" },
-    { reg: "KVELL2025CSE006", name: "Kavya Nair", year: "1st Year", sem: "Semester I", section: "CSE A", average: 38, status: "FAIL" },
-    { reg: "KVELL2025CSE007", name: "Manav Joshi", year: "1st Year", sem: "Semester I", section: "CSE B", average: 81, status: "PASS" },
-    { reg: "KVELL2025CSE008", name: "Meera Reddy", year: "1st Year", sem: "Semester I", section: "CSE B", average: 90, status: "PASS" },
-    { reg: "KVELL2025CSE018", name: "Rohan Sharma", year: "1st Year", sem: "Semester I", section: "CSE A", average: 84, status: "PASS" },
-    { reg: "KVELL2025CSE041", name: "Aarav Sharma", year: "1st Year", sem: "Semester I", section: "CSE A", average: 79, status: "PASS" },
-    { reg: "KVELL2025IT009", name: "Siddharth Das", year: "1st Year", sem: "Semester I", section: "IT A", average: 32, status: "FAIL" },
-    { reg: "KVELL2025IT010", name: "Tanvi Kulkarni", year: "1st Year", sem: "Semester I", section: "IT A", average: 87, status: "PASS" },
-  ];
+  const [hodStudentsData, setHodStudentsData] = useState<any[]>([]);
+
+  useEffect(() => {
+    const load = () => {
+      let list: any[] = [];
+      try {
+        const raw = localStorage.getItem("kvell_students");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            list = parsed.map((s: any) => ({
+              reg: s.regNo,
+              name: s.name,
+              year: s.year || "1st Year",
+              sem: s.semester || "Semester I",
+              section: s.section || "A",
+              average: s.sgpa ? Math.round(s.sgpa * 10) : 0,
+              status: s.status === "ACTIVE" ? "PASS" : "FAIL",
+            }));
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
+      if (list.length === 0) {
+        try {
+          const rawBatches = localStorage.getItem("kvell_custom_batches");
+          if (rawBatches) {
+            const batches = JSON.parse(rawBatches);
+            if (Array.isArray(batches)) {
+              const studentMap = new Map<string, any>();
+              batches.forEach((b: any) => {
+                if (Array.isArray(b.records)) {
+                  b.records.forEach((r: any) => {
+                    if (r.regNo && !studentMap.has(r.regNo)) {
+                      studentMap.set(r.regNo, {
+                        reg: r.regNo,
+                        name: r.studentName || r.name || "Candidate",
+                        year: "1st Year",
+                        sem: b.semester || "Semester I",
+                        section: "Section A",
+                        average: r.totalMarks || 0,
+                        status: r.resultStatus || "PASS",
+                      });
+                    }
+                  });
+                }
+              });
+              list = Array.from(studentMap.values());
+            }
+          }
+        } catch (e) {}
+      }
+      setHodStudentsData(list);
+    };
+
+    load();
+    window.addEventListener("storage", load);
+    window.addEventListener("kvell_students_updated", load);
+    return () => {
+      window.removeEventListener("storage", load);
+      window.removeEventListener("kvell_students_updated", load);
+    };
+  }, []);
 
   const filteredStudents = hodStudentsData.filter((s) => {
     const matchesQuery =
@@ -2613,7 +2685,7 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
       case "subjects":
         return <SubjectsPage onToast={setToast} />;
       case "marks":
-        return <MarksPage role={role} onToast={setToast} />;
+        return <FacultyMarkEntry onToast={setToast} />;
       case "performance":
         return (
           <PerformancePage
@@ -2949,9 +3021,9 @@ function LoginPage({
   const usersQuery = trpc.admin.users.useQuery({ actorRole: "Admin" });
   const allUsers: any[] = usersQuery.data ?? [];
 
-  const [selectedRole, setSelectedRole] = useState<"Student" | "HOD" | "Admin">("Student");
-  const [regNumber, setRegNumber] = useState("KVELL2025CSE018");
-  const [username, setUsername] = useState("JAYAPRADHA");
+  const [selectedRole, setSelectedRole] = useState<"Student" | "HOD" | "Faculty">("Student");
+  const [regNumber, setRegNumber] = useState("20260110226001");
+  const [username, setUsername] = useState("FACULTY01");
   const [password, setPassword] = useState("password123");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -2968,10 +3040,13 @@ function LoginPage({
           (u.username?.toLowerCase() === trimmed || u.openId?.toLowerCase() === trimmed || u.email?.toLowerCase() === trimmed)
       );
 
-      const isSem3 = regNumber.includes("041") || regNumber.toLowerCase().includes("aarav");
+      const aidsMatch = aidsSem1Students.find((s) => s.regNo.toLowerCase() === trimmed);
+      const studentName = matched?.name || aidsMatch?.name || (aidsSem1Students[0]?.name || "ABI T");
+      const resolvedReg = matched?.openId || matched?.username || aidsMatch?.regNo || (regNumber || "20260110226001");
+
       onAuthenticated("Student", {
-        reg: matched ? (matched.openId || matched.username) : (isSem3 ? "KVELL2025CSE041" : (regNumber || "KVELL2025CSE018")),
-        name: matched ? matched.name : (isSem3 ? "Aarav Sharma" : "Rohan Sharma"),
+        reg: resolvedReg,
+        name: studentName,
         semester: 1,
       });
     } else if (selectedRole === "HOD") {
@@ -2995,8 +3070,8 @@ function LoginPage({
           department: "COMPUTER SCIENCE AND ENGINEERING",
         });
       }
-    } else if (selectedRole === "Admin") {
-      onAuthenticated("Admin");
+    } else if (selectedRole === "Faculty") {
+      onAuthenticated("Faculty");
     }
   };
 
@@ -3106,7 +3181,7 @@ function LoginPage({
                   className="h-16 w-16 mx-auto rounded-full bg-white p-1 border-2 border-[#D4A72C] shadow-md"
                 />
                 <h2 className="font-extrabold text-xl text-[#0B192C] mt-2.5">
-                  {selectedRole === "Student" ? "Student Result Portal" : selectedRole === "HOD" ? "HOD Department Portal" : "Admin Control Portal"}
+                  {selectedRole === "Student" ? "Student Result Portal" : selectedRole === "HOD" ? "HOD Department Portal" : "Faculty Portal"}
                 </h2>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
                   Select your role and enter credentials to sign in
@@ -3139,14 +3214,14 @@ function LoginPage({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSelectedRole("Admin")}
+                  onClick={() => setSelectedRole("Faculty")}
                   className={`py-2 text-xs font-black rounded-xl transition ${
-                    selectedRole === "Admin"
+                    selectedRole === "Faculty"
                       ? "bg-[#0B192C] text-white shadow-md"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  🛡️ Admin
+                  👨‍🏫 Faculty
                 </button>
               </div>
 
@@ -3172,7 +3247,7 @@ function LoginPage({
                 ) : (
                   <div>
                     <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
-                      {selectedRole === "HOD" ? "HOD USERNAME / ID" : "ADMINISTRATOR ID"}
+                      {selectedRole === "HOD" ? "HOD USERNAME / ID" : "FACULTY ID / USERNAME"}
                     </label>
                     <div className="relative">
                       <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -3181,7 +3256,7 @@ function LoginPage({
                         required
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        placeholder={selectedRole === "HOD" ? "e.g. JAYAPRADHA" : "e.g. admin"}
+                        placeholder={selectedRole === "HOD" ? "e.g. JAYAPRADHA" : "e.g. FACULTY01 / RAJESH"}
                         className="w-full h-12 pl-11 pr-4 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 focus:bg-white text-xs font-semibold text-[#172033] focus:border-[#0B192C] focus:ring-1 focus:ring-[#0B192C] focus:outline-none transition shadow-sm"
                       />
                     </div>
@@ -3229,53 +3304,36 @@ function LoginPage({
               </form>
 
               {/* Demo Quick Sign-in Helper */}
-              <div className="mt-5 pt-4 border-t border-slate-200 text-center">
-                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2">
-                  DEMO QUICK PORTAL ACCESS:
-                </span>
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  {allUsers.filter((u: any) => u.portalRole === "Student" && u.username !== "KVELL2025CSE041").map((st: any) => (
-                    <button
-                      key={st.id}
-                      type="button"
-                      onClick={() => {
-                        onAuthenticated("Student", {
-                          reg: st.openId || st.username,
-                          name: st.name,
-                          semester: 3,
-                        });
-                      }}
-                      className="px-3 py-1.5 rounded-full bg-[#D4A72C]/20 text-[#0B192C] font-extrabold text-[11px] hover:bg-[#D4A72C]/30 transition shadow-sm border border-[#D4A72C]"
-                    >
-                      🎓 {st.name} ({st.openId || st.username})
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onAuthenticated("Student", {
-                        reg: "KVELL2025CSE018",
-                        name: "Rohan Sharma",
-                        semester: 2,
-                      });
-                    }}
-                    className="px-3 py-1.5 rounded-full bg-[#D4A72C]/10 text-[#B08014] font-bold text-[11px] hover:bg-[#D4A72C]/20 transition shadow-sm"
-                  >
-                    🔑 2nd Sem Student
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onAuthenticated("Student", {
-                        reg: "KVELL2025CSE041",
-                        name: "Aarav Sharma",
-                        semester: 3,
-                      });
-                    }}
-                    className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px] hover:bg-slate-200 transition shadow-sm border border-slate-200"
-                  >
-                    🔑 3rd Sem Student
-                  </button>
+              {allUsers.length > 0 && (
+                <div className="mt-5 pt-4 border-t border-slate-200 text-center">
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2">
+                    AVAILABLE PORTAL LOGINS:
+                  </span>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {allUsers
+                      .filter((u: any) => u.portalRole === "Student")
+                      .slice(0, 6)
+                      .map((st: any) => (
+                        <button
+                          key={st.id}
+                          type="button"
+                          onClick={() => {
+                            onAuthenticated("Student", {
+                              reg: st.openId || st.username,
+                              name: st.name,
+                              semester: 1,
+                            });
+                          }}
+                          className="px-3 py-1.5 rounded-full bg-[#D4A72C]/20 text-[#0B192C] font-extrabold text-[11px] hover:bg-[#D4A72C]/30 transition shadow-sm border border-[#D4A72C]"
+                        >
+                          🎓 {st.name} ({st.openId || st.username})
+                        </button>
+                      ))}
+                    {allUsers.filter((u: any) => u.portalRole === "Student").length > 6 && (
+                      <span className="text-[11px] font-bold text-slate-400 self-center px-1">
+                        + {allUsers.filter((u: any) => u.portalRole === "Student").length - 6} more AIDS Sem 1 Students
+                      </span>
+                    )}
                   {allUsers.filter((u: any) => u.portalRole === "HOD" && u.username !== "ADMIN").map((hod: any) => (
                     <button
                       key={hod.id}
@@ -3312,13 +3370,14 @@ function LoginPage({
                   </button>
                   <button
                     type="button"
-                    onClick={() => onAuthenticated("Admin")}
-                    className="px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 font-bold text-[11px] hover:bg-blue-100 transition shadow-sm border border-blue-200"
+                    onClick={() => onAuthenticated("Faculty")}
+                    className="px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[11px] hover:bg-emerald-100 transition shadow-sm border border-emerald-200"
                   >
-                    🛡️ Admin Portal
+                    👨‍🏫 Faculty Portal
                   </button>
                 </div>
               </div>
+            )}
 
             </div>
           </div>
@@ -3334,9 +3393,9 @@ function LoginPage({
 }
 
 function StudentDashboard({
-  studentReg = "KVELL2025CSE018",
-  studentName = "Rohan Sharma",
-  initialSemester = 2,
+  studentReg = "20260110226001",
+  studentName = "ABI T",
+  initialSemester = 1,
   onLogout,
 }: {
   studentReg?: string;
@@ -3370,11 +3429,14 @@ function StudentDashboard({
   > = {
     1: {
       core: [
-        { code: "MA101", title: "Linear Algebra & Calculus", credits: 4, category: "Core Theory", faculty: "Dr. K. Raman" },
-        { code: "PH101", title: "Engineering Physics", credits: 4, category: "Core Theory", faculty: "Dr. S. Priya" },
-        { code: "CS101", title: "Programming for Problem Solving (C)", credits: 3, category: "Core Theory", faculty: "Prof. N. Kumar" },
-        { code: "EE101", title: "Basic Electrical & Electronics Engineering", credits: 3, category: "Core Theory", faculty: "Dr. M. Joseph" },
-        { code: "CS101L", title: "C Programming Laboratory", credits: 2, category: "Core Lab", faculty: "Prof. N. Kumar" },
+        { code: "UC26C01T", title: "Induction & Professional English", credits: 3, category: "Core Mandatory", faculty: "Prof. S. Nandhini" },
+        { code: "MA26C01T", title: "Matrices and Calculus", credits: 4, category: "Core Mandatory", faculty: "Dr. K. Raman" },
+        { code: "CY26C01I", title: "Engineering Chemistry", credits: 4, category: "Core Mandatory", faculty: "Dr. A. Sundaram" },
+        { code: "CS26C02T", title: "Programming in C", credits: 3, category: "Core Mandatory", faculty: "Dr. Priya Nair" },
+        { code: "CS26N01I", title: "Programming Laboratory", credits: 3, category: "Core Mandatory", faculty: "Prof. Arjun Rao" },
+        { code: "ME26C02P", title: "Engineering Practices Laboratory", credits: 2, category: "Core Mandatory", faculty: "Prof. M. Joseph" },
+        { code: "UC26C02P", title: "Physics & Chemistry Laboratory", credits: 2, category: "Core Mandatory", faculty: "Dr. S. Priya" },
+        { code: "UC26C03P", title: "Professional Communication Laboratory", credits: 2, category: "Core Mandatory", faculty: "Prof. S. Nandhini" },
       ],
     },
     2: {
@@ -3456,15 +3518,54 @@ function StudentDashboard({
     },
   };
 
-  const studentCourses = [
-    { code: "CS601", title: "Deep Learning & Neural Networks", credits: 4, grade: "O", points: 10, status: "PASS" },
-    { code: "CS602", title: "Distributed Systems Architecture", credits: 4, grade: "O", points: 10, status: "PASS" },
-    { code: "CS603", title: "Cloud Native Applications & DevOps", credits: 3, grade: "A+", points: 9, status: "PASS" },
-    { code: "CS604", title: "Natural Language Processing", credits: 4, grade: "O", points: 10, status: "PASS" },
-    { code: "CS605P", title: "AI Systems Engineering Lab", credits: 3, grade: "O", points: 10, status: "PASS" },
-    { code: "CS606", title: "Cybersecurity & Blockchain Fundamentals", credits: 3, grade: "A+", points: 9, status: "PASS" },
-    { code: "HS601", title: "Engineering Ethics & Management", credits: 3, grade: "A", points: 8, status: "PASS" },
-  ];
+  const isCse = studentReg.includes("2010") || studentName.toUpperCase().includes("AARAV") || studentName.toUpperCase().includes("ANANYA R") || studentName.toUpperCase().includes("DEEPAK");
+  const isBme = studentReg.includes("2040") || studentName.toUpperCase().includes("ABINAYA") || studentName.toUpperCase().includes("BALAJI R") || studentName.toUpperCase().includes("CHANDRU");
+  const detectedProgramName = isCse
+    ? "B.Tech Computer Science and Engineering"
+    : isBme
+    ? "B.Tech Biomedical Engineering"
+    : "B.Tech Artificial Intelligence & Data Science";
+
+  const studentCourses = useMemo(() => {
+    if (isCse) {
+      return [
+        { code: "UC26C01T", title: "Induction & Professional English", credits: 3, grade: "O", points: 10, status: "PASS" },
+        { code: "MA26C01T", title: "Matrices and Calculus", credits: 4, grade: "A+", points: 9, status: "PASS" },
+        { code: "CY26C01I", title: "Engineering Chemistry", credits: 4, grade: "O", points: 10, status: "PASS" },
+        { code: "CS26C02T", title: "Programming in C", credits: 3, grade: "O", points: 10, status: "PASS" },
+        { code: "CS26N01I", title: "Programming Laboratory", credits: 3, grade: "A+", points: 9, status: "PASS" },
+        { code: "ME26C02P", title: "Engineering Practices Laboratory", credits: 2, grade: "O", points: 10, status: "PASS" },
+        { code: "UC26C02P", title: "Physics & Chemistry Laboratory", credits: 2, grade: "A+", points: 9, status: "PASS" },
+        { code: "UC26C03P", title: "Professional Communication Laboratory", credits: 2, grade: "O", points: 10, status: "PASS" },
+      ];
+    }
+    if (isBme) {
+      return [
+        { code: "EN26C01T", title: "Professional English", credits: 3, grade: "O", points: 10, status: "PASS" },
+        { code: "MA26C01T", title: "Matrices and Calculus", credits: 4, grade: "A+", points: 9, status: "PASS" },
+        { code: "PH26C01I", title: "Engineering Physics", credits: 4, grade: "A", points: 8, status: "PASS" },
+        { code: "EE26C01T", title: "Basic Electrical and Electronics Engineering", credits: 3, grade: "O", points: 10, status: "PASS" },
+        { code: "CS26C01I", title: "Problem Solving and Python Programming", credits: 3, grade: "A+", points: 9, status: "PASS" },
+        { code: "ME26C02P", title: "Engineering Practices Laboratory", credits: 2, grade: "O", points: 10, status: "PASS" },
+        { code: "UC26C02P", title: "Physics & Chemistry Laboratory", credits: 2, grade: "A+", points: 9, status: "PASS" },
+        { code: "UC26C03P", title: "Professional Communication Laboratory", credits: 2, grade: "O", points: 10, status: "PASS" },
+      ];
+    }
+    return [
+      { code: "UC26C01T", title: "Induction & Professional English", credits: 3, grade: "O", points: 10, status: "PASS" },
+      { code: "MA26C01T", title: "Matrices and Calculus", credits: 4, grade: "A+", points: 9, status: "PASS" },
+      { code: "CY26C01I", title: "Engineering Chemistry", credits: 4, grade: "O", points: 10, status: "PASS" },
+      { code: "CS26C02T", title: "Programming in C", credits: 3, grade: "O", points: 10, status: "PASS" },
+      { code: "CS26N01I", title: "Programming Laboratory", credits: 3, grade: "O", points: 10, status: "PASS" },
+      { code: "ME26C02P", title: "Engineering Practices Laboratory", credits: 2, grade: "A+", points: 9, status: "PASS" },
+      { code: "UC26C02P", title: "Physics & Chemistry Laboratory", credits: 2, grade: "O", points: 10, status: "PASS" },
+      { code: "UC26C03P", title: "Professional Communication Laboratory", credits: 2, grade: "O", points: 10, status: "PASS" },
+    ];
+  }, [isCse, isBme]);
+
+  const totalCredits = studentCourses.reduce((sum, c) => sum + c.credits, 0);
+  const totalPoints = studentCourses.reduce((sum, c) => sum + c.points * c.credits, 0);
+  const computedSgpa = Number((totalPoints / Math.max(totalCredits, 1)).toFixed(2));
 
   const currentSemData = semesterCoursesData[currentSemesterNum] ?? semesterCoursesData[3];
   const currentCoreSubjects = currentSemData.core;
@@ -3634,7 +3735,7 @@ function StudentDashboard({
                       Register No: <span className="font-mono text-[#0B192C]">{studentReg}</span>
                     </p>
                     <p className="text-xs font-bold text-[#B08014] mt-1">
-                      Undergraduate • B.Tech Computer Science & Artificial Intelligence
+                      Undergraduate • B.Tech Artificial Intelligence & Data Science
                     </p>
                   </div>
                 </div>
@@ -4020,7 +4121,7 @@ function StudentDashboard({
               </div>
               <div>
                 <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">ENGINEERING PROGRAM</p>
-                <p className="font-extrabold text-[#0B192C] mt-1">B.Tech Computer Science & Artificial Intelligence</p>
+                <p className="font-extrabold text-[#0B192C] mt-1">B.Tech Artificial Intelligence & Data Science</p>
               </div>
               <div>
                 <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">SEMESTER & EXAM MONTH</p>
@@ -4032,7 +4133,7 @@ function StudentDashboard({
             <div className="mx-6 sm:mx-8 mt-8 space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="font-extrabold text-base text-[#0B192C]">Course Grade Breakdown</h4>
-                <span className="text-xs sm:text-sm font-extrabold text-slate-500">Total Credits: 24</span>
+                <span className="text-xs sm:text-sm font-extrabold text-slate-500">Total Credits: 23</span>
               </div>
 
               <div className="overflow-x-auto rounded-2xl border border-slate-200">

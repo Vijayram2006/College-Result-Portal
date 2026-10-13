@@ -10,8 +10,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ component: Compo
   const token = localStorage.getItem("kvell_admin_token");
   const currentUser = adminAuthApi.getCurrentUser();
 
-  // Route protection: requires authentication AND role = ADMIN
-  if (!token || !currentUser || currentUser.role !== "ADMIN") {
+  // Route protection: requires authentication AND authorized COE role
+  const allowedRoles = ["ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY"];
+  if (!token || !currentUser || !allowedRoles.includes(currentUser.role)) {
     return <Redirect to="/admin/login" />;
   }
 

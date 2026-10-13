@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Link } from "wouter";
+import React, { useEffect, useState, useMemo } from "react";
+import { Link, useLocation } from "wouter";
 import {
   Users,
   UserCheck,
@@ -10,28 +10,152 @@ import {
   Upload,
   ArrowRight,
   CheckCircle2,
+  ExternalLink,
+  ChevronRight,
+  X,
+  Search,
+  PenLine,
+  BarChart3,
+  Award,
+  Sparkles,
+  Layers,
+  Filter,
 } from "lucide-react";
 import { adminDashboardApi, AdminDashboardStats } from "../services/api";
+import { getStoredDepartments, Department } from "./Departments";
+import { aidsProfiles, cseSem1Students, bmeSem1Students } from "../data/dummyMarksData";
+import { getScopedKey, getActiveCollege, getActiveCollegeKey, isEngineeringCollege } from "../utils/rbac";
 
 export const Dashboard: React.FC = () => {
+  const [, navigate] = useLocation();
+  const college = getActiveCollege();
   const [stats, setStats] = useState<AdminDashboardStats | null>(null);
+  const [departments, setDepartments] = useState<Department[]>([]);
+
+  // Modals for interactive cards
+  const [showStudentsModal, setShowStudentsModal] = useState(false);
+  const [showFacultyModal, setShowFacultyModal] = useState(false);
+  const [selectedDeptFilter, setSelectedDeptFilter] = useState("all");
+  const [studentSearchQuery, setStudentSearchQuery] = useState("");
+
+  const loadData = () => {
+    adminDashboardApi.getStats().then(setStats);
+    setDepartments(getStoredDepartments());
+  };
 
   useEffect(() => {
-    const load = () => {
-      adminDashboardApi.getStats().then(setStats);
-    };
-    load();
-    window.addEventListener("kvell_marks_updated", load);
-    window.addEventListener("kvell_subjects_updated", load);
-    window.addEventListener("storage", load);
-    window.addEventListener("focus", load);
+    loadData();
+    window.addEventListener("kvell_marks_updated", loadData);
+    window.addEventListener("kvell_subjects_updated", loadData);
+    window.addEventListener("kvell_departments_updated", loadData);
+    window.addEventListener("kvell_students_updated", loadData);
+    window.addEventListener("storage", loadData);
+    window.addEventListener("focus", loadData);
     return () => {
-      window.removeEventListener("kvell_marks_updated", load);
-      window.removeEventListener("kvell_subjects_updated", load);
-      window.removeEventListener("storage", load);
-      window.removeEventListener("focus", load);
+      window.removeEventListener("kvell_marks_updated", loadData);
+      window.removeEventListener("kvell_subjects_updated", loadData);
+      window.removeEventListener("kvell_departments_updated", loadData);
+      window.removeEventListener("kvell_students_updated", loadData);
+      window.removeEventListener("storage", loadData);
+      window.removeEventListener("focus", loadData);
     };
   }, []);
+
+  // Helper to get student count for any department
+  const getDeptStudentCount = (key: string): number => {
+    const k = key.toLowerCase();
+    const studentPrefix = getScopedKey("kvell_dept_students_");
+    try {
+      const rawDept =
+        sessionStorage.getItem(`${studentPrefix}${k}`) ||
+        localStorage.getItem(`${studentPrefix}${k}`);
+      if (rawDept) {
+        const parsed = JSON.parse(rawDept);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed.length;
+      }
+    } catch {}
+    if (isEngineeringCollege()) {
+      if (k === "aids" || k === "ads") return 50;
+      if (k === "cse") return 20;
+      if (k === "bme") return 15;
+    }
+    return 0;
+  };
+
+  // Compile full enrolled student list across departments
+  const allEnrolledStudents = useMemo(() => {
+    const list: { regNo: string; name: string; deptKey: string; deptName: string; category?: string }[] = [];
+    const seen = new Set<string>();
+    const studentPrefix = getScopedKey("kvell_dept_students_");
+
+    departments.forEach((dept) => {
+      const k = dept.key.toLowerCase();
+      try {
+        const raw =
+          sessionStorage.getItem(`${studentPrefix}${k}`) ||
+          localStorage.getItem(`${studentPrefix}${k}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((s: any) => {
+              const reg = s.regNo || s["Register Number"];
+              const nm = s.name || s.studentName || s["Name"];
+              if (reg && !seen.has(reg)) {
+                seen.add(reg);
+                list.push({
+                  regNo: reg,
+                  name: nm,
+                  deptKey: k,
+                  deptName: dept.name,
+                  category: s.category || s["Category"] || "regular",
+                });
+              }
+            });
+          }
+        }
+      } catch {}
+    });
+
+    // Fallbacks if engineering college and not already in list
+    if (isEngineeringCollege()) {
+      if (!seen.has("20260110226001")) {
+        aidsProfiles.forEach((s) => {
+          if (!seen.has(s.regNo)) {
+            seen.add(s.regNo);
+            list.push({ regNo: s.regNo, name: s.name, deptKey: "aids", deptName: "Artificial Intelligence & Data Science", category: s.category });
+          }
+        });
+      }
+      if (!seen.has("20260110201001")) {
+        cseSem1Students.forEach((s) => {
+          if (!seen.has(s.regNo)) {
+            seen.add(s.regNo);
+            list.push({ regNo: s.regNo, name: s.name, deptKey: "cse", deptName: "Computer Science and Engineering", category: s.category });
+          }
+        });
+      }
+      if (!seen.has("20260110204001")) {
+        bmeSem1Students.forEach((s) => {
+          if (!seen.has(s.regNo)) {
+            seen.add(s.regNo);
+            list.push({ regNo: s.regNo, name: s.name, deptKey: "bme", deptName: "Biomedical Engineering", category: s.category });
+          }
+        });
+      }
+    }
+
+    return list;
+  }, [departments]);
+
+  // Filtered students for quick search modal
+  const filteredModalStudents = useMemo(() => {
+    return allEnrolledStudents.filter((s) => {
+      const matchDept = selectedDeptFilter === "all" || s.deptKey === selectedDeptFilter || (selectedDeptFilter === "aids" && s.deptKey === "ads");
+      const q = studentSearchQuery.toLowerCase().trim();
+      const matchQuery = !q || s.name.toLowerCase().includes(q) || s.regNo.toLowerCase().includes(q);
+      return matchDept && matchQuery;
+    });
+  }, [allEnrolledStudents, selectedDeptFilter, studentSearchQuery]);
 
   return (
     <div className="space-y-8 w-full">
@@ -39,13 +163,13 @@ export const Dashboard: React.FC = () => {
       <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="relative z-10 max-w-xl">
           <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-widest inline-block mb-2">
-            University Controller of Examinations
+            {college.icon} KVELL UNIVERSITY · {college.shortName.toUpperCase()}
           </span>
           <h2 className="font-display text-2xl sm:text-3xl font-bold">
-            Result & Examination Management Portal
+            KVELL UNIVERSITY — {college.shortName} COE Suite
           </h2>
-          <p className="text-xs text-white/70 mt-2 leading-relaxed font-medium">
-            Upload semester end marks, run automated schema validation, and publish official grade statements directly to the Student Portal.
+          <p className="text-xs text-white/70 mt-1 leading-relaxed">
+            Role Based Access Control (RBAC) protected domain. Manage examination batches, upload student rosters, and publish university marksheets.
           </p>
         </div>
 
@@ -65,81 +189,257 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Clean University Statistics Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <div className="bg-white p-5 rounded-2xl border border-[#E5E1D8] shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-extrabold uppercase text-[#667085] block tracking-wider">
-              Total Students
-            </span>
-            <span className="font-display font-black text-2xl sm:text-3xl text-[#0B192C] mt-1 block">
-              {stats?.totalStudents || 0}
-            </span>
-            <span className="text-[10px] font-semibold text-[#667085] mt-1 block flex items-center gap-1">
-              {stats?.totalStudents ? (
-                <>
-                  <CheckCircle2 size={12} className="text-[#1D8A5A]" /> Active Enrolled
-                </>
-              ) : (
-                "No Enrolled Students"
-              )}
-            </span>
+      {/* FULLY FUNCTIONAL UNIVERSITY METRICS CARDS */}
+      <div>
+        <div className="flex items-center justify-between mb-3 px-1">
+          <span className="text-xs font-black text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+            <Sparkles size={14} className="text-[#D4A72C]" />
+            Live University Metric Directory · Click Any Card to Inspect & Manage
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          {/* Card 1: Total Students (Clickable & Functional) */}
+          <div
+            onClick={() => setShowStudentsModal(true)}
+            className="group cursor-pointer bg-white p-5 rounded-3xl border-2 border-[#E5E1D8] hover:border-[#D4A72C] shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase text-[#667085] block tracking-wider group-hover:text-[#0B192C] transition">
+                  Total Students
+                </span>
+                <span className="font-display font-black text-3xl sm:text-4xl text-[#0B192C] mt-1 block">
+                  {stats !== null ? stats.totalStudents : (isEngineeringCollege() ? 85 : 0)}
+                </span>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-[#0B192C]/5 text-[#0B192C] group-hover:bg-[#0B192C] group-hover:text-[#D4A72C] flex items-center justify-center shrink-0 transition-all duration-200 shadow-sm">
+                <Users size={22} />
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+              <span className="text-[11px] font-bold text-[#1D8A5A] flex items-center gap-1">
+                <CheckCircle2 size={13} /> Active Enrolled
+              </span>
+              <span className="text-[11px] font-extrabold text-[#0B192C] group-hover:text-[#B08014] flex items-center gap-0.5 transition">
+                View Roster <ChevronRight size={13} />
+              </span>
+            </div>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-[#0B192C]/5 text-[#0B192C] flex items-center justify-center shrink-0">
-            <Users size={22} />
+
+          {/* Card 2: Total Departments (Clickable & Functional) */}
+          <div
+            onClick={() => navigate("/admin/departments")}
+            className="group cursor-pointer bg-white p-5 rounded-3xl border-2 border-[#E5E1D8] hover:border-[#D4A72C] shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase text-[#667085] block tracking-wider group-hover:text-[#0B192C] transition">
+                  Total Departments
+                </span>
+                <span className="font-display font-black text-3xl sm:text-4xl text-[#0B192C] mt-1 block">
+                  {stats !== null ? stats.totalDepartments : (isEngineeringCollege() ? 12 : 0)}
+                </span>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-[#0B192C]/5 text-[#0B192C] group-hover:bg-[#0B192C] group-hover:text-[#D4A72C] flex items-center justify-center shrink-0 transition-all duration-200 shadow-sm">
+                <Building2 size={22} />
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+              <span className="text-[11px] font-bold text-[#B08014] font-mono">
+                {departments.length} Active Branches
+              </span>
+              <span className="text-[11px] font-extrabold text-[#0B192C] group-hover:text-[#B08014] flex items-center gap-0.5 transition">
+                Manage Depts <ChevronRight size={13} />
+              </span>
+            </div>
+          </div>
+
+          {/* Card 3: Total Faculty (Clickable & Functional) */}
+          <div
+            onClick={() => setShowFacultyModal(true)}
+            className="group cursor-pointer bg-white p-5 rounded-3xl border-2 border-[#E5E1D8] hover:border-[#D4A72C] shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase text-[#667085] block tracking-wider group-hover:text-[#0B192C] transition">
+                  Total Faculty & HODs
+                </span>
+                <span className="font-display font-black text-3xl sm:text-4xl text-[#0B192C] mt-1 block">
+                  {stats !== null ? stats.totalFaculty : (isEngineeringCollege() ? 12 : 0)}
+                </span>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-[#0B192C]/5 text-[#0B192C] group-hover:bg-[#0B192C] group-hover:text-[#D4A72C] flex items-center justify-center shrink-0 transition-all duration-200 shadow-sm">
+                <UserCheck size={22} />
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+              <span className="text-[11px] font-bold text-gray-500">
+                Assigned Dept Heads
+              </span>
+              <span className="text-[11px] font-extrabold text-[#0B192C] group-hover:text-[#B08014] flex items-center gap-0.5 transition">
+                View Faculty <ChevronRight size={13} />
+              </span>
+            </div>
+          </div>
+
+          {/* Card 4: Total Courses (Clickable & Functional) */}
+          <div
+            onClick={() => navigate("/admin/subjects")}
+            className="group cursor-pointer bg-white p-5 rounded-3xl border-2 border-[#E5E1D8] hover:border-[#D4A72C] shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase text-[#667085] block tracking-wider group-hover:text-[#0B192C] transition">
+                  Total Courses
+                </span>
+                <span className="font-display font-black text-3xl sm:text-4xl text-[#0B192C] mt-1 block">
+                  {stats !== null ? stats.totalCourses : (isEngineeringCollege() ? 18 : 0)}
+                </span>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-[#0B192C]/5 text-[#0B192C] group-hover:bg-[#0B192C] group-hover:text-[#D4A72C] flex items-center justify-center shrink-0 transition-all duration-200 shadow-sm">
+                <BookOpen size={22} />
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+              <span className="text-[11px] font-bold text-gray-500">
+                Active Curriculum
+              </span>
+              <span className="text-[11px] font-extrabold text-[#0B192C] group-hover:text-[#B08014] flex items-center gap-0.5 transition">
+                Open Catalog <ChevronRight size={13} />
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* INTERACTIVE DEPARTMENT MATRIX & ENROLLMENT BREAKDOWN */}
+      <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-sm p-6 sm:p-7 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E5E1D8] pb-4">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-black text-[#D4A72C] uppercase tracking-wider mb-1">
+              <Building2 size={15} />
+              University Academic Matrix & Branch Directory
+            </div>
+            <h3 className="font-display font-bold text-xl text-[#0B192C]">
+              Department Enrolled Candidates & Quick Action Center
+            </h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Select any department to jump directly into Student Roster, Examination Mark Entry, or Performance Analytics.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => navigate("/admin/departments")}
+              className="px-4 py-2.5 rounded-xl bg-[#F8F5EE] hover:bg-[#E5E1D8] text-[#0B192C] text-xs font-bold transition border border-[#E5E1D8] flex items-center gap-1.5"
+            >
+              <Building2 size={14} className="text-[#D4A72C]" />
+              <span>Configure Departments</span>
+            </button>
+            <button
+              onClick={() => setShowStudentsModal(true)}
+              className="px-4 py-2.5 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-white text-xs font-extrabold transition shadow flex items-center gap-1.5"
+            >
+              <Users size={14} className="text-[#D4A72C]" />
+              <span>Inspect All Students ({allEnrolledStudents.length})</span>
+            </button>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-[#E5E1D8] shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-extrabold uppercase text-[#667085] block tracking-wider">
-              Total Faculty
-            </span>
-            <span className="font-display font-black text-2xl sm:text-3xl text-[#0B192C] mt-1 block">
-              {stats?.totalFaculty || 0}
-            </span>
-            <span className="text-[10px] font-semibold text-[#667085] mt-1 block">
-              {stats?.totalFaculty ? `${stats.totalFaculty} Assigned Faculty` : "No Faculty Recorded"}
-            </span>
+        {departments.length === 0 ? (
+          <div className="p-10 text-center bg-[#F8F5EE]/40 rounded-2xl border-2 border-dashed border-[#E5E1D8]">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-[#0B192C]/5 text-[#0B192C] flex items-center justify-center mb-3">
+              <Building2 size={24} className="text-[#D4A72C]" />
+            </div>
+            <h4 className="font-display font-bold text-base text-[#0B192C]">No Departments Configured</h4>
+            <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
+              No academic departments have been added for {college.name} yet. Configure your departments to enroll students and record examination marks.
+            </p>
+            <button
+              onClick={() => navigate("/admin/departments")}
+              className="mt-4 px-4 py-2.5 rounded-xl bg-[#0B192C] text-white text-xs font-extrabold hover:bg-[#152744] transition inline-flex items-center gap-1.5 shadow"
+            >
+              <Building2 size={14} className="text-[#D4A72C]" />
+              Add Department Now
+            </button>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-[#0B192C]/5 text-[#0B192C] flex items-center justify-center shrink-0">
-            <UserCheck size={22} />
-          </div>
-        </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {departments.map((d) => {
+              const count = getDeptStudentCount(d.key);
+              const isFeatured = d.key === "aids" || d.key === "cse" || d.key === "bme";
 
-        <div className="bg-white p-5 rounded-2xl border border-[#E5E1D8] shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-extrabold uppercase text-[#667085] block tracking-wider">
-              Total Departments
-            </span>
-            <span className="font-display font-black text-2xl sm:text-3xl text-[#0B192C] mt-1 block">
-              {stats?.totalDepartments || 0}
-            </span>
-            <span className="text-[10px] font-semibold text-[#B08014] mt-1 block font-mono">
-              {stats?.totalDepartments ? `${stats.totalDepartments} Active Departments` : "No Active Departments"}
-            </span>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-[#0B192C]/5 text-[#0B192C] flex items-center justify-center shrink-0">
-            <Building2 size={22} />
-          </div>
-        </div>
+              return (
+                <div
+                  key={d.key}
+                  className={`p-4 sm:p-5 rounded-2xl border transition-all duration-150 flex flex-col justify-between ${
+                    isFeatured
+                      ? "bg-[#FFFDF7] border-[#D4A72C]/40 shadow-sm"
+                      : "bg-white border-[#E5E1D8] hover:border-gray-400"
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-mono text-xs font-black text-[#0B192C] bg-[#D4A72C]/20 border border-[#D4A72C]/40 px-2.5 py-0.5 rounded-lg">
+                        {d.code}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                          count > 0 ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-500"
+                        }`}
+                      >
+                        {count} {count === 1 ? "Student" : "Students"}
+                      </span>
+                    </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-[#E5E1D8] shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-[10px] font-extrabold uppercase text-[#667085] block tracking-wider">
-              Total Courses
-            </span>
-            <span className="font-display font-black text-2xl sm:text-3xl text-[#0B192C] mt-1 block">
-              {stats?.totalCourses || 0}
-            </span>
-            <span className="text-[10px] font-semibold text-[#667085] mt-1 block">
-              {stats?.totalCourses ? `${stats.totalCourses} Registered Courses` : "No Courses Registered"}
-            </span>
+                    <h4 className="font-display font-bold text-sm text-[#0B192C] line-clamp-1">{d.name}</h4>
+                    <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                      HOD: <span className="font-semibold text-gray-700">{d.headName || "Assigned"}</span>
+                    </p>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        sessionStorage.setItem("kvell_selected_dept", d.key);
+                        navigate("/admin/results/upload");
+                      }}
+                      className="flex-1 py-1.5 px-2 rounded-lg bg-[#F8F5EE] hover:bg-[#E5E1D8] text-[#0B192C] text-[11px] font-extrabold transition text-center border border-[#E5E1D8]"
+                      title={`Manage ${d.code} Student Data`}
+                    >
+                      Roster
+                    </button>
+                    <button
+                      onClick={() => {
+                        sessionStorage.setItem("kvell_selected_dept", d.key);
+                        navigate("/admin/results/validation");
+                      }}
+                      className="flex-1 py-1.5 px-2 rounded-lg bg-[#0B192C] hover:bg-[#132943] text-white text-[11px] font-extrabold transition text-center shadow-sm"
+                      title={`Enter marks for ${d.code}`}
+                    >
+                      Marks
+                    </button>
+                    <button
+                      onClick={() => {
+                        sessionStorage.setItem("kvell_selected_dept", d.key);
+                        navigate("/admin/analytics");
+                      }}
+                      className="p-1.5 rounded-lg bg-[#D4A72C]/20 hover:bg-[#D4A72C]/30 text-[#0B192C] transition border border-[#D4A72C]/50"
+                      title={`View ${d.code} Analytics`}
+                    >
+                      <BarChart3 size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <div className="w-12 h-12 rounded-xl bg-[#0B192C]/5 text-[#0B192C] flex items-center justify-center shrink-0">
-            <BookOpen size={22} />
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Secondary Status & Workflow Metrics */}
@@ -191,7 +491,7 @@ export const Dashboard: React.FC = () => {
             {stats?.overallPassPercentage || 0}%
           </span>
           <p className="text-xs text-gray-500 mt-2">
-            Cumulative pass percentage across all engineering departments.
+            Cumulative pass percentage across all {college.shortName} departments.
           </p>
         </div>
       </div>
@@ -231,7 +531,7 @@ export const Dashboard: React.FC = () => {
               {!stats?.recentUploads || stats.recentUploads.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-gray-500 font-semibold text-xs">
-                    No upload batches recorded. Click "Student Data" to add student records.
+                    No upload batches recorded for {college.shortName}. Click "Student Data" to add student records.
                   </td>
                 </tr>
               ) : (
@@ -262,6 +562,195 @@ export const Dashboard: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* INTERACTIVE STUDENTS DIRECTORY MODAL */}
+      {showStudentsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 border border-[#E5E1D8] shadow-2xl space-y-5 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-[#E5E1D8] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0B192C] text-[#D4A72C] flex items-center justify-center font-black">
+                  <Users size={20} />
+                </div>
+                <div>
+                  <h3 className="font-display font-black text-xl text-[#0B192C]">
+                    Enrolled Students Directory ({allEnrolledStudents.length} Active Candidates)
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Live candidate registry across {college.name} departments.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowStudentsModal(false)}
+                className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Filter Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="relative w-full sm:w-80">
+                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={studentSearchQuery}
+                  onChange={(e) => setStudentSearchQuery(e.target.value)}
+                  placeholder="Search by name or reg number..."
+                  className="w-full h-9 pl-9 pr-3 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-xs font-semibold focus:outline-none focus:border-[#0B192C]"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-[10px] font-extrabold uppercase text-gray-400">Filter Branch:</span>
+                <select
+                  value={selectedDeptFilter}
+                  onChange={(e) => setSelectedDeptFilter(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] font-bold text-xs text-[#0B192C] focus:outline-none"
+                >
+                  <option value="all">All Branches ({allEnrolledStudents.length})</option>
+                  {departments.map((d) => (
+                    <option key={d.key} value={d.key}>
+                      {d.code} ({getDeptStudentCount(d.key)} Students)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Students Table */}
+            <div className="overflow-y-auto flex-1 border border-[#E5E1D8] rounded-2xl">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold sticky top-0">
+                  <tr>
+                    <th className="p-3">#</th>
+                    <th className="p-3">Register Number</th>
+                    <th className="p-3">Student Name</th>
+                    <th className="p-3">Branch</th>
+                    <th className="p-3 text-center">Category</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E5E1D8]">
+                  {filteredModalStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-gray-500 font-semibold">
+                        No students match the criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredModalStudents.map((s, idx) => (
+                      <tr key={s.regNo} className="hover:bg-[#F8F5EE]/60 transition">
+                        <td className="p-3 font-mono text-gray-400 font-bold">{idx + 1}</td>
+                        <td className="p-3 font-mono font-bold text-[#0B192C]">{s.regNo}</td>
+                        <td className="p-3 font-bold text-gray-900">{s.name}</td>
+                        <td className="p-3 font-semibold text-gray-700">{s.deptName}</td>
+                        <td className="p-3 text-center">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                              s.category === "lateral" ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-800"
+                            }`}
+                          >
+                            {s.category || "regular"}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            onClick={() => {
+                              setShowStudentsModal(false);
+                              navigate("/admin/results/validation");
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-[#D4A72C]/20 hover:bg-[#D4A72C]/40 text-[#0B192C] text-[11px] font-extrabold transition inline-flex items-center gap-1"
+                          >
+                            <PenLine size={12} /> Enter Marks
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-[#E5E1D8] text-xs">
+              <span className="text-gray-500 font-medium">
+                Showing <strong>{filteredModalStudents.length}</strong> of {allEnrolledStudents.length} students
+              </span>
+              <button
+                onClick={() => {
+                  setShowStudentsModal(false);
+                  navigate("/admin/results/upload");
+                }}
+                className="px-4 py-2 rounded-xl bg-[#0B192C] text-white font-extrabold text-xs hover:bg-[#152744] transition flex items-center gap-1.5 shadow"
+              >
+                <span>Open Full Student Data Manager</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FACULTY DIRECTORY MODAL */}
+      {showFacultyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 border border-[#E5E1D8] shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-[#E5E1D8] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0B192C] text-[#D4A72C] flex items-center justify-center font-black">
+                  <UserCheck size={20} />
+                </div>
+                <div>
+                  <h3 className="font-display font-black text-xl text-[#0B192C]">
+                    Faculty & Department Heads Directory
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Official Department Heads and examination controllers for {college.name}.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowFacultyModal(false)}
+                className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="divide-y divide-[#E5E1D8] max-h-96 overflow-y-auto">
+              {departments.length === 0 ? (
+                <div className="py-8 text-center text-gray-500 font-semibold text-xs">
+                  No departments or faculty assigned yet for {college.name}.
+                </div>
+              ) : (
+                departments.map((d) => (
+                  <div key={d.key} className="py-3 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-bold text-gray-900 block text-sm">{d.headName || `HOD ${d.code}`}</span>
+                      <span className="text-gray-500 text-[11px] font-medium">{d.name} ({d.code})</span>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold">
+                      Head of Department
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-[#E5E1D8]">
+              <button
+                onClick={() => setShowFacultyModal(false)}
+                className="px-5 py-2.5 rounded-xl bg-[#0B192C] text-white font-extrabold text-xs hover:bg-[#152744] transition"
+              >
+                Close Directory
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+export default Dashboard;

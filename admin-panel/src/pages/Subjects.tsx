@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { getStoredDepartments, Department } from "./Departments";
 import {
   BookOpen,
   Plus,
@@ -15,7 +16,11 @@ import {
   AlertCircle,
   FileCheck,
   X,
+  RotateCcw,
 } from "lucide-react";
+import { allCurriculumSubjects } from "../data/curriculumSubjects";
+
+import { getScopedKey, getActiveCollege, getActiveCollegeKey, isEngineeringCollege } from "../utils/rbac";
 
 export interface SubjectItem {
   id: string;
@@ -31,14 +36,38 @@ export interface SubjectItem {
   studentsEnrolled?: number;
 }
 
-const initialSubjects: SubjectItem[] = [];
-
 export const SubjectsPage: React.FC = () => {
+  const college = getActiveCollege();
   const [subjects, setSubjects] = useState<SubjectItem[]>(() => {
+    const activeCollege = getActiveCollegeKey();
+    const storageKey = getScopedKey("kvell_admin_subjects");
+
+    // For Nursing and Pharmacy: NO pre-seeded subjects! Start clean.
+    if (activeCollege !== "engineering") {
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch {
+        return [];
+      }
+      return [];
+    }
+
+    // Engineering college: load existing subjects or defaults
     try {
       const saved = localStorage.getItem("kvell_admin_subjects");
-      if (!saved) return [];
+      if (!saved) {
+        localStorage.setItem("kvell_admin_subjects", JSON.stringify(allCurriculumSubjects));
+        return allCurriculumSubjects as SubjectItem[];
+      }
       const parsed: SubjectItem[] = JSON.parse(saved);
+      if (parsed.length === 0) {
+        localStorage.setItem("kvell_admin_subjects", JSON.stringify(allCurriculumSubjects));
+        return allCurriculumSubjects as SubjectItem[];
+      }
       const migrated = parsed.map((s) => ({
         ...s,
         academicYear: "2026-27",
@@ -47,7 +76,7 @@ export const SubjectsPage: React.FC = () => {
       localStorage.setItem("kvell_admin_subjects", JSON.stringify(migrated));
       return migrated;
     } catch {
-      return [];
+      return allCurriculumSubjects as SubjectItem[];
     }
   });
   const [search, setSearch] = useState("");
@@ -63,20 +92,29 @@ export const SubjectsPage: React.FC = () => {
   const [newCategory, setNewCategory] = useState<"Core Mandatory" | "Professional Elective" | "Open Elective">("Core Mandatory");
   const [newCredits, setNewCredits] = useState(4);
   const [newSemester, setNewSemester] = useState("Semester I");
-  const [newDept, setNewDept] = useState("Computer Science & Engineering");
+  const [storedDepts, setStoredDepts] = useState<Department[]>([]);
+  const [newDept, setNewDept] = useState("General Engineering");
   const [newFaculty, setNewFaculty] = useState("");
+
+  useEffect(() => {
+    const list = getStoredDepartments();
+    setStoredDepts(list);
+    if (list.length > 0) {
+      setNewDept(list[0].name);
+    }
+  }, []);
 
   const handleFinalizeAll = () => {
     const updated = subjects.map((sub) => ({ ...sub, status: "COE FINALIZED" as const }));
     setSubjects(updated);
     try {
-      localStorage.setItem("kvell_admin_subjects", JSON.stringify(updated));
+      localStorage.setItem(getScopedKey("kvell_admin_subjects"), JSON.stringify(updated));
       window.dispatchEvent(new Event("kvell_subjects_updated"));
     } catch (e) {
       console.error(e);
     }
     setIsAllFinalized(true);
-    alert("COE Official Finalization Completed! All core and elective subjects are now approved and active for examinations.");
+    alert(`COE Official Finalization Completed! All subjects for ${college.name} are now approved.`);
   };
 
   const handleAddSubject = (e: React.FormEvent) => {
@@ -92,7 +130,7 @@ export const SubjectsPage: React.FC = () => {
       category: newCategory,
       credits: Number(newCredits),
       department: newDept,
-      semester: "Semester I",
+      semester: newSemester || "Semester I",
       academicYear: "2026-27",
       faculty: newFaculty.trim() || "Faculty In-Charge",
       status: "COE FINALIZED",
@@ -101,7 +139,7 @@ export const SubjectsPage: React.FC = () => {
     const updated = [newSubject, ...subjects];
     setSubjects(updated);
     try {
-      localStorage.setItem("kvell_admin_subjects", JSON.stringify(updated));
+      localStorage.setItem(getScopedKey("kvell_admin_subjects"), JSON.stringify(updated));
       window.dispatchEvent(new Event("kvell_subjects_updated"));
     } catch (e) {
       console.error(e);
@@ -109,9 +147,9 @@ export const SubjectsPage: React.FC = () => {
     setIsAddOpen(false);
     setNewCode("");
     setNewTitle("");
-    setNewDept("Computer Science & Engineering");
+    if (storedDepts.length > 0) setNewDept(storedDepts[0].name);
     setNewFaculty("");
-    alert(`Subject '${newSubject.code} - ${newSubject.title}' added to Semester I (2026-27)!`);
+    alert(`Subject '${newSubject.code} - ${newSubject.title}' added to ${college.name}!`);
   };
 
   const handleDeleteSubject = (id: string, title: string) => {
@@ -119,7 +157,7 @@ export const SubjectsPage: React.FC = () => {
       const updated = subjects.filter((s) => s.id !== id);
       setSubjects(updated);
       try {
-        localStorage.setItem("kvell_admin_subjects", JSON.stringify(updated));
+        localStorage.setItem(getScopedKey("kvell_admin_subjects"), JSON.stringify(updated));
         window.dispatchEvent(new Event("kvell_subjects_updated"));
       } catch (e) {
         console.error(e);
@@ -128,10 +166,34 @@ export const SubjectsPage: React.FC = () => {
   };
 
   const handleClearAllSubjects = () => {
-    if (window.confirm("Are you sure you want to remove all subjects from the catalog? This will make the subject catalog completely empty.")) {
+    if (window.confirm(`Are you sure you want to remove all subjects from ${college.name}?`)) {
       setSubjects([]);
       try {
-        localStorage.setItem("kvell_admin_subjects", JSON.stringify([]));
+        localStorage.setItem(getScopedKey("kvell_admin_subjects"), JSON.stringify([]));
+        window.dispatchEvent(new Event("kvell_subjects_updated"));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
+  const handleResetToCurriculum = () => {
+    if (isEngineeringCollege()) {
+      if (window.confirm("Reload all official Regulation 2026 Semester I subjects across all departments?")) {
+        setSubjects(allCurriculumSubjects as SubjectItem[]);
+        try {
+          localStorage.setItem("kvell_admin_subjects", JSON.stringify(allCurriculumSubjects));
+          window.dispatchEvent(new Event("kvell_subjects_updated"));
+        } catch (e) {
+          console.error(e);
+        }
+        setIsAllFinalized(true);
+        alert("Official Regulation 2026 subjects reloaded and synced successfully!");
+      }
+    } else {
+      setSubjects([]);
+      try {
+        localStorage.setItem(getScopedKey("kvell_admin_subjects"), JSON.stringify([]));
         window.dispatchEvent(new Event("kvell_subjects_updated"));
       } catch (e) {
         console.error(e);
@@ -181,6 +243,16 @@ export const SubjectsPage: React.FC = () => {
               title="Remove all subjects from catalog"
             >
               <Trash2 size={16} /> Clear All Subjects
+            </button>
+          )}
+
+          {isEngineeringCollege() && (
+            <button
+              onClick={handleResetToCurriculum}
+              className="px-4 py-3 rounded-2xl bg-[#D4A72C]/20 hover:bg-[#D4A72C]/30 text-[#D4A72C] font-extrabold text-xs border border-[#D4A72C]/40 transition shadow flex items-center gap-2"
+              title="Reload official Regulation 2026 subjects for all departments"
+            >
+              <RotateCcw size={16} /> Official 2026 Subjects
             </button>
           )}
 
@@ -302,12 +374,11 @@ export const SubjectsPage: React.FC = () => {
               className="h-10 rounded-2xl border border-[#E5E1D8] bg-[#F8F5EE]/70 px-3 text-xs font-extrabold text-[#0B192C] focus:bg-white focus:outline-none transition shadow-sm"
             >
               <option value="All">All Departments</option>
-              <option value="Artificial Intelligence & Data Science">AIDS</option>
-              <option value="Computer Science & Engineering">CSE</option>
-              <option value="Electronics & Communication Engineering">ECE</option>
-              <option value="Information Technology">IT</option>
-              <option value="Electrical & Electronics Engineering">EEE</option>
-              <option value="Mechanical Engineering">MECH</option>
+              {storedDepts.map((d) => (
+                <option key={d.key} value={d.name}>
+                  {d.code} - {d.name}
+                </option>
+              ))}
             </select>
 
             <select
@@ -548,24 +619,15 @@ export const SubjectsPage: React.FC = () => {
                   onChange={(e) => setNewDept(e.target.value)}
                   className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3.5 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
                 >
-                  <option value="Artificial Intelligence & Data Science">
-                    Artificial Intelligence & Data Science (AIDS)
-                  </option>
-                  <option value="Computer Science & Engineering">
-                    Computer Science & Engineering (CSE)
-                  </option>
-                  <option value="Electronics & Communication Engineering">
-                    Electronics & Communication Engineering (ECE)
-                  </option>
-                  <option value="Information Technology">
-                    Information Technology (IT)
-                  </option>
-                  <option value="Electrical & Electronics Engineering">
-                    Electrical & Electronics Engineering (EEE)
-                  </option>
-                  <option value="Mechanical Engineering">
-                    Mechanical Engineering (MECH)
-                  </option>
+                  {storedDepts.length > 0 ? (
+                    storedDepts.map((d) => (
+                      <option key={d.key} value={d.name}>
+                        {d.name} ({d.code})
+                      </option>
+                    ))
+                  ) : (
+                    <option value="General Engineering">General Engineering</option>
+                  )}
                 </select>
               </div>
 
