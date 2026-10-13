@@ -68,15 +68,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
             <div className="flex items-center gap-3">
               <img
                 src={kvellSealLogo}
-                alt="KVELL Seal"
-                className="h-10 w-10 rounded-full bg-white p-0.5 border border-[#D4A72C] shrink-0"
+                alt="KVELL UNIVERSITY"
+                className="h-10 w-10 rounded-full bg-white p-0.5 border border-[#D4A72C] shrink-0 object-contain shadow-sm"
               />
               <div className="overflow-hidden">
-                <span className="font-display font-black text-sm tracking-tight text-white block truncate uppercase">
+                <span className="font-display font-black text-xs tracking-wide text-white block truncate uppercase" title="KVELL UNIVERSITY">
                   KVELL UNIVERSITY
                 </span>
-                <span className="text-[11px] font-extrabold text-[#D4A72C] tracking-wider uppercase block truncate">
-                  {college.shortName}
+                <span className="text-[10px] font-extrabold text-[#D4A72C] tracking-wider uppercase block truncate">
+                  {college.shortName || "COE Portal"}
                 </span>
               </div>
             </div>

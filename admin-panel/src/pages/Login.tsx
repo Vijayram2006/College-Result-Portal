@@ -302,10 +302,6 @@ export const Login: React.FC = () => {
                     </span>
                   </button>
                 </div>
-
-                <p className="mt-3 text-[10px] text-slate-400 font-medium">
-                  Protected by Role Based Access Control (RBAC). Same login interface with dedicated institutional domains.
-                </p>
               </div>
 
           </div>

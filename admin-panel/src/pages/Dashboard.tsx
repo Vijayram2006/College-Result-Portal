@@ -159,18 +159,25 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-8 w-full">
-      {/* Welcome Banner */}
+      {/* Welcome Banner with Official College Seal */}
       <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="relative z-10 max-w-xl">
-          <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-widest inline-block mb-2">
-            {college.icon} KVELL UNIVERSITY · {college.shortName.toUpperCase()}
-          </span>
-          <h2 className="font-display text-2xl sm:text-3xl font-bold">
-            KVELL UNIVERSITY — {college.shortName} COE Suite
-          </h2>
-          <p className="text-xs text-white/70 mt-1 leading-relaxed">
-            Role Based Access Control (RBAC) protected domain. Manage examination batches, upload student rosters, and publish university marksheets.
-          </p>
+        <div className="relative z-10 flex items-center gap-5 max-w-2xl">
+          <img
+            src={college.logoUrl}
+            alt={college.name}
+            className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-white p-1 border-2 border-[#D4A72C] shrink-0 object-contain shadow-lg"
+          />
+          <div>
+            <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-widest inline-block mb-1.5">
+              OFFICE OF THE CONTROLLER OF EXAMINATIONS
+            </span>
+            <h2 className="font-display text-xl sm:text-2xl font-black text-white leading-tight">
+              {college.name}
+            </h2>
+            <p className="text-xs text-[#D4A72C] font-semibold mt-1">
+              Examination Administration, Valuation Bundles &amp; Result Publication Portal
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 relative z-10">

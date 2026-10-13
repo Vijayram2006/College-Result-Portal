@@ -165,7 +165,58 @@ export const initialDefaultDepts: Department[] = [
   },
 ];
 
+export const getActiveFacultyCollege = (): string => {
+  return localStorage.getItem("kvell_faculty_college") || "Engineering";
+};
+
+export const getScopedKey = (baseKey: string, college?: string): string => {
+  const col = (college || getActiveFacultyCollege()).toLowerCase();
+  if (col === "engineering") return baseKey;
+  if (baseKey.startsWith("kvell_")) {
+    return baseKey.replace(/^kvell_/, `kvell_${col}_`);
+  }
+  return `kvell_${col}_${baseKey}`;
+};
+
+export const clearFacultyPharmacyAndNursingData = () => {
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      const lower = key.toLowerCase();
+      if (
+        (lower.includes("pharmacy") || lower.includes("nursing")) &&
+        (lower.includes("marks") || lower.includes("batch") || lower.includes("student") || lower.includes("subject") || lower.includes("dept"))
+      ) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  } catch (e) {
+    console.error("Error clearing pharmacy and nursing data", e);
+  }
+};
+
 export const getStoredDepartments = (): Department[] => {
+  const activeCol = getActiveFacultyCollege().toLowerCase();
+  const scopedKey = getScopedKey("kvell_departments");
+
+  // For Nursing and Pharmacy: NO pre-seeded data! Start completely clean / 0 data.
+  if (activeCol !== "engineering") {
+    try {
+      const raw = localStorage.getItem(scopedKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.error("Error reading scoped departments", e);
+    }
+    return [];
+  }
+
+  // Engineering College: return persisted or default engineering depts
   try {
     const raw = localStorage.getItem("kvell_departments");
     if (raw) {
@@ -219,20 +270,30 @@ export interface FacultyMarkEntryProps {
 }
 
 export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) => {
+  const activeCol = getActiveFacultyCollege();
+  const isEngineering = activeCol.toLowerCase() === "engineering";
+
+  // Purge any stale pharmacy or nursing faculty data
+  useEffect(() => {
+    if (!isEngineering) {
+      clearFacultyPharmacyAndNursingData();
+    }
+  }, [isEngineering]);
+
   // Step 1: Target Selection State
-  const [deptKey, setDeptKey] = useState("aids");
+  const [deptKey, setDeptKey] = useState(() => (isEngineering ? "aids" : ""));
   const [semester, setSemester] = useState("Semester I");
   const [academicYear, setAcademicYear] = useState("2026 - 2027");
-  const [subjectCode, setSubjectCode] = useState("UC26C01T");
+  const [subjectCode, setSubjectCode] = useState(() => (isEngineering ? "UC26C01T" : ""));
   const [customSubjectCode, setCustomSubjectCode] = useState("");
   const [isCustomSubject, setIsCustomSubject] = useState(false);
 
-  // Synchronize Subjects from Subjects component (localStorage kvell_admin_subjects)
+  // Synchronize Subjects from Subjects component (localStorage scoped)
   const [adminSubjects, setAdminSubjects] = useState<
     { id?: string; code: string; title: string; department?: string; category?: string; semester?: string; academicYear?: string }[]
   >(() => {
     try {
-      const saved = localStorage.getItem("kvell_admin_subjects");
+      const saved = localStorage.getItem(getScopedKey("kvell_admin_subjects", activeCol));
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -242,7 +303,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
   useEffect(() => {
     const syncSubjects = () => {
       try {
-        const saved = localStorage.getItem("kvell_admin_subjects");
+        const saved = localStorage.getItem(getScopedKey("kvell_admin_subjects", activeCol));
         if (saved) {
           setAdminSubjects(JSON.parse(saved));
         } else {
@@ -256,7 +317,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
       window.removeEventListener("kvell_subjects_updated", syncSubjects);
       window.removeEventListener("storage", syncSubjects);
     };
-  }, []);
+  }, [activeCol]);
 
   // Step 2: Data Fetching State
   const [isDataFetched, setIsDataFetched] = useState(false);
@@ -299,23 +360,27 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
   const [storedDepts, setStoredDepts] = useState<Department[]>([]);
 
   useEffect(() => {
-    // Automatically seed dummy marks for CSE, ADS, BME if not already seeded
-    try {
-      const seeded = localStorage.getItem("kvell_dummy_marks_seeded_v1");
-      if (!seeded) {
-        seedDummyMarksForDepts();
-        localStorage.setItem("kvell_dummy_marks_seeded_v1", "true");
+    // Automatically seed dummy marks for CSE, ADS, BME only for Engineering!
+    if (isEngineering) {
+      try {
+        const seeded = localStorage.getItem("kvell_dummy_marks_seeded_v1");
+        if (!seeded) {
+          seedDummyMarksForDepts();
+          localStorage.setItem("kvell_dummy_marks_seeded_v1", "true");
+        }
+      } catch (e) {
+        console.error(e);
       }
-    } catch (e) {
-      console.error(e);
     }
 
     const list = getStoredDepartments();
     setStoredDepts(list);
     if (list.length > 0 && (!deptKey || !list.some((d) => d.key === deptKey))) {
       setDeptKey(list[0].key);
+    } else if (list.length === 0) {
+      setDeptKey("");
     }
-  }, []);
+  }, [isEngineering]);
 
   // Active Department and Available Subjects (Combining Admin Subjects with Official Curriculum Catalog)
   const currentDeptObj = storedDepts.find((d) => d.key === deptKey);
@@ -338,16 +403,20 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
   };
 
   const availableSubjects: { code: string; title: string; source: "admin" | "catalog" }[] = React.useMemo(() => {
+    if (!isEngineering && storedDepts.length === 0 && adminSubjects.length === 0) {
+      return [];
+    }
+
     const list: { code: string; title: string; source: "admin" | "catalog" }[] = [];
     const seen = new Set<string>();
 
     const activeDeptTitle = (deptKeyToName[deptKey] || activeDept.name || "").toLowerCase().trim();
-    const k = deptKey.toLowerCase().trim();
+    const k = (deptKey || "").toLowerCase().trim();
 
     // 1. Department-matching subjects added in the Subjects component
     const matchedAdmin = adminSubjects.filter((s) => {
       const subDept = (s.department || "").toLowerCase().trim();
-      return subDept === k || subDept === activeDeptTitle || subDept.includes(k) || activeDeptTitle.includes(subDept);
+      return (k && (subDept === k || subDept === activeDeptTitle || subDept.includes(k) || activeDeptTitle.includes(subDept)));
     });
 
     matchedAdmin.forEach((sub) => {
@@ -358,16 +427,18 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
       }
     });
 
-    // 2. Official Curriculum Catalog subjects for the chosen department
-    const catalogEntry = departmentSubjectsCatalog[k] || departmentSubjectsCatalog[deptKey];
-    const catalogSubjects = catalogEntry?.subjects || [];
-    catalogSubjects.forEach((sub) => {
-      const c = (sub.code || "").trim().toUpperCase();
-      if (c && !seen.has(c)) {
-        seen.add(c);
-        list.push({ code: c, title: sub.title || sub.code, source: "catalog" });
-      }
-    });
+    // 2. Official Curriculum Catalog subjects for the chosen department (Engineering only)
+    if (isEngineering && k) {
+      const catalogEntry = departmentSubjectsCatalog[k] || departmentSubjectsCatalog[deptKey];
+      const catalogSubjects = catalogEntry?.subjects || [];
+      catalogSubjects.forEach((sub) => {
+        const c = (sub.code || "").trim().toUpperCase();
+        if (c && !seen.has(c)) {
+          seen.add(c);
+          list.push({ code: c, title: sub.title || sub.code, source: "catalog" });
+        }
+      });
+    }
 
     // 3. If no matching subjects for this dept, include other added admin subjects
     if (matchedAdmin.length === 0 && adminSubjects.length > 0) {
@@ -381,8 +452,11 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
     }
 
     if (list.length > 0) return list;
-    return [{ code: "UC26C01T", title: "Induction & Professional English", source: "catalog" }];
-  }, [deptKey, adminSubjects, activeDept]);
+    if (isEngineering) {
+      return [{ code: "UC26C01T", title: "Induction & Professional English", source: "catalog" }];
+    }
+    return [];
+  }, [deptKey, adminSubjects, activeDept, isEngineering, storedDepts.length]);
 
   // Keep subjectCode selected and valid
   useEffect(() => {
@@ -391,14 +465,16 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
       if (!exists) {
         setSubjectCode(availableSubjects[0].code);
       }
+    } else if (availableSubjects.length === 0 && !isCustomSubject) {
+      setSubjectCode("");
     }
   }, [availableSubjects, isCustomSubject, subjectCode]);
 
   const activeSubject =
     availableSubjects.find((s) => s.code === (isCustomSubject ? customSubjectCode : subjectCode)) ||
     availableSubjects[0];
-  const effectiveSubjectCode = isCustomSubject ? customSubjectCode.trim().toUpperCase() || "UC26C01T" : subjectCode;
-  const effectiveSubjectTitle = activeSubject?.title || (isCustomSubject ? "Custom Subject" : "Course Subject");
+  const effectiveSubjectCode = isCustomSubject ? customSubjectCode.trim().toUpperCase() : subjectCode;
+  const effectiveSubjectTitle = activeSubject?.title || (isCustomSubject ? "Custom Subject" : (effectiveSubjectCode ? "Course Subject" : ""));
 
   // Track publication status of the active batch (whether it is DRAFT, VALIDATED/FORWARDED, or PUBLISHED)
   const [batchStatusInfo, setBatchStatusInfo] = useState<{
@@ -412,7 +488,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
 
   const checkBatchStatus = React.useCallback(() => {
     try {
-      const raw = localStorage.getItem("kvell_custom_batches");
+      const raw = localStorage.getItem(getScopedKey("kvell_custom_batches"));
       if (raw) {
         const batches: ResultBatchRecord[] = JSON.parse(raw);
         const match = batches.find(
@@ -422,6 +498,8 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
             b.records?.some((r) => r.courseCode?.toUpperCase() === effectiveSubjectCode.toUpperCase())
         ) || batches.find(
           (b) =>
+            deptKey &&
+            effectiveSubjectCode &&
             b.id.toUpperCase().includes(deptKey.toUpperCase()) &&
             b.id.toUpperCase().includes(effectiveSubjectCode.toUpperCase())
         );
@@ -486,41 +564,43 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
     setIsFetching(true);
     setTimeout(() => {
       // 1. Resolve department key with alias normalization (e.g., ads -> aids)
-      const rawK = (deptKey || "aids").toLowerCase().trim();
+      const rawK = (deptKey || (isEngineering ? "aids" : "")).toLowerCase().trim();
       const k = rawK === "ads" || rawK.includes("artificial") ? "aids" : rawK;
 
       let candidateList: { regNo: string; name: string; dob: string; category?: "regular" | "lateral" }[] = [];
 
       // Check department-specific uploaded spreadsheet
-      const studentPrefix = "kvell_dept_students_";
-      const rawUpload =
-        sessionStorage.getItem(`${studentPrefix}${k}`) ||
-        localStorage.getItem(`${studentPrefix}${k}`) ||
-        sessionStorage.getItem(`${studentPrefix}${rawK}`) ||
-        localStorage.getItem(`${studentPrefix}${rawK}`);
+      if (k) {
+        const studentPrefix = getScopedKey("kvell_dept_students_");
+        const rawUpload =
+          sessionStorage.getItem(`${studentPrefix}${k}`) ||
+          localStorage.getItem(`${studentPrefix}${k}`) ||
+          sessionStorage.getItem(`${studentPrefix}${rawK}`) ||
+          localStorage.getItem(`${studentPrefix}${rawK}`);
 
-      if (rawUpload) {
-        try {
-          const parsed = JSON.parse(rawUpload);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            candidateList = parsed.map((p, idx) => ({
-              regNo: String(p["Register Number"] || p.regNo || "").trim().toUpperCase(),
-              name: String(p["Name"] || p.studentName || `Candidate ${idx + 1}`).trim(),
-              dob: p["DOB"] || p.dob || "2005-06-15",
-              category: (String(p["Category"] || p.category || "regular").toLowerCase().includes("lateral")
-                ? "lateral"
-                : "regular") as "regular" | "lateral",
-            })).filter((c) => c.regNo);
+        if (rawUpload) {
+          try {
+            const parsed = JSON.parse(rawUpload);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              candidateList = parsed.map((p, idx) => ({
+                regNo: String(p["Register Number"] || p.regNo || "").trim().toUpperCase(),
+                name: String(p["Name"] || p.studentName || `Candidate ${idx + 1}`).trim(),
+                dob: p["DOB"] || p.dob || "2005-06-15",
+                category: (String(p["Category"] || p.category || "regular").toLowerCase().includes("lateral")
+                  ? "lateral"
+                  : "regular") as "regular" | "lateral",
+              })).filter((c) => c.regNo);
+            }
+          } catch (e) {
+            console.error(e);
           }
-        } catch (e) {
-          console.error(e);
         }
       }
 
-      // 2. Also check if students were added in Students Directory
-      if (candidateList.length === 0) {
+      // 2. Also check if students were added in Students Directory (scoped)
+      if (k && candidateList.length === 0) {
         try {
-          const rawStudents = localStorage.getItem("kvell_students");
+          const rawStudents = localStorage.getItem(getScopedKey("kvell_students"));
           if (rawStudents) {
             const list = JSON.parse(rawStudents);
             if (Array.isArray(list) && list.length > 0) {
@@ -529,9 +609,9 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                 const sName = String(s.deptName || "").toLowerCase();
                 return (
                   sKey === k ||
-                  (k === "aids" && (sKey === "ads" || sName.includes("artificial"))) ||
-                  (k === "cse" && sName.includes("computer science")) ||
-                  (k === "bme" && sName.includes("biomedical"))
+                  (isEngineering && k === "aids" && (sKey === "ads" || sName.includes("artificial"))) ||
+                  (isEngineering && k === "cse" && sName.includes("computer science")) ||
+                  (isEngineering && k === "bme" && sName.includes("biomedical"))
                 );
               });
               if (matched.length > 0) {
@@ -549,8 +629,8 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
         }
       }
 
-      // 3. Fallback to base registry
-      if (candidateList.length === 0) {
+      // 3. Fallback to base registry (ENGINEERING ONLY)
+      if (isEngineering && candidateList.length === 0 && k) {
         const fallback = baseStudentsByDept[k] || (k === "aids" ? baseStudentsByDept.aids : []);
         if (fallback.length > 0) {
           candidateList = fallback.map((s, idx) => ({
@@ -570,21 +650,23 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
         return a.regNo.localeCompare(b.regNo, undefined, { numeric: true, sensitivity: "base" });
       });
 
-      // Check saved marks from localStorage for this department & subject
-      const storageKey = `kvell_marks_${k}_${semester}_${effectiveSubjectCode}`;
+      // Check saved marks from localStorage for this department & subject (scoped)
+      const storageKey = getScopedKey(`kvell_marks_${k}_${semester}_${effectiveSubjectCode}`);
       let savedMarksMap: Record<string, any> = {};
-      try {
-        const saved = localStorage.getItem(storageKey);
-        if (saved) savedMarksMap = JSON.parse(saved);
-      } catch (e) {
-        console.error(e);
+      if (k && effectiveSubjectCode) {
+        try {
+          const saved = localStorage.getItem(storageKey);
+          if (saved) savedMarksMap = JSON.parse(saved);
+        } catch (e) {
+          console.error(e);
+        }
       }
 
       let hasGeneratedMarks = false;
       const formatted: StudentMarkData[] = candidateList.map((c, idx) => {
         let existing = savedMarksMap[c.regNo];
 
-        if (!existing || !existing.hasMarks || !existing.grandTotal) {
+        if (isEngineering && (!existing || !existing.hasMarks || !existing.grandTotal)) {
           const seed = (k.charCodeAt(0) * 17) + (effectiveSubjectCode.charCodeAt(0) * 7) + (idx * 11) + 23;
           const markDetail = generateStudentMarkDetail(c.regNo, c.name, seed);
           existing = markDetail;
@@ -613,11 +695,11 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
         };
       });
 
-      if (hasGeneratedMarks) {
+      if (hasGeneratedMarks && isEngineering) {
         try {
           localStorage.setItem(storageKey, JSON.stringify(savedMarksMap));
           if (k === "aids") {
-            localStorage.setItem(`kvell_marks_ads_${semester}_${effectiveSubjectCode}`, JSON.stringify(savedMarksMap));
+            localStorage.setItem(getScopedKey(`kvell_marks_ads_${semester}_${effectiveSubjectCode}`), JSON.stringify(savedMarksMap));
           }
           window.dispatchEvent(new Event("kvell_marks_updated"));
         } catch (e) {
@@ -630,12 +712,20 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
       setIsFetching(false);
       setSelectedStudent(null);
       setShowMarkEntryForm(false);
-      const msg = `Loaded ${formatted.length} students with official marks for ${activeDept.name} • ${semester} • ${effectiveSubjectCode}. Click any row to view/edit marks.`;
-      setFeedback({
-        type: "success",
-        message: msg,
-      });
-      if (onToast) onToast(msg);
+      if (formatted.length > 0) {
+        const msg = `Loaded ${formatted.length} students with official marks for ${activeDept.name} • ${semester} • ${effectiveSubjectCode}. Click any row to view/edit marks.`;
+        setFeedback({
+          type: "success",
+          message: msg,
+        });
+        if (onToast) onToast(msg);
+      } else {
+        const msg = `No enrolled students registered for ${activeDept.name || "selected department"}. Department records and student registrations are empty.`;
+        setFeedback({
+          type: "info",
+          message: msg,
+        });
+      }
     }, 200);
   };
 
@@ -759,7 +849,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
     setSelectedStudent(updatedStudent);
 
     // Persist to localStorage
-    const storageKey = `kvell_marks_${deptKey}_${semester}_${effectiveSubjectCode}`;
+    const storageKey = getScopedKey(`kvell_marks_${deptKey}_${semester}_${effectiveSubjectCode}`);
     let savedMarksMap: Record<string, any> = {};
     try {
       const saved = localStorage.getItem(storageKey);
@@ -845,8 +935,9 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
     };
 
     try {
-      // Upsert in kvell_custom_batches
-      const rawBatches = localStorage.getItem("kvell_custom_batches");
+      // Upsert in scoped kvell_custom_batches
+      const scopedBatchesKey = getScopedKey("kvell_custom_batches");
+      const rawBatches = localStorage.getItem(scopedBatchesKey);
       let batchList: ResultBatchRecord[] = rawBatches ? JSON.parse(rawBatches) : [];
       const existingIdx = batchList.findIndex(
         (b) =>
@@ -865,7 +956,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
       } else {
         batchList.unshift(newBatch);
       }
-      localStorage.setItem("kvell_custom_batches", JSON.stringify(batchList));
+      localStorage.setItem(scopedBatchesKey, JSON.stringify(batchList));
 
       window.dispatchEvent(new Event("kvell_marks_updated"));
       window.dispatchEvent(new Event("storage"));
@@ -998,27 +1089,29 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
               Student data will be mapped and assigned to the selected academic period and subject
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                seedDummyMarksForDepts();
-                handleFetchData();
-                setFeedback({
-                  type: "success",
-                  message: "Dummy marks generated and loaded for CSE, ADS, and BME students!",
-                });
-              }}
-              className="px-3 py-1.5 rounded-xl bg-[#D4A72C]/20 hover:bg-[#D4A72C]/30 text-[#0B192C] font-extrabold text-[10px] flex items-center gap-1.5 transition border border-[#D4A72C]/40 shadow-sm"
-              title="Populate realistic dummy marks for CSE, ADS, and BME students"
-            >
-              <Sparkles size={12} className="text-[#B08014]" />
-              Seed Dummy Marks (CSE, ADS, BME)
-            </button>
-            <span className="px-3 py-1 rounded-full bg-[#D4A72C]/20 text-[#0B192C] font-extrabold text-[10px] uppercase w-fit">
-              MANDATORY BATCH MAPPING
-            </span>
-          </div>
+          {isEngineering && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  seedDummyMarksForDepts();
+                  handleFetchData();
+                  setFeedback({
+                    type: "success",
+                    message: "Dummy marks generated and loaded for CSE, ADS, and BME students!",
+                  });
+                }}
+                className="px-3 py-1.5 rounded-xl bg-[#D4A72C]/20 hover:bg-[#D4A72C]/30 text-[#0B192C] font-extrabold text-[10px] flex items-center gap-1.5 transition border border-[#D4A72C]/40 shadow-sm"
+                title="Populate realistic dummy marks for CSE, ADS, and BME students"
+              >
+                <Sparkles size={12} className="text-[#B08014]" />
+                Seed Dummy Marks (CSE, ADS, BME)
+              </button>
+              <span className="px-3 py-1 rounded-full bg-[#D4A72C]/20 text-[#0B192C] font-extrabold text-[10px] uppercase w-fit">
+                MANDATORY BATCH MAPPING
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
@@ -1038,7 +1131,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                   </option>
                 ))
               ) : (
-                <option value="general">No departments yet</option>
+                <option value="">No departments registered</option>
               )}
             </select>
           </div>
@@ -1107,11 +1200,15 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                 }}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
               >
-                {availableSubjects.map((sub) => (
-                  <option key={sub.code} value={sub.code}>
-                    {sub.code} - {sub.title} {sub.source === "admin" ? "★ (Curriculum)" : ""}
-                  </option>
-                ))}
+                {availableSubjects.length > 0 ? (
+                  availableSubjects.map((sub) => (
+                    <option key={sub.code} value={sub.code}>
+                      {sub.code} - {sub.title} {sub.source === "admin" ? "★ (Curriculum)" : ""}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">No subjects registered</option>
+                )}
               </select>
             )}
           </div>
@@ -1290,6 +1387,19 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                     </tr>
                   );
                 })}
+                {students.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="p-12 text-center text-slate-500">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Users size={32} className="text-slate-300" />
+                        <p className="font-bold text-sm text-[#0B192C]">No Students or Course Batches Registered</p>
+                        <p className="text-xs text-slate-400 max-w-sm">
+                          There are currently no students registered or marks pending for this department and semester.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

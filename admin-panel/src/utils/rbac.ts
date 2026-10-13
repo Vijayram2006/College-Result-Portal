@@ -17,12 +17,13 @@ export interface CollegeConfig {
   badgeText: string;
   icon: string;
   description: string;
+  logoUrl: string;
 }
 
 export const COLLEGES: Record<CollegeKey, CollegeConfig> = {
   engineering: {
     key: "engineering",
-    name: "KVELL Institute of Technology",
+    name: "Karpaga Vinayaga College of Engineering and Technology",
     shortName: "Engineering",
     code: "ENG",
     coeTitle: "Dr. Controller of Examinations (Engineering)",
@@ -33,10 +34,11 @@ export const COLLEGES: Record<CollegeKey, CollegeConfig> = {
     badgeText: "text-amber-800",
     icon: "⚙️",
     description: "Faculty of Engineering, Technology & Computer Applications",
+    logoUrl: "/engineering-logo.png",
   },
   nursing: {
     key: "nursing",
-    name: "KVELL College of Nursing",
+    name: "Karpaga Vinayaga College of Nursing",
     shortName: "Nursing",
     code: "NUR",
     coeTitle: "Dr. Controller of Examinations (Nursing)",
@@ -47,10 +49,11 @@ export const COLLEGES: Record<CollegeKey, CollegeConfig> = {
     badgeText: "text-sky-800",
     icon: "🏥",
     description: "Faculty of Nursing, Clinical Care & Allied Health Sciences",
+    logoUrl: "/nursing-logo.png",
   },
   pharmacy: {
     key: "pharmacy",
-    name: "KVELL College of Pharmacy",
+    name: "Karpaga Vinayaga Institute for Pharmaceutical Sciences",
     shortName: "Pharmacy",
     code: "PHARM",
     coeTitle: "Dr. Controller of Examinations (Pharmacy)",
@@ -61,6 +64,7 @@ export const COLLEGES: Record<CollegeKey, CollegeConfig> = {
     badgeText: "text-emerald-800",
     icon: "💊",
     description: "Faculty of Pharmaceutical Sciences & Drug Research",
+    logoUrl: "/pharmacy-logo.png",
   },
 };
 
