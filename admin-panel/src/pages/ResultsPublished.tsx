@@ -11,6 +11,7 @@ import {
 import { useLocation } from "wouter";
 import { adminResultsApi, ResultBatchRecord, apiErrorMessage } from "../services/api";
 import { getActiveCollege } from "../utils/rbac";
+import { PublishedResultsDownload } from "../components/PublishedResultsDownload";
 
 export const ResultsPublished: React.FC = () => {
   const college = getActiveCollege();
@@ -98,6 +99,8 @@ export const ResultsPublished: React.FC = () => {
           <button onClick={() => setFeedbackMessage(null)} className="text-emerald-700 hover:text-emerald-900 font-bold">✕</button>
         </div>
       )}
+
+      <PublishedResultsDownload batches={batches} collegeShortName={college.shortName} />
 
       {/* Batches Table */}
       <div className="bg-white rounded-2xl border border-[#E5E1D8] shadow-sm overflow-hidden">

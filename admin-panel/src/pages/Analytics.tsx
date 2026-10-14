@@ -1,1374 +1,1510 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { SEMESTER_OPTIONS } from "../utils/semesters";
-import { Link, useLocation } from "wouter";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import {
-  BarChart3,
-  TrendingUp,
-  PieChart as PieIcon,
-  Award,
-  BookOpen,
-  Users,
-  Download,
-  Calendar,
-  Filter,
-  CheckCircle2,
-  AlertTriangle,
-  ArrowUpRight,
-  ArrowDownRight,
-  FileCheck2,
-  Layers,
-  Sparkles,
-  ChevronDown,
-  Search,
-  RefreshCw,
-  Trash2,
-  ExternalLink,
-  Info,
-} from "lucide-react";
-import { adminResultsApi, apiErrorMessage, marksApi, ResultBatchRecord, StudentMarkRecord } from "../services/api";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  Legend,
-  AreaChart,
-  Area,
+  Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import {
-  ensureDummyMarksLoaded,
-  aidsProfiles,
-  cseSem1Students,
-  bmeSem1Students,
-} from "../data/dummyMarksData";
-import { getScopedKey, isEngineeringCollege, getActiveCollege } from "../utils/rbac";
-import { getStoredDepartments, Department } from "./Departments";
+  AlertTriangle, Award, BarChart3, BookOpen, Building2, CalendarRange, ClipboardList, Download, FileSpreadsheet,
+  FilterX, GraduationCap, SlidersHorizontal, Layers, Lightbulb, ListChecks, PenLine, RefreshCw, Sigma, Target, TrendingDown,
+  TrendingUp, Trophy, UserCheck, Users,
+} from "lucide-react";
+import {
+  adminResultsApi, apiErrorMessage, marksApi, ResultBatchRecord, StudentMarkRecord, StudentRecord, studentsApi,
+  SubjectRecord, subjectsApi,
+} from "../services/api";
+import { getActiveCollege } from "../utils/rbac";
+import { SEMESTER_OPTIONS } from "../utils/semesters";
+import { Department, getStoredDepartments, refreshDepartments } from "./Departments";
+import * as A from "../utils/analytics";
+import {
+  ASSESSMENT_COLORS, AssessmentDot, AXIS, Card, ChartTooltip, Column, CRITICAL, DataTable, Drawer, ExportButtons,
+  GRADE_COLORS, GradeChip, GRID, Kpi, PctBar, ResultChip, SERIES,
+} from "../components/analytics/AnalyticsUi";
 
-type AssessmentFilter = "ALL" | "IA1" | "IA2" | "END_SEM";
+/*
+ * Result Analytics: every view is computed in the browser from the marks the server holds (all entered answer
+ * scripts, published or not), so it is live and needs no extra endpoints. Filters live in the URL, so a filtered
+ * view can be bookmarked or sent to someone.
+ *
+ * Colours follow the validated reference palette: assessments are categorical identities (slots 1-3), grades are an
+ * ordered single-hue ramp with F in the reserved critical red, and every chart has a table beside it.
+ */
 
-export interface LiveStudentMark {
-  regNo: string;
-  name: string;
-  dob?: string;
-  deptKey: string;
-  deptName: string;
-  semester: string;
-  subjectCode: string;
-  subjectTitle: string;
-  assessment: "IA1" | "IA2" | "END_SEM";
-  partA: number;
-  partBC: number;
-  totalMarks: number;
-  grade: string;
-  resultStatus: "PASS" | "FAIL";
+type Filters = { dept: string; sem: string; assess: string; subject: string; cat: string; pub: string };
+const DEFAULT_FILTERS: Filters = { dept: "all", sem: "all", assess: "all", subject: "all", cat: "all", pub: "all" };
+
+const TABS = [
+  { id: "overview", label: "Overview", icon: BarChart3 },
+  { id: "departments", label: "Department-wise", icon: Building2 },
+  { id: "subjects", label: "Subject-wise", icon: BookOpen },
+  { id: "assessments", label: "IAT / Assessment-wise", icon: Layers },
+  { id: "semesters", label: "Semester-wise", icon: CalendarRange },
+  { id: "questions", label: "Questions & COs", icon: Target },
+  { id: "examiners", label: "Examiner-wise", icon: PenLine },
+  { id: "students", label: "Students", icon: Users },
+  { id: "data", label: "All Marks", icon: ClipboardList },
+] as const;
+type TabId = (typeof TABS)[number]["id"];
+
+const REFRESH_MS = 30000;
+
+function readUrl(): { filters: Filters; tab: TabId } {
+  const p = new URLSearchParams(window.location.search);
+  const filters = { ...DEFAULT_FILTERS };
+  (Object.keys(DEFAULT_FILTERS) as (keyof Filters)[]).forEach((k) => {
+    const v = p.get(k);
+    if (v) filters[k] = v;
+  });
+  const tab = p.get("tab");
+  return { filters, tab: (TABS.some((t) => t.id === tab) ? tab : "overview") as TabId };
 }
 
-const deptNamesMap: Record<string, string> = {
-  aids: "AIDS",
-  ads: "AIDS",
-  cse: "CSE",
-  bme: "BME",
-  ece: "ECE",
-  eee: "EEE",
-  mech: "MECH",
-  bt: "BT",
-  civil: "CIVIL",
-  ra: "RA",
-  mba: "MBA",
-  mca: "MCA",
+function applyFilters(rows: A.MarkRow[], f: Filters, skip: (keyof Filters)[] = []): A.MarkRow[] {
+  const on = (k: keyof Filters) => !skip.includes(k) && f[k] !== "all";
+  return rows.filter(
+    (r) =>
+      (!on("dept") || r.deptKey === f.dept) &&
+      (!on("sem") || r.semester === f.sem) &&
+      (!on("assess") || r.assessment === f.assess) &&
+      (!on("subject") || r.subjectCode === f.subject) &&
+      (!on("cat") || r.category === f.cat) &&
+      (!on("pub") || (f.pub === "published" ? r.published : !r.published))
+  );
+}
+
+const fmtDate = () => {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
 };
 
-/**
- * Scans localStorage for live student marks saved during validation or publication
- */
-export const fetchAllLiveMarks = (): LiveStudentMark[] => {
-  const marksMap = new Map<string, LiveStudentMark>();
-  const studentLookupMap = new Map<string, { regNo: string; name: string; deptKey: string; deptName: string; dob?: string }>();
-
-  // Only seed known profiles if engineering college
-  if (isEngineeringCollege()) {
-    const allKnownProfiles = [...aidsProfiles, ...cseSem1Students, ...bmeSem1Students];
-    allKnownProfiles.forEach((s) => {
-      studentLookupMap.set(s.regNo, {
-        regNo: s.regNo,
-        name: s.name,
-        deptKey: s.deptKey,
-        deptName: s.deptName,
-        dob: s.dob,
-      });
-    });
-  }
-
-  // Marks come from the server (marksApi.all); no dummy marks are seeded
-
-  const deptStudentsPrefix = getScopedKey("kvell_dept_students_");
-  const marksPrefix = getScopedKey("kvell_marks_");
-  const publishedKey = getScopedKey("kvell_published_results");
-  const customBatchesKey = getScopedKey("kvell_custom_batches");
-
-  // Also check stored student list in scoped kvell_dept_students_
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith(deptStudentsPrefix)) {
-        const raw = localStorage.getItem(k);
-        if (raw) {
-          const list = JSON.parse(raw);
-          if (Array.isArray(list)) {
-            list.forEach((s: any) => {
-              const reg = s.regNo || s["Register Number"];
-              const nm = s.name || s.studentName || s["Name"];
-              if (reg && nm && !studentLookupMap.has(reg)) {
-                studentLookupMap.set(reg, {
-                  regNo: reg,
-                  name: nm,
-                  deptKey: s.deptKey || k.replace(deptStudentsPrefix, ""),
-                  deptName: s.dept || s.Department || "Academic Department",
-                  dob: s.dob || s["DOB"],
-                });
-              }
-            });
-          }
-        }
-      }
-    }
-  } catch {}
-
-  // 1. Scan individual student mark entries
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(marksPrefix)) {
-        const parts = key.replace(marksPrefix, "").split("_");
-        const fallbackDeptKey = parts[0] || (isEngineeringCollege() ? "aids" : "dept");
-        const fallbackSemester = parts[1] || "Semester I";
-        const fallbackSubjectCode = parts[2] || "COURSE01";
-
-        const raw = localStorage.getItem(key);
-        if (raw) {
-          let studentDict: Record<string, any> = {};
-          try {
-            studentDict = JSON.parse(raw);
-          } catch {
-            continue;
-          }
-          if (!studentDict || typeof studentDict !== "object") continue;
-
-          Object.entries(studentDict).forEach(([dictKey, s]: [string, any]) => {
-            if (s && (s.hasMarks || s.grandTotal !== undefined || s.totalMarks !== undefined)) {
-              const regNo = String(s.regNo || dictKey || "").trim();
-              if (!regNo || regNo === "undefined") return;
-
-              const knownStudent = studentLookupMap.get(regNo);
-              const name = String(s.name || s.studentName || knownStudent?.name || `Student ${regNo}`);
-              const dob = s.dob || knownStudent?.dob || "2005-06-15";
-
-              const aType = String(s.assessmentType || parts[1] || "End Semester");
-              const assessment: "IA1" | "IA2" | "END_SEM" =
-                aType.includes("1") || aType.toUpperCase().includes("IA1") || aType.toUpperCase().includes("IAT-1")
-                  ? "IA1"
-                  : aType.includes("2") || aType.toUpperCase().includes("IA2") || aType.toUpperCase().includes("IAT-2")
-                  ? "IA2"
-                  : "END_SEM";
-
-              const partA = Number(s.partATotal) || 0;
-              const partBC = Number(s.partBCTotal) || 0;
-              const totalMarks =
-                s.grandTotal !== undefined
-                  ? Number(s.grandTotal)
-                  : s.totalMarks !== undefined
-                  ? Number(s.totalMarks)
-                  : partA + partBC;
-
-              const grade =
-                s.grade ||
-                (totalMarks >= 90
-                  ? "O"
-                  : totalMarks >= 80
-                  ? "A+"
-                  : totalMarks >= 70
-                  ? "A"
-                  : totalMarks >= 60
-                  ? "B+"
-                  : totalMarks >= 50
-                  ? "B"
-                  : "RA");
-
-              const resultStatus: "PASS" | "FAIL" =
-                s.resultStatus === "PASS" || (!s.resultStatus && totalMarks >= 40) ? "PASS" : "FAIL";
-              const finalDeptKey = (s.deptKey || knownStudent?.deptKey || fallbackDeptKey).toLowerCase();
-              const deptName =
-                s.deptName || knownStudent?.deptName || deptNamesMap[finalDeptKey] || finalDeptKey.toUpperCase();
-              const subjectCode = s.subjectCode || fallbackSubjectCode;
-
-              const uniqueKey = `${regNo}_${subjectCode}_${assessment}`;
-              marksMap.set(uniqueKey, {
-                regNo,
-                name,
-                dob,
-                deptKey: finalDeptKey,
-                deptName,
-                semester: s.semester || (fallbackSemester.startsWith("IA") ? "Semester I" : fallbackSemester),
-                subjectCode,
-                subjectTitle: s.subjectTitle || "Curriculum Subject",
-                assessment,
-                partA,
-                partBC,
-                totalMarks,
-                grade,
-                resultStatus,
-              });
-            }
-          });
-        }
-      }
-    }
-  } catch (e) {
-    console.error("Error reading live marks from localStorage:", e);
-  }
-
-  // 2. Scan published results (scoped to active college)
-  try {
-    const rawPublished = localStorage.getItem(publishedKey);
-    if (rawPublished) {
-      const list: any[] = JSON.parse(rawPublished);
-      if (Array.isArray(list)) {
-        list.forEach((r: any) => {
-          if (r && r.regNo && r.totalMarks !== undefined) {
-            const regNo = String(r.regNo || "").trim();
-            if (!regNo || regNo === "undefined") return;
-
-            const knownStudent = studentLookupMap.get(regNo);
-            const name = String(r.name || r.studentName || knownStudent?.name || `Student ${regNo}`);
-
-            const aType = String(r.assessment || r.examSession || "End Semester");
-            const assessment: "IA1" | "IA2" | "END_SEM" =
-              aType.includes("1") || aType.toUpperCase().includes("IA1") || aType.toUpperCase().includes("IAT-1")
-                ? "IA1"
-                : aType.includes("2") || aType.toUpperCase().includes("IA2") || aType.toUpperCase().includes("IAT-2")
-                ? "IA2"
-                : "END_SEM";
-            const subjectCode = String(r.subjectCode || r.courseCode || "UC26C01T");
-            const uniqueKey = `${regNo}_${subjectCode}_${assessment}`;
-
-            if (!marksMap.has(uniqueKey)) {
-              const deptKey = String(r.deptKey || knownStudent?.deptKey || (isEngineeringCollege() ? "aids" : "dept")).toLowerCase();
-              const totalMarks = Number(r.totalMarks) || 0;
-              const internalMarks = Number(r.internalMarks) || Math.round(totalMarks * 0.2);
-              const externalMarks = Number(r.externalMarks) || Math.round(totalMarks * 0.8);
-
-              const grade =
-                r.grade ||
-                (totalMarks >= 90
-                  ? "O"
-                  : totalMarks >= 80
-                  ? "A+"
-                  : totalMarks >= 70
-                  ? "A"
-                  : totalMarks >= 60
-                  ? "B+"
-                  : totalMarks >= 50
-                  ? "B"
-                  : "RA");
-
-              const resultStatus: "PASS" | "FAIL" =
-                r.resultStatus === "FAIL" || r.result === "FAIL" || totalMarks < 40 ? "FAIL" : "PASS";
-
-              marksMap.set(uniqueKey, {
-                regNo,
-                name,
-                dob: r.dob || knownStudent?.dob || "2005-06-15",
-                deptKey,
-                deptName: r.dept || knownStudent?.deptName || deptNamesMap[deptKey] || deptKey.toUpperCase(),
-                semester: r.semester || "Semester I",
-                subjectCode,
-                subjectTitle: r.subjectTitle || r.courseTitle || "Subject",
-                assessment,
-                partA: internalMarks,
-                partBC: externalMarks,
-                totalMarks,
-                grade,
-                resultStatus,
-              });
-            }
-          }
-        });
-      }
-    }
-  } catch (e) {
-    console.error("Error reading published results from localStorage:", e);
-  }
-
-  // 3. Scan custom batches (scoped to active college)
-  try {
-    const rawBatches = localStorage.getItem(customBatchesKey);
-    if (rawBatches) {
-      const batches: any[] = JSON.parse(rawBatches);
-      if (Array.isArray(batches)) {
-        batches.forEach((b: any) => {
-          if (b && Array.isArray(b.records)) {
-            b.records.forEach((r: any) => {
-              if (r && r.regNo && r.totalMarks !== undefined) {
-                const regNo = String(r.regNo || "").trim();
-                if (!regNo || regNo === "undefined") return;
-
-                const knownStudent = studentLookupMap.get(regNo);
-                const name = String(r.studentName || r.name || knownStudent?.name || `Student ${regNo}`);
-
-                const aType = String(r.assessment || b.examMonthYear || "End Semester");
-                const assessment: "IA1" | "IA2" | "END_SEM" =
-                  aType.includes("1") || aType.toUpperCase().includes("IA1")
-                    ? "IA1"
-                    : aType.includes("2") || aType.toUpperCase().includes("IA2")
-                    ? "IA2"
-                    : "END_SEM";
-                const subjectCode = String(r.courseCode || r.subjectCode || b.id || "UC26C01T");
-                const uniqueKey = `${regNo}_${subjectCode}_${assessment}`;
-
-                if (!marksMap.has(uniqueKey)) {
-                  const deptKey = String(r.deptKey || b.departmentKey || knownStudent?.deptKey || "aids").toLowerCase();
-                  const totalMarks = Number(r.totalMarks) || 0;
-                  const internalMarks = Number(r.internalMarks) || Math.round(totalMarks * 0.2);
-                  const externalMarks = Number(r.externalMarks) || Math.round(totalMarks * 0.8);
-
-                  const grade =
-                    r.grade ||
-                    (totalMarks >= 90
-                      ? "O"
-                      : totalMarks >= 80
-                      ? "A+"
-                      : totalMarks >= 70
-                      ? "A"
-                      : totalMarks >= 60
-                      ? "B+"
-                      : totalMarks >= 50
-                      ? "B"
-                      : "RA");
-
-                  const resultStatus: "PASS" | "FAIL" =
-                    r.resultStatus === "FAIL" || totalMarks < 40 ? "FAIL" : "PASS";
-
-                  marksMap.set(uniqueKey, {
-                    regNo,
-                    name,
-                    dob: r.dob || knownStudent?.dob || "2005-06-15",
-                    deptKey,
-                    deptName: b.departmentName || knownStudent?.deptName || deptNamesMap[deptKey] || deptKey.toUpperCase(),
-                    semester: b.semester || "Semester I",
-                    subjectCode,
-                    subjectTitle: r.courseTitle || r.subjectTitle || b.batchTitle || "Subject",
-                    assessment,
-                    partA: internalMarks,
-                    partBC: externalMarks,
-                    totalMarks,
-                    grade,
-                    resultStatus,
-                  });
-                }
-              }
-            });
-          }
-        });
-      }
-    }
-  } catch (e) {
-    console.error("Error reading custom batches from localStorage:", e);
-  }
-
-  return Array.from(marksMap.values());
-};
-
-/** Published results from the server, in the shape the charts use (one entry per student per subject). */
-export const marksFromBatches = (batches: ResultBatchRecord[]): LiveStudentMark[] =>
-  batches
-    .filter((b) => b.publicationStatus === "PUBLISHED")
-    .flatMap((b) =>
-      (b.records || []).map((r: any) => {
-        const aType = String(r.assessmentType || "End Semester");
-        const assessment: "IA1" | "IA2" | "END_SEM" =
-          aType.includes("2") ? "IA2" : aType.includes("1") ? "IA1" : "END_SEM";
-        return {
-          regNo: r.regNo,
-          name: r.studentName,
-          dob: "",
-          deptKey: b.departmentKey,
-          deptName: deptNamesMap[b.departmentKey] || b.departmentName,
-          semester: b.semester,
-          subjectCode: r.courseCode,
-          subjectTitle: r.courseTitle,
-          assessment,
-          partA: Number(r.internalMarks) || 0,
-          partBC: Number(r.externalMarks) || 0,
-          totalMarks: Number(r.totalMarks) || 0,
-          grade: r.grade,
-          resultStatus: r.resultStatus,
-        } as LiveStudentMark;
-      })
-    );
-
-/** Entered marks from the server (live as examiners confirm marks, before publishing). */
-export const marksFromEntries = (entries: StudentMarkRecord[]): LiveStudentMark[] =>
-  entries
-    .filter((m) => m.hasMarks)
-    .map((m) => {
-      const aType = String(m.assessmentType || "IAT-1");
-      const assessment: "IA1" | "IA2" | "END_SEM" =
-        aType.includes("2") ? "IA2" : aType.includes("1") ? "IA1" : "END_SEM";
-      const deptKey = m.deptKey || "";
-      return {
-        regNo: m.regNo,
-        name: m.name,
-        dob: m.dob,
-        deptKey,
-        deptName: deptNamesMap[deptKey] || m.deptName || deptKey.toUpperCase(),
-        semester: m.semester || "Semester I",
-        subjectCode: m.subjectCode || "",
-        subjectTitle: m.subjectTitle || "",
-        assessment,
-        partA: Number(m.partATotal) || 0,
-        partBC: Number(m.partBCTotal) || 0,
-        totalMarks: Number(m.grandTotal) || 0,
-        grade: m.grade,
-        resultStatus: m.resultStatus,
-      } as LiveStudentMark;
-    });
+const selectCls =
+  "w-full px-2.5 py-2 rounded-xl border border-[#E5E1D8] bg-white font-bold text-[#0B192C] text-xs focus:outline-none focus:ring-2 focus:ring-[#D4A72C]/50";
 
 export const AnalyticsPage: React.FC = () => {
   const [, navigate] = useLocation();
   const college = getActiveCollege();
-  const [departments, setDepartments] = useState<Department[]>([]);
+  const initial = useMemo(readUrl, []);
+  const [filters, setFilters] = useState<Filters>(initial.filters);
+  const [tab, setTab] = useState<TabId>(initial.tab);
 
-  // Primary Assessment Focus Filter
-  const [assessment, setAssessment] = useState<AssessmentFilter>("ALL");
+  const [marks, setMarks] = useState<StudentMarkRecord[]>([]);
+  const [batches, setBatches] = useState<ResultBatchRecord[]>([]);
+  const [subjects, setSubjects] = useState<SubjectRecord[]>([]);
+  const [students, setStudents] = useState<StudentRecord[]>([]);
+  const [departments, setDepartments] = useState<Department[]>(getStoredDepartments());
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
+  const [updatedAt, setUpdatedAt] = useState("");
+  const [live, setLive] = useState(true);
 
-  // Secondary Department & Semester Filter
-  const [deptFilter, setDeptFilter] = useState("all");
-  const [semesterFilter, setSemesterFilter] = useState("all");
-  const [searchStudent, setSearchStudent] = useState("");
+  const [openSubject, setOpenSubject] = useState<string | null>(null); // dept|sem|code|assessment
+  const [openStudent, setOpenStudent] = useState<string | null>(null);
+  const [questionAssessment, setQuestionAssessment] = useState<string>("");
 
-  // Live Marks State loaded from localStorage
-  const [liveMarks, setLiveMarks] = useState<LiveStudentMark[]>([]);
-  const [lastRefreshed, setLastRefreshed] = useState<string>("");
-
-  const refreshData = () => {
-    marksApi
-      .all()
-      .then((entries) => {
-        setLiveMarks(marksFromEntries(entries));
-        setLastRefreshed(new Date().toLocaleTimeString());
-      })
-      .catch((err) => console.error("Could not load marks for analytics", err));
-    setDepartments(getStoredDepartments());
-  };
-
-  useEffect(() => {
-    refreshData();
-
-    const handleStorageChange = () => refreshData();
-    window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("kvell_marks_updated", handleStorageChange);
-    window.addEventListener("kvell_departments_updated", handleStorageChange);
-    window.addEventListener("focus", handleStorageChange);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("kvell_marks_updated", handleStorageChange);
-      window.removeEventListener("kvell_departments_updated", handleStorageChange);
-      window.removeEventListener("focus", handleStorageChange);
-    };
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setRefreshing(true);
+    try {
+      const [m, b, s, st] = await Promise.all([
+        marksApi.all(), adminResultsApi.getResultBatches(), subjectsApi.list(), studentsApi.list(),
+      ]);
+      setMarks(m); setBatches(b); setSubjects(s); setStudents(st);
+      setUpdatedAt(new Date().toLocaleTimeString("en-IN"));
+      setError("");
+    } catch (err) {
+      setError(apiErrorMessage(err, "Could not load the analytics data."));
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
-  const handleClearAllMarks = async () => {
-    if (
-      window.confirm(
-        "Are you sure you want to delete ALL published result batches? Students will no longer see these results. Entered marks are kept (re-publish them from Mark Entry)."
-      )
-    ) {
-      try {
-        await adminResultsApi.clearAllBatches();
-        window.dispatchEvent(new Event("kvell_marks_updated"));
-        refreshData();
-        alert("All published result batches were deleted. Entered marks are kept and still shown here.");
-      } catch (err) {
-        alert(apiErrorMessage(err, "Could not clear the results."));
-      }
+  useEffect(() => {
+    load();
+    refreshDepartments().then(setDepartments).catch(() => undefined);
+  }, [load]);
+
+  // Live mode: refresh quietly while the page is visible, and whenever marks are saved in another tab of this panel
+  useEffect(() => {
+    if (!live) return;
+    const tick = () => document.visibilityState === "visible" && load(true);
+    const id = window.setInterval(tick, REFRESH_MS);
+    const onMarks = () => load(true);
+    window.addEventListener("kvell_marks_updated", onMarks);
+    return () => { window.clearInterval(id); window.removeEventListener("kvell_marks_updated", onMarks); };
+  }, [live, load]);
+
+  // Keep the URL in step with the filters and tab
+  useEffect(() => {
+    const p = new URLSearchParams();
+    (Object.keys(filters) as (keyof Filters)[]).forEach((k) => filters[k] !== "all" && p.set(k, filters[k]));
+    if (tab !== "overview") p.set("tab", tab);
+    const qs = p.toString();
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+  }, [filters, tab]);
+
+  const setFilter = (key: keyof Filters, value: string) =>
+    setFilters((f) => {
+      const next = { ...f, [key]: value };
+      if (key === "dept" || key === "sem") next.subject = "all"; // the subject list depends on both
+      return next;
+    });
+  const resetFilters = () => setFilters(DEFAULT_FILTERS);
+
+  /* ---------- data ---------- */
+
+  const allRows = useMemo(() => A.buildRows(marks, batches, subjects), [marks, batches, subjects]);
+  const rows = useMemo(() => applyFilters(allRows, filters), [allRows, filters]);
+  /** Everything except the assessment filter, for comparisons across IAT-1 / IAT-2 / End Semester. */
+  const crossAssessment = useMemo(() => applyFilters(allRows, filters, ["assess"]), [allRows, filters]);
+  /** Everything except semester and assessment, for the semester trend. */
+  const crossSemester = useMemo(() => applyFilters(allRows, filters, ["sem", "assess"]), [allRows, filters]);
+  const enrolled = useMemo(
+    () => students.filter((s) =>
+      (filters.dept === "all" || s.deptKey === filters.dept) &&
+      (filters.sem === "all" || s.semester === filters.sem) &&
+      (filters.cat === "all" || (filters.cat === "Lateral" ? s.category === "lateral" : s.category !== "lateral"))),
+    [students, filters.dept, filters.sem, filters.cat]
+  );
+
+  const stat = useMemo(() => A.stats(rows), [rows]);
+  const clear = useMemo(() => A.allClear(rows), [rows]);
+  const deptT = useMemo(() => A.departmentTable(rows, students, filters.sem === "all" ? "" : filters.sem), [rows, students, filters.sem]);
+  const subjT = useMemo(() => A.subjectTable(rows, students), [rows, students]);
+  const compT = useMemo(() => A.assessmentComparison(crossAssessment), [crossAssessment]);
+  const progress = useMemo(() => A.iatProgress(crossAssessment), [crossAssessment]);
+  const semT = useMemo(() => A.semesterTable(crossSemester), [crossSemester]);
+  const examT = useMemo(() => A.examinerTable(rows), [rows]);
+  const studT = useMemo(() => A.studentTable(rows), [rows]);
+  const riskT = useMemo(() => A.atRiskStudents(rows), [rows]);
+  const toppers = useMemo(() => A.deptToppers(rows, 3), [rows]);
+  const catT = useMemo(() => A.categoryTable(rows), [rows]);
+  const gradeMatrix = useMemo(() => A.deptGradeMatrix(rows), [rows]);
+
+  const assessmentsPresent = useMemo(
+    () => A.ASSESSMENTS.filter((a) => crossAssessment.some((r) => r.assessment === a)),
+    [crossAssessment]
+  );
+  const qAssessment = filters.assess !== "all" ? filters.assess : questionAssessment || assessmentsPresent[0] || "";
+  const qRows = useMemo(() => rows.filter((r) => r.assessment === qAssessment), [rows, qAssessment]);
+  const questionT = useMemo(() => A.questionTable(qRows), [qRows]);
+  const coT = useMemo(() => A.coTable(qRows), [qRows]);
+
+  /* ---------- filter options ---------- */
+
+  const deptOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    departments.forEach((d) => map.set(d.key, `${d.code || d.key.toUpperCase()} — ${d.name}`));
+    allRows.forEach((r) => !map.has(r.deptKey) && map.set(r.deptKey, r.deptName));
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [departments, allRows]);
+  const subjectOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    const fits = (dept: string, sem: string) => (filters.dept === "all" || dept === filters.dept) && (filters.sem === "all" || sem === filters.sem);
+    subjects.filter((s) => fits(s.deptKey, s.semester)).forEach((s) => map.set(s.code, `${s.code} — ${s.title}`));
+    allRows.filter((r) => fits(r.deptKey, r.semester)).forEach((r) => !map.has(r.subjectCode) && map.set(r.subjectCode, `${r.subjectCode} — ${r.subjectTitle}`));
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [subjects, allRows, filters.dept, filters.sem]);
+
+  /** Answer scripts per option of each filter, given the other filters (so empty options are visible before clicking). */
+  const counts = useMemo(() => {
+    const countBy = (skip: (keyof Filters)[], key: (r: A.MarkRow) => string) => {
+      const m = new Map<string, number>();
+      applyFilters(allRows, filters, skip).forEach((r) => m.set(key(r), (m.get(key(r)) ?? 0) + 1));
+      return m;
+    };
+    return {
+      dept: countBy(["dept", "subject"], (r) => r.deptKey),
+      sem: countBy(["sem", "subject"], (r) => r.semester),
+      assess: countBy(["assess"], (r) => r.assessment),
+      subject: countBy(["subject"], (r) => r.subjectCode),
+      cat: countBy(["cat"], (r) => r.category),
+      pub: countBy(["pub"], (r) => (r.published ? "published" : "unpublished")),
+    };
+  }, [allRows, filters]);
+  const total = (m: Map<string, number>) => Array.from(m.values()).reduce((a, b) => a + b, 0);
+  /** Department chips: short code on the chip, full name on hover; departments with marks first. */
+  const deptChips = useMemo(() => {
+    const names = new Map(deptOptions.map(([k, label]) => [k, label]));
+    return Array.from(names.keys())
+      .map((key) => {
+        const d = departments.find((x) => x.key === key);
+        return { key, code: d?.code || key.toUpperCase(), name: d?.name || names.get(key) || key };
+      })
+      .sort((a, b) => a.code.localeCompare(b.code));
+  }, [deptOptions, departments]);
+  const chipValue = (k: keyof Filters) =>
+    k === "dept" ? deptChips.find((d) => d.key === filters.dept)?.code ?? filters.dept.toUpperCase()
+      : k === "pub" ? (filters.pub === "published" ? "Published" : "Not published")
+      : filters[k];
+
+  const filterLabels = useMemo(() => {
+    const out: Record<string, string> = {
+      College: college.name,
+      Department: filters.dept === "all" ? "All departments" : deptOptions.find(([k]) => k === filters.dept)?.[1] ?? filters.dept,
+      Semester: filters.sem === "all" ? "All semesters" : filters.sem,
+      Assessment: filters.assess === "all" ? "All assessments" : filters.assess,
+      Subject: filters.subject === "all" ? "All subjects" : subjectOptions.find(([k]) => k === filters.subject)?.[1] ?? filters.subject,
+      Category: filters.cat === "all" ? "Regular and lateral" : filters.cat,
+      Publication: filters.pub === "all" ? "Published and not published" : filters.pub === "published" ? "Published only" : "Not published only",
+    };
+    return out;
+  }, [college.name, filters, deptOptions, subjectOptions]);
+
+  const activeChips = (Object.keys(filters) as (keyof Filters)[]).filter((k) => filters[k] !== "all");
+  const chipLabel: Record<keyof Filters, string> = { dept: "Department", sem: "Semester", assess: "Assessment", subject: "Subject", cat: "Category", pub: "Publication" };
+  const filterTag = activeChips.map((k) => (k === "dept" ? filters.dept.toUpperCase() : filters[k])).join("_").replace(/\s+/g, "-");
+  const fileName = (what: string) => `KVELL_${what}${filterTag ? `_${filterTag}` : ""}_${fmtDate()}`;
+
+  /* ---------- downloads ---------- */
+
+  const tabSheets = (id: TabId): A.Sheet[] => {
+    switch (id) {
+      case "overview": return [A.sheets.department(deptT), A.sheets.subject(subjT), A.sheets.grades(stat), A.sheets.categories(catT)];
+      case "departments": return [A.sheets.department(deptT), A.sheets.categories(catT), A.sheets.toppers(toppers)];
+      case "subjects": return [A.sheets.subject(subjT)];
+      case "assessments": return [A.sheets.comparison(compT), A.sheets.progress(progress)];
+      case "semesters": return [A.sheets.semesters(semT)];
+      case "questions": return [A.sheets.questions(questionT), A.sheets.cos(coT)];
+      case "examiners": return [A.sheets.examiners(examT)];
+      case "students": return [A.sheets.students(studT), A.sheets.risk(riskT), A.sheets.toppers(toppers)];
+      case "data": return [A.sheets.raw(rows)];
     }
   };
+  const downloadEverything = () =>
+    A.exportSheets(fileName("Result_Analytics_Full_Report"), [
+      A.sheets.department(deptT), A.sheets.subject(subjT), A.sheets.comparison(compT), A.sheets.progress(progress),
+      A.sheets.semesters(semT), A.sheets.grades(stat), A.sheets.categories(catT), A.sheets.questions(questionT),
+      A.sheets.cos(coT), A.sheets.examiners(examT), A.sheets.students(studT), A.sheets.risk(riskT),
+      A.sheets.toppers(toppers), A.sheets.raw(rows),
+    ], { ...filterLabels, "Questions & COs assessment": qAssessment || "—" });
+  const downloadTab = () =>
+    A.exportSheets(fileName(`Analytics_${TABS.find((t) => t.id === tab)!.label.replace(/[^A-Za-z]+/g, "_")}`), tabSheets(tab), filterLabels);
 
-  // Filter live marks by Department and Semester
-  const filteredMarks = useMemo(() => {
-    return liveMarks.filter((m) => {
-      const k = (m.deptKey || "").toLowerCase();
-      const matchDept =
-        deptFilter === "all" ||
-        k === deptFilter.toLowerCase() ||
-        (deptFilter === "aids" && k === "ads");
-      const matchSem = semesterFilter === "all" || m.semester === semesterFilter;
-      return matchDept && matchSem;
-    });
-  }, [liveMarks, deptFilter, semesterFilter]);
+  /* ---------- drill-down helpers ---------- */
 
-  // Target marks matching the current assessment tab
-  const assessmentMarks = useMemo(() => {
-    if (assessment === "ALL") return filteredMarks;
-    return filteredMarks.filter((m) => m.assessment === assessment);
-  }, [filteredMarks, assessment]);
+  const drillDept = (deptKey: string) => { setFilter("dept", deptKey); setTab("subjects"); };
+  const closeSubject = useCallback(() => setOpenSubject(null), []);
+  const closeStudent = useCallback(() => setOpenStudent(null), []);
 
-  const hasAnyMarks = liveMarks.length > 0;
-  const hasAssessmentMarks = assessmentMarks.length > 0;
+  /* ---------- render ---------- */
 
-  // Active Key Performance Indicator (KPI) Stats
-  const activeStats = useMemo(() => {
-    if (assessmentMarks.length === 0) {
-      return {
-        title:
-          assessment === "IA1"
-            ? "Internal Assessment 1 (IAT-1)"
-            : assessment === "IA2"
-            ? "Internal Assessment 2 (IAT-2)"
-            : assessment === "END_SEM"
-            ? "End Semester Examinations"
-            : "Overall Multi-Assessment Cumulative",
-        avgScore: "0%",
-        passRate: "0%",
-        passRateDelta: "No live marks",
-        evaluatedCount: 0,
-        partAAvg: "0.0 / 20",
-        partBCAvg: "0.0 / 80",
-        topGradeRate: "0%",
-        arrearCount: 0,
-      };
-    }
-
-    const totalCount = assessmentMarks.length;
-    const avgScoreVal = totalCount > 0 ? assessmentMarks.reduce((acc, m) => acc + (Number(m.totalMarks) || 0), 0) / totalCount : 0;
-    const passedCount = assessmentMarks.filter((m) => m.resultStatus === "PASS" || (Number(m.totalMarks) || 0) >= 40).length;
-    const passRateVal = totalCount > 0 ? (passedCount / totalCount) * 100 : 0;
-    const partAVal = totalCount > 0 ? assessmentMarks.reduce((acc, m) => acc + (Number(m.partA) || 0), 0) / totalCount : 0;
-    const partBCVal = totalCount > 0 ? assessmentMarks.reduce((acc, m) => acc + (Number(m.partBC) || 0), 0) / totalCount : 0;
-    const distinctions = assessmentMarks.filter((m) => m.grade === "O" || m.grade === "A+").length;
-    const topGradeVal = totalCount > 0 ? (distinctions / totalCount) * 100 : 0;
-    const arrearCount = assessmentMarks.filter((m) => m.resultStatus === "FAIL" || (Number(m.totalMarks) || 0) < 40).length;
-
-    return {
-      title:
-        assessment === "IA1"
-          ? "Internal Assessment 1 (IAT-1)"
-          : assessment === "IA2"
-          ? "Internal Assessment 2 (IAT-2)"
-          : assessment === "END_SEM"
-          ? "End Semester Examinations"
-          : "Overall Multi-Assessment Cumulative",
-      avgScore: `${avgScoreVal.toFixed(1)}%`,
-      passRate: `${passRateVal.toFixed(1)}%`,
-      passRateDelta: `${passedCount} of ${totalCount} Candidates Passed`,
-      evaluatedCount: totalCount,
-      partAAvg: `${partAVal.toFixed(1)} / 20`,
-      partBCAvg: `${partBCVal.toFixed(1)} / 80`,
-      topGradeRate: `${topGradeVal.toFixed(1)}%`,
-      arrearCount,
-    };
-  }, [assessmentMarks, assessment]);
-
-  // Transform Live Department Data for Bar Chart
-  const chartDeptData = useMemo(() => {
-    if (filteredMarks.length === 0) return [];
-
-    // Group marks by department
-    const deptGroups: Record<string, LiveStudentMark[]> = {};
-    filteredMarks.forEach((m) => {
-      let key = (m.deptKey || "other").toLowerCase();
-      if (key === "ads") key = "aids";
-      if (!deptGroups[key]) deptGroups[key] = [];
-      deptGroups[key].push(m);
-    });
-
-    return Object.entries(deptGroups).map(([key, list]) => {
-      const name = deptNamesMap[key] || key.toUpperCase();
-
-      const ia1List = list.filter((m) => m.assessment === "IA1");
-      const ia2List = list.filter((m) => m.assessment === "IA2");
-      const endSemList = list.filter((m) => m.assessment === "END_SEM");
-
-      const ia1Avg = ia1List.length ? Number((ia1List.reduce((a, b) => a + (Number(b.totalMarks) || 0), 0) / ia1List.length).toFixed(1)) : 0;
-      const ia2Avg = ia2List.length ? Number((ia2List.reduce((a, b) => a + (Number(b.totalMarks) || 0), 0) / ia2List.length).toFixed(1)) : 0;
-      const endSemAvg = endSemList.length ? Number((endSemList.reduce((a, b) => a + (Number(b.totalMarks) || 0), 0) / endSemList.length).toFixed(1)) : 0;
-
-      // Only real marks: an assessment with no marks shows 0 (nothing is estimated)
-      const targetList =
-        assessment === "IA1" ? ia1List : assessment === "IA2" ? ia2List : assessment === "END_SEM" ? endSemList : list;
-
-      const avgScore = targetList.length ? Number((targetList.reduce((a, b) => a + (Number(b.totalMarks) || 0), 0) / targetList.length).toFixed(1)) : 0;
-      const passedCount = targetList.filter((m) => m.resultStatus === "PASS" || (Number(m.totalMarks) || 0) >= 40).length;
-      const passRate = targetList.length ? Number(((passedCount / targetList.length) * 100).toFixed(1)) : 0;
-      const partA = targetList.length ? Number((targetList.reduce((a, b) => a + (Number(b.partA) || 0), 0) / targetList.length).toFixed(1)) : 0;
-      const partBC = targetList.length ? Number((targetList.reduce((a, b) => a + (Number(b.partBC) || 0), 0) / targetList.length).toFixed(1)) : 0;
-
-      if (assessment === "ALL") {
-        return {
-          name,
-          IA1: ia1Avg,
-          IA2: ia2Avg,
-          EndSem: endSemAvg,
-          avgScore,
-          passRate,
-        };
-      }
-
-      return {
-        name,
-        avgScore,
-        passRate,
-        partA,
-        partBC,
-      };
-    });
-  }, [filteredMarks, assessment]);
-
-  // Live Grade Distribution for Pie Chart
-  const gradeDistributionData = useMemo(() => {
-    const list = assessmentMarks;
-    const counts = {
-      O: 0,
-      "A+": 0,
-      A: 0,
-      "B+": 0,
-      B: 0,
-      RA: 0,
-    };
-
-    list.forEach((m) => {
-      const g = (m.grade || "").toUpperCase();
-      if (g === "O") counts.O++;
-      else if (g === "A+") counts["A+"]++;
-      else if (g === "A") counts.A++;
-      else if (g === "B+") counts["B+"]++;
-      else if (g === "B") counts.B++;
-      else counts.RA++;
-    });
-
-    const items = [
-      { name: "O (Outstanding)", value: counts.O, color: "#2E7D5B" },
-      { name: "A+ (Excellent)", value: counts["A+"], color: "#0B192C" },
-      { name: "A (Very Good)", value: counts.A, color: "#D4A72C" },
-      { name: "B+ (Good)", value: counts["B+"], color: "#C98A18" },
-      { name: "B (Above Avg)", value: counts.B, color: "#667085" },
-      { name: "RA / Fail", value: counts.RA, color: "#B54747" },
-    ];
-
-    return items;
-  }, [assessmentMarks]);
-
-  // Live Milestone Progression Curve (IA1 -> IA2 -> End Semester)
-  const liveMilestones = useMemo(() => {
-    if (filteredMarks.length === 0) return [];
-
-    const getStats = (items: LiveStudentMark[]) => {
-      if (!items.length) return { avg: 0, pass: 0 };
-      const avg = Number((items.reduce((a, b) => a + (Number(b.totalMarks) || 0), 0) / items.length).toFixed(1));
-      const pass = Number(((items.filter((m) => m.resultStatus === "PASS" || (Number(m.totalMarks) || 0) >= 40).length / items.length) * 100).toFixed(1));
-      return { avg, pass };
-    };
-
-    const ia1 = getStats(filteredMarks.filter((m) => m.assessment === "IA1"));
-    const ia2 = getStats(filteredMarks.filter((m) => m.assessment === "IA2"));
-    const endSem = getStats(filteredMarks.filter((m) => m.assessment === "END_SEM"));
-
-    // Only real marks: an assessment with no marks entered shows 0
-    return [
-      { milestone: "IAT-1", averageScore: ia1.avg, passRate: ia1.pass },
-      { milestone: "IAT-2", averageScore: ia2.avg, passRate: ia2.pass },
-      { milestone: "End Semester", averageScore: endSem.avg, passRate: endSem.pass },
-    ];
-  }, [filteredMarks]);
-
-  // Live Question Paper Part Mastery (Part A vs Part B+C)
-  const livePartMastery = useMemo(() => {
-    if (filteredMarks.length === 0) return [];
-
-    const getPartAvg = (items: LiveStudentMark[]) => {
-      if (!items.length) return { PartA: 0, PartBC: 0 };
-      const PartA = Number((items.reduce((a, b) => a + (Number(b.partA) || 0), 0) / items.length).toFixed(1));
-      const PartBC = Number((items.reduce((a, b) => a + (Number(b.partBC) || 0), 0) / items.length).toFixed(1));
-      return { PartA, PartBC };
-    };
-
-    const ia1 = getPartAvg(filteredMarks.filter((m) => m.assessment === "IA1"));
-    const ia2 = getPartAvg(filteredMarks.filter((m) => m.assessment === "IA2"));
-    const endSem = getPartAvg(filteredMarks.filter((m) => m.assessment === "END_SEM"));
-
-
-    return [
-      { assessment: "IA1 (IAT-1)", PartA: ia1.PartA, PartBC: ia1.PartBC },
-      { assessment: "IA2 (IAT-2)", PartA: ia2.PartA, PartBC: ia2.PartBC },
-      { assessment: "End Semester", PartA: endSem.PartA, PartBC: endSem.PartBC },
-    ];
-  }, [filteredMarks]);
-
-  // Live Student Progression Table Data
-  const studentRows = useMemo(() => {
-    // Group marks by regNo
-    const map: Record<string, { regNo: string; name: string; dept: string; ia1?: number; ia2?: number; endSem?: number; finalGrade: string }> = {};
-
-    filteredMarks.forEach((m) => {
-      const reg = String(m.regNo || "").trim();
-      if (!reg) return;
-
-      if (!map[reg]) {
-        map[reg] = {
-          regNo: reg,
-          name: m.name || `Student ${reg}`,
-          dept: m.deptName || "Engineering",
-          finalGrade: m.grade || "B",
-        };
-      }
-      if (m.assessment === "IA1") map[reg].ia1 = m.totalMarks;
-      if (m.assessment === "IA2") map[reg].ia2 = m.totalMarks;
-      if (m.assessment === "END_SEM") {
-        map[reg].endSem = m.totalMarks;
-        map[reg].finalGrade = m.grade || "B";
-      }
-    });
-
-    const rows = Object.values(map).map((s) => {
-      const endSem = s.endSem !== undefined ? s.endSem : (s.ia2 !== undefined ? s.ia2 : s.ia1 || 0);
-      const ia1 = s.ia1 !== undefined ? s.ia1 : Math.max(38, endSem - 7);
-      const ia2 = s.ia2 !== undefined ? s.ia2 : Math.max(42, endSem - 3);
-      const improvement = endSem - ia1;
-
-      return {
-        regNo: s.regNo,
-        name: s.name || `Student ${s.regNo}`,
-        dept: s.dept || "Engineering",
-        ia1Mark: s.ia1 !== undefined ? s.ia1 : ia1,
-        ia2Mark: s.ia2 !== undefined ? s.ia2 : ia2,
-        endSemMark: s.endSem !== undefined ? s.endSem : endSem,
-        improvement,
-        finalGrade: s.finalGrade || "B",
-      };
-    });
-
-    const query = (searchStudent || "").toLowerCase().trim();
-    return rows.filter((s) => {
-      if (!query) return true;
-      const name = (s.name || "").toLowerCase();
-      const regNo = (s.regNo || "").toLowerCase();
-      return name.includes(query) || regNo.includes(query);
-    });
-  }, [filteredMarks, searchStudent]);
+  const hasData = allRows.length > 0;
+  /** Department name -> short key (CSE, AIDS, ...) so table columns stay on one line. */
+  const deptCodes = useMemo(() => new Map(allRows.map((r) => [r.deptName, r.deptKey.toUpperCase()])), [allRows]);
 
   return (
-    <div className="space-y-6 w-full">
-      {/* Header with Assessment Selector & Live Status */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-black text-[#D4A72C] uppercase tracking-wider mb-1">
-              <BarChart3 size={15} />
-              {college.icon} {college.shortName} Examination Analytics Suite · LIVE DATA
+    <div className="space-y-5 w-full">
+      {/* Header */}
+      <div className="relative overflow-hidden rounded-3xl bg-[#0B192C] text-white p-6 sm:p-7 shadow-lg">
+        <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-[#D4A72C]/10" />
+        <div className="absolute right-24 -bottom-20 w-48 h-48 rounded-full bg-white/5" />
+        <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-5">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[11px] font-black text-[#D4A72C] uppercase tracking-widest mb-1.5">
+              <BarChart3 size={14} /> Result Analytics · Live
+              <span className="relative flex h-2 w-2">
+                {live && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1baf7a] opacity-75" />}
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${live ? "bg-[#1baf7a]" : "bg-gray-500"}`} />
+              </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-[#0B192C]">
-              {college.name} Continuous Assessment & Result Analytics
-            </h1>
-            <p className="text-xs text-gray-500 mt-1 max-w-xl">
-              Track real-time candidate scores and performance curves across <strong>IA1</strong>,{" "}
-              <strong>IA2</strong>, and <strong>End Semester Examinations</strong> as marks are entered.
+            <h1 className="font-display text-2xl sm:text-3xl font-black leading-tight">Examination Result Analysis</h1>
+            <p className="text-xs text-white/70 mt-1.5 max-w-2xl">
+              Department, subject, IAT, semester, question, CO, examiner and student analysis from every mark entered,
+              published or not. Click any bar or row to drill down; every table downloads as Excel or CSV.
+            </p>
+            <p className="text-[11px] text-white/50 mt-2 font-semibold">
+              {updatedAt ? `Updated ${updatedAt}` : "Loading…"} · {allRows.length} answer scripts in total
+              {live ? ` · refreshes every ${REFRESH_MS / 1000}s` : " · live refresh off"}
             </p>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={refreshData}
-              className="px-3.5 py-2.5 rounded-xl bg-[#F8F5EE] hover:bg-[#E5E1D8] text-[#0B192C] text-xs font-bold transition border border-[#E5E1D8] flex items-center gap-1.5 shadow-sm"
-              title="Refresh marks data from storage"
+              type="button"
+              onClick={() => setLive(!live)}
+              className={`px-3 py-2.5 rounded-xl text-xs font-bold border transition ${live ? "border-[#1baf7a]/60 bg-[#1baf7a]/15 text-white" : "border-white/20 bg-white/5 text-white/70"}`}
+              title="Refresh automatically while this page is open"
             >
-              <RefreshCw size={14} className="text-[#D4A72C]" />
-              <span>Refresh</span>
+              Live {live ? "ON" : "OFF"}
             </button>
-
-            {hasAnyMarks && (
-              <button
-                onClick={handleClearAllMarks}
-                className="px-3.5 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold transition border border-red-200 flex items-center gap-1.5 shadow-sm"
-                title="Reset all entered marks"
-              >
-                <Trash2 size={14} />
-                <span>Clear Marks</span>
-              </button>
-            )}
-
             <button
-              onClick={() => navigate("/admin/results/validation")}
-              className="px-4 py-2.5 rounded-xl bg-[#D4A72C] hover:bg-[#c39722] text-[#0B192C] text-xs font-extrabold transition shadow flex items-center gap-1.5"
+              type="button"
+              onClick={() => load()}
+              className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold flex items-center gap-1.5"
             >
-              <ExternalLink size={14} />
-              <span>Enter / Edit Marks</span>
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> Refresh
             </button>
-          </div>
-        </div>
-
-        {/* PRIMARY ASSESSMENT SELECTOR TABS */}
-        <div className="border-t border-[#E5E1D8] pt-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div>
-            <span className="text-[10px] font-extrabold uppercase text-gray-400 block mb-1.5 tracking-wider">
-              Select Evaluation Assessment Focus
-            </span>
-            <div className="inline-flex p-1 rounded-2xl bg-[#F8F5EE] border border-[#E5E1D8] gap-1 flex-wrap">
-              <button
-                type="button"
-                onClick={() => setAssessment("ALL")}
-                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
-                  assessment === "ALL"
-                    ? "bg-[#0B192C] text-white shadow-md"
-                    : "text-gray-700 hover:text-[#0B192C] hover:bg-white/60"
-                }`}
-              >
-                <Layers size={14} className={assessment === "ALL" ? "text-[#D4A72C]" : "text-gray-400"} />
-                <span>Comparative (IA1 vs IA2 vs End Sem)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAssessment("IA1")}
-                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
-                  assessment === "IA1"
-                    ? "bg-[#0B192C] text-white shadow-md"
-                    : "text-gray-700 hover:text-[#0B192C] hover:bg-white/60"
-                }`}
-              >
-                <FileCheck2 size={14} className={assessment === "IA1" ? "text-[#D4A72C]" : "text-gray-400"} />
-                <span>IA1 (IAT-1)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAssessment("IA2")}
-                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
-                  assessment === "IA2"
-                    ? "bg-[#0B192C] text-white shadow-md"
-                    : "text-gray-700 hover:text-[#0B192C] hover:bg-white/60"
-                }`}
-              >
-                <FileCheck2 size={14} className={assessment === "IA2" ? "text-[#D4A72C]" : "text-gray-400"} />
-                <span>IA2 (IAT-2)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAssessment("END_SEM")}
-                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
-                  assessment === "END_SEM"
-                    ? "bg-[#0B192C] text-white shadow-md"
-                    : "text-gray-700 hover:text-[#0B192C] hover:bg-white/60"
-                }`}
-              >
-                <Award size={14} className={assessment === "END_SEM" ? "text-[#D4A72C]" : "text-gray-400"} />
-                <span>End Semester Exam</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Filtering Dropdowns */}
-          <div className="flex flex-wrap items-center gap-3 text-xs">
-            <div>
-              <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">
-                Department
-              </span>
-              <select
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] font-bold text-[#0B192C] focus:outline-none"
-              >
-                <option value="all">All Departments</option>
-                {departments.map((d) => (
-                  <option key={d.key} value={d.key}>
-                    {d.code} — {d.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1">
-                Semester
-              </span>
-              <select
-                value={semesterFilter}
-                onChange={(e) => setSemesterFilter(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] font-bold text-[#0B192C] focus:outline-none"
-              >
-                <option value="all">All Semesters</option>
-                {SEMESTER_OPTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-              </select>
-            </div>
+            <button
+              type="button"
+              disabled={!hasData}
+              onClick={downloadTab}
+              className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold flex items-center gap-1.5 disabled:opacity-40"
+              title="Download the tables of the tab you are on"
+            >
+              <Download size={14} /> This tab
+            </button>
+            <button
+              type="button"
+              disabled={!hasData}
+              onClick={downloadEverything}
+              className="px-4 py-2.5 rounded-xl bg-[#D4A72C] hover:bg-[#e2b53a] text-[#0B192C] text-xs font-black flex items-center gap-1.5 shadow disabled:opacity-40"
+              title="One Excel workbook with every analysis (14 sheets) for the current filters"
+            >
+              <FileSpreadsheet size={15} /> Download full report
+            </button>
           </div>
         </div>
       </div>
 
-      {/* EMPTY DATA NOTICE BANNER */}
-      {!hasAnyMarks && (
-        <div className="bg-[#FFF4D6] border-2 border-[#F5D8B4] rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-sm">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-[#0B192C] text-[#D4A72C] flex items-center justify-center shrink-0 shadow-md">
-              <BarChart3 size={24} />
-            </div>
-            <div>
-              <span className="bg-[#8C2F00] text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded tracking-wider inline-block mb-1.5">
-                LIVE GRAPH ENGINE ACTIVE
-              </span>
-              <h3 className="font-display font-black text-lg text-[#0B192C]">
-                Analytics and Graphs are Currently Empty
-              </h3>
-              <p className="text-xs text-[#8C2F00]/90 mt-1 max-w-xl font-medium leading-relaxed">
-                No examination marks have been entered yet. As soon as you add or change student marks in{" "}
-                <strong>Results Validation & Evaluation</strong>, all charts, department comparison bars, and letter grade distributions will update here live.
-              </p>
-            </div>
-          </div>
+      {/* Filters: every choice is one click, and each option shows how many answer scripts it has */}
+      <div id="analytics-filters" className="bg-white rounded-2xl border border-[#E5E1D8] shadow-sm p-4 sm:p-5 space-y-3.5 scroll-mt-32">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display font-black text-sm text-[#0B192C] flex items-center gap-2">
+            <SlidersHorizontal size={15} className="text-[#D4A72C]" /> Filters
+            <span className="text-[11px] font-semibold text-gray-400">Pick what to analyse. Numbers show how many answer scripts each option has.</span>
+          </h2>
+          {activeChips.length > 0 && (
+            <button type="button" onClick={resetFilters} className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#8C2F00] bg-[#FFF4D6] hover:bg-[#FBE7B5] flex items-center gap-1.5">
+              <FilterX size={13} /> Clear all filters
+            </button>
+          )}
+        </div>
 
+        <FilterRow label="Assessment">
+          <Pill active={filters.assess === "all"} onClick={() => setFilter("assess", "all")} count={total(counts.assess)}>All</Pill>
+          {A.ASSESSMENTS.map((a) => (
+            <Pill key={a} active={filters.assess === a} onClick={() => setFilter("assess", a)} count={counts.assess.get(a) ?? 0}>
+              <AssessmentDot name={a} />
+            </Pill>
+          ))}
+        </FilterRow>
+
+        <FilterRow label="Department">
+          <Pill active={filters.dept === "all"} onClick={() => setFilter("dept", "all")} count={total(counts.dept)}>All</Pill>
+          {deptChips.map((d) => (
+            <Pill key={d.key} active={filters.dept === d.key} onClick={() => setFilter("dept", d.key)} count={counts.dept.get(d.key) ?? 0} title={d.name}>
+              {d.code}
+            </Pill>
+          ))}
+        </FilterRow>
+
+        <FilterRow label="Semester">
+          <Pill active={filters.sem === "all"} onClick={() => setFilter("sem", "all")} count={total(counts.sem)}>All</Pill>
+          {SEMESTER_OPTIONS.map((s) => (
+            <Pill key={s} active={filters.sem === s} onClick={() => setFilter("sem", s)} count={counts.sem.get(s) ?? 0} title={s}>
+              {s.replace("Semester ", "Sem ")}
+            </Pill>
+          ))}
+        </FilterRow>
+
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto_auto] gap-3.5 xl:gap-6 items-start">
+          <FilterRow label="Subject">
+            <select
+              value={filters.subject}
+              onChange={(e) => setFilter("subject", e.target.value)}
+              className={`${selectCls} max-w-xl ${filters.subject !== "all" ? "!border-[#0B192C] !bg-[#FFF6DD]" : ""}`}
+            >
+              <option value="all">
+                All subjects{filters.dept !== "all" || filters.sem !== "all" ? " (of the department / semester chosen above)" : ""}
+              </option>
+              {subjectOptions.map(([k, label]) => (
+                <option key={k} value={k}>{label} · {counts.subject.get(k) ?? 0} scripts</option>
+              ))}
+            </select>
+          </FilterRow>
+          <FilterRow label="Students" compact>
+            <Pill active={filters.cat === "all"} onClick={() => setFilter("cat", "all")}>All</Pill>
+            <Pill active={filters.cat === "Regular"} onClick={() => setFilter("cat", "Regular")} count={counts.cat.get("Regular") ?? 0}>Regular</Pill>
+            <Pill active={filters.cat === "Lateral"} onClick={() => setFilter("cat", "Lateral")} count={counts.cat.get("Lateral") ?? 0}>Lateral</Pill>
+          </FilterRow>
+          <FilterRow label="Results" compact>
+            <Pill active={filters.pub === "all"} onClick={() => setFilter("pub", "all")}>All</Pill>
+            <Pill active={filters.pub === "published"} onClick={() => setFilter("pub", "published")} count={counts.pub.get("published") ?? 0}>Published</Pill>
+            <Pill active={filters.pub === "unpublished"} onClick={() => setFilter("pub", "unpublished")} count={counts.pub.get("unpublished") ?? 0}>Not published</Pill>
+          </FilterRow>
+        </div>
+      </div>
+
+      {/* Tabs + what is being shown: stays under the college banner while scrolling on wide screens */}
+      <div className="lg:sticky lg:top-[6.75rem] z-20 bg-[#F8F5EE]/95 backdrop-blur py-2 -mx-1 px-1 space-y-2">
+        <div className="flex flex-wrap gap-1.5">
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            const on = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={`px-3 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition border ${
+                  on ? "bg-[#0B192C] text-white border-[#0B192C] shadow-md" : "bg-white text-gray-700 border-[#E5E1D8] hover:border-[#D4A72C] hover:text-[#0B192C]"
+                }`}
+              >
+                <Icon size={14} className={on ? "text-[#D4A72C]" : "text-gray-400"} /> {t.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+          <span className="font-bold text-[#0B192C]">
+            Showing {rows.length} of {allRows.length} answer scripts
+          </span>
+          {activeChips.length === 0 ? (
+            <span className="text-gray-500 font-semibold">· everything (no filters)</span>
+          ) : (
+            <>
+              {activeChips.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setFilter(k, "all")}
+                  className="px-2 py-0.5 rounded-md bg-[#0B192C] text-white font-bold flex items-center gap-1 hover:bg-[#8C2F00]"
+                  title={`Remove the ${chipLabel[k]} filter`}
+                >
+                  <span className="text-[#D4A72C]">{chipLabel[k]}:</span> {chipValue(k)} <span className="opacity-70">✕</span>
+                </button>
+              ))}
+              <button type="button" onClick={resetFilters} className="px-2 py-0.5 rounded-md font-bold text-[#8C2F00] hover:bg-[#FFF4D6]">
+                Clear all
+              </button>
+            </>
+          )}
           <button
-            onClick={() => navigate("/admin/results/validation")}
-            className="px-5 py-3 rounded-2xl bg-[#0B192C] hover:bg-[#132943] text-white font-extrabold text-xs transition shadow-md flex items-center gap-2 shrink-0"
+            type="button"
+            onClick={() => document.getElementById("analytics-filters")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            className="ml-auto px-2 py-0.5 rounded-md font-bold text-[#1c5cab] hover:bg-[#EEF4FC] flex items-center gap-1"
           >
-            <Sparkles size={15} className="text-[#D4A72C]" />
-            <span>Enter Student Marks Now</span>
+            <SlidersHorizontal size={12} /> Change filters
           </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 text-red-800 text-xs font-semibold px-4 py-3 flex items-center gap-2">
+          <AlertTriangle size={15} /> {error}
         </div>
       )}
 
-      {/* Dynamic Key Performance Indicator (KPI) Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1: Average Score */}
-        <div className="bg-white p-5 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-1">
-          <div className="flex items-center justify-between text-gray-400">
-            <span className="text-[10px] font-black uppercase tracking-wider">
-              {assessment === "ALL" ? "Average Cumulative Score" : `${assessment} Average Marks`}
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-[#0B192C]/5 text-[#0B192C] flex items-center justify-center font-black">
-              <TrendingUp size={16} />
-            </div>
-          </div>
-          <span className="font-display font-black text-3xl text-[#0B192C] block">
-            {activeStats.avgScore}
-          </span>
-          <span className="text-[11px] font-bold text-[#2E7D5B] inline-flex items-center gap-1">
-            <ArrowUpRight size={13} /> {activeStats.passRateDelta}
-          </span>
+      {loading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-24 rounded-2xl bg-white border border-[#E5E1D8] animate-pulse" />)}
         </div>
-
-        {/* Metric 2: Pass Rate */}
-        <div className="bg-white p-5 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-1">
-          <div className="flex items-center justify-between text-gray-400">
-            <span className="text-[10px] font-black uppercase tracking-wider">
-              {assessment === "ALL" ? "Overall Pass Rate" : `${assessment} Pass Rate`}
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#2E7D5B] flex items-center justify-center font-black">
-              <CheckCircle2 size={16} />
-            </div>
-          </div>
-          <span className="font-display font-black text-3xl text-[#2E7D5B] block">
-            {activeStats.passRate}
-          </span>
-          <span className="text-[11px] font-semibold text-gray-500 block">
-            Threshold: ≥ 40 Marks
-          </span>
-        </div>
-
-        {/* Metric 3: Question Format Averages */}
-        <div className="bg-white p-5 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-1">
-          <div className="flex items-center justify-between text-gray-400">
-            <span className="text-[10px] font-black uppercase tracking-wider">
-              Part A vs Part B+C Avg
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-[#D4A72C]/10 text-[#C98A18] flex items-center justify-center font-black">
-              <FileCheck2 size={16} />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-mono font-black text-xl text-[#0B192C]">
-              {activeStats.partAAvg}
-            </span>
-            <span className="text-gray-400 text-xs">/</span>
-            <span className="font-mono font-black text-xl text-[#B08014]">
-              {activeStats.partBCAvg}
-            </span>
-          </div>
-          <span className="text-[11px] font-bold text-gray-500 block">
-            Part A (Short) • Part B+C (Long)
-          </span>
-        </div>
-
-        {/* Metric 4: Distinction vs Arrears */}
-        <div className="bg-white p-5 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-1">
-          <div className="flex items-center justify-between text-gray-400">
-            <span className="text-[10px] font-black uppercase tracking-wider">
-              High Distinctions (O & A+)
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-[#B08014] flex items-center justify-center font-black">
-              <Award size={16} />
-            </div>
-          </div>
-          <span className="font-display font-black text-3xl text-[#0B192C] block">
-            {activeStats.topGradeRate}
-          </span>
-          <span className="text-[11px] font-bold text-[#B54747] block">
-            {activeStats.arrearCount} Candidates with Backlogs (RA)
-          </span>
-        </div>
-      </div>
-
-      {/* Main Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Chart 1: Department Performance */}
-        <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E5E1D8] pb-3">
+      ) : !hasData ? (
+        <Card>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
             <div>
-              <h3 className="font-display font-bold text-base text-[#0B192C]">
-                {assessment === "ALL"
-                  ? "Department Assessment Comparison (IA1 vs IA2 vs End Sem)"
-                  : `Department Performance Breakdown for ${activeStats.title}`}
-              </h3>
-              <p className="text-xs text-gray-500">
-                {assessment === "ALL"
-                  ? "Live comparative student score averages showing internal progression"
-                  : `Average marks achieved across departments for ${assessment}`}
-              </p>
+              <h3 className="font-display font-black text-lg text-[#0B192C]">No marks entered yet</h3>
+              <p className="text-xs text-gray-500 mt-1 max-w-xl">Analytics fill in as soon as marks are saved in Mark Entry, whether or not they are published.</p>
             </div>
-            <span className="px-3 py-1 rounded-full bg-[#D4A72C]/20 text-[#0B192C] text-[10px] font-extrabold uppercase w-fit">
-              {assessment === "ALL" ? "Multi-Exam Benchmark" : `Filtered: ${assessment}`}
-            </span>
+            <button type="button" onClick={() => navigate("/admin/results/validation")} className="px-5 py-3 rounded-2xl bg-[#0B192C] text-white font-extrabold text-xs">
+              Go to Mark Entry
+            </button>
           </div>
-
-          <div className="h-80 w-full pt-2">
-            {!hasAssessmentMarks || chartDeptData.length === 0 ? (
-              <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 bg-[#F8F5EE]/40 rounded-2xl border-2 border-dashed border-[#E5E1D8]">
-                <BarChart3 size={36} className="text-gray-300 mb-2" />
-                <p className="font-bold text-gray-700 text-sm">No Department Marks to Display</p>
-                <p className="text-gray-400 text-xs mt-1 max-w-sm">
-                  Add student examination scores to see live bar charts of department averages.
-                </p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                {assessment === "ALL" ? (
-                  <BarChart data={chartDeptData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                    <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#0B192C", fontWeight: "bold" }} />
-                    <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: "#667085" }} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#0B192C", borderRadius: "14px", color: "#fff", border: "none" }}
-                    />
-                    <Legend wrapperStyle={{ fontSize: 12, paddingTop: "8px" }} />
-                    <Bar dataKey="IA1" name="IA1 (IAT-1) Avg %" fill="#4A709C" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="IA2" name="IA2 (IAT-2) Avg %" fill="#D4A72C" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="EndSem" name="End Semester Avg %" fill="#2E7D5B" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                ) : (
-                  <BarChart data={chartDeptData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                    <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#0B192C", fontWeight: "bold" }} />
-                    <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: "#667085" }} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#0B192C", borderRadius: "14px", color: "#fff", border: "none" }}
-                    />
-                    <Legend wrapperStyle={{ fontSize: 12, paddingTop: "8px" }} />
-                    <Bar dataKey="avgScore" name={`${assessment} Avg Marks %`} fill="#0B192C" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="passRate" name={`${assessment} Pass Rate %`} fill="#2E7D5B" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                )}
-              </ResponsiveContainer>
-            )}
+        </Card>
+      ) : rows.length === 0 && tab !== "assessments" && tab !== "semesters" ? (
+        <Card>
+          <div className="text-center py-8">
+            <FilterX className="mx-auto text-[#D4A72C]" size={28} />
+            <h3 className="font-display font-black text-lg text-[#0B192C] mt-2">No answer scripts match these filters</h3>
+            <button type="button" onClick={resetFilters} className="mt-3 px-4 py-2 rounded-xl bg-[#0B192C] text-white text-xs font-bold">Clear all filters</button>
           </div>
-        </div>
-
-        {/* Chart 2: Grade Distribution for Selected Assessment */}
-        <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-4 flex flex-col justify-between">
-          <div className="border-b border-[#E5E1D8] pb-3">
-            <h3 className="font-display font-bold text-base text-[#0B192C]">
-              Grade Distribution ({assessment === "ALL" ? "Cumulative" : assessment})
-            </h3>
-            <p className="text-xs text-gray-500">Letter grade spectrum awarded from live entered marks</p>
-          </div>
-
-          <div className="h-60 w-full">
-            {!hasAssessmentMarks ? (
-              <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 bg-[#F8F5EE]/40 rounded-2xl border-2 border-dashed border-[#E5E1D8]">
-                <PieIcon size={32} className="text-gray-300 mb-2" />
-                <p className="font-bold text-gray-700 text-xs">No Grade Data</p>
-                <p className="text-gray-400 text-[11px] mt-0.5">Grades will populate as marks are entered.</p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={gradeDistributionData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={85}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {gradeDistributionData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "#0B192C", borderRadius: "12px", color: "#fff", border: "none" }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-            {gradeDistributionData.map((g) => (
-              <div key={g.name} className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: g.color }} />
-                <span className="text-gray-700 font-semibold truncate">{g.name}</span>
-                <span className="font-bold text-[#0B192C] ml-auto">{g.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Secondary Charts: Progression Curve & Part A vs Part B+C Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Progression Curve Across IA1 -> IA2 -> End Semester */}
-        <div className="bg-white p-6 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-[#E5E1D8] pb-3">
-            <div>
-              <h3 className="font-display font-bold text-base text-[#0B192C]">
-                Continuous Assessment Growth Trajectory
-              </h3>
-              <p className="text-xs text-gray-500">
-                Score improvements from IAT-1 through IAT-2 and End Semester
-              </p>
-            </div>
-            <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-black border border-emerald-200">
-              Live Trend Curve
-            </span>
-          </div>
-
-          <div className="h-64 w-full pt-2">
-            {!hasAnyMarks || liveMilestones.every((m) => m.averageScore === 0) ? (
-              <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 bg-[#F8F5EE]/40 rounded-2xl border-2 border-dashed border-[#E5E1D8]">
-                <TrendingUp size={32} className="text-gray-300 mb-2" />
-                <p className="font-bold text-gray-700 text-xs">No Progression Trajectory Available</p>
-                <p className="text-gray-400 text-[11px] mt-0.5">Calculated dynamically when marks are recorded.</p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={liveMilestones}>
-                  <defs>
-                    <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#D4A72C" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#D4A72C" stopOpacity={0.0} />
-                    </linearGradient>
-                    <linearGradient id="passGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2E7D5B" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#2E7D5B" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="milestone" tick={{ fontSize: 11, fill: "#0B192C", fontWeight: "bold" }} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#667085" }} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "#0B192C", borderRadius: "12px", color: "#fff", border: "none" }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Area
-                    type="monotone"
-                    dataKey="averageScore"
-                    name="Class Average Score %"
-                    stroke="#D4A72C"
-                    strokeWidth={3}
-                    fillOpacity={1}
-                    fill="url(#scoreGradient)"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="passRate"
-                    name="Overall Pass Rate %"
-                    stroke="#2E7D5B"
-                    strokeWidth={2.5}
-                    fillOpacity={1}
-                    fill="url(#passGradient)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* Question Type Competency: Part A vs Part B+C */}
-        <div className="bg-white p-6 rounded-3xl border border-[#E5E1D8] shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-[#E5E1D8] pb-3">
-            <div>
-              <h3 className="font-display font-bold text-base text-[#0B192C]">
-                Question Paper Part Mastery (Part A vs Part B+C)
-              </h3>
-              <p className="text-xs text-gray-500">
-                Concept short questions (Max 20) vs Core descriptive questions (Max 80)
-              </p>
-            </div>
-            <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-800 text-[10px] font-black border border-blue-200">
-              Exam Format Breakdown
-            </span>
-          </div>
-
-          <div className="h-64 w-full pt-2">
-            {!hasAnyMarks || livePartMastery.every((p) => p.PartA === 0 && p.PartBC === 0) ? (
-              <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 bg-[#F8F5EE]/40 rounded-2xl border-2 border-dashed border-[#E5E1D8]">
-                <FileCheck2 size={32} className="text-gray-300 mb-2" />
-                <p className="font-bold text-gray-700 text-xs">No Part A / Part B+C Breakdown Available</p>
-                <p className="text-gray-400 text-[11px] mt-0.5">Populates automatically from question-level evaluation marks.</p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={livePartMastery}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                  <XAxis dataKey="assessment" tick={{ fontSize: 11, fill: "#0B192C", fontWeight: "bold" }} />
-                  <YAxis domain={[0, 80]} tick={{ fontSize: 11, fill: "#667085" }} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "#0B192C", borderRadius: "12px", color: "#fff", border: "none" }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="PartA" name="Part A Avg Marks (/20)" fill="#D4A72C" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="PartBC" name="Part B+C Avg Marks (/80)" fill="#0B192C" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Student Assessment Performance Directory Table */}
-      <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-sm p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5E1D8] pb-4">
-          <div>
-            <h3 className="font-display font-bold text-lg text-[#0B192C]">
-              Candidate Multi-Assessment Progression Roster
-            </h3>
-            <p className="text-xs text-gray-500">
-              Live candidate evaluation performance comparing IA1, IA2, and End Semester marks
-            </p>
-          </div>
-
-          <div className="relative w-full sm:w-72">
-            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={searchStudent}
-              onChange={(e) => setSearchStudent(e.target.value)}
-              placeholder="Search reg no or student name..."
-              className="w-full h-9 pl-9 pr-3 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-xs font-semibold focus:outline-none focus:border-[#0B192C]"
+        </Card>
+      ) : (
+        <>
+          {tab === "overview" && (
+            <Overview
+              stat={stat} clear={clear} enrolled={enrolled.length} deptT={deptT} subjT={subjT} compT={compT}
+              studT={studT} riskT={riskT} crossAssessment={crossAssessment} onDept={drillDept}
+              onStudent={setOpenStudent} onSubject={setOpenSubject} goTab={setTab}
             />
-          </div>
-        </div>
+          )}
 
-        <div className="overflow-auto max-h-[75vh]">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider sticky top-0 z-20">
-              <tr>
-                <th className="p-3.5">Registration Number</th>
-                <th className="p-3.5">Student Name</th>
-                <th className="p-3.5">Department</th>
-                <th className="p-3.5 text-center">IA1 (IAT-1)</th>
-                <th className="p-3.5 text-center">IA2 (IAT-2)</th>
-                <th className="p-3.5 text-center">End Semester</th>
-                <th className="p-3.5 text-center">Progression</th>
-                <th className="p-3.5 text-center">Final Grade</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#E5E1D8]">
-              {studentRows.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="p-10 text-center text-gray-500 font-semibold">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <Users size={28} className="text-gray-300" />
-                      <p className="text-gray-700 font-bold text-xs">
-                        {hasAnyMarks ? "No matching students found." : "No student marks recorded yet."}
-                      </p>
-                      <p className="text-gray-400 text-[11px]">
-                        {hasAnyMarks
-                          ? "Try a different search query."
-                          : "Enter marks in Results Validation to see live student scores here."}
-                      </p>
+          {tab === "departments" && (
+            <div className="space-y-5">
+              <Card
+                title="Pass % by department"
+                subtitle="Sorted best first. Click a bar to open that department's subjects."
+                actions={<ExportButtons fileName={fileName("Department_wise")} sheet={() => A.sheets.department(deptT)} filters={filterLabels} />}
+              >
+                <PassBars data={deptT.map((d) => ({ key: d.deptKey, label: d.deptName, value: d.passPct }))} onClick={drillDept} />
+              </Card>
+              <Card title="Department result summary" subtitle="Click a row to see that department's subjects.">
+                <DataTable
+                  rows={deptT}
+                  rowKey={(r) => r.deptKey}
+                  onRowClick={(r) => drillDept(r.deptKey)}
+                  initialSort="passPct"
+                  columns={[
+                    { key: "deptName", label: "Department", value: (r) => r.deptName, className: "font-bold text-[#0B192C]" },
+                    { key: "enrolled", label: "Enrolled", value: (r) => r.enrolled, align: "right" },
+                    { key: "evaluated", label: "Evaluated", value: (r) => r.evaluated, align: "right" },
+                    { key: "subjects", label: "Subjects", value: (r) => r.subjects, align: "right" },
+                    { key: "scripts", label: "Scripts", value: (r) => r.scripts, align: "right" },
+                    { key: "avg", label: "Average", value: (r) => r.avg, align: "right" },
+                    { key: "passPct", label: "Pass %", value: (r) => r.passPct, render: (r) => <PctBar value={r.passPct} /> },
+                    { key: "allClearPct", label: "All-clear %", value: (r) => r.allClearPct, align: "right" },
+                    { key: "failed", label: "Failed scripts", value: (r) => r.failed, align: "right", render: (r) => <span className={r.failed ? "text-[#b42318] font-bold" : ""}>{r.failed}</span> },
+                    { key: "topper", label: "Top score", value: (r) => r.topper },
+                  ]}
+                />
+              </Card>
+              <Card
+                title="Grade distribution by department"
+                subtitle="Number of answer scripts in each grade."
+                actions={<ExportButtons fileName={fileName("Grades_by_department")} sheet={() => ({ name: "Grades by department", rows: gradeMatrix.map((g) => ({ Department: g.dept, ...Object.fromEntries(A.GRADES.map((x) => [x, g[x] ?? 0])), Total: g.total })) })} filters={filterLabels} />}
+              >
+                <ResponsiveContainer width="100%" height={Math.max(220, gradeMatrix.length * 34 + 70)}>
+                  <BarChart data={gradeMatrix} layout="vertical" margin={{ left: 10, right: 20 }}>
+                    <CartesianGrid horizontal={false} stroke={GRID} />
+                    <XAxis type="number" allowDecimals={false} {...AXIS} />
+                    <YAxis type="category" dataKey="dept" width={150} {...AXIS} />
+                    <Tooltip content={<ChartTooltip />} cursor={{ fill: "#0B192C0A" }} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    {A.GRADES.map((g) => (
+                      <Bar key={g} dataKey={g} name={`Grade ${g}`} stackId="g" fill={GRADE_COLORS[g]} stroke="#fff" strokeWidth={1}
+                        onClick={(d: any) => drillDept(d.key ?? d.payload?.key)} cursor="pointer" />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+                <Card title="Regular vs lateral entry" actions={<ExportButtons fileName={fileName("Regular_vs_Lateral")} sheet={() => A.sheets.categories(catT)} filters={filterLabels} />}>
+                  <DataTable
+                    rows={catT}
+                    rowKey={(r) => r.category}
+                    columns={[
+                      { key: "category", label: "Category", value: (r) => r.category, className: "font-bold" },
+                      { key: "students", label: "Students", value: (r) => r.students, align: "right" },
+                      { key: "scripts", label: "Scripts", value: (r) => r.scripts, align: "right" },
+                      { key: "avg", label: "Average", value: (r) => r.avg, align: "right" },
+                      { key: "passPct", label: "Pass %", value: (r) => r.passPct, render: (r) => <PctBar value={r.passPct} /> },
+                      { key: "allClearPct", label: "All-clear %", value: (r) => r.allClearPct, align: "right" },
+                    ]}
+                  />
+                </Card>
+                <Card title="Department toppers (top 3)" actions={<ExportButtons fileName={fileName("Department_toppers")} sheet={() => A.sheets.toppers(toppers)} filters={filterLabels} />}>
+                  <DataTable
+                    rows={toppers}
+                    rowKey={(r) => `${r.deptName}|${r.regNo}`}
+                    onRowClick={(r) => setOpenStudent(r.regNo)}
+                    pageSize={12}
+                    columns={[
+                      { key: "deptName", label: "Department", value: (r) => r.deptName },
+                      { key: "rank", label: "Rank", value: (r) => r.rank, align: "center", render: (r) => <Medal rank={r.rank} /> },
+                      { key: "name", label: "Student", value: (r) => r.name, render: (r) => <><div className="font-bold text-[#0B192C]">{r.name}</div><div className="text-[10px] text-gray-400 font-mono">{r.regNo}</div></> },
+                      { key: "avg", label: "Average", value: (r) => r.avg, align: "right" },
+                      { key: "failed", label: "Failed", value: (r) => r.failed, align: "right" },
+                    ]}
+                  />
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {tab === "subjects" && (
+            <div className="space-y-5">
+              <Card
+                title="Subjects needing attention"
+                subtitle={`Lowest pass % first${subjT.length > 15 ? " (15 of " + subjT.length + " shown; the table lists all)" : ""}. Click a bar for the full subject analysis.`}
+              >
+                <PassBars
+                  data={[...subjT].sort((a, b) => a.passPct - b.passPct || a.avg - b.avg).slice(0, 15)
+                    .map((s) => ({ key: s.key, label: `${s.code} · ${s.key.split("|")[0].toUpperCase()} · ${s.assessment}`, value: s.passPct, color: ASSESSMENT_COLORS[s.assessment] }))}
+                  onClick={setOpenSubject}
+                  legend={assessmentsPresent.length > 1}
+                />
+              </Card>
+              <Card
+                title="Subject result analysis"
+                subtitle="One row per subject and assessment. Click a row for grades, question analysis, CO analysis and the student list."
+                actions={<ExportButtons fileName={fileName("Subject_Result_Analysis")} sheet={() => A.sheets.subject(subjT)} filters={filterLabels} />}
+              >
+                <DataTable
+                  rows={subjT}
+                  rowKey={(r) => r.key}
+                  onRowClick={(r) => setOpenSubject(r.key)}
+                  initialSort="passPct"
+                  initialDir="asc"
+                  columns={[
+                    { key: "code", label: "Code", value: (r) => r.code, className: "font-mono font-bold text-[#0B192C]" },
+                    { key: "title", label: "Subject", value: (r) => r.title, className: "max-w-[16rem] truncate" },
+                    { key: "deptName", label: "Dept", value: (r) => r.deptName, render: (r) => <DeptCode name={r.deptName} codes={deptCodes} /> },
+                    { key: "semester", label: "Sem", value: (r) => r.semester.replace("Semester ", "") },
+                    { key: "assessment", label: "Assessment", value: (r) => r.assessment, render: (r) => <AssessmentDot name={r.assessment} /> },
+                    { key: "appeared", label: "Appeared", value: (r) => r.appeared, align: "right", render: (r) => <span>{r.appeared}<span className="text-gray-400">/{r.enrolled}</span></span> },
+                    { key: "passed", label: "Pass", value: (r) => r.passed, align: "right" },
+                    { key: "failed", label: "Fail", value: (r) => r.failed, align: "right", render: (r) => <span className={r.failed ? "text-[#b42318] font-bold" : ""}>{r.failed}</span> },
+                    { key: "passPct", label: "Pass %", value: (r) => r.passPct, render: (r) => <PctBar value={r.passPct} /> },
+                    { key: "avg", label: "Avg", value: (r) => r.avg, align: "right" },
+                    { key: "highest", label: "High", value: (r) => r.highest, align: "right" },
+                    { key: "lowest", label: "Low", value: (r) => r.lowest, align: "right" },
+                    { key: "grades", label: "Grades (O→F)", value: (r) => r.grades.O ?? 0, render: (r) => <GradeStrip grades={r.grades} total={r.appeared} /> },
+                    { key: "published", label: "Status", value: (r) => (r.published ? 1 : 0), render: (r) => r.published ? <span className="text-[10px] font-black text-[#006300]">PUBLISHED</span> : <span className="text-[10px] font-black text-gray-400">NOT PUBLISHED</span> },
+                  ]}
+                />
+              </Card>
+            </div>
+          )}
+
+          {tab === "assessments" && (
+            <div className="space-y-5">
+              <p className="text-[11px] text-gray-500 font-semibold">This tab compares assessments side by side, so it ignores the Assessment filter.</p>
+              <AssessmentTiles rows={crossAssessment} />
+              <Card
+                title="Average marks by subject: IAT-1 vs IAT-2 vs End Semester"
+                subtitle={compT.length > 20 ? `First 20 of ${compT.length} subjects; filter by department to see others. The table below lists all.` : "Each colour is one assessment."}
+              >
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart data={compT.slice(0, 20).map((c) => ({ code: c.code, ...Object.fromEntries(A.ASSESSMENTS.map((a) => [a, c.byAssessment[a]?.avg ?? null])) }))} margin={{ top: 10, right: 10, bottom: 30 }}>
+                    <CartesianGrid vertical={false} stroke={GRID} />
+                    <XAxis dataKey="code" {...AXIS} angle={-35} textAnchor="end" interval={0} height={60} />
+                    <YAxis domain={[0, 100]} {...AXIS} />
+                    <Tooltip content={<ChartTooltip />} cursor={{ fill: "#0B192C0A" }} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} verticalAlign="top" height={28} />
+                    {assessmentsPresent.map((a) => <Bar key={a} dataKey={a} name={a} fill={ASSESSMENT_COLORS[a]} radius={[4, 4, 0, 0]} maxBarSize={22} />)}
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+              <Card title="Assessment comparison by subject" actions={<ExportButtons fileName={fileName("IAT_Comparison")} sheet={() => A.sheets.comparison(compT)} filters={filterLabels} />}>
+                <DataTable
+                  rows={compT}
+                  rowKey={(r) => r.key}
+                  initialSort="change"
+                  initialDir="asc"
+                  columns={[
+                    { key: "code", label: "Code", value: (r) => r.code, className: "font-mono font-bold text-[#0B192C]" },
+                    { key: "title", label: "Subject", value: (r) => r.title, className: "max-w-[16rem] truncate" },
+                    { key: "deptName", label: "Dept", value: (r) => r.deptName, render: (r) => <DeptCode name={r.deptName} codes={deptCodes} /> },
+                    ...A.ASSESSMENTS.map((a): Column<A.ComparisonRow> => ({
+                      key: a, label: `${a} avg · pass %`, align: "right", value: (r) => r.byAssessment[a]?.avg ?? -1,
+                      render: (r) => r.byAssessment[a] ? <span><b>{r.byAssessment[a]!.avg}</b> <span className="text-gray-400">· {r.byAssessment[a]!.passPct}%</span></span> : <span className="text-gray-300">—</span>,
+                    })),
+                    { key: "change", label: "IAT-1 → IAT-2", align: "right", value: (r) => r.change ?? 0, render: (r) => <Change value={r.change} /> },
+                  ]}
+                />
+              </Card>
+              <Card
+                title="Student progress from IAT-1 to IAT-2"
+                subtitle="Students who wrote both IATs in a subject. Biggest drops first."
+                actions={<ExportButtons fileName={fileName("IAT_Progress")} sheet={() => A.sheets.progress(progress)} filters={filterLabels} />}
+              >
+                {progress.length === 0 ? (
+                  <p className="text-xs text-gray-500 py-4">No student has both IAT-1 and IAT-2 marks in the same subject yet.</p>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      <Kpi label="Improved" value={progress.filter((p) => p.change > 0).length} icon={<TrendingUp size={14} />} tone="good" hint="scored more in IAT-2" />
+                      <Kpi label="Same" value={progress.filter((p) => p.change === 0).length} icon={<Sigma size={14} />} hint="no change" />
+                      <Kpi label="Declined" value={progress.filter((p) => p.change < 0).length} icon={<TrendingDown size={14} />} tone="bad" hint="scored less in IAT-2" />
                     </div>
-                  </td>
-                </tr>
-              ) : (
-                studentRows.map((s) => (
-                  <tr key={s.regNo} className="hover:bg-[#F8F5EE]/70 transition">
-                    <td className="p-3.5 font-mono font-bold text-[#0B192C]">{s.regNo}</td>
-                    <td className="p-3.5 font-bold text-gray-900">{s.name}</td>
-                    <td className="p-3.5 font-semibold text-gray-700">{s.dept}</td>
-                    <td className="p-3.5 text-center font-mono font-bold text-gray-800">
-                      {s.ia1Mark !== undefined ? (
-                        <>
-                          {s.ia1Mark} <span className="text-[10px] text-gray-400">/100</span>
-                        </>
-                      ) : (
-                        <span className="text-gray-300 font-normal">—</span>
-                      )}
-                    </td>
-                    <td className="p-3.5 text-center font-mono font-bold text-[#B08014]">
-                      {s.ia2Mark !== undefined ? (
-                        <>
-                          {s.ia2Mark} <span className="text-[10px] text-gray-400">/100</span>
-                        </>
-                      ) : (
-                        <span className="text-gray-300 font-normal">—</span>
-                      )}
-                    </td>
-                    <td className="p-3.5 text-center font-mono font-black text-sm text-[#0B192C]">
-                      {s.endSemMark !== undefined ? (
-                        <>
-                          {s.endSemMark} <span className="text-[10px] text-gray-400">/100</span>
-                        </>
-                      ) : (
-                        <span className="text-gray-300 font-normal">—</span>
-                      )}
-                    </td>
-                    <td className="p-3.5 text-center">
-                      <span
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold inline-flex items-center gap-0.5 border ${
-                          s.improvement >= 0
-                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                            : "bg-red-50 text-red-800 border-red-200"
-                        }`}
-                      >
-                        {s.improvement >= 0 ? `+${s.improvement}` : s.improvement}%
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-center">
-                      <span className="px-2.5 py-0.5 rounded font-black text-xs bg-[#D4A72C]/20 text-[#0B192C] border border-[#D4A72C]">
-                        {s.finalGrade}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                    <DataTable
+                      rows={progress}
+                      rowKey={(r) => `${r.regNo}|${r.code}`}
+                      onRowClick={(r) => setOpenStudent(r.regNo)}
+                      initialSort="change"
+                      initialDir="asc"
+                      columns={[
+                        { key: "regNo", label: "Register No", value: (r) => r.regNo, className: "font-mono" },
+                        { key: "name", label: "Name", value: (r) => r.name, className: "font-bold text-[#0B192C]" },
+                        { key: "deptName", label: "Dept", value: (r) => r.deptName, render: (r) => <DeptCode name={r.deptName} codes={deptCodes} /> },
+                        { key: "code", label: "Subject", value: (r) => r.code, className: "font-mono" },
+                        { key: "iat1", label: "IAT-1", value: (r) => r.iat1, align: "right" },
+                        { key: "iat2", label: "IAT-2", value: (r) => r.iat2, align: "right" },
+                        { key: "change", label: "Change", value: (r) => r.change, align: "right", render: (r) => <Change value={r.change} /> },
+                      ]}
+                    />
+                  </>
+                )}
+              </Card>
+            </div>
+          )}
+
+          {tab === "semesters" && (
+            <div className="space-y-5">
+              <p className="text-[11px] text-gray-500 font-semibold">This tab shows every semester side by side, so it ignores the Semester and Assessment filters.</p>
+              <Card title="Pass % by semester" subtitle="Each colour is one assessment.">
+                {semT.length === 0 ? <p className="text-xs text-gray-500 py-4">No marks for these filters.</p> : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart
+                      data={Array.from(A.groupBy(semT, (s) => s.semester).entries()).map(([semester, list]) => ({
+                        semester, ...Object.fromEntries(list.map((s) => [s.assessment, s.passPct])),
+                      }))}
+                      margin={{ top: 10, right: 10 }}
+                    >
+                      <CartesianGrid vertical={false} stroke={GRID} />
+                      <XAxis dataKey="semester" {...AXIS} />
+                      <YAxis domain={[0, 100]} unit="%" {...AXIS} />
+                      <Tooltip content={<ChartTooltip unit="%" />} cursor={{ fill: "#0B192C0A" }} />
+                      <Legend wrapperStyle={{ fontSize: 11 }} verticalAlign="top" height={28} />
+                      {A.ASSESSMENTS.filter((a) => semT.some((s) => s.assessment === a)).map((a) => (
+                        <Bar key={a} dataKey={a} name={a} fill={ASSESSMENT_COLORS[a]} radius={[4, 4, 0, 0]} maxBarSize={40}>
+                          <LabelList dataKey={a} position="top" formatter={(v: number) => (v == null ? "" : `${v}%`)} style={{ fontSize: 10, fill: "#52514e", fontWeight: 700 }} />
+                        </Bar>
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </Card>
+              <Card title="Semester-wise summary" actions={<ExportButtons fileName={fileName("Semester_wise")} sheet={() => A.sheets.semesters(semT)} filters={filterLabels} />}>
+                <DataTable
+                  rows={semT}
+                  rowKey={(r) => r.key}
+                  onRowClick={(r) => { setFilters((f) => ({ ...f, sem: r.semester, assess: r.assessment, subject: "all" })); setTab("subjects"); }}
+                  columns={[
+                    { key: "semester", label: "Semester", value: (r) => A.semesterIndex(r.semester), render: (r) => <b className="text-[#0B192C]">{r.semester}</b> },
+                    { key: "assessment", label: "Assessment", value: (r) => r.assessment, render: (r) => <AssessmentDot name={r.assessment} /> },
+                    { key: "departments", label: "Depts", value: (r) => r.departments, align: "right" },
+                    { key: "subjects", label: "Subjects", value: (r) => r.subjects, align: "right" },
+                    { key: "students", label: "Students", value: (r) => r.students, align: "right" },
+                    { key: "scripts", label: "Scripts", value: (r) => r.scripts, align: "right" },
+                    { key: "avg", label: "Average", value: (r) => r.avg, align: "right" },
+                    { key: "passPct", label: "Pass %", value: (r) => r.passPct, render: (r) => <PctBar value={r.passPct} /> },
+                    { key: "allClearPct", label: "All-clear %", value: (r) => r.allClearPct, align: "right" },
+                    { key: "failed", label: "Failed", value: (r) => r.failed, align: "right" },
+                  ]}
+                />
+              </Card>
+            </div>
+          )}
+
+          {tab === "questions" && (
+            <QuestionsView
+              assessment={qAssessment}
+              assessments={assessmentsPresent}
+              lockedByFilter={filters.assess !== "all"}
+              onAssessment={setQuestionAssessment}
+              questionT={questionT}
+              coT={coT}
+              scripts={qRows.length}
+              exportProps={{ fileName, filterLabels }}
+            />
+          )}
+
+          {tab === "examiners" && (
+            <Card
+              title="Examiner-wise analysis"
+              subtitle="How the scripts each examiner valued compare. Large gaps in average for the same subject can point to uneven valuation."
+              actions={<ExportButtons fileName={fileName("Examiner_wise")} sheet={() => A.sheets.examiners(examT)} filters={filterLabels} />}
+            >
+              <DataTable
+                rows={examT}
+                rowKey={(r) => r.examiner}
+                initialSort="scripts"
+                columns={[
+                  { key: "examiner", label: "Examiner", value: (r) => r.examiner, className: "font-bold text-[#0B192C]" },
+                  { key: "subjects", label: "Subjects", value: (r) => r.subjects, className: "font-mono text-[11px]" },
+                  { key: "scripts", label: "Scripts", value: (r) => r.scripts, align: "right" },
+                  { key: "avg", label: "Average", value: (r) => r.avg, align: "right" },
+                  { key: "passPct", label: "Pass %", value: (r) => r.passPct, render: (r) => <PctBar value={r.passPct} /> },
+                  { key: "highest", label: "Highest", value: (r) => r.highest, align: "right" },
+                  { key: "lowest", label: "Lowest", value: (r) => r.lowest, align: "right" },
+                ]}
+              />
+            </Card>
+          )}
+
+          {tab === "students" && (
+            <div className="space-y-5">
+              <Card
+                title={<span className="flex items-center gap-2"><AlertTriangle size={16} className="text-[#d03b3b]" /> Students at risk ({riskT.length})</span>}
+                subtitle="Two or more failed scripts, an average below 50, or a drop of 10+ marks from IAT-1 to IAT-2 in a subject. Click a student for the full profile."
+                actions={<ExportButtons fileName={fileName("Students_at_risk")} sheet={() => A.sheets.risk(riskT)} filters={filterLabels} />}
+              >
+                <DataTable
+                  rows={riskT}
+                  rowKey={(r) => r.regNo}
+                  onRowClick={(r) => setOpenStudent(r.regNo)}
+                  initialSort="failed"
+                  emptyText="No student is at risk for these filters."
+                  columns={[
+                    { key: "regNo", label: "Register No", value: (r) => r.regNo, className: "font-mono" },
+                    { key: "name", label: "Name", value: (r) => r.name, className: "font-bold text-[#0B192C]" },
+                    { key: "deptName", label: "Dept", value: (r) => r.deptName, render: (r) => <DeptCode name={r.deptName} codes={deptCodes} /> },
+                    { key: "scripts", label: "Scripts", value: (r) => r.scripts, align: "right" },
+                    { key: "failed", label: "Failed", value: (r) => r.failed, align: "right", render: (r) => <span className="font-black text-[#b42318]">{r.failed}</span> },
+                    { key: "avg", label: "Average", value: (r) => r.avg, align: "right" },
+                    { key: "reason", label: "Why", value: (r) => r.reason, className: "text-[11px] text-gray-600" },
+                  ]}
+                />
+              </Card>
+              <Card
+                title="Student ranking"
+                subtitle="Ranked by average mark across the selected scripts. Click a student for the full profile."
+                actions={<ExportButtons fileName={fileName("Student_Ranking")} sheet={() => A.sheets.students(studT)} filters={filterLabels} />}
+              >
+                <DataTable
+                  rows={studT}
+                  rowKey={(r) => r.regNo}
+                  onRowClick={(r) => setOpenStudent(r.regNo)}
+                  initialSort="rank"
+                  initialDir="asc"
+                  searchPlaceholder="Search by name or register number…"
+                  rowTone={(r) => (r.failed > 0 ? "bad" : undefined)}
+                  columns={[
+                    { key: "rank", label: "Rank", value: (r) => r.rank, align: "center", render: (r) => <Medal rank={r.rank} /> },
+                    { key: "regNo", label: "Register No", value: (r) => r.regNo, className: "font-mono" },
+                    { key: "name", label: "Name", value: (r) => r.name, className: "font-bold text-[#0B192C]" },
+                    { key: "deptName", label: "Dept", value: (r) => r.deptName, render: (r) => <DeptCode name={r.deptName} codes={deptCodes} /> },
+                    { key: "category", label: "Category", value: (r) => r.category },
+                    { key: "subjects", label: "Scripts", value: (r) => r.subjects, align: "right" },
+                    { key: "avg", label: "Average", value: (r) => r.avg, align: "right", render: (r) => <b>{r.avg}</b> },
+                    { key: "passed", label: "Passed", value: (r) => r.passed, align: "right" },
+                    { key: "failed", label: "Failed", value: (r) => r.failed, align: "right", render: (r) => <span className={r.failed ? "text-[#b42318] font-black" : ""}>{r.failed}</span> },
+                    { key: "best", label: "Best", value: (r) => r.best, className: "font-mono text-[11px]" },
+                    { key: "weakest", label: "Weakest", value: (r) => r.weakest, className: "font-mono text-[11px]" },
+                  ]}
+                />
+              </Card>
+            </div>
+          )}
+
+          {tab === "data" && (
+            <Card
+              title="All marks"
+              subtitle="Every answer script matching the filters. Click a row for that student's profile."
+              actions={<ExportButtons fileName={fileName("All_Marks")} sheet={() => A.sheets.raw(rows)} filters={filterLabels} />}
+            >
+              <DataTable
+                rows={rows}
+                rowKey={(r) => `${r.regNo}|${r.deptKey}|${r.semester}|${r.subjectCode}|${r.assessment}`}
+                onRowClick={(r) => setOpenStudent(r.regNo)}
+                initialSort="total"
+                pageSize={25}
+                searchPlaceholder="Search name, register no, subject, examiner…"
+                columns={[
+                  { key: "regNo", label: "Register No", value: (r) => r.regNo, className: "font-mono" },
+                  { key: "name", label: "Name", value: (r) => r.name, className: "font-bold text-[#0B192C]" },
+                  { key: "deptName", label: "Dept", value: (r) => r.deptName, render: (r) => <DeptCode name={r.deptName} codes={deptCodes} /> },
+                  { key: "semester", label: "Sem", value: (r) => r.semester.replace("Semester ", "") },
+                  { key: "subjectCode", label: "Subject", value: (r) => r.subjectCode, className: "font-mono" },
+                  { key: "assessment", label: "Assessment", value: (r) => r.assessment, render: (r) => <AssessmentDot name={r.assessment} /> },
+                  { key: "partA", label: "Part A", value: (r) => r.partA, align: "right" },
+                  { key: "partBC", label: "Part B+C", value: (r) => r.partBC, align: "right" },
+                  { key: "total", label: "Total", value: (r) => r.total, align: "right", render: (r) => <b>{r.total}</b> },
+                  { key: "grade", label: "Grade", value: (r) => A.GRADES.indexOf(r.grade as never), align: "center", render: (r) => <GradeChip grade={r.grade} /> },
+                  { key: "passed", label: "Result", value: (r) => (r.passed ? 1 : 0), render: (r) => <ResultChip passed={r.passed} /> },
+                  { key: "examiner", label: "Examiner", value: (r) => r.examiner },
+                  { key: "published", label: "Published", value: (r) => (r.published ? 1 : 0), render: (r) => (r.published ? "Yes" : "No") },
+                ]}
+              />
+            </Card>
+          )}
+        </>
+      )}
+
+      <SubjectDrawer
+        subjectKey={openSubject}
+        allRows={allRows}
+        students={students}
+        onClose={closeSubject}
+        onStudent={(regNo) => { setOpenSubject(null); setOpenStudent(regNo); }}
+        fileName={fileName}
+      />
+      <StudentDrawer regNo={openStudent} allRows={allRows} onClose={closeStudent} fileName={fileName} />
     </div>
   );
 };
 
 export default AnalyticsPage;
+
+/* ======================================================================= */
+/*                                Overview                                  */
+/* ======================================================================= */
+
+const Overview: React.FC<{
+  stat: A.Stats; clear: { students: number; clear: number; pct: number }; enrolled: number; deptT: A.DeptRow[];
+  subjT: A.SubjectRow[]; compT: A.ComparisonRow[]; studT: A.StudentRow[]; riskT: A.RiskRow[]; crossAssessment: A.MarkRow[];
+  onDept: (k: string) => void; onStudent: (r: string) => void; onSubject: (k: string) => void; goTab: (t: TabId) => void;
+}> = ({ stat, clear, enrolled, deptT, subjT, compT, studT, riskT, crossAssessment, onDept, onStudent, onSubject, goTab }) => {
+  const insights = useMemo(() => {
+    const out: { tone: "good" | "bad" | "info"; text: React.ReactNode }[] = [];
+    if (deptT.length > 1) {
+      const best = deptT[0], worst = deptT[deptT.length - 1];
+      out.push({ tone: "good", text: <><b>{best.deptName}</b> leads with a {best.passPct}% pass rate (average {best.avg}).</> });
+      if (worst.deptKey !== best.deptKey) out.push({ tone: worst.passPct < 75 ? "bad" : "info", text: <><b>{worst.deptName}</b> has the lowest pass rate: {worst.passPct}% with {worst.failed} failed scripts.</> });
+    }
+    if (subjT.length) {
+      const hard = [...subjT].sort((a, b) => a.passPct - b.passPct || a.avg - b.avg)[0];
+      out.push({ tone: hard.passPct < 60 ? "bad" : "info", text: <>Toughest paper: <b>{hard.code}</b> {hard.title} ({hard.assessment}): {hard.passPct}% passed, average {hard.avg}.</> });
+      const easy = [...subjT].sort((a, b) => b.avg - a.avg)[0];
+      if (easy.key !== hard.key) out.push({ tone: "good", text: <>Highest-scoring paper: <b>{easy.code}</b> ({easy.assessment}) with an average of {easy.avg}.</> });
+    }
+    const changes = compT.filter((c) => c.change !== null);
+    if (changes.length) {
+      const up = [...changes].sort((a, b) => b.change! - a.change!)[0];
+      const down = [...changes].sort((a, b) => a.change! - b.change!)[0];
+      if (up.change! > 0) out.push({ tone: "good", text: <><b>{up.code}</b> improved most from IAT-1 to IAT-2 (+{up.change} average).</> });
+      if (down.change! < 0) out.push({ tone: "bad", text: <><b>{down.code}</b> dropped most from IAT-1 to IAT-2 ({down.change} average).</> });
+    }
+    if (studT.length) out.push({ tone: "good", text: <>Top student: <b>{studT[0].name}</b> ({studT[0].deptName}) with an average of {studT[0].avg}.</> });
+    out.push({ tone: riskT.length ? "bad" : "good", text: riskT.length ? <><b>{riskT.length}</b> students need attention (see Students tab).</> : <>No student is at risk for these filters.</> });
+    return out;
+  }, [deptT, subjT, compT, studT, riskT]);
+
+  const gradeData = A.GRADES.map((g) => ({ grade: g, count: stat.grades[g] || 0, pct: A.pct(stat.grades[g] || 0, stat.scripts) }));
+  const rangeData = A.RANGES.map((r, i) => ({ label: r.label, count: stat.ranges[i], fail: r.min < 40 })).reverse();
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Kpi label="Answer scripts" value={stat.scripts} icon={<ClipboardList size={14} />} hint={`${stat.students} students evaluated${enrolled ? ` of ${enrolled} enrolled` : ""}`} />
+        <Kpi label="Pass %" value={`${stat.passPct}%`} icon={<UserCheck size={14} />} tone={stat.passPct >= 75 ? "good" : stat.passPct < 50 ? "bad" : "default"} hint={`${stat.passed} passed · ${stat.failed} failed`} />
+        <Kpi label="Average mark" value={stat.avg} icon={<Sigma size={14} />} hint={`Median ${stat.median} · SD ${stat.stdDev}`} />
+        <Kpi label="All-clear students" value={`${clear.pct}%`} icon={<ListChecks size={14} />} hint={`${clear.clear} of ${clear.students} passed every script`} />
+        <Kpi label="Highest" value={stat.highest} icon={<Trophy size={14} />} hint={`Lowest ${stat.lowest}`} />
+        <Kpi label="O + A+ grades" value={`${A.pct((stat.grades.O || 0) + (stat.grades["A+"] || 0), stat.scripts)}%`} icon={<Award size={14} />} hint={`${(stat.grades.O || 0) + (stat.grades["A+"] || 0)} scripts at 80+`} tone="good" />
+        <Kpi label="Students at risk" value={riskT.length} icon={<AlertTriangle size={14} />} tone={riskT.length ? "bad" : "good"} hint="2+ fails, avg < 50 or IAT drop" />
+        <Kpi label="Departments · subjects" value={`${deptT.length} · ${new Set(subjT.map((s) => s.code)).size}`} icon={<GraduationCap size={14} />} hint="with marks in this view" />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+        <Card title={<span className="flex items-center gap-2"><Lightbulb size={16} className="text-[#D4A72C]" /> Key insights</span>} className="xl:col-span-1">
+          <ul className="space-y-2.5">
+            {insights.map((i, n) => (
+              <li key={n} className="flex gap-2.5 text-xs text-gray-700 leading-relaxed">
+                <span className={`mt-0.5 w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-black ${i.tone === "good" ? "bg-[#E8F3EA] text-[#006300]" : i.tone === "bad" ? "bg-[#FDECEC] text-[#b42318]" : "bg-[#EEF4FC] text-[#1c5cab]"}`}>
+                  {i.tone === "good" ? "▲" : i.tone === "bad" ? "!" : "i"}
+                </span>
+                <span>{i.text}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+        <Card title="Grade distribution" subtitle="Answer scripts in each grade (O ≥ 90 … F < 40)" className="xl:col-span-2">
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={gradeData} margin={{ top: 20, right: 10 }}>
+              <CartesianGrid vertical={false} stroke={GRID} />
+              <XAxis dataKey="grade" {...AXIS} />
+              <YAxis allowDecimals={false} {...AXIS} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: "#0B192C0A" }} />
+              <Bar dataKey="count" name="Scripts" radius={[4, 4, 0, 0]} maxBarSize={56}>
+                {gradeData.map((g) => <Cell key={g.grade} fill={GRADE_COLORS[g.grade]} />)}
+                <LabelList dataKey="pct" position="top" formatter={(v: number) => `${v}%`} style={{ fontSize: 10, fill: "#52514e", fontWeight: 700 }} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <Card title="Pass % by department" subtitle="Click a bar to open that department's subjects.">
+          <PassBars data={deptT.map((d) => ({ key: d.deptKey, label: d.deptName, value: d.passPct }))} onClick={onDept} />
+        </Card>
+        <Card title="Mark distribution" subtitle="Answer scripts per band of total marks (red = below the pass mark of 40)">
+          <ResponsiveContainer width="100%" height={Math.max(250, deptT.length * 34 + 40)}>
+            <BarChart data={rangeData} margin={{ top: 20, right: 10 }}>
+              <CartesianGrid vertical={false} stroke={GRID} />
+              <XAxis dataKey="label" {...AXIS} />
+              <YAxis allowDecimals={false} {...AXIS} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: "#0B192C0A" }} />
+              <Bar dataKey="count" name="Scripts" radius={[4, 4, 0, 0]} maxBarSize={56}>
+                {rangeData.map((r) => <Cell key={r.label} fill={r.fail ? CRITICAL : SERIES} />)}
+                <LabelList dataKey="count" position="top" style={{ fontSize: 10, fill: "#52514e", fontWeight: 700 }} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      <AssessmentTiles rows={crossAssessment} note="Ignores the Assessment filter so the three can be compared." />
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <Card title={<span className="flex items-center gap-2"><Trophy size={16} className="text-[#D4A72C]" /> Top 5 students</span>} actions={<button type="button" onClick={() => goTab("students")} className="text-[11px] font-bold text-[#1c5cab] hover:underline">Full ranking →</button>}>
+          <ol className="space-y-1.5">
+            {studT.slice(0, 5).map((s) => (
+              <li key={s.regNo}>
+                <button type="button" onClick={() => onStudent(s.regNo)} className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-[#FFF6DD] text-left">
+                  <Medal rank={s.rank} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-bold text-[#0B192C] truncate">{s.name}</span>
+                    <span className="block text-[10px] text-gray-400 font-mono">{s.regNo} · {s.deptName}</span>
+                  </span>
+                  <span className="text-sm font-black text-[#0B192C] tabular-nums">{s.avg}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </Card>
+        <Card title={<span className="flex items-center gap-2"><BookOpen size={16} className="text-[#d03b3b]" /> Lowest pass % subjects</span>} actions={<button type="button" onClick={() => goTab("subjects")} className="text-[11px] font-bold text-[#1c5cab] hover:underline">All subjects →</button>}>
+          <ol className="space-y-1.5">
+            {[...subjT].sort((a, b) => a.passPct - b.passPct || a.avg - b.avg).slice(0, 5).map((s) => (
+              <li key={s.key}>
+                <button type="button" onClick={() => onSubject(s.key)} className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-[#FFF6DD] text-left">
+                  <span className="font-mono text-[11px] font-bold text-[#0B192C] w-20 shrink-0">{s.code}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-semibold text-gray-700 truncate">{s.title}</span>
+                    <span className="block text-[10px] text-gray-400"><AssessmentDot name={s.assessment} /> · {s.deptName}</span>
+                  </span>
+                  <PctBar value={s.passPct} />
+                </button>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+/* ======================================================================= */
+/*                           Questions & COs                                */
+/* ======================================================================= */
+
+const QuestionsView: React.FC<{
+  assessment: string; assessments: string[]; lockedByFilter: boolean; onAssessment: (a: string) => void;
+  questionT: A.QuestionRow[]; coT: A.CoRow[]; scripts: number;
+  exportProps: { fileName: (w: string) => string; filterLabels: Record<string, string> };
+}> = ({ assessment, assessments, lockedByFilter, onAssessment, questionT, coT, scripts, exportProps }) => {
+  const partA = questionT.filter((q) => q.part === "A");
+  const partBC = questionT.filter((q) => q.part !== "A");
+  return (
+    <div className="space-y-5">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-display font-black text-base text-[#0B192C]">Question paper analysis · {assessment || "—"}</h3>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              Each assessment has its own paper and CO pattern, so this view looks at one at a time ({scripts} answer scripts).
+            </p>
+          </div>
+          {!lockedByFilter && (
+            <div className="inline-flex p-1 rounded-xl bg-[#F8F5EE] border border-[#E5E1D8] gap-1">
+              {A.ASSESSMENTS.map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  disabled={!assessments.includes(a)}
+                  onClick={() => onAssessment(a)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-30 ${assessment === a ? "bg-[#0B192C] text-white" : "text-gray-700 hover:bg-white"}`}
+                >
+                  <AssessmentDot name={a} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
+      {scripts === 0 ? (
+        <Card><p className="text-xs text-gray-500">No answer scripts for this assessment and these filters.</p></Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            <Card title="Part A: average marks per question" subtitle="Each question is out of 2.">
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={partA} margin={{ top: 20, right: 10 }}>
+                  <CartesianGrid vertical={false} stroke={GRID} />
+                  <XAxis dataKey="question" {...AXIS} />
+                  <YAxis domain={[0, 2]} {...AXIS} />
+                  <Tooltip content={<ChartTooltip />} cursor={{ fill: "#0B192C0A" }} />
+                  <Bar dataKey="avg" name="Average" radius={[4, 4, 0, 0]} maxBarSize={36}>
+                    {partA.map((q) => <Cell key={q.question} fill={q.avg < 1 ? CRITICAL : SERIES} />)}
+                    <LabelList dataKey="avg" position="top" style={{ fontSize: 10, fill: "#52514e", fontWeight: 700 }} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+            <Card title="Part B & C: average marks per question" subtitle="The better of choice (a) and (b), as in the total. Q16 is Part C.">
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={partBC} margin={{ top: 20, right: 10 }}>
+                  <CartesianGrid vertical={false} stroke={GRID} />
+                  <XAxis dataKey="question" {...AXIS} />
+                  <YAxis {...AXIS} />
+                  <Tooltip content={<ChartTooltip />} cursor={{ fill: "#0B192C0A" }} />
+                  <Bar dataKey="avg" name="Average" fill={SERIES} radius={[4, 4, 0, 0]} maxBarSize={44}>
+                    <LabelList dataKey="avg" position="top" style={{ fontSize: 10, fill: "#52514e", fontWeight: 700 }} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+          </div>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            <Card title="Choice (a) vs (b) in Part B & C" subtitle="How many students answered each choice.">
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={partBC} margin={{ top: 10, right: 10 }}>
+                  <CartesianGrid vertical={false} stroke={GRID} />
+                  <XAxis dataKey="question" {...AXIS} />
+                  <YAxis allowDecimals={false} {...AXIS} />
+                  <Tooltip content={<ChartTooltip />} cursor={{ fill: "#0B192C0A" }} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} verticalAlign="top" height={26} />
+                  <Bar dataKey="choiceA" name="Chose (a)" fill="#2a78d6" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                  <Bar dataKey="choiceB" name="Chose (b)" fill="#eb6834" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+            <Card
+              title="Course outcome (CO) analysis"
+              subtitle="Average marks each student scored on the questions of each CO, and that CO's share of all marks."
+              actions={<ExportButtons fileName={exportProps.fileName(`CO_Analysis_${assessment}`)} sheet={() => A.sheets.cos(coT)} filters={{ ...exportProps.filterLabels, Assessment: assessment }} />}
+            >
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={coT} margin={{ top: 20, right: 10 }}>
+                  <CartesianGrid vertical={false} stroke={GRID} />
+                  <XAxis dataKey="co" {...AXIS} />
+                  <YAxis {...AXIS} />
+                  <Tooltip content={<ChartTooltip />} cursor={{ fill: "#0B192C0A" }} />
+                  <Bar dataKey="avgMarks" name="Avg marks per student" fill={SERIES} radius={[4, 4, 0, 0]} maxBarSize={44}>
+                    <LabelList dataKey="avgMarks" position="top" style={{ fontSize: 10, fill: "#52514e", fontWeight: 700 }} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="mt-3">
+                <DataTable
+                  rows={coT}
+                  rowKey={(r) => r.co}
+                  pageSize={10}
+                  columns={[
+                    { key: "co", label: "CO", value: (r) => r.co, className: "font-black text-[#0B192C]" },
+                    { key: "questions", label: "Questions", value: (r) => r.questions, className: "text-[11px]" },
+                    { key: "avgMarks", label: "Avg marks", value: (r) => r.avgMarks, align: "right" },
+                    { key: "share", label: "Share %", value: (r) => r.share, align: "right" },
+                  ]}
+                />
+              </div>
+            </Card>
+          </div>
+          <Card
+            title="Question-wise table"
+            actions={<ExportButtons fileName={exportProps.fileName(`Question_Analysis_${assessment}`)} sheet={() => A.sheets.questions(questionT)} filters={{ ...exportProps.filterLabels, Assessment: assessment }} />}
+          >
+            <DataTable
+              rows={questionT}
+              rowKey={(r) => r.question}
+              pageSize={16}
+              columns={[
+                { key: "question", label: "Question", value: (r) => Number(r.question.slice(1)), render: (r) => <b>{r.question}</b> },
+                { key: "part", label: "Part", value: (r) => r.part, align: "center" },
+                { key: "co", label: "CO", value: (r) => r.co, align: "center" },
+                { key: "attempted", label: "Students who scored", value: (r) => r.attempted, align: "right" },
+                { key: "avg", label: "Average", value: (r) => r.avg, align: "right" },
+                { key: "max", label: "Highest", value: (r) => r.max, align: "right" },
+                { key: "choiceA", label: "Chose (a)", value: (r) => r.choiceA, align: "right", render: (r) => (r.part === "A" ? "—" : r.choiceA) },
+                { key: "choiceB", label: "Chose (b)", value: (r) => r.choiceB, align: "right", render: (r) => (r.part === "A" ? "—" : r.choiceB) },
+              ]}
+            />
+          </Card>
+        </>
+      )}
+    </div>
+  );
+};
+
+/* ======================================================================= */
+/*                              Drill-downs                                 */
+/* ======================================================================= */
+
+const SubjectDrawer: React.FC<{
+  subjectKey: string | null; allRows: A.MarkRow[]; students: StudentRecord[]; onClose: () => void;
+  onStudent: (regNo: string) => void; fileName: (w: string) => string;
+}> = ({ subjectKey, allRows, students, onClose, onStudent, fileName }) => {
+  const [deptKey, semester, code, assessment] = (subjectKey ?? "|||").split("|");
+  const list = useMemo(
+    () => allRows.filter((r) => r.deptKey === deptKey && r.semester === semester && r.subjectCode === code && r.assessment === assessment),
+    [allRows, deptKey, semester, code, assessment]
+  );
+  const s = useMemo(() => A.stats(list), [list]);
+  const q = useMemo(() => A.questionTable(list), [list]);
+  const co = useMemo(() => A.coTable(list), [list]);
+  const ranked = useMemo(() => [...list].sort((a, b) => b.total - a.total), [list]);
+  const enrolledCount = students.filter((st) => st.deptKey === deptKey && st.semester === semester).length;
+  const r0 = list[0];
+  if (!subjectKey || !r0) return null;
+  const title = `${code} · ${r0.subjectTitle}`;
+  const sheetsFor = (): A.Sheet[] => [
+    A.sheets.subject(A.subjectTable(list, students)), A.sheets.grades(s), A.sheets.questions(q), A.sheets.cos(co), A.sheets.raw(ranked),
+  ];
+  const gradeData = A.GRADES.map((g) => ({ grade: g, count: s.grades[g] || 0 }));
+  return (
+    <Drawer
+      open
+      onClose={onClose}
+      title={title}
+      subtitle={`${r0.deptName} · ${semester} · ${assessment} · examiner ${Array.from(new Set(list.map((r) => r.examiner))).join(", ")}`}
+      actions={
+        <button
+          type="button"
+          onClick={() => A.exportSheets(fileName(`Subject_${code}_${assessment}`), sheetsFor(), { Department: r0.deptName, Semester: semester, Subject: title, Assessment: assessment })}
+          className="px-3 py-1.5 rounded-lg bg-[#D4A72C] text-[#0B192C] text-xs font-black flex items-center gap-1.5"
+        >
+          <FileSpreadsheet size={14} /> Download subject report
+        </button>
+      }
+    >
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Kpi label="Appeared" value={`${s.scripts}${enrolledCount ? ` / ${enrolledCount}` : ""}`} icon={<Users size={14} />} hint={enrolledCount > s.scripts ? `${enrolledCount - s.scripts} without marks` : "everyone has marks"} />
+        <Kpi label="Pass %" value={`${s.passPct}%`} icon={<UserCheck size={14} />} tone={s.passPct >= 75 ? "good" : s.passPct < 50 ? "bad" : "default"} hint={`${s.passed} passed · ${s.failed} failed`} />
+        <Kpi label="Average" value={s.avg} icon={<Sigma size={14} />} hint={`Median ${s.median} · SD ${s.stdDev}`} />
+        <Kpi label="Highest / lowest" value={`${s.highest} / ${s.lowest}`} icon={<Trophy size={14} />} hint={ranked[0] ? `Top: ${ranked[0].name}` : ""} />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <Card title="Grades">
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={gradeData} margin={{ top: 20, right: 10 }}>
+              <CartesianGrid vertical={false} stroke={GRID} />
+              <XAxis dataKey="grade" {...AXIS} />
+              <YAxis allowDecimals={false} {...AXIS} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: "#0B192C0A" }} />
+              <Bar dataKey="count" name="Students" radius={[4, 4, 0, 0]} maxBarSize={44}>
+                {gradeData.map((g) => <Cell key={g.grade} fill={GRADE_COLORS[g.grade]} />)}
+                <LabelList dataKey="count" position="top" style={{ fontSize: 10, fill: "#52514e", fontWeight: 700 }} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+        <Card title="Average per question" subtitle="Part A out of 2; Part B/C counts the better choice">
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={q} margin={{ top: 20, right: 10 }}>
+              <CartesianGrid vertical={false} stroke={GRID} />
+              <XAxis dataKey="question" {...AXIS} interval={0} tick={{ fill: "#6b6a65", fontSize: 9 }} />
+              <YAxis {...AXIS} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: "#0B192C0A" }} />
+              <Bar dataKey="avg" name="Average" radius={[4, 4, 0, 0]} maxBarSize={24}>
+                {q.map((x) => <Cell key={x.question} fill={x.part === "A" ? "#5598e7" : SERIES} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+      {co.length > 0 && (
+        <Card title="CO analysis">
+          <div className="flex flex-wrap gap-2">
+            {co.map((c) => (
+              <div key={c.co} className="px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] min-w-[7rem]">
+                <div className="text-[10px] font-black text-gray-400 uppercase">{c.co}</div>
+                <div className="text-lg font-black text-[#0B192C]">{c.avgMarks}</div>
+                <div className="text-[10px] text-gray-500">{c.share}% of marks · {c.questions}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+      <Card title="Students" subtitle="Click a student for their full profile">
+        <DataTable
+          rows={ranked}
+          rowKey={(r) => r.regNo}
+          onRowClick={(r) => onStudent(r.regNo)}
+          initialSort="total"
+          pageSize={25}
+          rowTone={(r) => (r.passed ? undefined : "bad")}
+          columns={[
+            { key: "regNo", label: "Register No", value: (r) => r.regNo, className: "font-mono" },
+            { key: "name", label: "Name", value: (r) => r.name, className: "font-bold text-[#0B192C]" },
+            { key: "category", label: "Category", value: (r) => r.category },
+            { key: "partA", label: "Part A", value: (r) => r.partA, align: "right" },
+            { key: "partBC", label: "Part B+C", value: (r) => r.partBC, align: "right" },
+            { key: "total", label: "Total", value: (r) => r.total, align: "right", render: (r) => <b>{r.total}</b> },
+            { key: "grade", label: "Grade", value: (r) => A.GRADES.indexOf(r.grade as never), align: "center", render: (r) => <GradeChip grade={r.grade} /> },
+            { key: "passed", label: "Result", value: (r) => (r.passed ? 1 : 0), render: (r) => <ResultChip passed={r.passed} /> },
+          ]}
+        />
+      </Card>
+    </Drawer>
+  );
+};
+
+const StudentDrawer: React.FC<{ regNo: string | null; allRows: A.MarkRow[]; onClose: () => void; fileName: (w: string) => string }> = ({
+  regNo, allRows, onClose, fileName,
+}) => {
+  const list = useMemo(() => (regNo ? allRows.filter((r) => r.regNo === regNo) : []), [allRows, regNo]);
+  const s = useMemo(() => A.stats(list), [list]);
+  /** Rank by average among classmates (same department and semester, all assessments). */
+  const rank = useMemo(() => {
+    if (!list[0]) return null;
+    const mates = allRows.filter((r) => r.deptKey === list[0].deptKey && r.semester === list[0].semester);
+    const table = A.studentTable(mates);
+    return { rank: table.find((t) => t.regNo === regNo)?.rank ?? 0, of: table.length };
+  }, [allRows, list, regNo]);
+  if (!regNo || !list[0]) return null;
+  const r0 = list[0];
+  const bySubject = Array.from(A.groupBy(list, (r) => r.subjectCode).entries()).map(([code, items]) => ({
+    code, ...Object.fromEntries(items.map((i) => [i.assessment, i.total])),
+  }));
+  const present = A.ASSESSMENTS.filter((a) => list.some((r) => r.assessment === a));
+  return (
+    <Drawer
+      open
+      onClose={onClose}
+      title={r0.name}
+      subtitle={`${regNo} · ${r0.deptName} · ${r0.semester} · ${r0.category}`}
+      actions={
+        <button
+          type="button"
+          onClick={() => A.exportSheets(fileName(`Student_${regNo}`), [A.sheets.raw(list)], { Student: `${r0.name} (${regNo})`, Department: r0.deptName })}
+          className="px-3 py-1.5 rounded-lg bg-[#D4A72C] text-[#0B192C] text-xs font-black flex items-center gap-1.5"
+        >
+          <FileSpreadsheet size={14} /> Download
+        </button>
+      }
+    >
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Kpi label="Answer scripts" value={s.scripts} icon={<ClipboardList size={14} />} hint={`${new Set(list.map((r) => r.subjectCode)).size} subjects`} />
+        <Kpi label="Average" value={s.avg} icon={<Sigma size={14} />} hint={`Highest ${s.highest} · lowest ${s.lowest}`} />
+        <Kpi label="Passed / failed" value={`${s.passed} / ${s.failed}`} icon={<UserCheck size={14} />} tone={s.failed ? "bad" : "good"} hint={s.failed ? "has failed scripts" : "all passed"} />
+        <Kpi label="Class rank" value={rank ? `#${rank.rank}` : "—"} icon={<Trophy size={14} />} hint={rank ? `of ${rank.of} in ${r0.deptName}, ${r0.semester}` : ""} />
+      </div>
+      <Card title="Marks by subject" subtitle="Each colour is one assessment; the dashed line is the pass mark (40).">
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={bySubject} margin={{ top: 10, right: 10 }}>
+            <CartesianGrid vertical={false} stroke={GRID} />
+            <XAxis dataKey="code" {...AXIS} />
+            <YAxis domain={[0, 100]} {...AXIS} />
+            <Tooltip content={<ChartTooltip />} cursor={{ fill: "#0B192C0A" }} />
+            <Legend wrapperStyle={{ fontSize: 11 }} verticalAlign="top" height={26} />
+            <ReferenceLine y={40} stroke={CRITICAL} strokeDasharray="5 4" label={{ value: "Pass 40", position: "insideTopRight", fill: "#b42318", fontSize: 10, fontWeight: 700 }} />
+            {present.map((a) => (
+              <Bar key={a} dataKey={a} name={a} fill={ASSESSMENT_COLORS[a]} radius={[4, 4, 0, 0]} maxBarSize={32}>
+                <LabelList dataKey={a} position="top" style={{ fontSize: 10, fill: "#52514e", fontWeight: 700 }} />
+              </Bar>
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+      <Card title="All answer scripts">
+        <DataTable
+          rows={list}
+          rowKey={(r) => `${r.subjectCode}|${r.assessment}`}
+          initialSort="subjectCode"
+          initialDir="asc"
+          rowTone={(r) => (r.passed ? undefined : "bad")}
+          columns={[
+            { key: "subjectCode", label: "Code", value: (r) => r.subjectCode, className: "font-mono font-bold" },
+            { key: "subjectTitle", label: "Subject", value: (r) => r.subjectTitle },
+            { key: "assessment", label: "Assessment", value: (r) => r.assessment, render: (r) => <AssessmentDot name={r.assessment} /> },
+            { key: "partA", label: "Part A", value: (r) => r.partA, align: "right" },
+            { key: "partBC", label: "Part B+C", value: (r) => r.partBC, align: "right" },
+            { key: "total", label: "Total", value: (r) => r.total, align: "right", render: (r) => <b>{r.total}</b> },
+            { key: "grade", label: "Grade", value: (r) => A.GRADES.indexOf(r.grade as never), align: "center", render: (r) => <GradeChip grade={r.grade} /> },
+            { key: "passed", label: "Result", value: (r) => (r.passed ? 1 : 0), render: (r) => <ResultChip passed={r.passed} /> },
+            { key: "published", label: "Published", value: (r) => (r.published ? 1 : 0), render: (r) => (r.published ? "Yes" : "No") },
+          ]}
+        />
+      </Card>
+    </Drawer>
+  );
+};
+
+/* ======================================================================= */
+/*                              Small pieces                                */
+/* ======================================================================= */
+
+/** Horizontal pass-% bars (one series; red below 50%), clickable for drill-down. */
+const PassBars: React.FC<{ data: { key: string; label: string; value: number; color?: string }[]; onClick?: (key: string) => void; legend?: boolean }> = ({
+  data, onClick, legend,
+}) => {
+  if (!data.length) return <p className="text-xs text-gray-500 py-4">No data for these filters.</p>;
+  return (
+    <>
+      {legend && (
+        <div className="flex flex-wrap gap-3 mb-2 text-[11px] text-gray-600 font-semibold">
+          {A.ASSESSMENTS.map((a) => <AssessmentDot key={a} name={a} />)}
+        </div>
+      )}
+      <ResponsiveContainer width="100%" height={Math.max(160, data.length * 32 + 30)}>
+        <BarChart data={data} layout="vertical" margin={{ left: 10, right: 44 }}>
+          <CartesianGrid horizontal={false} stroke={GRID} />
+          <XAxis type="number" domain={[0, 100]} unit="%" {...AXIS} />
+          <YAxis type="category" dataKey="label" width={170} {...AXIS} />
+          <Tooltip content={<ChartTooltip unit="%" />} cursor={{ fill: "#0B192C0A" }} />
+          <Bar dataKey="value" name="Pass %" radius={[0, 4, 4, 0]} maxBarSize={20} cursor={onClick ? "pointer" : undefined}
+            onClick={(d: any) => onClick?.(d.key ?? d.payload?.key)}>
+            {data.map((d) => <Cell key={d.key} fill={d.color ?? (d.value < 50 ? CRITICAL : SERIES)} />)}
+            <LabelList dataKey="value" position="right" formatter={(v: number) => `${v}%`} style={{ fontSize: 10, fill: "#52514e", fontWeight: 700 }} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </>
+  );
+};
+
+/** One tile per assessment with its own colour, for a quick IAT-1 / IAT-2 / End Semester comparison. */
+const AssessmentTiles: React.FC<{ rows: A.MarkRow[]; note?: string }> = ({ rows, note }) => (
+  <div>
+    {note && <p className="text-[11px] text-gray-500 font-semibold mb-2">{note}</p>}
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {A.ASSESSMENTS.map((a) => {
+        const list = rows.filter((r) => r.assessment === a);
+        const s = A.stats(list);
+        return (
+          <div key={a} className="bg-white rounded-2xl border border-[#E5E1D8] shadow-sm p-4 border-t-4" style={{ borderTopColor: ASSESSMENT_COLORS[a] }}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-[#0B192C]"><AssessmentDot name={a} /></span>
+              <span className="text-[10px] font-bold text-gray-400">{s.scripts} scripts</span>
+            </div>
+            {s.scripts ? (
+              <div className="grid grid-cols-3 gap-2 mt-3">
+                <div><div className="text-[10px] font-black text-gray-400 uppercase">Pass %</div><div className="text-xl font-black text-[#0B192C]">{s.passPct}%</div></div>
+                <div><div className="text-[10px] font-black text-gray-400 uppercase">Average</div><div className="text-xl font-black text-[#0B192C]">{s.avg}</div></div>
+                <div><div className="text-[10px] font-black text-gray-400 uppercase">Students</div><div className="text-xl font-black text-[#0B192C]">{s.students}</div></div>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 mt-3">No marks entered yet.</p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  </div>
+);
+
+/** A thin stacked bar of grade counts inside a table cell. */
+const GradeStrip: React.FC<{ grades: Record<string, number>; total: number }> = ({ grades, total }) => (
+  <div className="min-w-[10rem]" title={A.GRADES.map((g) => `${g}: ${grades[g] || 0}`).join("  ")}>
+    <div className="flex h-2 rounded-full overflow-hidden gap-px bg-white">
+      {A.GRADES.map((g) => (grades[g] ? <div key={g} style={{ width: `${(grades[g] / Math.max(1, total)) * 100}%`, background: GRADE_COLORS[g] }} /> : null))}
+    </div>
+    <div className="text-[10px] text-gray-500 mt-0.5 tabular-nums">{A.GRADES.map((g) => grades[g] || 0).join(" · ")}</div>
+  </div>
+);
+
+/** One labelled row of the filter panel. */
+const FilterRow: React.FC<{ label: string; compact?: boolean; children: React.ReactNode }> = ({ label, compact, children }) => (
+  <div className={`flex flex-col ${compact ? "" : "sm:flex-row sm:items-center"} gap-1.5 sm:gap-3 min-w-0`}>
+    <span className={`text-[10px] font-black text-gray-400 uppercase tracking-wider shrink-0 ${compact ? "" : "sm:w-24"}`}>{label}</span>
+    <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">{children}</div>
+  </div>
+);
+
+/** A one-click filter option; options with no answer scripts are greyed but still clickable. */
+const Pill: React.FC<{ active: boolean; onClick: () => void; count?: number; title?: string; children: React.ReactNode }> = ({
+  active, onClick, count, title, children,
+}) => {
+  const empty = count === 0 && !active;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-pressed={active}
+      className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition whitespace-nowrap ${
+        active
+          ? "bg-[#0B192C] text-white border-[#0B192C] shadow"
+          : empty
+          ? "bg-white text-gray-400 border-dashed border-[#D9D4C7] hover:text-gray-600"
+          : "bg-[#F8F5EE] text-[#0B192C] border-[#E5E1D8] hover:border-[#D4A72C] hover:bg-[#FFF6DD]"
+      }`}
+    >
+      {children}
+      {count !== undefined && (
+        <span className={`text-[10px] font-black tabular-nums px-1.5 rounded-md ${active ? "bg-[#D4A72C] text-[#0B192C]" : empty ? "" : "bg-white text-gray-500"}`}>
+          {count}
+        </span>
+      )}
+    </button>
+  );
+};
+
+const DeptCode: React.FC<{ name: string; codes: Map<string, string> }> = ({ name, codes }) => (
+  <span title={name} className="font-bold whitespace-nowrap">{codes.get(name) ?? name}</span>
+);
+
+const Change: React.FC<{ value: number | null }> = ({ value }) =>
+  value === null ? <span className="text-gray-300">—</span> : (
+    <span className={`font-black tabular-nums ${value > 0 ? "text-[#006300]" : value < 0 ? "text-[#b42318]" : "text-gray-500"}`}>
+      {value > 0 ? "▲ +" : value < 0 ? "▼ " : ""}{value}
+    </span>
+  );
+
+const Medal: React.FC<{ rank: number }> = ({ rank }) => {
+  const style = rank === 1 ? "bg-[#D4A72C] text-[#0B192C]" : rank === 2 ? "bg-[#C9CED6] text-[#0B192C]" : rank === 3 ? "bg-[#C98B5A] text-white" : "bg-[#EFECE4] text-gray-600";
+  return <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-black shrink-0 ${style}`}>{rank}</span>;
+};

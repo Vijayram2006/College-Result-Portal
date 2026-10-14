@@ -375,6 +375,12 @@ public class ResultBatchService {
         return assemble(List.of(row(id))).getFirst();
     }
 
+    /** Every PUBLISHED batch of one department, with its student records (the faculty "download results" view). */
+    public List<ResultBatch> publishedForDepartment(String deptKey) {
+        return assemble(rows("WHERE b.dept_key = ? AND b.status = 'PUBLISHED' "
+                + "ORDER BY b.semester, b.assessment_type, b.subject_code", new Object[] {deptKey}));
+    }
+
     public List<ResultBatch> list() {
         return assemble(rows("WHERE " + departments.inCollege("b.dept_key") + " ORDER BY b.uploaded_at DESC",
                 new Object[0]));

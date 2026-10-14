@@ -1,3 +1,4 @@
+import type { PublishedBatch } from "../utils/publishedResults";
 import axios from "axios";
 
 // Target Spring Boot REST API Backend URL (Configurable via VITE_API_BASE_URL)
@@ -386,5 +387,10 @@ export const facultyApi = {
 
   async status(semester: string, assessment: string): Promise<SubjectStatusDTO[]> {
     return (await apiClient.get<SubjectStatusDTO[]>("/faculty/status", { params: { semester, assessment } })).data;
+  },
+
+  /** Published results of the faculty member's own department, with every student's marks (for download). */
+  async publishedResults(): Promise<PublishedBatch[]> {
+    return (await apiClient.get<PublishedBatch[]>("/faculty/published-results", { timeout: 60000 })).data;
   },
 };

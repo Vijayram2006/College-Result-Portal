@@ -10,6 +10,8 @@ import * as XLSX from "xlsx";
 import { downloadWorkbook } from "../utils/downloadWorkbook";
 import { FacultyMarkEntry } from "../components/FacultyMarkEntry";
 import { NotificationBell } from "../components/NotificationBell";
+import { PublishedResultsDownload } from "../components/PublishedResultsDownload";
+import type { PublishedBatch } from "../utils/publishedResults";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
@@ -537,6 +539,17 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
       .then(setOverview)
       .catch((err) => setOverviewError(apiErrorMessage(err, "Could not load your subjects.")));
   }, []);
+  // Published results of the faculty member's own department (the server scopes them), for Excel download
+  const [published, setPublished] = useState<PublishedBatch[]>([]);
+  const [publishedLoading, setPublishedLoading] = useState(true);
+  const [publishedError, setPublishedError] = useState<string | null>(null);
+  useEffect(() => {
+    facultyApi
+      .publishedResults()
+      .then(setPublished)
+      .catch((err) => setPublishedError(apiErrorMessage(err, "Could not load published results.")))
+      .finally(() => setPublishedLoading(false));
+  }, []);
   const courses = overview?.courses ?? [];
   const [courseFilter, setCourseFilter] = useState<"ALL" | "Theory" | "Laboratory">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -967,6 +980,13 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
           </div>
         )}
       </Panel>
+
+      <PublishedResultsDownload
+        batches={published}
+        collegeShortName={currentCollege.shortName}
+        loading={publishedLoading}
+        error={publishedError}
+      />
 
       {/* Roster Modal */}
       {showRosterModal && (

@@ -144,6 +144,12 @@ public class FacultyController {
                 r.academicYear(), r.assessmentType()), user, http.getRemoteAddr());
     }
 
+    /** Published results of the faculty member's own department, with every student's marks, for download. */
+    @GetMapping("/published-results")
+    List<ResultBatchService.ResultBatch> publishedResults() {
+        return results.publishedForDepartment(CurrentUser.get().deptKey());
+    }
+
     /** Forwarding / publication state of every subject of the faculty member's department. */
     @GetMapping("/status")
     List<ResultBatchService.PublishRow> status(@RequestParam String semester, @RequestParam String assessment) {
