@@ -66,7 +66,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
       >
         {/* Top Header & Branding */}
         <div>
-          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+          {/* Same height as the top bar (Navbar), so the gold rule runs straight across */}
+          <div className="px-4 h-[6.75rem] box-border border-b-4 border-[#D4A72C] flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img
                 src={kvellSealLogo}

@@ -97,50 +97,27 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-8 w-full">
-      {/* Welcome Banner with Official College Seal */}
-      <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="relative z-10 flex items-center gap-5 max-w-2xl">
-          <img
-            src={college.logoUrl}
-            alt={college.name}
-            className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-white p-1 border-2 border-[#D4A72C] shrink-0 object-contain shadow-lg"
-          />
-          <div>
-            <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-widest inline-block mb-1.5">
-              OFFICE OF THE CONTROLLER OF EXAMINATIONS
-            </span>
-            <h2 className="font-display text-xl sm:text-2xl font-black text-white leading-tight">
-              {college.name}
-            </h2>
-            <p className="text-xs text-[#D4A72C] font-semibold mt-1">
-              Examination Administration, Valuation Bundles &amp; Result Publication Portal
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 relative z-10">
-          <Link
-            href="/admin/results/upload"
-            className="px-5 py-3 rounded-xl bg-[#D4A72C] text-[#0B192C] font-extrabold text-xs hover:bg-[#b08014] transition shadow flex items-center gap-2"
-          >
-            <Upload size={16} /> Student Data Excel/CSV
-          </Link>
-          <Link
-            href="/admin/results/published"
-            className="px-5 py-3 rounded-xl bg-white/10 text-white font-extrabold text-xs hover:bg-white/20 transition border border-white/20 flex items-center gap-2"
-          >
-            <Globe size={16} /> View Published Results
-          </Link>
-        </div>
-      </div>
-
       {/* FULLY FUNCTIONAL UNIVERSITY METRICS CARDS */}
       <div>
-        <div className="flex items-center justify-between mb-3 px-1">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3 px-1">
           <span className="text-xs font-black text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
             <Sparkles size={14} className="text-[#D4A72C]" />
             Live University Metric Directory · Click Any Card to Inspect & Manage
           </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/admin/results/upload"
+              className="px-4 py-2 rounded-xl bg-[#D4A72C] text-[#0B192C] font-extrabold text-xs hover:bg-[#b08014] transition shadow-sm flex items-center gap-2"
+            >
+              <Upload size={14} /> Student Data Excel/CSV
+            </Link>
+            <Link
+              href="/admin/results/published"
+              className="px-4 py-2 rounded-xl bg-[#0B192C] text-white font-extrabold text-xs hover:bg-[#152744] transition shadow-sm flex items-center gap-2"
+            >
+              <Globe size={14} /> View Published Results
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
