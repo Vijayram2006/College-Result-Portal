@@ -13,14 +13,15 @@ import {
   Sparkles,
   CheckCircle2,
 } from "lucide-react";
-import { adminAuthApi } from "../services/api";
+import { adminAuthApi, apiErrorMessage } from "../services/api";
+import { refreshDepartments } from "./Departments";
 
 const kvellSealLogo = "/kvell-logo.png";
 
 export const Login: React.FC = () => {
   const [, navigate] = useLocation();
   const [username, setUsername] = useState("ADMIN");
-  const [password, setPassword] = useState("admin123");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -34,62 +35,14 @@ export const Login: React.FC = () => {
       const res = await adminAuthApi.login(username, password);
       const allowedRoles = ["ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY"];
       if (allowedRoles.includes(res.role)) {
+        await refreshDepartments().catch(() => undefined);
         navigate("/admin/dashboard");
       } else {
         setError("Access Denied: 403 Forbidden. Only accounts with Controller of Examination role can log in.");
         adminAuthApi.logout();
       }
     } catch (err: any) {
-      // Fallback demo authentication for admin portal
-      const clean = username.trim().toUpperCase();
-      if (clean.includes("NURSING")) {
-        localStorage.setItem("kvell_admin_token", "demo-coe-nursing-token");
-        localStorage.setItem(
-          "kvell_admin_user",
-          JSON.stringify({
-            id: "ADM-NUR-001",
-            name: "Dr. Controller of Examinations (Nursing)",
-            username: "COE_NURSING",
-            email: "coe.nursing@kvell.edu.in",
-            role: "COE_NURSING",
-            collegeKey: "nursing",
-            collegeName: "KVELL College of Nursing",
-          })
-        );
-        navigate("/admin/dashboard");
-      } else if (clean.includes("PHARM")) {
-        localStorage.setItem("kvell_admin_token", "demo-coe-pharmacy-token");
-        localStorage.setItem(
-          "kvell_admin_user",
-          JSON.stringify({
-            id: "ADM-PHARM-001",
-            name: "Dr. Controller of Examinations (Pharmacy)",
-            username: "COE_PHARMACY",
-            email: "coe.pharmacy@kvell.edu.in",
-            role: "COE_PHARMACY",
-            collegeKey: "pharmacy",
-            collegeName: "KVELL College of Pharmacy",
-          })
-        );
-        navigate("/admin/dashboard");
-      } else if (clean.length > 0) {
-        localStorage.setItem("kvell_admin_token", "demo-coe-admin-token");
-        localStorage.setItem(
-          "kvell_admin_user",
-          JSON.stringify({
-            id: "ADM-001",
-            name: "Dr. Controller of Examinations (Engineering)",
-            username: "ADMIN",
-            email: "admin@kvell.edu.in",
-            role: "COE_ENGINEERING",
-            collegeKey: "engineering",
-            collegeName: "KVELL Institute of Technology",
-          })
-        );
-        navigate("/admin/dashboard");
-      } else {
-        setError(err?.response?.data?.message || "Invalid Credentials or Unauthorized Access.");
-      }
+      setError(apiErrorMessage(err, "Invalid Credentials or Unauthorized Access."));
     } finally {
       setLoading(false);
     }
@@ -239,14 +192,14 @@ export const Login: React.FC = () => {
               {/* Demo Quick Sign-in Helper with Multi-College RBAC */}
               <div className="mt-6 pt-5 border-t border-slate-200 text-center">
                 <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2.5">
-                  RBAC DEMO QUICK SIGN-IN (SEPARATE COE ROLES):
+                  SELECT YOUR COLLEGE (FILLS THE USER ID):
                 </span>
                 <div className="grid grid-cols-1 gap-2">
                   <button
                     type="button"
                     onClick={() => {
                       setUsername("COE_NURSING");
-                      setPassword("nursing123");
+                      setPassword("");
                     }}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200 font-bold text-xs transition flex items-center justify-between shadow-sm group"
                   >
@@ -258,7 +211,7 @@ export const Login: React.FC = () => {
                       </span>
                     </span>
                     <span className="text-[10px] bg-sky-200/70 text-sky-900 font-black px-2 py-0.5 rounded-full">
-                      Zero Data (Clean)
+                      Separate data
                     </span>
                   </button>
 
@@ -266,7 +219,7 @@ export const Login: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setUsername("COE_PHARMACY");
-                      setPassword("pharmacy123");
+                      setPassword("");
                     }}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 font-bold text-xs transition flex items-center justify-between shadow-sm group"
                   >
@@ -278,7 +231,7 @@ export const Login: React.FC = () => {
                       </span>
                     </span>
                     <span className="text-[10px] bg-emerald-200/70 text-emerald-900 font-black px-2 py-0.5 rounded-full">
-                      Zero Data (Clean)
+                      Separate data
                     </span>
                   </button>
 
@@ -286,7 +239,7 @@ export const Login: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setUsername("ADMIN");
-                      setPassword("admin123");
+                      setPassword("");
                     }}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-bold text-xs transition flex items-center justify-between shadow-sm group"
                   >
@@ -298,7 +251,7 @@ export const Login: React.FC = () => {
                       </span>
                     </span>
                     <span className="text-[10px] bg-amber-200/70 text-amber-900 font-black px-2 py-0.5 rounded-full">
-                      Existing Data
+                      Separate data
                     </span>
                   </button>
                 </div>

@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { handleArrowNavigation } from "../utils/arrowNavigation";
+import { SEMESTER_OPTIONS } from "../utils/semesters";
+import { AnswerScriptPane } from "./AnswerScriptPane";
+import { partACo, partBCCo } from "../utils/coMapping";
 import {
+  Eye,
+  Users,
   PenLine,
   Search,
   Database,
@@ -21,7 +27,7 @@ import {
   Clock,
   ShieldCheck,
 } from "lucide-react";
-import { adminResultsApi, ResultBatchRecord, ResultRecordItem, addAuditLog } from "../services/api";
+import { apiErrorMessage, authApi, facultyApi, type FacultySubjectDTO } from "../services/api";
 import { getRealLocalTimestamp } from "../utils/dateUtils";
 import { aidsSem1Students } from "../data/aidsStudents";
 import {
@@ -263,6 +269,8 @@ interface StudentMarkData {
   semester?: string;
   subjectCode?: string;
   subjectTitle?: string;
+  examinerName?: string;
+  examinerDesignation?: string;
 }
 
 export interface FacultyMarkEntryProps {
@@ -270,54 +278,30 @@ export interface FacultyMarkEntryProps {
 }
 
 export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) => {
-  const activeCol = getActiveFacultyCollege();
-  const isEngineering = activeCol.toLowerCase() === "engineering";
-
-  // Purge any stale pharmacy or nursing faculty data
-  useEffect(() => {
-    if (!isEngineering) {
-      clearFacultyPharmacyAndNursingData();
-    }
-  }, [isEngineering]);
+  // The faculty member's department comes from their login; the server only allows that department.
+  const me = authApi.currentUser();
+  const ownDeptKey = me?.departmentKey || "";
+  const ownDeptName = me?.departmentName || ownDeptKey.toUpperCase();
 
   // Step 1: Target Selection State
-  const [deptKey, setDeptKey] = useState(() => (isEngineering ? "aids" : ""));
-  const [semester, setSemester] = useState("Semester I");
-  const [academicYear, setAcademicYear] = useState("2026 - 2027");
-  const [subjectCode, setSubjectCode] = useState(() => (isEngineering ? "UC26C01T" : ""));
+  const [deptKey, setDeptKey] = useState("");
+  const [semester, setSemester] = useState("");
+  const [academicYear, setAcademicYear] = useState("");
+  const [subjectCode, setSubjectCode] = useState("");
+  // IAT-1, IAT-2 and End Semester marks are kept separately; Mark Entry works on one at a time
+  const [targetAssessment, setTargetAssessment] = useState<"" | "IAT-1" | "IAT-2" | "End Semester">("");
   const [customSubjectCode, setCustomSubjectCode] = useState("");
   const [isCustomSubject, setIsCustomSubject] = useState(false);
 
-  // Synchronize Subjects from Subjects component (localStorage scoped)
-  const [adminSubjects, setAdminSubjects] = useState<
-    { id?: string; code: string; title: string; department?: string; category?: string; semester?: string; academicYear?: string }[]
-  >(() => {
-    try {
-      const saved = localStorage.getItem(getScopedKey("kvell_admin_subjects", activeCol));
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Subjects of the department from the COE's subject catalog
+  const [adminSubjects, setAdminSubjects] = useState<FacultySubjectDTO[]>([]);
 
   useEffect(() => {
-    const syncSubjects = () => {
-      try {
-        const saved = localStorage.getItem(getScopedKey("kvell_admin_subjects", activeCol));
-        if (saved) {
-          setAdminSubjects(JSON.parse(saved));
-        } else {
-          setAdminSubjects([]);
-        }
-      } catch {}
-    };
-    window.addEventListener("kvell_subjects_updated", syncSubjects);
-    window.addEventListener("storage", syncSubjects);
-    return () => {
-      window.removeEventListener("kvell_subjects_updated", syncSubjects);
-      window.removeEventListener("storage", syncSubjects);
-    };
-  }, [activeCol]);
+    facultyApi
+      .subjects()
+      .then(setAdminSubjects)
+      .catch((err) => setFeedback({ type: "error", message: apiErrorMessage(err, "Could not load your subjects.") }));
+  }, []);
 
   // Step 2: Data Fetching State
   const [isDataFetched, setIsDataFetched] = useState(false);
@@ -333,10 +317,13 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
 
   // Step 3: Mark Entry Form Modal State
   const [showMarkEntryForm, setShowMarkEntryForm] = useState(false);
+  // Opened from the row's "View" button: the marksheet is read-only (editing goes through the top button)
+  const [viewOnly, setViewOnly] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // Form Assessment Metadata
-  const [assessmentType, setAssessmentType] = useState<"IAT-1" | "IAT-2" | "End Semester">("IAT-1");
+  const [assessmentType, setAssessmentType] = useState<"" | "IAT-1" | "IAT-2" | "End Semester">("");
   const [examDate, setExamDate] = useState("09/10/26");
 
   // Part A: 10 Questions marks
@@ -357,126 +344,31 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
 
   const [partBCMarks, setPartBCMarks] = useState<Record<number, QuestionBC>>(initialPartBC);
 
-  const [storedDepts, setStoredDepts] = useState<Department[]>([]);
+  const storedDepts: Department[] = ownDeptKey
+    ? [{ key: ownDeptKey, name: ownDeptName, code: ownDeptKey.toUpperCase(), headName: "", totalStudents: 0, status: "ACTIVE" }]
+    : [];
+  const activeDept = storedDepts[0] || { name: "No department", subjects: [] };
 
-  useEffect(() => {
-    // Automatically seed dummy marks for CSE, ADS, BME only for Engineering!
-    if (isEngineering) {
-      try {
-        const seeded = localStorage.getItem("kvell_dummy_marks_seeded_v1");
-        if (!seeded) {
-          seedDummyMarksForDepts();
-          localStorage.setItem("kvell_dummy_marks_seeded_v1", "true");
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    const list = getStoredDepartments();
-    setStoredDepts(list);
-    if (list.length > 0 && (!deptKey || !list.some((d) => d.key === deptKey))) {
-      setDeptKey(list[0].key);
-    } else if (list.length === 0) {
-      setDeptKey("");
-    }
-  }, [isEngineering]);
-
-  // Active Department and Available Subjects (Combining Admin Subjects with Official Curriculum Catalog)
-  const currentDeptObj = storedDepts.find((d) => d.key === deptKey);
-  const activeDept = currentDeptObj || { name: deptKey || "General", subjects: [] };
-
-  const deptKeyToName: Record<string, string> = {
-    ...Object.fromEntries(storedDepts.map((d) => [d.key, d.name])),
-    aids: "Artificial Intelligence & Data Science",
-    cse: "Computer Science and Engineering",
-    auto: "Automobile Engineering",
-    bme: "Biomedical Engineering",
-    biotech: "Biotech",
-    ece: "ECE (Electronics and Communication Engineering)",
-    eee: "EEE (Electrical and Electronics Engineering)",
-    civil: "CIVIL Engineering",
-    robotics: "Robotics and Automation",
-    mech: "Mechanical Engineering",
-    mba: "Master of Business Administration (MBA)",
-    mca: "Master of Computer Applications (MCA)",
-  };
-
-  const availableSubjects: { code: string; title: string; source: "admin" | "catalog" }[] = React.useMemo(() => {
-    if (!isEngineering && storedDepts.length === 0 && adminSubjects.length === 0) {
-      return [];
-    }
-
-    const list: { code: string; title: string; source: "admin" | "catalog" }[] = [];
-    const seen = new Set<string>();
-
-    const activeDeptTitle = (deptKeyToName[deptKey] || activeDept.name || "").toLowerCase().trim();
-    const k = (deptKey || "").toLowerCase().trim();
-
-    // 1. Department-matching subjects added in the Subjects component
-    const matchedAdmin = adminSubjects.filter((s) => {
-      const subDept = (s.department || "").toLowerCase().trim();
-      return (k && (subDept === k || subDept === activeDeptTitle || subDept.includes(k) || activeDeptTitle.includes(subDept)));
-    });
-
-    matchedAdmin.forEach((sub) => {
-      const c = (sub.code || "").trim().toUpperCase();
-      if (c && !seen.has(c)) {
-        seen.add(c);
-        list.push({ code: c, title: sub.title || sub.code, source: "admin" });
-      }
-    });
-
-    // 2. Official Curriculum Catalog subjects for the chosen department (Engineering only)
-    if (isEngineering && k) {
-      const catalogEntry = departmentSubjectsCatalog[k] || departmentSubjectsCatalog[deptKey];
-      const catalogSubjects = catalogEntry?.subjects || [];
-      catalogSubjects.forEach((sub) => {
-        const c = (sub.code || "").trim().toUpperCase();
-        if (c && !seen.has(c)) {
-          seen.add(c);
-          list.push({ code: c, title: sub.title || sub.code, source: "catalog" });
-        }
-      });
-    }
-
-    // 3. If no matching subjects for this dept, include other added admin subjects
-    if (matchedAdmin.length === 0 && adminSubjects.length > 0) {
-      adminSubjects.forEach((sub) => {
-        const c = (sub.code || "").trim().toUpperCase();
-        if (c && !seen.has(c)) {
-          seen.add(c);
-          list.push({ code: c, title: sub.title || sub.code, source: "admin" });
-        }
-      });
-    }
-
-    if (list.length > 0) return list;
-    if (isEngineering) {
-      return [{ code: "UC26C01T", title: "Induction & Professional English", source: "catalog" }];
-    }
-    return [];
-  }, [deptKey, adminSubjects, activeDept, isEngineering, storedDepts.length]);
+  const availableSubjects: { code: string; title: string; source: "admin" | "catalog" }[] = React.useMemo(
+    () =>
+      adminSubjects
+        .filter((s) => s.semester === semester)
+        .map((s) => ({ code: s.code, title: s.title, source: "admin" as const })),
+    [adminSubjects, semester]
+  );
 
   // Keep subjectCode selected and valid
   useEffect(() => {
-    if (!isCustomSubject && availableSubjects.length > 0) {
-      const exists = availableSubjects.some((s) => s.code === subjectCode);
-      if (!exists) {
-        setSubjectCode(availableSubjects[0].code);
-      }
-    } else if (availableSubjects.length === 0 && !isCustomSubject) {
+    if (subjectCode && !availableSubjects.some((s) => s.code === subjectCode)) {
       setSubjectCode("");
     }
-  }, [availableSubjects, isCustomSubject, subjectCode]);
+  }, [availableSubjects, subjectCode]);
 
-  const activeSubject =
-    availableSubjects.find((s) => s.code === (isCustomSubject ? customSubjectCode : subjectCode)) ||
-    availableSubjects[0];
-  const effectiveSubjectCode = isCustomSubject ? customSubjectCode.trim().toUpperCase() : subjectCode;
-  const effectiveSubjectTitle = activeSubject?.title || (isCustomSubject ? "Custom Subject" : (effectiveSubjectCode ? "Course Subject" : ""));
+  const activeSubject = availableSubjects.find((s) => s.code === subjectCode);
+  const effectiveSubjectCode = activeSubject?.code || "";
+  const effectiveSubjectTitle = activeSubject?.title || "No subject in the catalog";
 
-  // Track publication status of the active batch (whether it is DRAFT, VALIDATED/FORWARDED, or PUBLISHED)
+  // Forwarding / publication status of the selected subject, from the server
   const [batchStatusInfo, setBatchStatusInfo] = useState<{
     status: "DRAFT" | "VALIDATED" | "PUBLISHED" | "NOT_SAVED";
     batchId?: string;
@@ -484,263 +376,111 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
     publishedBy?: string;
     uploadedBy?: string;
     uploadDate?: string;
+    changedAfterForward?: boolean;
   }>({ status: "NOT_SAVED" });
 
-  const checkBatchStatus = React.useCallback(() => {
-    try {
-      const raw = localStorage.getItem(getScopedKey("kvell_custom_batches"));
-      if (raw) {
-        const batches: ResultBatchRecord[] = JSON.parse(raw);
-        const match = batches.find(
-          (b) =>
-            b.departmentKey?.toLowerCase() === deptKey?.toLowerCase() &&
-            b.semester === semester &&
-            b.records?.some((r) => r.courseCode?.toUpperCase() === effectiveSubjectCode.toUpperCase())
-        ) || batches.find(
-          (b) =>
-            deptKey &&
-            effectiveSubjectCode &&
-            b.id.toUpperCase().includes(deptKey.toUpperCase()) &&
-            b.id.toUpperCase().includes(effectiveSubjectCode.toUpperCase())
-        );
-
-        if (match) {
-          setBatchStatusInfo({
-            status: match.publicationStatus,
-            batchId: match.id,
-            publishedAt: match.publishedAt,
-            publishedBy: match.publishedBy,
-            uploadedBy: match.uploadedBy,
-            uploadDate: match.uploadDate,
-          });
-          return;
-        }
-      }
-    } catch (e) {
-      console.error(e);
+  const checkBatchStatus = React.useCallback(async () => {
+    if (!effectiveSubjectCode || !targetAssessment) {
+      setBatchStatusInfo({ status: "NOT_SAVED" });
+      return;
     }
-    setBatchStatusInfo({ status: "NOT_SAVED" });
-  }, [deptKey, semester, effectiveSubjectCode]);
+    try {
+      const rows = await facultyApi.status(semester, targetAssessment);
+      const row = rows.find((r) => r.subjectCode === effectiveSubjectCode);
+      if (!row || row.state === "NO_MARKS" || row.state === "NOT_FORWARDED") {
+        setBatchStatusInfo({ status: row && row.state === "NOT_FORWARDED" ? "DRAFT" : "NOT_SAVED" });
+        return;
+      }
+      setBatchStatusInfo({
+        status: row.state === "PUBLISHED" ? "PUBLISHED" : row.state === "FORWARDED" ? "VALIDATED" : "DRAFT",
+        batchId: row.batchId ?? undefined,
+        publishedAt: row.publishedAt ?? undefined,
+        uploadedBy: row.forwardedBy ?? undefined,
+        changedAfterForward: row.state === "OUT_OF_DATE",
+      });
+    } catch {
+      setBatchStatusInfo({ status: "NOT_SAVED" });
+    }
+  }, [semester, effectiveSubjectCode, targetAssessment]);
 
   useEffect(() => {
     checkBatchStatus();
-    const handleSync = () => checkBatchStatus();
-    window.addEventListener("kvell_marks_updated", handleSync);
-    window.addEventListener("storage", handleSync);
-    return () => {
-      window.removeEventListener("kvell_marks_updated", handleSync);
-      window.removeEventListener("storage", handleSync);
-    };
   }, [checkBatchStatus]);
 
-  // Check if target was passed via sessionStorage from Step 1 (Student Data)
-  useEffect(() => {
-    const metaRaw = sessionStorage.getItem("kvell_upload_meta");
-    if (metaRaw) {
-      try {
-        const meta = JSON.parse(metaRaw);
-        if (meta.deptKey) {
-          setDeptKey(meta.deptKey);
-        }
-        if (meta.semester) setSemester("Semester I");
-        if (meta.academicYear) setAcademicYear("2026 - 2027");
-        if (meta.subjectCode) setSubjectCode(meta.subjectCode);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  }, []);
-
   const handleDeptChange = (newDept: string) => {
-    setDeptKey(newDept);
-    setIsDataFetched(false);
-    setSelectedStudent(null);
-    setShowMarkEntryForm(false);
-    setIsCustomSubject(false);
+    // Faculty can only work in their own department (the only option besides "Choose department")
+    setDeptKey(newDept === ownDeptKey ? ownDeptKey : "");
   };
 
-  // FETCH DATA button action
-  const handleFetchData = () => {
+  // FETCH DATA button action: the department's students with their marks for this subject
+  const handleFetchData = async () => {
+    if (!deptKey || !semester || !targetAssessment) {
+      setFeedback({
+        type: "error",
+        message: !deptKey
+          ? "Choose your department first."
+          : !semester
+          ? "Choose a semester first."
+          : "Choose the assessment (IAT-1, IAT-2 or End Semester) first.",
+      });
+      return;
+    }
+    if (!effectiveSubjectCode) {
+      setFeedback({
+        type: "error",
+        message: availableSubjects.length
+          ? "Choose a subject first."
+          : "No subjects found for your department. Ask the COE to add them on the Subjects page.",
+      });
+      return;
+    }
     setIsFetching(true);
-    setTimeout(() => {
-      // 1. Resolve department key with alias normalization (e.g., ads -> aids)
-      const rawK = (deptKey || (isEngineering ? "aids" : "")).toLowerCase().trim();
-      const k = rawK === "ads" || rawK.includes("artificial") ? "aids" : rawK;
-
-      let candidateList: { regNo: string; name: string; dob: string; category?: "regular" | "lateral" }[] = [];
-
-      // Check department-specific uploaded spreadsheet
-      if (k) {
-        const studentPrefix = getScopedKey("kvell_dept_students_");
-        const rawUpload =
-          sessionStorage.getItem(`${studentPrefix}${k}`) ||
-          localStorage.getItem(`${studentPrefix}${k}`) ||
-          sessionStorage.getItem(`${studentPrefix}${rawK}`) ||
-          localStorage.getItem(`${studentPrefix}${rawK}`);
-
-        if (rawUpload) {
-          try {
-            const parsed = JSON.parse(rawUpload);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              candidateList = parsed.map((p, idx) => ({
-                regNo: String(p["Register Number"] || p.regNo || "").trim().toUpperCase(),
-                name: String(p["Name"] || p.studentName || `Candidate ${idx + 1}`).trim(),
-                dob: p["DOB"] || p.dob || "2005-06-15",
-                category: (String(p["Category"] || p.category || "regular").toLowerCase().includes("lateral")
-                  ? "lateral"
-                  : "regular") as "regular" | "lateral",
-              })).filter((c) => c.regNo);
-            }
-          } catch (e) {
-            console.error(e);
-          }
-        }
-      }
-
-      // 2. Also check if students were added in Students Directory (scoped)
-      if (k && candidateList.length === 0) {
-        try {
-          const rawStudents = localStorage.getItem(getScopedKey("kvell_students"));
-          if (rawStudents) {
-            const list = JSON.parse(rawStudents);
-            if (Array.isArray(list) && list.length > 0) {
-              const matched = list.filter((s: any) => {
-                const sKey = String(s.deptKey || "").toLowerCase();
-                const sName = String(s.deptName || "").toLowerCase();
-                return (
-                  sKey === k ||
-                  (isEngineering && k === "aids" && (sKey === "ads" || sName.includes("artificial"))) ||
-                  (isEngineering && k === "cse" && sName.includes("computer science")) ||
-                  (isEngineering && k === "bme" && sName.includes("biomedical"))
-                );
-              });
-              if (matched.length > 0) {
-                candidateList = matched.map((s: any) => ({
-                  regNo: s.regNo,
-                  name: s.name,
-                  dob: s.dob || "2005-06-15",
-                  category: (s.category || "regular") as any,
-                }));
-              }
-            }
-          }
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      // 3. Fallback to base registry (ENGINEERING ONLY)
-      if (isEngineering && candidateList.length === 0 && k) {
-        const fallback = baseStudentsByDept[k] || (k === "aids" ? baseStudentsByDept.aids : []);
-        if (fallback.length > 0) {
-          candidateList = fallback.map((s, idx) => ({
-            regNo: s.regNo,
-            name: s.name,
-            dob: s.dob || "2005-06-15",
-            category: (k === "aids" && idx >= 45 ? "lateral" : "regular") as any,
-          }));
-        }
-      }
-
-      // Universal sorting: Regular first, Lateral at the end only, sorted by numeric Reg No
-      candidateList.sort((a, b) => {
-        const isLatA = (a.category || "regular") === "lateral";
-        const isLatB = (b.category || "regular") === "lateral";
-        if (isLatA !== isLatB) return isLatA ? 1 : -1;
-        return a.regNo.localeCompare(b.regNo, undefined, { numeric: true, sensitivity: "base" });
-      });
-
-      // Check saved marks from localStorage for this department & subject (scoped)
-      const storageKey = getScopedKey(`kvell_marks_${k}_${semester}_${effectiveSubjectCode}`);
-      let savedMarksMap: Record<string, any> = {};
-      if (k && effectiveSubjectCode) {
-        try {
-          const saved = localStorage.getItem(storageKey);
-          if (saved) savedMarksMap = JSON.parse(saved);
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      let hasGeneratedMarks = false;
-      const formatted: StudentMarkData[] = candidateList.map((c, idx) => {
-        let existing = savedMarksMap[c.regNo];
-
-        if (isEngineering && (!existing || !existing.hasMarks || !existing.grandTotal)) {
-          const seed = (k.charCodeAt(0) * 17) + (effectiveSubjectCode.charCodeAt(0) * 7) + (idx * 11) + 23;
-          const markDetail = generateStudentMarkDetail(c.regNo, c.name, seed);
-          existing = markDetail;
-          savedMarksMap[c.regNo] = markDetail;
-          hasGeneratedMarks = true;
-        }
-
-        const hasMarks = !!(existing && (existing.hasMarks || existing.grandTotal !== undefined));
-
-        return {
-          ...c,
-          hasMarks,
-          partATotal: existing?.partATotal || 0,
-          partBCTotal: existing?.partBCTotal || 0,
-          grandTotal: existing?.grandTotal || 0,
-          grade: existing?.grade || "RA",
-          resultStatus: existing?.resultStatus || "FAIL",
-          partA: existing?.partA || Array(10).fill(0),
-          partBC: existing?.partBC || initialPartBC,
-          assessmentType: existing?.assessmentType || "End Semester",
-          deptKey: k,
-          deptName: deptKeyToName[k] || activeDept.name,
-          semester,
-          subjectCode: effectiveSubjectCode,
-          subjectTitle: effectiveSubjectTitle,
-        };
-      });
-
-      if (hasGeneratedMarks && isEngineering) {
-        try {
-          localStorage.setItem(storageKey, JSON.stringify(savedMarksMap));
-          if (k === "aids") {
-            localStorage.setItem(getScopedKey(`kvell_marks_ads_${semester}_${effectiveSubjectCode}`), JSON.stringify(savedMarksMap));
-          }
-          window.dispatchEvent(new Event("kvell_marks_updated"));
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
+    try {
+      const roster = await facultyApi.roster(semester, effectiveSubjectCode, targetAssessment);
+      const formatted: StudentMarkData[] = roster.map((r) => ({ ...r, dob: r.dob || "" }));
       setStudents(formatted);
       setIsDataFetched(true);
-      setIsFetching(false);
       setSelectedStudent(null);
       setShowMarkEntryForm(false);
-      if (formatted.length > 0) {
-        const msg = `Loaded ${formatted.length} students with official marks for ${activeDept.name} • ${semester} • ${effectiveSubjectCode}. Click any row to view/edit marks.`;
-        setFeedback({
-          type: "success",
-          message: msg,
-        });
-        if (onToast) onToast(msg);
-      } else {
-        const msg = `No enrolled students registered for ${activeDept.name || "selected department"}. Department records and student registrations are empty.`;
-        setFeedback({
-          type: "info",
-          message: msg,
-        });
-      }
-    }, 200);
+      const entered = formatted.filter((s) => s.hasMarks).length;
+      const msg =
+        formatted.length === 0
+          ? `No students found for ${activeDept.name} • ${semester}. The COE uploads them on the Student Data page.`
+          : `Loaded ${formatted.length} students for ${activeDept.name} • ${semester} • ${effectiveSubjectCode} (${entered} marked). Click any row to enter or edit marks.`;
+      setFeedback({ type: formatted.length === 0 ? "error" : "success", message: msg });
+      if (onToast && formatted.length > 0) onToast(msg);
+    } catch (err) {
+      setFeedback({ type: "error", message: apiErrorMessage(err, "Could not fetch the students.") });
+    } finally {
+      setIsFetching(false);
+    }
   };
 
-  // Auto-fetch data on mount or when dept/subject changes so marks are visible immediately!
+  // Data loads only when FETCH DATA is clicked; changing the selection clears the previous list
   useEffect(() => {
-    handleFetchData();
-  }, [deptKey, semester, effectiveSubjectCode]);
+    setStudents([]);
+    setIsDataFetched(false);
+    setSelectedStudent(null);
+    setFeedback(null);
+  }, [semester, effectiveSubjectCode, targetAssessment]);
 
   // Initiate mark entry: prompt examiner name & designation first (fields start empty)
   const handleInitiateMarkEntry = (student: StudentMarkData) => {
+    setViewOnly(false);
     setPendingStudent(student);
     setSelectedStudent(student);
     setExaminerName("");
     setExaminerDesignation("");
     setShowExaminerPrompt(true);
+  };
+
+  // "View": show the saved marksheet read-only, without asking for examiner details
+  const handleViewMarks = (student: StudentMarkData) => {
+    setSelectedStudent(student);
+    setViewOnly(true);
+    setExaminerName(student.examinerName || "");
+    setExaminerDesignation(student.examinerDesignation || "");
+    handleOpenMarkEntry(student);
   };
 
   // Confirm examiner and open student answer script
@@ -754,8 +494,6 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
       alert("Please enter the examiner designation.");
       return;
     }
-    localStorage.setItem("kvell_examiner_name", examinerName.trim());
-    localStorage.setItem("kvell_examiner_designation", examinerDesignation.trim());
     setShowExaminerPrompt(false);
     if (pendingStudent) {
       handleOpenMarkEntry(pendingStudent);
@@ -768,10 +506,12 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
     if (student.hasMarks) {
       setPartAMarks([...student.partA]);
       setPartBCMarks(JSON.parse(JSON.stringify(student.partBC)));
+      setAssessmentType(targetAssessment);
     } else {
-      // Default clean marksheet
+      // Clean marksheet; the assessment (IAT-1 / IAT-2 / End Semester) must be chosen
       setPartAMarks(Array(10).fill(0));
       setPartBCMarks(JSON.parse(JSON.stringify(initialPartBC)));
+      setAssessmentType(targetAssessment);
     }
     setShowMarkEntryForm(true);
   };
@@ -787,6 +527,8 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
   };
 
   const partBCTotal = Object.values(partBCMarks).reduce((acc, q) => acc + calculateQTotal(q), 0);
+  const partBTotal = [11, 12, 13, 14, 15].reduce((acc, q) => acc + calculateQTotal(partBCMarks[q]), 0);
+  const partCTotal = calculateQTotal(partBCMarks[16]);
 
   // Grand Total (A + B + C)
   const grandTotal = Math.min(100, Math.round(partATotal + partBCTotal));
@@ -807,178 +549,86 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
 
   // Pre-fill realistic sample marks matching the examination paper
   const handleFillSampleMarks = () => {
-    // Part A: 10 questions (sample 16 out of 20)
     setPartAMarks([2, 2, 2, 1, 2, 1, 2, 2, 2, 2]);
-
-    // Part B + C: Questions 11 to 16
     setPartBCMarks({
-      11: { a: { i: 8, ii: 6, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
-      12: { a: { i: 7, ii: 7, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
-      13: { a: { i: 8, ii: 6, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
-      14: { a: { i: 6, ii: 8, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
-      15: { a: { i: 7, ii: 7, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
+      11: { a: { i: 8, ii: 5, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
+      12: { a: { i: 7, ii: 6, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
+      13: { a: { i: 8, ii: 5, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
+      14: { a: { i: 6, ii: 7, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
+      15: { a: { i: 7, ii: 6, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
       16: { a: { i: 0, ii: 0, iii: 0 }, b: { i: 8, ii: 6, iii: 0 } },
     });
   };
 
-  // CONFIRM MARK button action
-  const handleConfirmMark = () => {
-    if (!selectedStudent) return;
-
-    const updatedStudent: StudentMarkData = {
-      ...selectedStudent,
-      hasMarks: true,
-      partATotal,
-      partBCTotal,
-      grandTotal,
-      grade: grandGrade,
-      resultStatus,
-      partA: [...partAMarks],
-      partBC: JSON.parse(JSON.stringify(partBCMarks)),
-      assessmentType,
-      deptKey,
-      deptName: activeDept.name,
-      semester,
-      subjectCode: effectiveSubjectCode,
-      subjectTitle: effectiveSubjectTitle,
-    };
-
-    // Update students state
-    const newStudents = students.map((s) => (s.regNo === selectedStudent.regNo ? updatedStudent : s));
-    setStudents(newStudents);
-    setSelectedStudent(updatedStudent);
-
-    // Persist to localStorage
-    const storageKey = getScopedKey(`kvell_marks_${deptKey}_${semester}_${effectiveSubjectCode}`);
-    let savedMarksMap: Record<string, any> = {};
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) savedMarksMap = JSON.parse(saved);
-      savedMarksMap[selectedStudent.regNo] = updatedStudent;
-      localStorage.setItem(storageKey, JSON.stringify(savedMarksMap));
-      window.dispatchEvent(new Event("kvell_marks_updated"));
-      window.dispatchEvent(new Event("storage"));
-    } catch (e) {
-      console.error(e);
+  // CONFIRM MARK: saved on the server, which recomputes the totals and grade
+  const handleConfirmMark = async () => {
+    if (!selectedStudent || saving) return;
+    if (!assessmentType) {
+      alert("Choose the assessment type (IAT-1, IAT-2 or End Semester) first.");
+      return;
     }
-
-    addAuditLog({
-      action: "ENTERED_STUDENT_MARKS",
-      target: `${selectedStudent.regNo} (${selectedStudent.name})`,
-      timestamp: getRealLocalTimestamp(),
-      description: `Entered official examination marks for candidate ${selectedStudent.name} (${selectedStudent.regNo}) in ${effectiveSubjectCode} ${effectiveSubjectTitle}: Total ${grandTotal}/100, Grade ${grandGrade} (${resultStatus}). Evaluated by ${examinerName} (${examinerDesignation}).`,
-    });
-
-    const successMsg = `Marks successfully confirmed & saved for ${selectedStudent.name} (${selectedStudent.regNo})! Grand Total: ${grandTotal}/100 [Grade ${grandGrade}]. Evaluator: ${examinerName}.`;
-    setFeedback({
-      type: "success",
-      message: successMsg,
-    });
-    if (onToast) onToast(successMsg);
-
-    setShowMarkEntryForm(false);
+    setSaving(true);
+    try {
+      const saved = await facultyApi.save({
+        semester,
+        subjectCode: effectiveSubjectCode,
+        regNo: selectedStudent.regNo,
+        assessmentType,
+        partA: partAMarks.map((v) => Number(v) || 0),
+        partBC: partBCMarks as any,
+        examinerName: examinerName.trim(),
+        examinerDesignation: examinerDesignation.trim(),
+      });
+      const updated: StudentMarkData = { ...saved, dob: saved.dob || "" };
+      setStudents((prev) => prev.map((s) => (s.regNo === updated.regNo ? updated : s)));
+      setSelectedStudent(updated);
+      const successMsg = `Marks saved for ${updated.name} (${updated.regNo}). Grand Total: ${updated.grandTotal}/100 [Grade ${updated.grade}]. Evaluator: ${examinerName}.`;
+      setFeedback({ type: "success", message: successMsg });
+      if (onToast) onToast(successMsg);
+      setShowMarkEntryForm(false);
+      checkBatchStatus();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Could not save the marks."));
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // Forward Batch to Controller of Examinations (COE) for Verification & Official Publication
+  // Forward the subject to the Controller of Examinations (COE) for verification & official publication
   const handleForwardToCOE = async () => {
-    const entered = students.filter((s) => s.hasMarks);
-    if (entered.length === 0) {
+    const entered = students.filter((s) => s.hasMarks).length;
+    if (entered === 0) {
       alert("Please enter marks for at least one student before forwarding to COE.");
       return;
     }
-
-    const totalStudents = entered.length;
-    const passedStudents = entered.filter((s) => s.resultStatus === "PASS").length;
-    const passPercentage = Number(((passedStudents / totalStudents) * 100).toFixed(1));
-
-    const records: ResultRecordItem[] = entered.map((s) => ({
-      regNo: s.regNo,
-      studentName: s.name,
-      dob: s.dob,
-      deptKey,
-      courseCode: effectiveSubjectCode,
-      courseTitle: effectiveSubjectTitle,
-      semester,
-      internalMarks: s.partATotal,
-      externalMarks: s.partBCTotal,
-      totalMarks: s.grandTotal,
-      grade: s.grade,
-      gradePoints:
-        s.grade === "O" ? 10 :
-        s.grade === "A+" ? 9 :
-        s.grade === "A" ? 8 :
-        s.grade === "B+" ? 7 :
-        s.grade === "B" ? 6 :
-        s.grade === "C" ? 5 : 0,
-      resultStatus: s.resultStatus,
-    }));
-
-    const batchId =
-      batchStatusInfo.batchId ||
-      `RES-${Date.now().toString().slice(-4)}-${deptKey.toUpperCase()}-${effectiveSubjectCode}`;
-
-    const newBatch: ResultBatchRecord = {
-      id: batchId,
-      batchTitle: `${effectiveSubjectCode} ${semester} Examinations (${activeDept.name})`,
-      departmentKey: deptKey,
-      departmentName: activeDept.name,
-      semester,
-      academicYear,
-      examMonthYear: "Nov / Dec 2026",
-      uploadDate: getRealLocalTimestamp(),
-      uploadedBy: `${examinerName || "Faculty Evaluator"} (${examinerDesignation || "Assistant Professor"})`,
-      totalStudents,
-      passedStudents,
-      passPercentage,
-      publicationStatus: "VALIDATED", // Forwarded for COE verification; faculty CANNOT publish directly!
-      records,
-    };
-
+    if (
+      entered < students.length &&
+      !window.confirm(
+        `Only ${entered} of ${students.length} students have marks. The COE cannot publish until every student has marks.\n\nForward anyway?`
+      )
+    )
+      return;
     try {
-      // Upsert in scoped kvell_custom_batches
-      const scopedBatchesKey = getScopedKey("kvell_custom_batches");
-      const rawBatches = localStorage.getItem(scopedBatchesKey);
-      let batchList: ResultBatchRecord[] = rawBatches ? JSON.parse(rawBatches) : [];
-      const existingIdx = batchList.findIndex(
-        (b) =>
-          b.id === batchId ||
-          (b.departmentKey?.toLowerCase() === deptKey?.toLowerCase() &&
-            b.semester === semester &&
-            b.records?.some((r) => r.courseCode?.toUpperCase() === effectiveSubjectCode.toUpperCase()))
-      );
-
-      if (existingIdx >= 0) {
-        batchList[existingIdx] = {
-          ...batchList[existingIdx],
-          ...newBatch,
-          publicationStatus: "VALIDATED", // re-forwarded for COE verification
-        };
-      } else {
-        batchList.unshift(newBatch);
+      if (!academicYear) {
+        setFeedback({ type: "error", message: "Choose the academic year before forwarding." });
+        return;
       }
-      localStorage.setItem(scopedBatchesKey, JSON.stringify(batchList));
-
-      window.dispatchEvent(new Event("kvell_marks_updated"));
-      window.dispatchEvent(new Event("storage"));
-
-      addAuditLog({
-        action: "FORWARDED_MARKS_TO_COE",
-        target: `${newBatch.id} (${newBatch.batchTitle})`,
-        timestamp: getRealLocalTimestamp(),
-        description: `Forwarded marks for ${totalStudents} students in ${effectiveSubjectCode} ${effectiveSubjectTitle} to Controller of Examinations (COE) for verification and official publication. Evaluated by ${examinerName || "Faculty Evaluator"}.`,
+      if (!targetAssessment) {
+        setFeedback({ type: "error", message: "Choose the assessment before forwarding." });
+        return;
+      }
+      const batch = await facultyApi.forward({
+        semester,
+        subjectCode: effectiveSubjectCode,
+        academicYear,
+        assessmentType: targetAssessment,
       });
-
-      checkBatchStatus();
-
-      const successMsg = `Successfully forwarded examination marks for ${totalStudents} candidates to Controller of Examinations (COE) on Port 3002 for verification! Awaiting COE publication approval.`;
-      setFeedback({
-        type: "success",
-        message: successMsg,
-      });
+      await checkBatchStatus();
+      const successMsg = `Forwarded marks of ${batch.totalStudents} students in ${effectiveSubjectCode} to the Controller of Examinations for verification (${targetAssessment}). Awaiting COE publication.`;
+      setFeedback({ type: "success", message: successMsg });
       if (onToast) onToast(successMsg);
     } catch (err) {
-      console.error(err);
-      alert("Failed to forward marks to COE. Please try again.");
+      setFeedback({ type: "error", message: apiErrorMessage(err, "Failed to forward marks to COE.") });
     }
   };
 
@@ -1089,32 +739,14 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
               Student data will be mapped and assigned to the selected academic period and subject
             </p>
           </div>
-          {isEngineering && (
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  seedDummyMarksForDepts();
-                  handleFetchData();
-                  setFeedback({
-                    type: "success",
-                    message: "Dummy marks generated and loaded for CSE, ADS, and BME students!",
-                  });
-                }}
-                className="px-3 py-1.5 rounded-xl bg-[#D4A72C]/20 hover:bg-[#D4A72C]/30 text-[#0B192C] font-extrabold text-[10px] flex items-center gap-1.5 transition border border-[#D4A72C]/40 shadow-sm"
-                title="Populate realistic dummy marks for CSE, ADS, and BME students"
-              >
-                <Sparkles size={12} className="text-[#B08014]" />
-                Seed Dummy Marks (CSE, ADS, BME)
-              </button>
-              <span className="px-3 py-1 rounded-full bg-[#D4A72C]/20 text-[#0B192C] font-extrabold text-[10px] uppercase w-fit">
-                MANDATORY BATCH MAPPING
-              </span>
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="px-3 py-1 rounded-full bg-[#D4A72C]/20 text-[#0B192C] font-extrabold text-[10px] uppercase w-fit">
+              MANDATORY BATCH MAPPING
+            </span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-xs">
           <div>
             <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
               Department
@@ -1124,15 +756,14 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
               onChange={(e) => handleDeptChange(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
             >
+              <option value="">Choose department</option>
               {storedDepts.length > 0 ? (
                 storedDepts.map((d) => (
                   <option key={d.key} value={d.key}>
                     {d.name} ({d.code})
                   </option>
                 ))
-              ) : (
-                <option value="">No departments registered</option>
-              )}
+              ) : null}
             </select>
           </div>
 
@@ -1148,10 +779,12 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
               }}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
             >
-              <option value="Semester I">Semester I</option>
-              <option value="Semester II">Semester II</option>
-              <option value="Semester III">Semester III</option>
-              <option value="Semester IV">Semester IV</option>
+              <option value="">Choose semester</option>
+              {SEMESTER_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -1164,6 +797,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
               onChange={(e) => setAcademicYear(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
             >
+              <option value="">Choose academic year</option>
               <option value="2026 - 2027">2026 - 2027</option>
               <option value="2025 - 2026">2025 - 2026</option>
             </select>
@@ -1200,17 +834,30 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                 }}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
               >
-                {availableSubjects.length > 0 ? (
-                  availableSubjects.map((sub) => (
-                    <option key={sub.code} value={sub.code}>
-                      {sub.code} - {sub.title} {sub.source === "admin" ? "★ (Curriculum)" : ""}
-                    </option>
-                  ))
-                ) : (
-                  <option value="">No subjects registered</option>
-                )}
+                <option value="">{availableSubjects.length ? "Choose subject" : "Choose subject (none added yet)"}</option>
+                {availableSubjects.map((sub) => (
+                  <option key={sub.code} value={sub.code}>
+                    {sub.code} - {sub.title} {sub.source === "admin" ? "★ (Curriculum)" : ""}
+                  </option>
+                ))}
               </select>
             )}
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">Assessment</label>
+            <select
+              value={targetAssessment}
+              onChange={(e) => {
+                setTargetAssessment(e.target.value as any);
+                setIsDataFetched(false);
+              }}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
+            >
+              <option value="">Choose assessment</option>
+              <option value="IAT-1">IAT-1</option>
+              <option value="IAT-2">IAT-2</option>
+              <option value="End Semester">End Semester</option>
+            </select>
           </div>
         </div>
 
@@ -1218,6 +865,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
         <div className="pt-4 border-t border-[#E5E1D8] flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-xs text-gray-500">
             Selected: <strong className="text-[#0B192C]">{activeDept.name}</strong> •{" "}
+            <strong className="text-[#0B192C]">{targetAssessment || "No assessment"}</strong> •{" "}
             <strong className="text-[#0B192C]">{semester}</strong> •{" "}
             <strong className="text-[#B08014]">{effectiveSubjectCode} ({effectiveSubjectTitle})</strong>
           </div>
@@ -1261,7 +909,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                 </span>
               </div>
               <p className="text-xs text-gray-500 mt-0.5">
-                Click on a student row to select, then click <strong>"ENTER MARK"</strong> to open the evaluation marksheet.
+                Click on a student row to select, then click <strong>"ENTER MARK"</strong> (or <strong>"EDIT MARK"</strong> if marks exist) above. Use <strong>View</strong> to see saved marks.
               </p>
             </div>
 
@@ -1274,7 +922,9 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                   className="px-6 py-3 rounded-xl bg-[#D4A72C] hover:bg-[#b08014] text-[#0B192C] font-black text-xs shadow-lg transition flex items-center gap-2 active:scale-95"
                 >
                   <PenLine size={16} />
-                  <span>ENTER MARK FOR {selectedStudent.name}</span>
+                  <span>
+                    {selectedStudent.hasMarks ? "EDIT MARK" : "ENTER MARK"} FOR {selectedStudent.name}
+                  </span>
                   <ArrowRight size={15} />
                 </button>
               </div>
@@ -1282,9 +932,9 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
           </div>
 
           {/* Student List Table */}
-          <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[75vh]">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider">
+              <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider sticky top-0 z-20">
                 <tr>
                   <th className="p-3.5 text-center w-12">Select</th>
                   <th className="p-3.5">Registration Number</th>
@@ -1368,21 +1018,25 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                         )}
                       </td>
                       <td className="p-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleInitiateMarkEntry(student);
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition inline-flex items-center gap-1.5 ${
-                            isSelected
-                              ? "bg-[#0B192C] text-white shadow"
-                              : "bg-gray-100 text-gray-800 hover:bg-[#0B192C] hover:text-white"
-                          }`}
-                        >
-                          <PenLine size={13} />
-                          <span>{student.hasMarks ? "Edit Mark" : "Enter Mark"}</span>
-                        </button>
+                        {student.hasMarks ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewMarks(student);
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition inline-flex items-center gap-1.5 ${
+                              isSelected
+                                ? "bg-[#0B192C] text-white shadow"
+                                : "bg-gray-100 text-gray-800 hover:bg-[#0B192C] hover:text-white"
+                            }`}
+                          >
+                            <Eye size={13} />
+                            <span>View</span>
+                          </button>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-gray-400">Not entered</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -1513,14 +1167,27 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
 
       {/* Step 3: Authentic Examination Mark Entry Form Modal */}
       {showMarkEntryForm && selectedStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-md overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 border border-[#E5E1D8] shadow-2xl space-y-6 my-auto max-h-[92vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto">
+          {/* Split view: the student's scanned answer script beside the marks form */}
+          <div className="w-full max-w-[1600px] my-auto flex flex-col lg:flex-row gap-4">
+          <AnswerScriptPane
+            scriptKey={`${selectedStudent.regNo}|${effectiveSubjectCode}|${assessmentType}`}
+            label={`${selectedStudent.regNo} • ${effectiveSubjectCode} • ${assessmentType}`}
+            prompt={assessmentType ? undefined : "Choose the assessment (IAT-1, IAT-2 or End Semester) to see the answer script."}
+            fetchPdf={() => facultyApi.answerScript({ semester, subject: effectiveSubjectCode, regNo: selectedStudent.regNo, assessment: assessmentType })}
+          />
+          <div className="bg-white rounded-3xl lg:w-1/2 w-full p-6 sm:p-8 border border-[#E5E1D8] shadow-2xl space-y-6 max-h-[94vh] overflow-y-auto">
             {/* Top Modal Bar */}
             <div className="flex items-center justify-between pb-3 border-b border-gray-200">
               <div className="flex items-center gap-3">
                 <span className="px-3 py-1 rounded-full bg-[#0B192C] text-white text-[10px] font-extrabold uppercase tracking-wider">
                   OFFICIAL EVALUATION SCRIPT
                 </span>
+                {viewOnly && (
+                  <span className="px-3 py-1 rounded-full bg-sky-100 text-sky-800 border border-sky-300 text-[10px] font-extrabold uppercase tracking-wider">
+                    View only
+                  </span>
+                )}
                 <span className="text-xs font-mono font-bold text-[#B08014]">
                   REG: {selectedStudent.regNo}
                 </span>
@@ -1533,6 +1200,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
               </button>
             </div>
 
+            <fieldset disabled={viewOnly} onKeyDown={handleArrowNavigation} className="min-w-0 border-0 p-0 m-0 space-y-6">
             {/* University Paper Sheet Header */}
             <div className="border-2 border-red-900/60 rounded-2xl p-4 sm:p-6 bg-[#FFFCF7] text-[#0B192C] shadow-sm space-y-4">
               <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b-2 border-red-900/40 pb-4">
@@ -1546,7 +1214,8 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                       <button
                         key={type}
                         type="button"
-                        onClick={() => setAssessmentType(type)}
+                        disabled={type !== assessmentType}
+                        title={type !== assessmentType ? "Change the assessment in step 1 above" : undefined}
                         className={`px-2.5 py-1 rounded-md text-[11px] transition ${
                           assessmentType === type
                             ? "bg-[#0B192C] text-white"
@@ -1638,16 +1307,17 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
 
               {/* Main Evaluation Grid: PART A and PART B + C side by side */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 pt-2">
-                {/* PART - A (Questions 1 to 10) */}
-                <div className="lg:col-span-4 border-2 border-red-900/60 rounded-xl overflow-hidden bg-white">
+                {/* PART - A (Questions 1 to 10): stretches to the height of Part B + Part C beside it */}
+                <div className="lg:col-span-4 border-2 border-red-900/60 rounded-xl overflow-hidden bg-white flex flex-col">
                   <div className="bg-red-950 text-white font-black text-xs text-center py-2 uppercase tracking-wider">
                     PART - A (Max 20)
                   </div>
-                  <table className="w-full text-center text-xs divide-y divide-red-900/40">
+                  <table className="w-full flex-1 h-full text-center text-xs divide-y divide-red-900/40">
                     <thead className="bg-red-50 text-red-950 font-extrabold text-[10px] uppercase">
                       <tr>
-                        <th className="p-2 border-r border-red-900/40 w-1/2">Question Number</th>
-                        <th className="p-2 w-1/2">Marks</th>
+                        <th className="p-2 border-r border-red-900/40 w-2/5">Question Number</th>
+                        <th className="p-2 border-r border-red-900/40 w-2/5">Marks</th>
+                        <th className="p-2 w-1/5">CO</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-red-900/30">
@@ -1656,7 +1326,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                           <td className="p-1.5 font-extrabold text-red-900 border-r border-red-900/40">
                             {i + 1}
                           </td>
-                          <td className="p-1.5">
+                          <td className="p-1.5 border-r border-red-900/40">
                             <input
                               type="number"
                               min="0"
@@ -1673,6 +1343,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                               className="w-14 text-center font-bold px-1.5 py-1 rounded border border-gray-300 bg-[#FFFEFA] focus:ring-1 focus:ring-red-900"
                             />
                           </td>
+                          <td className="p-1.5 font-extrabold text-[10px] text-[#0B192C] bg-[#D4A72C]/15">{partACo(assessmentType, i + 1)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1681,18 +1352,21 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                         <td className="p-2 border-r border-red-900/40 uppercase text-[10px]">
                           Total (Part - A)
                         </td>
-                        <td className="p-2 font-mono text-sm text-[#0B192C]">
+                        <td className="p-2 font-mono text-sm text-[#0B192C] border-r border-red-900/40">
                           {partATotal}
                         </td>
+                        <td className="p-2"></td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
 
-                {/* PART - B + C (Questions 11 to 16 with subdivisions a & b) */}
-                <div className="lg:col-span-8 border-2 border-red-900/60 rounded-xl overflow-hidden bg-white">
+                {/* PART - B with PART - C directly below it, beside PART - A */}
+                <div className="lg:col-span-8 space-y-4">
+                {/* PART - B (Questions 11 to 15, choice a or b) */}
+                <div className="border-2 border-red-900/60 rounded-xl overflow-hidden bg-white">
                   <div className="bg-red-950 text-white font-black text-xs text-center py-2 uppercase tracking-wider">
-                    PART - B + C (Max 80)
+                    PART - B (Questions 11 - 15)
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-center text-xs divide-y divide-red-900/40">
@@ -1703,11 +1377,12 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                           <th className="p-2 border-r border-red-900/40 w-14">i</th>
                           <th className="p-2 border-r border-red-900/40 w-14">ii</th>
                           <th className="p-2 border-r border-red-900/40 w-14">iii</th>
-                          <th className="p-2">Q. Total</th>
+                          <th className="p-2 border-r border-red-900/40">Q. Total</th>
+                          <th className="p-2 w-12">CO</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-red-900/30">
-                        {[11, 12, 13, 14, 15, 16].map((qNum) => {
+                        {[11, 12, 13, 14, 15].map((qNum) => {
                           const qData = partBCMarks[qNum];
                           const qTotal = calculateQTotal(qData);
                           return (
@@ -1781,8 +1456,11 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                     className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
                                   />
                                 </td>
-                                <td rowSpan={2} className="p-2 font-mono font-bold text-sm text-[#0B192C] align-middle bg-red-50/20">
+                                <td rowSpan={2} className="p-2 font-mono font-bold text-sm text-[#0B192C] align-middle bg-red-50/20 border-r border-red-900/40">
                                   {qTotal}
+                                </td>
+                                <td rowSpan={2} className="p-1.5 font-extrabold text-[10px] text-[#0B192C] bg-[#D4A72C]/15 align-middle">
+                                  {partBCCo(assessmentType, qNum)}
                                 </td>
                               </tr>
 
@@ -1857,15 +1535,201 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                       <tfoot className="bg-red-100 text-red-950 font-black">
                         <tr>
                           <td colSpan={5} className="p-2 text-right uppercase text-[10px] border-r border-red-900/40">
-                            Total (Part - B + C)
+                            Total (Part - B)
                           </td>
                           <td className="p-2 font-mono text-sm text-[#0B192C]">
-                            {partBCTotal}
+                            {partBTotal}
                           </td>
+                          <td className="p-2"></td>
                         </tr>
                       </tfoot>
                     </table>
                   </div>
+                </div>
+
+                {/* PART - C (Question 16, choice a or b) */}
+                <div className="border-2 border-red-900/60 rounded-xl overflow-hidden bg-white">
+                  <div className="bg-red-950 text-white font-black text-xs text-center py-2 uppercase tracking-wider">
+                    PART - C (Question 16)
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-center text-xs divide-y divide-red-900/40">
+                      <thead className="bg-red-50 text-red-950 font-extrabold text-[10px] uppercase">
+                        <tr>
+                          <th className="p-2 border-r border-red-900/40 w-16">Q. No</th>
+                          <th className="p-2 border-r border-red-900/40 w-8">Sub</th>
+                          <th className="p-2 border-r border-red-900/40 w-14">i</th>
+                          <th className="p-2 border-r border-red-900/40 w-14">ii</th>
+                          <th className="p-2 border-r border-red-900/40 w-14">iii</th>
+                          <th className="p-2 border-r border-red-900/40">Q. Total</th>
+                          <th className="p-2 w-12">CO</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-red-900/30">
+                        {[16].map((qNum) => {
+                          const qData = partBCMarks[qNum];
+                          const qTotal = calculateQTotal(qData);
+                          return (
+                            <React.Fragment key={qNum}>
+                              {/* Sub-division a */}
+                              <tr className="hover:bg-red-50/30">
+                                <td
+                                  rowSpan={2}
+                                  className="p-2 font-extrabold text-red-900 border-r border-red-900/40 align-middle bg-red-50/20"
+                                >
+                                  {qNum}
+                                </td>
+                                <td className="p-1 font-bold text-gray-700 border-r border-red-900/40">a</td>
+                                <td className="p-1 border-r border-red-900/40">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="16"
+                                    value={qData.a.i === 0 ? "" : qData.a.i}
+                                    placeholder="0"
+                                    onChange={(e) => {
+                                      const val = Number(e.target.value) || 0;
+                                      setPartBCMarks({
+                                        ...partBCMarks,
+                                        [qNum]: {
+                                          ...qData,
+                                          a: { ...qData.a, i: Math.min(16, Math.max(0, val)) },
+                                        },
+                                      });
+                                    }}
+                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                  />
+                                </td>
+                                <td className="p-1 border-r border-red-900/40">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="16"
+                                    value={qData.a.ii === 0 ? "" : qData.a.ii}
+                                    placeholder="0"
+                                    onChange={(e) => {
+                                      const val = Number(e.target.value) || 0;
+                                      setPartBCMarks({
+                                        ...partBCMarks,
+                                        [qNum]: {
+                                          ...qData,
+                                          a: { ...qData.a, ii: Math.min(16, Math.max(0, val)) },
+                                        },
+                                      });
+                                    }}
+                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                  />
+                                </td>
+                                <td className="p-1 border-r border-red-900/40">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="16"
+                                    value={qData.a.iii === 0 ? "" : qData.a.iii}
+                                    placeholder="0"
+                                    onChange={(e) => {
+                                      const val = Number(e.target.value) || 0;
+                                      setPartBCMarks({
+                                        ...partBCMarks,
+                                        [qNum]: {
+                                          ...qData,
+                                          a: { ...qData.a, iii: Math.min(16, Math.max(0, val)) },
+                                        },
+                                      });
+                                    }}
+                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                  />
+                                </td>
+                                <td rowSpan={2} className="p-2 font-mono font-bold text-sm text-[#0B192C] align-middle bg-red-50/20 border-r border-red-900/40">
+                                  {qTotal}
+                                </td>
+                                <td rowSpan={2} className="p-1.5 font-extrabold text-[10px] text-[#0B192C] bg-[#D4A72C]/15 align-middle">
+                                  {partBCCo(assessmentType, qNum)}
+                                </td>
+                              </tr>
+
+                              {/* Sub-division b */}
+                              <tr className="hover:bg-red-50/30 border-b border-red-900/30">
+                                <td className="p-1 font-bold text-gray-700 border-r border-red-900/40">b</td>
+                                <td className="p-1 border-r border-red-900/40">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="16"
+                                    value={qData.b.i === 0 ? "" : qData.b.i}
+                                    placeholder="0"
+                                    onChange={(e) => {
+                                      const val = Number(e.target.value) || 0;
+                                      setPartBCMarks({
+                                        ...partBCMarks,
+                                        [qNum]: {
+                                          ...qData,
+                                          b: { ...qData.b, i: Math.min(16, Math.max(0, val)) },
+                                        },
+                                      });
+                                    }}
+                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                  />
+                                </td>
+                                <td className="p-1 border-r border-red-900/40">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="16"
+                                    value={qData.b.ii === 0 ? "" : qData.b.ii}
+                                    placeholder="0"
+                                    onChange={(e) => {
+                                      const val = Number(e.target.value) || 0;
+                                      setPartBCMarks({
+                                        ...partBCMarks,
+                                        [qNum]: {
+                                          ...qData,
+                                          b: { ...qData.b, ii: Math.min(16, Math.max(0, val)) },
+                                        },
+                                      });
+                                    }}
+                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                  />
+                                </td>
+                                <td className="p-1 border-r border-red-900/40">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="16"
+                                    value={qData.b.iii === 0 ? "" : qData.b.iii}
+                                    placeholder="0"
+                                    onChange={(e) => {
+                                      const val = Number(e.target.value) || 0;
+                                      setPartBCMarks({
+                                        ...partBCMarks,
+                                        [qNum]: {
+                                          ...qData,
+                                          b: { ...qData.b, iii: Math.min(16, Math.max(0, val)) },
+                                        },
+                                      });
+                                    }}
+                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                  />
+                                </td>
+                              </tr>
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="bg-red-100 text-red-950 font-black">
+                        <tr>
+                          <td colSpan={5} className="p-2 text-right uppercase text-[10px] border-r border-red-900/40">
+                            Total (Part - C)
+                          </td>
+                          <td className="p-2 font-mono text-sm text-[#0B192C]">
+                            {partCTotal}
+                          </td>
+                          <td className="p-2"></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
                 </div>
               </div>
 
@@ -1927,6 +1791,8 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
               </div>
             </div>
 
+            </fieldset>
+
             {/* Modal Bottom Buttons: Cancel & CONFIRM MARK */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-gray-200">
               <div className="flex items-center gap-2 text-[11px] text-gray-500">
@@ -1940,9 +1806,10 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                   onClick={() => setShowMarkEntryForm(false)}
                   className="px-5 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition"
                 >
-                  Cancel
+                  {viewOnly ? "Close" : "Cancel"}
                 </button>
 
+                {!viewOnly && (
                 <button
                   type="button"
                   onClick={handleConfirmMark}
@@ -1951,8 +1818,10 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                   <Save size={16} />
                   <span>CONFIRM MARK &amp; SAVE</span>
                 </button>
+                )}
               </div>
             </div>
+          </div>
           </div>
         </div>
       )}

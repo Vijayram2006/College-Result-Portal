@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { SEMESTER_OPTIONS } from "../utils/semesters";
 import { useLocation } from "wouter";
 import {
   UploadCloud,
@@ -18,7 +19,8 @@ import {
   Calendar,
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import { addAuditLog, adminResultsApi } from "../services/api";
+import { downloadWorkbook } from "../utils/downloadWorkbook";
+import { addAuditLog, adminResultsApi, apiErrorMessage, studentsApi, RowError } from "../services/api";
 import { getRealLocalTimestamp } from "../utils/dateUtils";
 import { getStoredDepartments, Department } from "./Departments";
 import { aidsSem1Students } from "../data/aidsStudents";
@@ -76,6 +78,9 @@ export interface StudentRecordItem {
 // Available Year of Study Options
 export const yearOptions = [
   { value: "1st Year", label: "1st Year (I Year)", defaultSem: "Semester I" },
+  { value: "2nd Year", label: "2nd Year (II Year)", defaultSem: "Semester III" },
+  { value: "3rd Year", label: "3rd Year (III Year)", defaultSem: "Semester V" },
+  { value: "4th Year", label: "4th Year (IV Year)", defaultSem: "Semester VII" },
 ];
 
 /**
@@ -233,9 +238,9 @@ export const ResultsUpload: React.FC = () => {
   // Target Metadata State (Subject Code removed, Year option added)
   const [storedDepts, setStoredDepts] = useState<Department[]>([]);
   const [deptKey, setDeptKey] = useState("");
-  const [studyYear, setStudyYear] = useState("1st Year");
-  const [semester, setSemester] = useState("Semester I");
-  const [academicYear, setAcademicYear] = useState("2026 - 2027");
+  const [studyYear, setStudyYear] = useState("");
+  const [semester, setSemester] = useState("");
+  const [academicYear, setAcademicYear] = useState("");
 
   // Sorting & Filtering State
   const [sortMode, setSortMode] = useState<"regNo" | "name">("regNo");
@@ -247,7 +252,7 @@ export const ResultsUpload: React.FC = () => {
   const [addName, setAddName] = useState("");
   const [addDob, setAddDob] = useState("");
   const [addDept, setAddDept] = useState("");
-  const [addStudentYear, setAddStudentYear] = useState("1st Year");
+  const [addStudentYear, setAddStudentYear] = useState("");
   const [addCategory, setAddCategory] = useState<StudentCategory>("regular");
 
   // Status & Feedback message state
@@ -263,8 +268,8 @@ export const ResultsUpload: React.FC = () => {
       const list = getStoredDepartments();
       setStoredDepts(list);
       if (list.length > 0) {
-        setDeptKey((prev) => (prev && list.some((d) => d.key === prev) ? prev : list[0].key));
-        setAddDept((prev) => (prev && list.some((d) => d.key === prev) ? prev : list[0].key));
+        setDeptKey((prev) => (prev && list.some((d) => d.key === prev) ? prev : ""));
+        setAddDept((prev) => (prev && list.some((d) => d.key === prev) ? prev : ""));
       }
     };
     loadDepts();
@@ -275,45 +280,59 @@ export const ResultsUpload: React.FC = () => {
       window.removeEventListener("storage", loadDepts);
     };
   }, []);
-
-  // Load and synchronize student data scoped strictly to current deptKey
-  useEffect(() => {
-    if (!deptKey) return;
-    const deptStudents = getDeptUploadedStudents(deptKey);
-    setParsedData(sortStudentRecords(deptStudents, sortMode));
-    sessionStorage.setItem("kvell_uploaded_results", JSON.stringify(deptStudents));
-    setSelectedFile(null);
-  }, [deptKey, sortMode]);
-
-  const handleClearSheet = () => {
-    if (window.confirm(`Clear student records for ${deptKey.toUpperCase()}? This will not affect other departments.`)) {
-      saveDeptUploadedStudents(deptKey, []);
-      setParsedData([]);
-      setSelectedFile(null);
-      setFeedback({ type: "info", message: `Student records for ${deptKey.toUpperCase()} cleared.` });
+  // Load the saved class list for the selected department & semester from the server
+  const loadSavedStudents = async (dept: string, sem: string) => {
+    if (!dept || !sem) {
+      setParsedData([]); // nothing chosen yet
+      return;
     }
+    try {
+      const saved = await studentsApi.list(dept, sem);
+      const records = saved.map((st) => ({
+        "Register Number": st.regNo,
+        "Name": st.studentName,
+        "DOB": st.dob,
+        "Department": st.dept,
+        "Category": st.category,
+        "Year": st.year,
+        regNo: st.regNo,
+        studentName: st.studentName,
+        dob: st.dob,
+        dept: st.dept,
+        category: st.category,
+        year: st.year,
+        saved: true,
+      }));
+      setParsedData(sortStudentRecords(records, sortMode));
+    } catch (err) {
+      setFeedback({ type: "error", message: apiErrorMessage(err, "Could not load saved student data.") });
+    }
+  };
+
+  useEffect(() => {
+    loadSavedStudents(deptKey, semester);
+  }, [deptKey, semester]);
+
+  useEffect(() => {
+    setParsedData((rows) => sortStudentRecords(rows, sortMode));
+  }, [sortMode]);
+
+  // Reloads the saved list from the server (saved students are never deleted from here)
+  const handleClearSheet = () => {
+    setSelectedFile(null);
+    loadSavedStudents(deptKey, semester);
+    setFeedback({ type: "info", message: `Unsaved rows cleared; showing the saved ${deptKey.toUpperCase()} students.` });
   };
 
   const handleDeptChange = (newDept: string) => {
     setDeptKey(newDept);
     setAddDept(newDept);
-    const deptStudents = getDeptUploadedStudents(newDept);
-    setParsedData(sortStudentRecords(deptStudents, sortMode));
-    sessionStorage.setItem("kvell_uploaded_results", JSON.stringify(deptStudents));
     setSelectedFile(null);
-    setFeedback({
-      type: "info",
-      message: `Switched to ${newDept.toUpperCase()} department (${deptStudents.length} students loaded).`,
-    });
   };
 
-  // Change Year: Auto-select recommended semester
+  // Change Year (the semester is chosen separately)
   const handleYearChange = (newYear: string) => {
     setStudyYear(newYear);
-    const found = yearOptions.find((y) => y.value === newYear);
-    if (found) {
-      setSemester(found.defaultSem);
-    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -324,13 +343,68 @@ export const ResultsUpload: React.FC = () => {
     }
   };
 
+  const loginNote = (withoutDob: number, total: number) =>
+    withoutDob === 0
+      ? "They can now sign in with Register Number + Date of Birth."
+      : withoutDob === total
+        ? "No DOB was given, so they cannot sign in yet: upload the same students again with a DOB column later."
+        : `${withoutDob} of them have no DOB yet and cannot sign in until it is added.`;
+
+  // Saves rows on the server straight away (all-or-nothing). Shows the row errors and returns null if any are invalid.
+  const saveStudentRows = async (
+    rows: any[],
+    dept: string,
+    year: string
+  ): Promise<{ created: number; updated: number; total: number; withoutDob: number } | null> => {
+    if (!dept || !year || !semester || !academicYear) {
+      const missing = [!dept && "department", !year && "year of study", !semester && "semester", !academicYear && "academic year"]
+        .filter(Boolean)
+        .join(", ");
+      setFeedback({ type: "error", message: `Choose the ${missing} first, then upload or add the students again.` });
+      return null;
+    }
+    try {
+      return await studentsApi.save({
+        deptKey: dept,
+        year,
+        semester,
+        academicYear,
+        students: rows.map((r) => ({
+          row: r.sheetRow ?? 0,
+          regNo: String(r["Register Number"] || r.regNo || ""),
+          name: String(r["Name"] || r.studentName || ""),
+          dob: String(r["DOB"] || r.dob || ""),
+          category: String(r["Category"] || r.category || "regular"),
+        })),
+      });
+    } catch (err: any) {
+      const rowErrors: RowError[] = err?.response?.data?.errors || [];
+      if (rowErrors.length > 0) {
+        const lines = rowErrors
+          .slice(0, 8)
+          .map((e) => `${e.row > 0 ? `Sheet row ${e.row}` : "Added entry"}${e.regNo ? ` (${e.regNo})` : ""} - ${e.field}: ${e.error}`);
+        if (rowErrors.length > 8) lines.push(`...and ${rowErrors.length - 8} more`);
+        setFeedback({
+          type: "error",
+          message: `Nothing was saved. Fix these ${rowErrors.length} problems and try again:\n${lines.join("\n")}`,
+        });
+      } else {
+        setFeedback({ type: "error", message: apiErrorMessage(err, "Student data could not be saved.") });
+      }
+      return null;
+    }
+  };
+
   // Parse Excel with NON-DESTRUCTIVE merge (does not affect previous data)
   const parseFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
         const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: "binary", cellDates: true });
+        // CSV cells stay plain text: the library would read "05-06-2005" US-style (May 6), but
+        // Indian sheets write dates day-first, which formatDob handles.
+        const isCsv = file.name.toLowerCase().endsWith(".csv");
+        const wb = XLSX.read(bstr, { type: "binary", cellDates: true, raw: isCsv });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
         const rawJson: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
@@ -348,7 +422,7 @@ export const ResultsUpload: React.FC = () => {
             r["RegNo"] ??
             r["RegisterNo"] ??
             r["Register"] ??
-            `KVELL2025${deptKey.toUpperCase()}${String(100 + idx).padStart(3, "0")}`;
+            "";
 
           const rawName =
             r["Name"] ??
@@ -358,7 +432,7 @@ export const ResultsUpload: React.FC = () => {
             r["studentName"] ??
             r["Candidate Name"] ??
             r["Candidate"] ??
-            `Candidate ${String(rawReg).trim()}`;
+            "";
 
           const rawDob =
             r["DOB"] ??
@@ -381,9 +455,13 @@ export const ResultsUpload: React.FC = () => {
             "regular";
 
           const formattedDob = formatDob(rawDob);
-          const cleanCategory: StudentCategory = String(rawCat).toLowerCase().includes("lateral")
+          // Unknown categories are kept as typed so the server reports them instead of guessing "regular"
+          const catText = String(rawCat).trim().toLowerCase();
+          const cleanCategory = (catText.includes("lateral")
             ? "lateral"
-            : "regular";
+            : catText === "" || catText.includes("regular")
+              ? "regular"
+              : String(rawCat).trim()) as StudentCategory;
 
           const cleanReg = String(rawReg).trim().toUpperCase();
 
@@ -401,29 +479,43 @@ export const ResultsUpload: React.FC = () => {
             dept: deptKey.toUpperCase(),
             category: cleanCategory,
             year: studyYear,
+            sheetRow: idx + 2, // spreadsheet row (header is row 1), used in error messages
           };
         });
 
-        // Merge strictly within this department's existing student list
-        const currentDeptList = getDeptUploadedStudents(deptKey);
+        // Non-destructive merge: keep the listed students and append/update with new records
         const recordMap = new Map<string, any>();
-        currentDeptList.forEach((item) => {
+        parsedData.forEach((item) => {
           const reg = String(item["Register Number"] || item.regNo).trim().toUpperCase();
           if (reg) recordMap.set(reg, item);
         });
 
-        normalized.forEach((item) => {
+        // Rows without a register number, or repeated within this file, are kept (not silently dropped
+        // or merged) so the server lists them as errors when the data is confirmed.
+        const seenInFile = new Set<string>();
+        normalized.forEach((item, idx) => {
           const reg = String(item["Register Number"] || item.regNo).trim().toUpperCase();
-          if (reg) recordMap.set(reg, item);
+          if (!reg) {
+            recordMap.set(`__missing_${file.name}_${idx}`, item);
+          } else if (seenInFile.has(reg)) {
+            recordMap.set(`__duplicate_${file.name}_${idx}`, item);
+          } else {
+            seenInFile.add(reg);
+            recordMap.set(reg, item);
+          }
         });
 
         const mergedSorted = sortStudentRecords(Array.from(recordMap.values()), sortMode);
         setParsedData(mergedSorted);
-        saveDeptUploadedStudents(deptKey, mergedSorted);
 
-        setFeedback({
-          type: "success",
-          message: `Successfully loaded ${normalized.length} records for ${deptKey.toUpperCase()} from "${file.name}". Other departments were untouched. Total students in ${deptKey.toUpperCase()}: ${mergedSorted.length}.`,
+        // Save the sheet immediately so Mark Entry sees these students right away
+        saveStudentRows(normalized, deptKey, studyYear).then(async (result) => {
+          if (!result) return; // row errors are shown; the rows stay listed (unsaved) for review
+          await loadSavedStudents(deptKey, semester);
+          setFeedback({
+            type: "success",
+            message: `Saved ${result.total} students from "${file.name}" (${result.created} new, ${result.updated} updated) for ${deptKey.toUpperCase()} • ${studyYear} (${semester}). ${loginNote(result.withoutDob, result.total)}`,
+          });
         });
       } catch (err) {
         console.error("Error parsing Excel file", err);
@@ -437,7 +529,7 @@ export const ResultsUpload: React.FC = () => {
   };
 
   // Add Student Handler (Modal Form Submit)
-  const handleAddStudentSubmit = (e: React.FormEvent) => {
+  const handleAddStudentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!addRegNo.trim()) {
       setFeedback({ type: "error", message: "Register Number is required." });
@@ -449,7 +541,7 @@ export const ResultsUpload: React.FC = () => {
     }
 
     const cleanReg = addRegNo.trim().toUpperCase();
-    const formattedDob = formatDob(addDob) || "2004-05-14";
+    const formattedDob = formatDob(addDob);
 
     const newRecord: StudentRecordItem = {
       "Register Number": cleanReg,
@@ -466,18 +558,10 @@ export const ResultsUpload: React.FC = () => {
       year: addStudentYear,
     };
 
-    // Merge within target department only!
-    const targetDeptKey = (addDept || deptKey).toLowerCase();
-    const currentDeptList = getDeptUploadedStudents(targetDeptKey);
-    const filtered = currentDeptList.filter(
-      (s) => String(s.regNo || s["Register Number"]).trim().toUpperCase() !== cleanReg
-    );
-
-    // Merge and automatically sort: Regular first, Lateral at the end!
-    const updated = sortStudentRecords([...filtered, newRecord], sortMode);
-    saveDeptUploadedStudents(targetDeptKey, updated);
-    if (targetDeptKey === deptKey.toLowerCase()) {
-      setParsedData(updated);
+    const result = await saveStudentRows([newRecord], addDept, addStudentYear);
+    if (!result) return; // errors are shown; the form stays open for correction
+    if (addDept === deptKey) {
+      await loadSavedStudents(deptKey, semester);
     }
 
     // Reset Form
@@ -489,17 +573,28 @@ export const ResultsUpload: React.FC = () => {
 
     setFeedback({
       type: "success",
-      message: `Student "${newRecord.studentName}" (${newRecord.regNo}) added to ${targetDeptKey.toUpperCase()} (${newRecord.year}). Total students in ${targetDeptKey.toUpperCase()}: ${updated.length}.`,
+      message: `Student "${newRecord.studentName}" (${newRecord.regNo}) ${result.created ? "added" : "updated"} and saved as ${newRecord.category.toUpperCase()} entry in ${newRecord.dept} (${newRecord.year}). ${loginNote(result.withoutDob, 1)}`,
     });
   };
 
-  // Delete Individual Student within active department
-  const handleDeleteStudent = (regNo: string) => {
+  // Delete Individual Student (and the saved record, if it was already saved)
+  const handleDeleteStudent = async (regNo: string) => {
+    const target = parsedData.find(
+      (s) => String(s.regNo || s["Register Number"]).trim().toUpperCase() === regNo.trim().toUpperCase()
+    );
+    if (target?.saved) {
+      if (!window.confirm(`Delete saved student ${regNo}? Their marks and results are deleted too.`)) return;
+      try {
+        await studentsApi.remove(regNo);
+      } catch (err) {
+        setFeedback({ type: "error", message: apiErrorMessage(err, `Could not delete ${regNo}.`) });
+        return;
+      }
+    }
     const updated = parsedData.filter(
       (s) => String(s.regNo || s["Register Number"]).trim().toUpperCase() !== regNo.trim().toUpperCase()
     );
     setParsedData(updated);
-    saveDeptUploadedStudents(deptKey, updated);
     setFeedback({
       type: "info",
       message: `Student record (${regNo}) deleted from ${deptKey.toUpperCase()}. Total remaining: ${updated.length}.`,
@@ -511,7 +606,6 @@ export const ResultsUpload: React.FC = () => {
     setSortMode(newMode);
     const reSorted = sortStudentRecords(parsedData, newMode);
     setParsedData(reSorted);
-    sessionStorage.setItem("kvell_uploaded_results", JSON.stringify(reSorted));
   };
 
   const handleDownloadTemplate = () => {
@@ -525,13 +619,13 @@ export const ResultsUpload: React.FC = () => {
     const ws = XLSX.utils.json_to_sheet(sampleData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Student Data");
-    XLSX.writeFile(
+    downloadWorkbook(
       wb,
-      `Student_Data_Template_${deptKey.toUpperCase()}_${studyYear.replace(/\s+/g, "")}_${semester.replace(/\s+/g, "")}.xlsx`
+      `Student_Data_Template_${(deptKey || "ALL").toUpperCase()}_${studyYear.replace(/\s+/g, "")}_${semester.replace(/\s+/g, "")}.xlsx`
     );
   };
 
-  const handleStartUpload = () => {
+  const handleStartUpload = async () => {
     if (parsedData.length === 0) {
       setFeedback({
         type: "error",
@@ -539,39 +633,32 @@ export const ResultsUpload: React.FC = () => {
       });
       return;
     }
+    const unsaved = parsedData.filter((r) => !r.saved);
     setIsUploading(true);
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 25;
-      setUploadProgress(progress);
-      if (progress >= 100) {
-        clearInterval(interval);
-        setIsUploading(false);
-        // Save uploaded records & target metadata in sessionStorage
-        sessionStorage.setItem("kvell_uploaded_results", JSON.stringify(parsedData));
-        sessionStorage.setItem(
-          "kvell_upload_meta",
-          JSON.stringify({
-            deptKey,
-            studyYear,
-            semester,
-            academicYear,
-            examMonthYear: "May 2025",
-          })
-        );
-        addAuditLog({
-          action: "UPLOADED_STUDENT_DATA",
-          target: selectedFile ? selectedFile.name : `Manual Entry (${parsedData.length} students)`,
-          timestamp: getRealLocalTimestamp(),
-          description: `Confirmed Student Data for ${deptKey.toUpperCase()} ${studyYear} - ${semester} (${parsedData.length} student records).`,
-        });
-        navigate("/admin/results/validation");
+    setUploadProgress(30);
+    try {
+      if (unsaved.length > 0) {
+        const result = await saveStudentRows(unsaved, deptKey, studyYear);
+        if (!result) return;
       }
-    }, 250);
+      setUploadProgress(100);
+      sessionStorage.setItem(
+        "kvell_upload_meta",
+        JSON.stringify({ deptKey, studyYear, semester, academicYear })
+      );
+      navigate("/admin/results/validation");
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
   };
 
   // Delete Complete Target Semester Data
   const handleDeleteTargetSemester = async () => {
+    if (!deptKey || !semester) {
+      setFeedback({ type: "error", message: "Choose the department, year and semester first." });
+      return;
+    }
     const confirmText = `Are you sure you want to delete ALL student data for Target Semester "${semester}" in ${deptKey.toUpperCase()}?\n\nThis will remove all published and draft records for this semester. This action cannot be undone.`;
     if (!window.confirm(confirmText)) return;
 
@@ -586,7 +673,6 @@ export const ResultsUpload: React.FC = () => {
       });
       setSelectedFile(null);
       setParsedData([]);
-      saveDeptUploadedStudents(deptKey, []);
       setFeedback({
         type: "success",
         message: `Complete target semester data for ${deptKey.toUpperCase()} ${semester} has been successfully deleted (${result.deletedCount} batch records removed).`,
@@ -604,17 +690,20 @@ export const ResultsUpload: React.FC = () => {
 
   // Delete Target Year Data
   const handleDeleteTargetYearData = async () => {
+    if (!deptKey || !semester || !studyYear) {
+      setFeedback({ type: "error", message: "Choose the department, year and semester first." });
+      return;
+    }
     const confirmText = `Are you sure you want to delete student data for "${studyYear}" under ${deptKey.toUpperCase()} - ${semester}?\n\nThis will remove student data matching this specific target year. This action cannot be undone.`;
     if (!window.confirm(confirmText)) return;
 
     setIsDeleting(true);
     try {
-      // Clear current year records from state and active department storage
+      const deleted = await studentsApi.removeGroup(deptKey, studyYear, semester);
       const remaining = parsedData.filter(
         (s) => (s["Year"] || s.year) !== studyYear
       );
       setParsedData(remaining);
-      saveDeptUploadedStudents(deptKey, remaining);
 
       addAuditLog({
         action: "DELETED_TARGET_YEAR_DATA",
@@ -625,13 +714,13 @@ export const ResultsUpload: React.FC = () => {
 
       setFeedback({
         type: "success",
-        message: `Target student data for ${deptKey.toUpperCase()} ${studyYear} (${semester}) has been successfully removed.`,
+        message: `Target student data for ${deptKey.toUpperCase()} ${studyYear} (${semester}) has been successfully removed (${deleted} saved students deleted).`,
       });
     } catch (err) {
       console.error("Error deleting target year data:", err);
       setFeedback({
         type: "error",
-        message: `Failed to delete target student data for ${studyYear}. Please try again.`,
+        message: apiErrorMessage(err, `Failed to delete target student data for ${studyYear}. Please try again.`),
       });
     } finally {
       setIsDeleting(false);
@@ -719,7 +808,7 @@ export const ResultsUpload: React.FC = () => {
             ) : (
               <Info size={18} className="text-blue-600 shrink-0" />
             )}
-            <span>{feedback.message}</span>
+            <span className="whitespace-pre-line">{feedback.message}</span>
           </div>
           <button
             onClick={() => setFeedback(null)}
@@ -757,15 +846,12 @@ export const ResultsUpload: React.FC = () => {
               onChange={(e) => handleDeptChange(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
             >
-              {storedDepts.length > 0 ? (
-                storedDepts.map((d) => (
-                  <option key={d.key} value={d.key}>
-                    {d.name} ({d.code})
-                  </option>
-                ))
-              ) : (
-                <option value="general">No departments yet — Add in Departments tab</option>
-              )}
+              <option value="">{storedDepts.length ? "Choose department" : "Choose department (none added yet)"}</option>
+              {storedDepts.map((d) => (
+                <option key={d.key} value={d.key}>
+                  {d.name} ({d.code})
+                </option>
+              ))}
             </select>
           </div>
 
@@ -780,6 +866,7 @@ export const ResultsUpload: React.FC = () => {
               onChange={(e) => handleYearChange(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
             >
+              <option value="">Choose year of study</option>
               {yearOptions.map((y) => (
                 <option key={y.value} value={y.value}>
                   {y.label}
@@ -798,7 +885,12 @@ export const ResultsUpload: React.FC = () => {
               onChange={(e) => setSemester(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
             >
-              <option value="Semester I">Semester I</option>
+              <option value="">Choose semester</option>
+              {SEMESTER_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -812,6 +904,7 @@ export const ResultsUpload: React.FC = () => {
               onChange={(e) => setAcademicYear(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
             >
+              <option value="">Choose academic year</option>
               <option value="2026 - 2027">2026 - 2027</option>
             </select>
           </div>
@@ -860,7 +953,7 @@ export const ResultsUpload: React.FC = () => {
               title={`Delete student records matching ${studyYear}`}
             >
               <Trash2 size={13} className="text-amber-700" />
-              <span>Delete Target Year Data ({studyYear})</span>
+              <span>Delete Target Year Data{studyYear ? ` (${studyYear})` : ""}</span>
             </button>
           </div>
         </div>
@@ -1019,7 +1112,7 @@ export const ResultsUpload: React.FC = () => {
 
           {/* Student Table */}
           <div className="border border-[#E5E1D8] rounded-2xl overflow-hidden shadow-inner">
-            <div className="overflow-x-auto max-h-96">
+            <div className="overflow-auto max-h-[75vh]">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="bg-[#0B192C] text-white sticky top-0 z-10 font-bold uppercase tracking-wider text-[10px]">
                   <tr>
@@ -1045,7 +1138,7 @@ export const ResultsUpload: React.FC = () => {
 
                     return (
                       <tr
-                        key={reg}
+                        key={`${reg}-${idx}`}
                         className={`transition hover:bg-[#F8F5EE]/80 ${
                           isLateral ? "bg-purple-50/40" : ""
                         }`}
@@ -1104,7 +1197,6 @@ export const ResultsUpload: React.FC = () => {
               onClick={() => {
                 if (window.confirm(`Are you sure you want to clear loaded student records for ${deptKey.toUpperCase()}?`)) {
                   setParsedData([]);
-                  saveDeptUploadedStudents(deptKey, []);
                   setSelectedFile(null);
                 }
               }}
@@ -1190,11 +1282,10 @@ export const ResultsUpload: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
-                    DOB <span className="text-red-500">*</span>
+                    DOB <span className="text-gray-400 normal-case font-semibold">(optional, needed for login)</span>
                   </label>
                   <input
                     type="date"
-                    required
                     value={addDob}
                     onChange={(e) => setAddDob(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
@@ -1210,15 +1301,12 @@ export const ResultsUpload: React.FC = () => {
                     onChange={(e) => setAddDept(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
                   >
-                    {storedDepts.length > 0 ? (
-                      storedDepts.map((d) => (
-                        <option key={d.key} value={d.key}>
-                          {d.code} - {d.name}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="general">General</option>
-                    )}
+                    <option value="">{storedDepts.length ? "Choose department" : "Choose department (none added yet)"}</option>
+                    {storedDepts.map((d) => (
+                      <option key={d.key} value={d.key}>
+                        {d.code} - {d.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -1231,6 +1319,7 @@ export const ResultsUpload: React.FC = () => {
                     onChange={(e) => setAddStudentYear(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
                   >
+                    <option value="">Choose year of study</option>
                     <option value="1st Year">1st Year</option>
                     <option value="2nd Year">2nd Year</option>
                     <option value="3rd Year">3rd Year</option>

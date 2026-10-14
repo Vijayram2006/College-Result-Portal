@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Route, Switch, Redirect, useLocation } from "wouter";
 import { Sidebar } from "./components/Sidebar";
 import { Navbar } from "./components/Navbar";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { PasswordChangeGate } from "./components/PasswordChange";
 
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
@@ -10,11 +11,13 @@ import { ResultsPage } from "./pages/Results";
 import { ResultsUpload } from "./pages/ResultsUpload";
 import { ResultsValidation } from "./pages/ResultsValidation";
 import { ResultsPublished } from "./pages/ResultsPublished";
+import { ResultsPublish } from "./pages/ResultsPublish";
+import { AnswerScripts } from "./pages/AnswerScripts";
 import { AnalyticsPage } from "./pages/Analytics";
 import { AuditLogsPage } from "./pages/AuditLogs";
 import { ProfilePage } from "./pages/Profile";
 import { SubjectsPage } from "./pages/Subjects";
-import { DepartmentsPage } from "./pages/Departments";
+import { DepartmentsPage, refreshDepartments } from "./pages/Departments";
 
 const pageTitles: Record<string, string> = {
   "/admin/dashboard": "University Admin Dashboard",
@@ -22,6 +25,8 @@ const pageTitles: Record<string, string> = {
   "/admin/results": "Result Management Hub",
   "/admin/results/upload": "Student Data",
   "/admin/results/validation": "Student Mark Entry",
+  "/admin/results/answer-scripts": "Answer Script Entry",
+  "/admin/results/publish": "Publish Results",
   "/admin/results/published": "Published Examination Results",
   "/admin/analytics": "Institutional Analytics",
   "/admin/audit-logs": "Administrative Audit Trail",
@@ -37,6 +42,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [location] = useLocation();
 
+  // Every page reads the college's departments from this cache; load it fresh from the server once per visit
+  useEffect(() => {
+    refreshDepartments().catch(() => undefined);
+  }, []);
+
   const title = pageTitles[location] || "Admin Panel";
 
   return (
@@ -46,6 +56,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         <Navbar setMobileOpen={setMobileOpen} title={title} />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full min-w-0">{children}</main>
       </div>
+      <PasswordChangeGate />
     </div>
   );
 };
@@ -89,10 +100,26 @@ export const App: React.FC = () => {
         )}
       </Route>
 
+      <Route path="/admin/results/answer-scripts">
+        {() => (
+          <AdminLayout>
+            <ProtectedRoute component={AnswerScripts} />
+          </AdminLayout>
+        )}
+      </Route>
+
       <Route path="/admin/results/validation">
         {() => (
           <AdminLayout>
             <ProtectedRoute component={ResultsValidation} />
+          </AdminLayout>
+        )}
+      </Route>
+
+      <Route path="/admin/results/publish">
+        {() => (
+          <AdminLayout>
+            <ProtectedRoute component={ResultsPublish} />
           </AdminLayout>
         )}
       </Route>

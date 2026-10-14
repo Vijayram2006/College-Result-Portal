@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Building2, Plus, Edit, Trash2, X, Check, AlertCircle, RotateCcw } from "lucide-react";
-import { getScopedKey, getActiveCollege, getActiveCollegeKey, isEngineeringCollege } from "../utils/rbac";
+import { getScopedKey, getActiveCollege } from "../utils/rbac";
+import { departmentsApi, apiErrorMessage } from "../services/api";
 
 export interface Department {
   key: string;
@@ -9,162 +10,47 @@ export interface Department {
   headName: string;
   totalStudents: number;
   status: "ACTIVE" | "INACTIVE";
+  hodLogin?: string | null;
+  facultyLogin?: string | null;
 }
 
-export const initialDefaultDepts: Department[] = [
-  {
-    key: "aids",
-    name: "Artificial Intelligence & Data Science",
-    code: "AIDS",
-    headName: "Dr. HOD AIDS",
-    totalStudents: 50,
-    status: "ACTIVE",
-  },
-  {
-    key: "cse",
-    name: "Computer Science and Engineering",
-    code: "CSE",
-    headName: "Dr. HOD CSE",
-    totalStudents: 20,
-    status: "ACTIVE",
-  },
-  {
-    key: "auto",
-    name: "Automobile Engineering",
-    code: "AUTO",
-    headName: "Dr. HOD AUTO",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-  {
-    key: "bme",
-    name: "Biomedical Engineering",
-    code: "BME",
-    headName: "Dr. HOD BME",
-    totalStudents: 15,
-    status: "ACTIVE",
-  },
-  {
-    key: "biotech",
-    name: "Biotech",
-    code: "BIOTECH",
-    headName: "Dr. HOD Biotech",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-  {
-    key: "ece",
-    name: "ECE (Electronics and Communication Engineering)",
-    code: "ECE",
-    headName: "Dr. HOD ECE",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-  {
-    key: "eee",
-    name: "EEE (Electrical and Electronics Engineering)",
-    code: "EEE",
-    headName: "Dr. HOD EEE",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-  {
-    key: "civil",
-    name: "CIVIL Engineering",
-    code: "CIVIL",
-    headName: "Dr. HOD Civil",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-  {
-    key: "robotics",
-    name: "Robotics and Automation",
-    code: "R&A",
-    headName: "Dr. HOD Robotics",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-  {
-    key: "mech",
-    name: "Mechanical Engineering",
-    code: "MECH",
-    headName: "Dr. HOD Mech",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-  {
-    key: "mba",
-    name: "Master of Business Administration (MBA)",
-    code: "MBA",
-    headName: "Dr. HOD MBA",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-  {
-    key: "mca",
-    name: "Master of Computer Applications (MCA)",
-    code: "MCA",
-    headName: "Dr. HOD MCA",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-];
+// Departments come from the server (scoped to the signed-in COE's college). Pages read this cache synchronously;
+// refreshDepartments() reloads it and tells every page through "kvell_departments_updated".
+const cacheKey = () => getScopedKey("kvell_server_departments");
 
 export const getStoredDepartments = (): Department[] => {
-  const activeCollege = getActiveCollegeKey();
-  const storageKey = getScopedKey("kvell_departments");
-
-  // For Nursing and Pharmacy: NO pre-seeded data! Start clean.
-  if (activeCollege !== "engineering") {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) {
-      console.error("Error reading scoped departments", e);
-    }
-    return [];
-  }
-
-  // Engineering College: return persisted or default engineering depts
   try {
-    const raw = localStorage.getItem("kvell_departments");
+    const raw = localStorage.getItem(cacheKey());
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const existingKeys = new Set(parsed.map((d: any) => (d.key || "").toLowerCase()));
-        let changed = false;
-        const merged = [...parsed];
-        for (const defDept of initialDefaultDepts) {
-          if (!existingKeys.has(defDept.key.toLowerCase())) {
-            merged.push(defDept);
-            existingKeys.add(defDept.key.toLowerCase());
-            changed = true;
-          }
-        }
-        if (changed) {
-          localStorage.setItem("kvell_departments", JSON.stringify(merged));
-        }
-        return merged;
-      }
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch (e) {
-    console.error("Error reading kvell_departments", e);
+    console.error("Error reading departments", e);
   }
-  return initialDefaultDepts;
+  return [];
 };
 
-export const saveStoredDepartments = (depts: Department[]) => {
-  const storageKey = getScopedKey("kvell_departments");
+export const refreshDepartments = async (): Promise<Department[]> => {
+  const list = (await departmentsApi.list()).map((d) => ({
+    key: d.key,
+    name: d.name,
+    code: d.code,
+    headName: d.headName,
+    hodLogin: d.hodLogin,
+    facultyLogin: d.facultyLogin,
+    totalStudents: d.totalStudents,
+    status: d.status,
+  }));
+  const json = JSON.stringify(list);
+  let changed = true;
   try {
-    localStorage.setItem(storageKey, JSON.stringify(depts));
-    window.dispatchEvent(new Event("kvell_departments_updated"));
-    window.dispatchEvent(new Event("storage"));
-  } catch (e) {
-    console.error("Error saving scoped departments", e);
-  }
+    changed = localStorage.getItem(cacheKey()) !== json;
+    localStorage.setItem(cacheKey(), json);
+  } catch {}
+  // Only announce real changes: listeners re-read the cache, and must never refresh again from this event
+  if (changed) window.dispatchEvent(new Event("kvell_departments_updated"));
+  return list;
 };
 
 export const DepartmentsPage: React.FC = () => {
@@ -177,16 +63,19 @@ export const DepartmentsPage: React.FC = () => {
   const [formCode, setFormCode] = useState("");
   const [formKey, setFormKey] = useState("");
   const [formHeadName, setFormHeadName] = useState("");
-  const [formStatus, setFormStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
+  const [formStatus, setFormStatus] = useState<"" | "ACTIVE" | "INACTIVE">("");
   const [errorMsg, setErrorMsg] = useState("");
 
   const loadDepartments = () => {
     setDepts(getStoredDepartments());
+    refreshDepartments()
+      .then(setDepts)
+      .catch((err) => setErrorMsg(apiErrorMessage(err, "Could not load departments.")));
   };
 
   useEffect(() => {
     loadDepartments();
-    const handleUpdate = () => loadDepartments();
+    const handleUpdate = () => setDepts(getStoredDepartments());
     window.addEventListener("kvell_departments_updated", handleUpdate);
     window.addEventListener("kvell_dept_students_updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
@@ -203,7 +92,7 @@ export const DepartmentsPage: React.FC = () => {
     setFormCode("");
     setFormKey("");
     setFormHeadName("");
-    setFormStatus("ACTIVE");
+    setFormStatus("");
     setErrorMsg("");
     setShowModal(true);
   };
@@ -242,11 +131,11 @@ export const DepartmentsPage: React.FC = () => {
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedName = formName.trim();
     const trimmedCode = formCode.trim().toUpperCase();
-    const trimmedKey = (formKey.trim() || trimmedCode).toLowerCase();
+    const trimmedKey = (formKey.trim() || trimmedCode).toLowerCase().replace(/[^a-z0-9]/g, "");
 
     if (!trimmedName) {
       setErrorMsg("Please enter department name.");
@@ -256,106 +145,44 @@ export const DepartmentsPage: React.FC = () => {
       setErrorMsg("Please enter department code.");
       return;
     }
-
-    const currentList = getStoredDepartments();
-
-    if (editingKey) {
-      // Update
-      const updated = currentList.map((d) =>
-        d.key === editingKey
-          ? {
-              ...d,
-              name: trimmedName,
-              code: trimmedCode,
-              headName: formHeadName.trim() || "Head of Department",
-              status: formStatus,
-            }
-          : d
-      );
-      saveStoredDepartments(updated);
-      setDepts(updated);
-    } else {
-      // Check duplicate
-      if (currentList.some((d) => d.key === trimmedKey || d.code === trimmedCode)) {
-        setErrorMsg(`Department code '${trimmedCode}' or key '${trimmedKey}' already exists.`);
-        return;
-      }
-
-      const newDept: Department = {
-        key: trimmedKey,
-        name: trimmedName,
-        code: trimmedCode,
-        headName: formHeadName.trim() || "Head of Department",
-        totalStudents: 0,
-        status: formStatus,
-      };
-
-      const updated = [...currentList, newDept];
-      saveStoredDepartments(updated);
-      setDepts(updated);
+    if (!formStatus) {
+      setErrorMsg("Please choose the department status.");
+      return;
     }
 
-    setShowModal(false);
+    const payload = {
+      name: trimmedName,
+      code: trimmedCode,
+      headName: formHeadName.trim(),
+      status: formStatus,
+    };
+    try {
+      if (editingKey) {
+        await departmentsApi.update(editingKey, payload);
+      } else {
+        await departmentsApi.create({ key: trimmedKey, ...payload });
+      }
+      setDepts(await refreshDepartments());
+      setShowModal(false);
+    } catch (err) {
+      setErrorMsg(apiErrorMessage(err, "Could not save the department."));
+    }
   };
 
-  const handleDelete = (key: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete '${name}' department?`)) {
-      const updated = depts.filter((d) => d.key !== key);
-      saveStoredDepartments(updated);
-      setDepts(updated);
+  const handleDelete = async (key: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete '${name}' department?`)) return;
+    try {
+      await departmentsApi.remove(key);
+      setDepts(await refreshDepartments());
+    } catch (err) {
+      alert(apiErrorMessage(err, "Could not delete the department."));
     }
   };
 
   const college = getActiveCollege();
 
-  const handleClearAll = () => {
-    if (window.confirm(`Are you sure you want to remove ALL departments for ${college.name}?`)) {
-      saveStoredDepartments([]);
-      setDepts([]);
-    }
-  };
-
-  const handleResetDefaults = () => {
-    if (isEngineeringCollege()) {
-      if (window.confirm("Reset department list to all university departments with standard abbreviations?")) {
-        saveStoredDepartments(initialDefaultDepts);
-        setDepts(initialDefaultDepts);
-      }
-    } else {
-      saveStoredDepartments([]);
-      setDepts([]);
-    }
-  };
-
-  const getDeptStudentCount = (key: string, name: string) => {
-    try {
-      const k = key.toLowerCase();
-      const studentPrefix = getScopedKey("kvell_dept_students_");
-      const rawDept =
-        sessionStorage.getItem(`${studentPrefix}${k}`) ||
-        localStorage.getItem(`${studentPrefix}${k}`);
-      if (rawDept) {
-        const parsed = JSON.parse(rawDept);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed.length;
-      }
-
-      const raw = localStorage.getItem(getScopedKey("kvell_students"));
-      if (raw) {
-        const list = JSON.parse(raw);
-        if (Array.isArray(list)) {
-          const n = name.toLowerCase();
-          const count = list.filter((s: any) => {
-            const sK = (s.deptKey || "").toLowerCase();
-            const sN = (s.deptName || "").toLowerCase();
-            return sK === k || sN === n || sN.includes(k) || sK.includes(k);
-          }).length;
-          if (count > 0) return count;
-        }
-      }
-    } catch {}
-    if (isEngineeringCollege() && key.toLowerCase() === "aids") return 50;
-    return 0;
-  };
+  const getDeptStudentCount = (key: string, _name?: string) =>
+    depts.find((d) => d.key === key)?.totalStudents ?? 0;
 
   return (
     <div className="space-y-6 w-full">
@@ -374,23 +201,6 @@ export const DepartmentsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          {isEngineeringCollege() && (
-            <button
-              onClick={handleResetDefaults}
-              className="px-3.5 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs font-bold transition flex items-center gap-1.5"
-              title="Restore standard university departments"
-            >
-              <RotateCcw size={14} /> Reset Defaults
-            </button>
-          )}
-          {depts.length > 0 && (
-            <button
-              onClick={handleClearAll}
-              className="px-3.5 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold transition flex items-center gap-1.5"
-            >
-              <Trash2 size={14} /> Clear All
-            </button>
-          )}
           <button
             onClick={openAddModal}
             className="px-4 py-2.5 rounded-xl bg-[#0B192C] text-white text-xs font-extrabold flex items-center gap-2 hover:bg-[#132943] transition shadow"
@@ -578,6 +388,7 @@ export const DepartmentsPage: React.FC = () => {
                   onChange={(e) => setFormStatus(e.target.value as "ACTIVE" | "INACTIVE")}
                   className="w-full h-10 px-3 rounded-xl border border-[#E5E1D8] text-xs font-bold text-gray-700 bg-white"
                 >
+                  <option value="">Choose status</option>
                   <option value="ACTIVE">ACTIVE</option>
                   <option value="INACTIVE">INACTIVE</option>
                 </select>

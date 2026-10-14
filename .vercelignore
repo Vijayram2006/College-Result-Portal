@@ -1,0 +1,7 @@
+# The main portal deployment only needs the client, shared code and build config
+admin-panel
+backend
+node_modules
+dist
+.remember
+*.log

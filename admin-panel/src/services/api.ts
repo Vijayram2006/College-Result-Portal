@@ -1,7 +1,5 @@
 import axios from "axios";
-import { getRealLocalTimestamp } from "../utils/dateUtils";
-import { seedDummyMarksForDepts, ensureDummyMarksLoaded } from "../data/dummyMarksData";
-import { getScopedKey, getActiveCollegeKey, getActiveCollege, AdminRole, CollegeKey } from "../utils/rbac";
+import type { AdminRole, CollegeKey } from "../utils/rbac";
 
 // Environment-configured API URL connecting to Spring Boot backend
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
@@ -11,10 +9,10 @@ export const apiClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 1500,
+  timeout: 15000,
 });
 
-// Interceptor: Attach Bearer JWT token if authenticated
+// Interceptor: Attach Bearer token if authenticated
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("kvell_admin_token");
@@ -26,52 +24,52 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Types & DTO Interfaces matching existing backend schema
+// An expired or revoked session sends the admin back to the login page
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const isLogin = String(error?.config?.url || "").includes("/auth/login");
+    // An account that still has its shared starting password must choose its own first (PasswordChangeGate)
+    if (error?.response?.status === 403 && error.response.data?.passwordChangeRequired) {
+      window.dispatchEvent(new Event("kvell:password-change-required"));
+    }
+    if (error?.response?.status === 401 && !isLogin) {
+      localStorage.removeItem("kvell_admin_token");
+      localStorage.removeItem("kvell_admin_user");
+      if (!window.location.pathname.endsWith("/admin/login")) {
+        window.location.assign("/admin/login");
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+/** Human-readable message from an API error ({ error: "..." } bodies), for alerts and banners. */
+export function apiErrorMessage(err: any, fallback = "Request failed. Please try again."): string {
+  if (!err?.response) return "Cannot reach the result server. Check that the backend is running.";
+  return err.response.data?.error || fallback;
+}
+
+// Types & DTO Interfaces matching the backend
 
 export interface AdminUser {
   id: string;
   username: string;
   name: string;
+  /** COE_ENGINEERING / COE_NURSING / COE_PHARMACY: each COE only sees its own college's data. */
   role: AdminRole;
   collegeKey: CollegeKey;
   collegeName: string;
-  email: string;
+  email?: string;
   departmentKey?: string;
+  /** Still has the shared starting password: must choose a new one before using the panel. */
+  mustChangePassword?: boolean;
 }
 
 export interface AdminAuthResponse {
   token: string;
   role: AdminRole;
   user: AdminUser;
-}
-
-export interface StudentRecord {
-  id: string;
-  regNo: string;
-  name: string;
-  email: string;
-  deptKey: string;
-  deptName: string;
-  course: string;
-  semester: string;
-  year: string;
-  section: string;
-  batch: string;
-  sgpa: number;
-  cgpa: number;
-  status: "ACTIVE" | "INACTIVE";
-}
-
-export interface FacultyRecord {
-  id: string;
-  employeeId: string;
-  name: string;
-  email: string;
-  designation: string;
-  deptKey: string;
-  deptName: string;
-  assignedSubjects: string[];
-  status: "ACTIVE" | "INACTIVE";
 }
 
 export interface DepartmentRecord {
@@ -82,26 +80,95 @@ export interface DepartmentRecord {
   headName: string;
   totalStudents: number;
   status: "ACTIVE" | "INACTIVE";
+  hodLogin?: string | null;
+  facultyLogin?: string | null;
 }
 
-export interface CourseRecord {
+export interface StudentRecord {
+  regNo: string;
+  studentName: string;
+  dob: string;
+  dept: string;
+  deptKey: string;
+  deptName: string;
+  category: "regular" | "lateral";
+  year: string;
+  semester: string;
+  academicYear: string;
+}
+
+export interface StudentRowInput {
+  row?: number;
+  regNo: string;
+  name: string;
+  dob: string;
+  category: string;
+}
+
+export interface RowError {
+  row: number;
+  regNo: string;
+  field: string;
+  error: string;
+}
+
+export interface SubjectRecord {
   id: string;
   code: string;
   title: string;
+  category: "Core Mandatory" | "Professional Elective" | "Open Elective";
   credits: number;
+  department: string;
   deptKey: string;
   semester: string;
-  year: string;
-  status: "ACTIVE" | "INACTIVE";
+  academicYear?: string;
+  faculty: string;
+  status: "COE FINALIZED" | "PENDING APPROVAL";
+  studentsEnrolled?: number;
+}
+
+export interface Subdivisions {
+  i: number;
+  ii: number;
+  iii: number;
+}
+
+export interface QuestionMarks {
+  a: Subdivisions;
+  b: Subdivisions;
+}
+
+/** One row of the Mark Entry roster. */
+export interface StudentMarkRecord {
+  regNo: string;
+  name: string;
+  dob: string;
+  category: "regular" | "lateral";
+  hasMarks: boolean;
+  partATotal: number;
+  partBCTotal: number;
+  grandTotal: number;
+  grade: string;
+  resultStatus: "PASS" | "FAIL";
+  partA: number[];
+  partBC: Record<string, QuestionMarks>;
+  assessmentType?: string;
+  deptKey?: string;
+  deptName?: string;
+  semester?: string;
+  subjectCode?: string;
+  subjectTitle?: string;
+  examinerName?: string;
+  examinerDesignation?: string;
 }
 
 export interface ResultRecordItem {
   regNo: string;
   studentName: string;
-  dob?: string;
   deptKey: string;
   courseCode: string;
   courseTitle: string;
+  credits?: number;
   semester: string;
   internalMarks: number;
   externalMarks: number;
@@ -119,6 +186,8 @@ export interface ResultBatchRecord {
   semester: string;
   academicYear: string;
   examMonthYear: string;
+  subjectCode?: string;
+  subjectTitle?: string;
   uploadDate: string;
   uploadedBy: string;
   totalStudents: number;
@@ -128,28 +197,44 @@ export interface ResultBatchRecord {
   publishedAt?: string;
   publishedBy?: string;
   records: ResultRecordItem[];
+  /** IAT-1, IAT-2 or End Semester */
+  assessmentType?: string;
 }
 
-export interface ValidationErrorItem {
-  row: number;
-  regNo: string;
-  courseCode: string;
-  error: string;
-  field: string;
+export interface DashboardDepartmentRow {
+  deptKey: string;
+  name: string;
+  students: number;
+  studentsWithoutDob: number;
+  subjects: number;
+  marksEntered: number;
+  publishedBatches: number;
+  passPercentage: number;
 }
 
-export interface ValidationResponse {
-  isValid: boolean;
-  totalRows: number;
-  validRows: number;
-  errorCount: number;
-  errors: ValidationErrorItem[];
-  preview: ResultRecordItem[];
+export interface PublishRow {
+  subjectCode: string;
+  subjectTitle: string;
+  students: number;
+  marksEntered: number;
+  /**
+   * NO_MARKS, NOT_FORWARDED (marks entered, faculty has not forwarded), FORWARDED (awaiting COE), PUBLISHED,
+   * OUT_OF_DATE (marks changed after forwarding: faculty must forward again).
+   */
+  state: "NO_MARKS" | "NOT_FORWARDED" | "FORWARDED" | "PUBLISHED" | "OUT_OF_DATE";
+  forwardedBy: string | null;
+  batchId: string | null;
+  publishedAt: string | null;
+  publishedStudents: number;
+  passPercentage: number;
 }
 
 export interface AdminDashboardStats {
   totalStudents: number;
   totalFaculty: number;
+  studentsWithoutDob: number;
+  marksEntered: number;
+  departments: DashboardDepartmentRow[];
   totalDepartments: number;
   totalCourses: number;
   pendingResults: number;
@@ -180,92 +265,24 @@ export interface AuditLogRecord {
 
 export const adminAuthApi = {
   async login(username: string, password: string): Promise<AdminAuthResponse> {
-    const cleanUser = (username || "").trim().toUpperCase();
-
-    try {
-      const response = await apiClient.post<AdminAuthResponse>("/auth/login", {
-        username,
-        password,
-        role: "admin",
-      });
-      if (response.data.token) {
-        localStorage.setItem("kvell_admin_token", response.data.token);
-        localStorage.setItem("kvell_admin_user", JSON.stringify(response.data.user));
-      }
-      return response.data;
-    } catch (err: any) {
-      // Local fallback handler for RBAC demo authentication
-
-      // 1. Nursing College COE
-      if (cleanUser.includes("NURSING") || cleanUser === "NUR") {
-        const mockNursingAdmin: AdminAuthResponse = {
-          token: "mock-jwt-nursing-coe-token-2026",
-          role: "COE_NURSING",
-          user: {
-            id: "ADM-NUR-001",
-            username: "COE_NURSING",
-            name: "Dr. Controller of Examinations (Nursing)",
-            role: "COE_NURSING",
-            collegeKey: "nursing",
-            collegeName: "KVELL College of Nursing",
-            email: "coe.nursing@kvell.edu.in",
-          },
-        };
-        localStorage.setItem("kvell_admin_token", mockNursingAdmin.token);
-        localStorage.setItem("kvell_admin_user", JSON.stringify(mockNursingAdmin.user));
-        return mockNursingAdmin;
-      }
-
-      // 2. Pharmacy College COE
-      if (cleanUser.includes("PHARM") || cleanUser === "PHARMA") {
-        const mockPharmacyAdmin: AdminAuthResponse = {
-          token: "mock-jwt-pharmacy-coe-token-2026",
-          role: "COE_PHARMACY",
-          user: {
-            id: "ADM-PHARM-001",
-            username: "COE_PHARMACY",
-            name: "Dr. Controller of Examinations (Pharmacy)",
-            role: "COE_PHARMACY",
-            collegeKey: "pharmacy",
-            collegeName: "KVELL College of Pharmacy",
-            email: "coe.pharmacy@kvell.edu.in",
-          },
-        };
-        localStorage.setItem("kvell_admin_token", mockPharmacyAdmin.token);
-        localStorage.setItem("kvell_admin_user", JSON.stringify(mockPharmacyAdmin.user));
-        return mockPharmacyAdmin;
-      }
-
-      // 3. Engineering COE (Main / Admin account)
-      if (
-        cleanUser === "ADMIN" ||
-        cleanUser.includes("ENG") ||
-        cleanUser === "ADMIN@KVELL.EDU" ||
-        cleanUser.length > 0
-      ) {
-        const mockAdmin: AdminAuthResponse = {
-          token: "mock-jwt-admin-token-secret-2026",
-          role: "COE_ENGINEERING",
-          user: {
-            id: "ADM-001",
-            username: "ADMIN",
-            name: "Dr. Controller of Examinations (Engineering)",
-            role: "COE_ENGINEERING",
-            collegeKey: "engineering",
-            collegeName: "KVELL Institute of Technology",
-            email: "admin@kvell.edu.in",
-          },
-        };
-        localStorage.setItem("kvell_admin_token", mockAdmin.token);
-        localStorage.setItem("kvell_admin_user", JSON.stringify(mockAdmin.user));
-        return mockAdmin;
-      }
-
-      throw err;
+    const response = await apiClient.post<AdminAuthResponse>("/auth/login", {
+      username,
+      password,
+      role: "admin",
+    });
+    if (response.data.token) {
+      localStorage.setItem("kvell_admin_token", response.data.token);
+      localStorage.setItem("kvell_admin_user", JSON.stringify(response.data.user));
     }
+    return response.data;
   },
 
   logout() {
+    const token = localStorage.getItem("kvell_admin_token");
+    if (token) {
+      // Send the token explicitly: it is removed from storage below before the request interceptor runs
+      apiClient.post("/auth/logout", null, { headers: { Authorization: `Bearer ${token}` } }).catch(() => undefined);
+    }
     localStorage.removeItem("kvell_admin_token");
     localStorage.removeItem("kvell_admin_user");
   },
@@ -274,496 +291,294 @@ export const adminAuthApi = {
     const raw = localStorage.getItem("kvell_admin_user");
     return raw ? JSON.parse(raw) : null;
   },
+
+  /** Replaces the password; other sessions of the account are signed out. */
+  async changePassword(currentPassword: string, newPassword: string): Promise<AdminUser> {
+    const response = await apiClient.post<AdminUser>("/auth/change-password", { currentPassword, newPassword });
+    const stored = adminAuthApi.getCurrentUser();
+    if (stored) {
+      localStorage.setItem("kvell_admin_user", JSON.stringify({ ...stored, mustChangePassword: false }));
+    }
+    return response.data;
+  },
 };
 
 export const adminDashboardApi = {
   async getStats(): Promise<AdminDashboardStats> {
-    const activeCollege = getActiveCollegeKey();
+    const res = await apiClient.get<AdminDashboardStats>("/admin/dashboard");
+    return res.data;
+  },
+};
 
-    try {
-      const res = await apiClient.get<AdminDashboardStats>(`/admin/dashboard?college=${activeCollege}`);
-      return res.data;
-    } catch {
-      // Nursing and Pharmacy start with clean empty state (NO pre-seeded data)
-      if (activeCollege !== "engineering") {
-        let totalStudents = 0;
-        let totalCourses = 0;
-        let totalDepartments = 0;
-        let totalFaculty = 0;
-        let pendingResults = 0;
-        let publishedResults = 0;
-        let overallPassPercentage = 0;
-        let recentUploads: AdminDashboardStats["recentUploads"] = [];
+export interface NotificationItem {
+  id: number;
+  title: string;
+  message: string;
+  link: string | null;
+  createdAt: string;
+  read: boolean;
+}
 
-        try {
-          const rawDepts = localStorage.getItem(getScopedKey("kvell_departments"));
-          if (rawDepts) {
-            const depts = JSON.parse(rawDepts);
-            if (Array.isArray(depts)) {
-              totalDepartments = depts.length;
-              totalFaculty = depts.filter((d: any) => d.headName && d.headName !== "Not assigned").length;
-            }
-          }
-        } catch {}
+export interface NotificationInbox {
+  unread: number;
+  items: NotificationItem[];
+}
 
-        try {
-          const rawSubjects = localStorage.getItem(getScopedKey("kvell_admin_subjects"));
-          if (rawSubjects) {
-            const subjects = JSON.parse(rawSubjects);
-            if (Array.isArray(subjects)) {
-              totalCourses = subjects.length;
-            }
-          }
-        } catch {}
+/** The signed-in user's notifications (bell icon). */
+export const notificationsApi = {
+  async inbox(): Promise<NotificationInbox> {
+    return (await apiClient.get<NotificationInbox>("/notifications")).data;
+  },
+  async markRead(id: number): Promise<void> {
+    await apiClient.post(`/notifications/${id}/read`);
+  },
+  async markAllRead(): Promise<void> {
+    await apiClient.post("/notifications/read-all");
+  },
+};
 
-        try {
-          const rawBatches = localStorage.getItem(getScopedKey("kvell_custom_batches"));
-          if (rawBatches) {
-            const batches = JSON.parse(rawBatches);
-            if (Array.isArray(batches)) {
-              publishedResults = batches.filter((b: any) => b.publicationStatus === "PUBLISHED").length;
-              pendingResults = batches.filter((b: any) => b.publicationStatus !== "PUBLISHED").length;
-              recentUploads = batches.map((b: any) => ({
-                batchId: b.id,
-                department: b.departmentName || b.departmentKey?.toUpperCase() || "General",
-                semester: b.semester,
-                students: b.totalStudents || 0,
-                status: b.publicationStatus || "DRAFT",
-                date: b.uploadDate || "",
-              }));
-              const passRates = batches
-                .map((b: any) => Number(b.passPercentage) || 0)
-                .filter((p: number) => p > 0);
-              if (passRates.length > 0) {
-                overallPassPercentage = Number(
-                  (passRates.reduce((a: number, b: number) => a + b, 0) / passRates.length).toFixed(1)
-                );
-              }
-            }
-          }
-        } catch {}
+export const departmentsApi = {
+  async list(): Promise<DepartmentRecord[]> {
+    const res = await apiClient.get<DepartmentRecord[]>("/admin/departments");
+    return res.data;
+  },
 
-        // Calculate unique students for this college
-        const uniqueRegs = new Set<string>();
-        const studentPrefix = getScopedKey("kvell_dept_students_");
-        try {
-          for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k && k.startsWith(studentPrefix)) {
-              const raw = localStorage.getItem(k);
-              if (raw) {
-                const list = JSON.parse(raw);
-                if (Array.isArray(list)) {
-                  list.forEach((s: any) => {
-                    const reg = s.regNo || s["Register Number"];
-                    if (reg && reg !== "undefined") uniqueRegs.add(String(reg).trim());
-                  });
-                }
-              }
-            }
-          }
-        } catch {}
+  async create(dept: { key: string; name: string; code: string; headName: string; status?: string }): Promise<DepartmentRecord> {
+    const res = await apiClient.post<DepartmentRecord>("/admin/departments", dept);
+    return res.data;
+  },
 
-        try {
-          const rawSt = localStorage.getItem(getScopedKey("kvell_students"));
-          if (rawSt) {
-            const st = JSON.parse(rawSt);
-            if (Array.isArray(st)) {
-              st.forEach((s: any) => {
-                if (s && s.regNo) uniqueRegs.add(String(s.regNo).trim());
-              });
-            }
-          }
-        } catch {}
+  async update(key: string, dept: { name: string; code: string; headName: string; status?: string }): Promise<DepartmentRecord> {
+    const res = await apiClient.put<DepartmentRecord>(`/admin/departments/${encodeURIComponent(key)}`, dept);
+    return res.data;
+  },
 
-        totalStudents = uniqueRegs.size;
+  async remove(key: string): Promise<void> {
+    await apiClient.delete(`/admin/departments/${encodeURIComponent(key)}`);
+  },
+};
 
-        return {
-          totalStudents,
-          totalFaculty,
-          totalDepartments,
-          totalCourses,
-          pendingResults,
-          publishedResults,
-          overallPassPercentage,
-          recentUploads,
-        };
-      }
+export const studentsApi = {
+  async list(dept?: string, semester?: string): Promise<StudentRecord[]> {
+    const res = await apiClient.get<StudentRecord[]>("/admin/students", { params: { dept, semester } });
+    return res.data;
+  },
 
-      // Existing Engineering College Stats
-      ensureDummyMarksLoaded();
+  /** Adds new students and updates existing ones. Rejects with 422 + row errors if any row is invalid. */
+  async save(payload: {
+    deptKey: string;
+    year: string;
+    semester: string;
+    academicYear: string;
+    students: StudentRowInput[];
+  }): Promise<{ created: number; updated: number; total: number; withoutDob: number }> {
+    // Large sheets (thousands of rows) take several seconds to validate and save
+    const res = await apiClient.put("/admin/students", payload, { timeout: 120000 });
+    return res.data;
+  },
 
-      let totalStudents = 0;
-      let totalCourses = 0;
-      let totalDepartments = 12;
-      let totalFaculty = 12;
-      let pendingResults = 0;
-      let publishedResults = 0;
-      let overallPassPercentage = 0;
-      let recentUploads: AdminDashboardStats["recentUploads"] = [];
+  async remove(regNo: string): Promise<void> {
+    await apiClient.delete(`/admin/students/${encodeURIComponent(regNo)}`);
+  },
 
-      try {
-        const rawDepts = localStorage.getItem("kvell_departments");
-        if (rawDepts) {
-          const depts = JSON.parse(rawDepts);
-          if (Array.isArray(depts) && depts.length > 0) {
-            totalDepartments = depts.length;
-            totalFaculty = depts.filter((d: any) => d.headName && d.headName !== "Not assigned").length || depts.length;
-          }
-        }
-      } catch {}
+  async removeGroup(dept: string, year: string, semester: string): Promise<number> {
+    const res = await apiClient.delete<{ deleted: number }>("/admin/students", { params: { dept, year, semester } });
+    return res.data.deleted;
+  },
+};
 
-      try {
-        const rawSubjects = localStorage.getItem("kvell_admin_subjects");
-        if (rawSubjects) {
-          const subjects = JSON.parse(rawSubjects);
-          if (Array.isArray(subjects) && subjects.length > 0) {
-            totalCourses = subjects.length;
-          }
-        }
-      } catch {}
-      if (totalCourses === 0) {
-        totalCourses = 18;
-      }
+/** One uploaded answer script (the PDF itself is fetched separately). */
+export interface AnswerScriptInfo {
+  regNo: string;
+  subjectCode: string;
+  assessmentType: string;
+  fileName: string;
+  sizeBytes: number;
+  uploadedBy: string;
+  uploadedAt: string;
+}
 
-      try {
-        const rawBatches = localStorage.getItem("kvell_custom_batches");
-        if (rawBatches) {
-          const batches = JSON.parse(rawBatches);
-          if (Array.isArray(batches)) {
-            publishedResults = batches.filter((b: any) => b.publicationStatus === "PUBLISHED").length;
-            pendingResults = batches.filter((b: any) => b.publicationStatus !== "PUBLISHED").length;
-            recentUploads = batches.map((b: any) => ({
-              batchId: b.id,
-              department: b.departmentName || b.departmentKey?.toUpperCase() || "General",
-              semester: b.semester,
-              students: b.totalStudents || 0,
-              status: b.publicationStatus || "DRAFT",
-              date: b.uploadDate || "",
-            }));
-            const passRates = batches
-              .map((b: any) => Number(b.passPercentage) || 0)
-              .filter((p: number) => p > 0);
-            if (passRates.length > 0) {
-              overallPassPercentage = Number(
-                (passRates.reduce((a: number, b: number) => a + b, 0) / passRates.length).toFixed(1)
-              );
-            }
-          }
-        }
-      } catch {}
+export const answerScriptsApi = {
+  async list(dept: string, semester: string, assessment: string): Promise<AnswerScriptInfo[]> {
+    const res = await apiClient.get<AnswerScriptInfo[]>("/admin/answer-scripts", { params: { dept, semester, assessment } });
+    return res.data;
+  },
 
-      // Calculate unique active students across all department rosters & marks
-      const uniqueStudentRegs = new Set<string>();
+  async upload(p: { dept: string; semester: string; subject: string; regNo: string; assessment: string }, file: File): Promise<AnswerScriptInfo> {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await apiClient.post<AnswerScriptInfo>("/admin/answer-scripts", form, {
+      params: p,
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 120000,
+    });
+    return res.data;
+  },
 
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && k.startsWith("kvell_dept_students_")) {
-            const raw = localStorage.getItem(k);
-            if (raw) {
-              const list = JSON.parse(raw);
-              if (Array.isArray(list)) {
-                list.forEach((s: any) => {
-                  const reg = s.regNo || s["Register Number"];
-                  if (reg && reg !== "undefined") uniqueStudentRegs.add(String(reg).trim());
-                });
-              }
-            }
-          }
-        }
-      } catch {}
+  /** The PDF as a blob (the request needs the sign-in token, so it can't be a plain link). */
+  async file(p: { dept: string; semester: string; subject: string; regNo: string; assessment: string }): Promise<Blob> {
+    const res = await apiClient.get("/admin/answer-scripts/file", { params: p, responseType: "blob", timeout: 120000 });
+    return res.data;
+  },
 
-      try {
-        const rawStudents = localStorage.getItem("kvell_students");
-        if (rawStudents) {
-          const st = JSON.parse(rawStudents);
-          if (Array.isArray(st)) {
-            st.forEach((s: any) => {
-              if (s && s.regNo && s.regNo !== "undefined") uniqueStudentRegs.add(String(s.regNo).trim());
-            });
-          }
-        }
-      } catch {}
+  async remove(p: { dept: string; semester: string; subject: string; regNo: string; assessment: string }): Promise<void> {
+    await apiClient.delete("/admin/answer-scripts", { params: p });
+  },
+};
 
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && k.startsWith("kvell_marks_")) {
-            const raw = localStorage.getItem(k);
-            if (raw) {
-              const studentDict = JSON.parse(raw);
-              if (studentDict && typeof studentDict === "object") {
-                Object.keys(studentDict).forEach((reg) => {
-                  if (reg && reg !== "undefined") uniqueStudentRegs.add(String(reg).trim());
-                });
-              }
-            }
-          }
-        }
-      } catch {}
+export const subjectsApi = {
+  async list(dept?: string): Promise<SubjectRecord[]> {
+    const res = await apiClient.get<SubjectRecord[]>("/admin/subjects", { params: { dept } });
+    return res.data;
+  },
 
-      totalStudents = uniqueStudentRegs.size > 0 ? uniqueStudentRegs.size : 85;
+  async create(subject: Partial<SubjectRecord>): Promise<SubjectRecord> {
+    const res = await apiClient.post<SubjectRecord>("/admin/subjects", subject);
+    return res.data;
+  },
 
-      return {
-        totalStudents,
-        totalFaculty,
-        totalDepartments,
-        totalCourses,
-        pendingResults,
-        publishedResults,
-        overallPassPercentage,
-        recentUploads,
-      };
-    }
+  async setStatus(id: string, status: SubjectRecord["status"]): Promise<SubjectRecord> {
+    const res = await apiClient.put<SubjectRecord>(`/admin/subjects/${id}/status`, { status });
+    return res.data;
+  },
+
+  async finalizeAll(): Promise<void> {
+    await apiClient.post("/admin/subjects/finalize");
+  },
+
+  async remove(id: string): Promise<void> {
+    await apiClient.delete(`/admin/subjects/${id}`);
+  },
+
+  async removeAll(): Promise<void> {
+    await apiClient.delete("/admin/subjects");
+  },
+};
+
+export const marksApi = {
+  async roster(dept: string, semester: string, subject: string, assessment: string): Promise<StudentMarkRecord[]> {
+    const res = await apiClient.get<StudentMarkRecord[]>("/admin/marks", { params: { dept, semester, subject, assessment } });
+    return res.data;
+  },
+
+  /** Every entered mark (published or not), for Analytics. */
+  async all(): Promise<StudentMarkRecord[]> {
+    const res = await apiClient.get<StudentMarkRecord[]>("/admin/marks/all");
+    return res.data;
+  },
+
+  /** Saves one student's answer script; the server computes the totals and grade. */
+  async save(payload: {
+    deptKey: string;
+    semester: string;
+    subjectCode: string;
+    regNo: string;
+    assessmentType: string;
+    partA: number[];
+    partBC: Record<string, QuestionMarks>;
+    examinerName: string;
+    examinerDesignation: string;
+  }): Promise<StudentMarkRecord> {
+    const res = await apiClient.put<StudentMarkRecord>("/admin/marks", payload);
+    return res.data;
   },
 };
 
 export const adminResultsApi = {
   async getResultBatches(): Promise<ResultBatchRecord[]> {
-    const activeCollege = getActiveCollegeKey();
-    const batchesKey = getScopedKey("kvell_custom_batches");
-
-    // For Nursing and Pharmacy: read only scoped custom batches, do not seed dummy engineering marks
-    if (activeCollege !== "engineering") {
-      let customBatches: ResultBatchRecord[] = [];
-      try {
-        const raw = localStorage.getItem(batchesKey);
-        if (raw) customBatches = JSON.parse(raw);
-      } catch (e) {
-        console.error(e);
-      }
-      return customBatches;
-    }
-
-    // Engineering college: seed dummy marks if needed
-    ensureDummyMarksLoaded();
-    let customBatches: ResultBatchRecord[] = [];
-    try {
-      const raw = localStorage.getItem("kvell_custom_batches");
-      if (raw) customBatches = JSON.parse(raw);
-    } catch (e) {
-      console.error(e);
-    }
-
-    if (customBatches.length === 0) {
-      try {
-        seedDummyMarksForDepts();
-        const fresh = localStorage.getItem("kvell_custom_batches");
-        if (fresh) customBatches = JSON.parse(fresh);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    try {
-      const res = await apiClient.get<ResultBatchRecord[]>("/admin/results");
-      const serverBatches: ResultBatchRecord[] = res.data;
-      const combined = [...serverBatches];
-      customBatches.forEach((cb) => {
-        const idx = combined.findIndex((sb) => sb.id === cb.id);
-        if (idx >= 0) {
-          combined[idx] = { ...combined[idx], ...cb };
-        } else {
-          combined.unshift(cb);
-        }
-      });
-      return combined;
-    } catch {
-      return [...customBatches, ...mockResultBatches];
-    }
+    const res = await apiClient.get<ResultBatchRecord[]>("/admin/results");
+    return res.data;
   },
 
-  async createResultBatch(newBatch: ResultBatchRecord): Promise<{ success: boolean; batch: ResultBatchRecord }> {
-    const batchesKey = getScopedKey("kvell_custom_batches");
-    try {
-      const raw = localStorage.getItem(batchesKey);
-      const list: ResultBatchRecord[] = raw ? JSON.parse(raw) : [];
-      list.unshift(newBatch);
-      localStorage.setItem(batchesKey, JSON.stringify(list));
-    } catch (e) {
-      console.error(e);
-    }
-
-    try {
-      const res = await apiClient.post<{ success: boolean; batch: ResultBatchRecord }>("/admin/results", newBatch);
-      return res.data;
-    } catch {
-      return { success: true, batch: newBatch };
-    }
+  /** Publishes ALL subjects of a department and semester together (server requires every mark to be entered). */
+  async publishDepartment(payload: {
+    deptKey: string;
+    semester: string;
+    academicYear: string;
+    assessmentType: string;
+  }): Promise<{
+    deptKey: string;
+    departmentName: string;
+    semester: string;
+    subjects: number;
+    students: number;
+    passedStudents: number;
+    passPercentage: number;
+    batchIds: string[];
+  }> {
+    const res = await apiClient.post("/admin/publish", payload, { timeout: 60000 });
+    return res.data;
   },
 
+  /**
+   * "Approve & Publish" on a forwarded subject: the server publishes the whole department and semester the subject
+   * belongs to, and refuses (409) until every subject is forwarded with marks for every student.
+   */
   async publishResultBatch(batchId: string): Promise<{ success: boolean; message: string; publishedAt: string }> {
-    const batchesKey = getScopedKey("kvell_custom_batches");
-    const activeCollege = getActiveCollege();
+    const res = await apiClient.post(`/admin/results/${encodeURIComponent(batchId)}/publish`, null, { timeout: 60000 });
+    const s = res.data;
+    return {
+      success: true,
+      message: `Published ${s.subjects} subjects for ${s.students} students of ${s.departmentName} (${s.semester}).`,
+      publishedAt: new Date().toLocaleString(),
+    };
+  },
 
-    try {
-      const raw = localStorage.getItem(batchesKey);
-      if (raw) {
-        const list: ResultBatchRecord[] = JSON.parse(raw);
-        const updated = list.map((b) =>
-          b.id === batchId
-            ? {
-                ...b,
-                publicationStatus: "PUBLISHED" as const,
-                publishedAt: getRealLocalTimestamp(true),
-                publishedBy: `${activeCollege.coeTitle} (${activeCollege.code})`,
-              }
-            : b
-        );
-        localStorage.setItem(batchesKey, JSON.stringify(updated));
-      }
-    } catch (e) {
-      console.error(e);
-    }
-
-    try {
-      const res = await apiClient.post(`/admin/results/${batchId}/publish`);
-      return res.data;
-    } catch {
-      return {
-        success: true,
-        message: "Result batch status updated to PUBLISHED",
-        publishedAt: getRealLocalTimestamp(true),
-      };
-    }
+  /** Hides every subject of a department and semester again; marks are kept. */
+  async unpublishDepartment(payload: { deptKey: string; semester: string; assessmentType: string }): Promise<void> {
+    await apiClient.post("/admin/publish/unpublish", payload);
   },
 
   async deleteResultBatch(batchId: string): Promise<{ success: boolean }> {
-    const batchesKey = getScopedKey("kvell_custom_batches");
-    try {
-      const raw = localStorage.getItem(batchesKey);
-      if (raw) {
-        const list: ResultBatchRecord[] = JSON.parse(raw);
-        const filtered = list.filter((b) => b.id !== batchId);
-        localStorage.setItem(batchesKey, JSON.stringify(filtered));
-      }
-    } catch (e) {
-      console.error(e);
-    }
-
-    try {
-      await apiClient.delete(`/admin/results/${batchId}`);
-    } catch {}
-
+    await apiClient.delete(`/admin/results/${encodeURIComponent(batchId)}`);
     return { success: true };
   },
 
   async clearAllBatches(): Promise<{ success: boolean }> {
-    const batchesKey = getScopedKey("kvell_custom_batches");
-    localStorage.removeItem(batchesKey);
-    try {
-      await apiClient.delete("/admin/results/all");
-    } catch {}
+    await apiClient.delete("/admin/results/all");
     return { success: true };
   },
 
   async deleteBatchesBySemester(deptKey: string, semester: string): Promise<{ success: boolean; deletedCount: number }> {
-    const batchesKey = getScopedKey("kvell_custom_batches");
-    let deletedCount = 0;
-    try {
-      const raw = localStorage.getItem(batchesKey);
-      if (raw) {
-        const list: ResultBatchRecord[] = JSON.parse(raw);
-        const remaining = list.filter((b) => {
-          const match =
-            (b.departmentKey || "").toLowerCase() === deptKey.toLowerCase() &&
-            (b.semester || "").toLowerCase() === semester.toLowerCase();
-          if (match) deletedCount++;
-          return !match;
-        });
-        localStorage.setItem(batchesKey, JSON.stringify(remaining));
-        window.dispatchEvent(new Event("storage"));
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return { success: true, deletedCount };
+    const res = await apiClient.delete<{ deleted: number }>("/admin/results", { params: { dept: deptKey, semester } });
+    return { success: true, deletedCount: res.data.deleted };
+  },
+
+  /** Forwards one subject's marks (the COE's own Mark Entry counts as verified). */
+  async forwardSubject(payload: {
+    deptKey: string;
+    semester: string;
+    subjectCode: string;
+    academicYear?: string;
+    assessmentType: string;
+  }): Promise<ResultBatchRecord> {
+    const res = await apiClient.post<ResultBatchRecord>("/admin/forward", payload, { timeout: 60000 });
+    return res.data;
   },
 
   async deleteBatchesBySubject(deptKey: string, semester: string, subjectCode: string): Promise<{ success: boolean; deletedCount: number }> {
-    const batchesKey = getScopedKey("kvell_custom_batches");
-    let deletedCount = 0;
-    try {
-      const raw = localStorage.getItem(batchesKey);
-      if (raw) {
-        const list: ResultBatchRecord[] = JSON.parse(raw);
-        const remaining = list.filter((b) => {
-          const deptMatch = (b.departmentKey || "").toLowerCase() === deptKey.toLowerCase();
-          const semMatch = (b.semester || "").toLowerCase() === semester.toLowerCase();
-          const codeMatch =
-            (b.batchTitle || "").toLowerCase().includes(subjectCode.toLowerCase()) ||
-            b.records?.some((r) => (r.courseCode || "").toLowerCase() === subjectCode.toLowerCase());
-          const match = deptMatch && semMatch && codeMatch;
-          if (match) deletedCount++;
-          return !match;
-        });
-        localStorage.setItem(batchesKey, JSON.stringify(remaining));
-        window.dispatchEvent(new Event("storage"));
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return { success: true, deletedCount };
+    const res = await apiClient.delete<{ deleted: number }>("/admin/results", {
+      params: { dept: deptKey, semester, subject: subjectCode },
+    });
+    return { success: true, deletedCount: res.data.deleted };
+  },
+
+  /** Every subject of a department and semester with its publication state (Publish Results page). */
+  async getPublishStatus(dept: string, semester: string, assessment: string): Promise<PublishRow[]> {
+    const res = await apiClient.get<PublishRow[]>("/admin/publish/status", { params: { dept, semester, assessment } });
+    return res.data;
   },
 
   async getAuditLogs(): Promise<AuditLogRecord[]> {
-    const logsKey = getScopedKey("kvell_audit_logs");
-    try {
-      const raw = localStorage.getItem(logsKey);
-      if (raw) return JSON.parse(raw);
-    } catch (e) {
-      console.error("Error reading audit logs", e);
-    }
-
-    try {
-      const res = await apiClient.get<AuditLogRecord[]>("/admin/audit-logs");
-      return res.data;
-    } catch {
-      localStorage.setItem(logsKey, JSON.stringify(initialAuditLogs));
-      return initialAuditLogs;
-    }
-  },
-
-  async uploadAndValidate(formData: FormData): Promise<ValidationResponse> {
-    const res = await apiClient.post<ValidationResponse>("/admin/results/upload", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const res = await apiClient.get<AuditLogRecord[]>("/admin/audit-logs");
     return res.data;
   },
 };
 
-export const initialAuditLogs: AuditLogRecord[] = [];
-
-export function addAuditLog(log: Omit<AuditLogRecord, "id" | "adminId" | "adminName" | "ipAddress">) {
-  try {
-    const logsKey = getScopedKey("kvell_audit_logs");
-    const raw = localStorage.getItem(logsKey);
-    let logs: AuditLogRecord[] = raw ? JSON.parse(raw) : [...initialAuditLogs];
-    const user = adminAuthApi.getCurrentUser();
-    const college = getActiveCollege();
-
-    const newEntry: AuditLogRecord = {
-      id: `LOG-${1000 + logs.length + 1}`,
-      adminId: user?.id || "ADM-001",
-      adminName: user?.name || college.coeTitle,
-      ipAddress: "192.168.1.45",
-      action: log.action,
-      target: log.target,
-      timestamp: log.timestamp || getRealLocalTimestamp(),
-      description: log.description,
-    };
-
-    logs.unshift(newEntry);
-    localStorage.setItem(logsKey, JSON.stringify(logs));
-    window.dispatchEvent(new Event("storage"));
-  } catch (e) {
-    console.error("Error adding audit log:", e);
-  }
+/**
+ * The server now records every admin action in the audit log itself (with the real user and IP), so this
+ * is kept only so existing screens can keep calling it; it just tells listeners that data changed.
+ */
+export function addAuditLog(_log: Omit<AuditLogRecord, "id" | "adminId" | "adminName" | "ipAddress">) {
+  window.dispatchEvent(new Event("kvell_marks_updated"));
 }
-
-// Mock data storage for local demonstration mode when backend is offline
-export const mockResultBatches: ResultBatchRecord[] = [];
-
-export const mockAuditLogs: AuditLogRecord[] = initialAuditLogs;
-

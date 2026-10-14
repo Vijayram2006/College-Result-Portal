@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { SEMESTER_OPTIONS } from "../utils/semesters";
 import { getStoredDepartments, Department } from "./Departments";
 import {
   BookOpen,
@@ -18,9 +19,8 @@ import {
   X,
   RotateCcw,
 } from "lucide-react";
-import { allCurriculumSubjects } from "../data/curriculumSubjects";
-
-import { getScopedKey, getActiveCollege, getActiveCollegeKey, isEngineeringCollege } from "../utils/rbac";
+import { apiErrorMessage, subjectsApi } from "../services/api";
+import { getActiveCollege } from "../utils/rbac";
 
 export interface SubjectItem {
   id: string;
@@ -38,47 +38,26 @@ export interface SubjectItem {
 
 export const SubjectsPage: React.FC = () => {
   const college = getActiveCollege();
-  const [subjects, setSubjects] = useState<SubjectItem[]>(() => {
-    const activeCollege = getActiveCollegeKey();
-    const storageKey = getScopedKey("kvell_admin_subjects");
+  const [subjects, setSubjects] = useState<SubjectItem[]>([]);
 
-    // For Nursing and Pharmacy: NO pre-seeded subjects! Start clean.
-    if (activeCollege !== "engineering") {
-      try {
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return parsed;
-        }
-      } catch {
-        return [];
-      }
-      return [];
-    }
-
-    // Engineering college: load existing subjects or defaults
+  // The catalog lives on the server; Mark Entry reads the same list
+  const reloadSubjects = async () => {
     try {
-      const saved = localStorage.getItem("kvell_admin_subjects");
-      if (!saved) {
-        localStorage.setItem("kvell_admin_subjects", JSON.stringify(allCurriculumSubjects));
-        return allCurriculumSubjects as SubjectItem[];
-      }
-      const parsed: SubjectItem[] = JSON.parse(saved);
-      if (parsed.length === 0) {
-        localStorage.setItem("kvell_admin_subjects", JSON.stringify(allCurriculumSubjects));
-        return allCurriculumSubjects as SubjectItem[];
-      }
-      const migrated = parsed.map((s) => ({
-        ...s,
-        academicYear: "2026-27",
-        semester: "Semester I",
-      }));
-      localStorage.setItem("kvell_admin_subjects", JSON.stringify(migrated));
-      return migrated;
-    } catch {
-      return allCurriculumSubjects as SubjectItem[];
+      setSubjects((await subjectsApi.list()) as SubjectItem[]);
+    } catch (err) {
+      alert(apiErrorMessage(err, "Could not load subjects."));
     }
-  });
+  };
+
+  const subjectsChanged = async () => {
+    await reloadSubjects();
+    window.dispatchEvent(new Event("kvell_subjects_updated"));
+  };
+
+  useEffect(() => {
+    reloadSubjects();
+  }, []);
+
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState<string>("All");
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
@@ -89,115 +68,99 @@ export const SubjectsPage: React.FC = () => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newCode, setNewCode] = useState("");
   const [newTitle, setNewTitle] = useState("");
-  const [newCategory, setNewCategory] = useState<"Core Mandatory" | "Professional Elective" | "Open Elective">("Core Mandatory");
+  const [newCategory, setNewCategory] = useState<"" | "Core Mandatory" | "Professional Elective" | "Open Elective">("");
   const [newCredits, setNewCredits] = useState(4);
-  const [newSemester, setNewSemester] = useState("Semester I");
+  const [newSemester, setNewSemester] = useState("");
   const [storedDepts, setStoredDepts] = useState<Department[]>([]);
-  const [newDept, setNewDept] = useState("General Engineering");
+  const [newDept, setNewDept] = useState("");
   const [newFaculty, setNewFaculty] = useState("");
 
   useEffect(() => {
-    const list = getStoredDepartments();
-    setStoredDepts(list);
-    if (list.length > 0) {
-      setNewDept(list[0].name);
-    }
+    const syncDepts = () => {
+      const list = getStoredDepartments();
+      setStoredDepts(list);
+      setNewDept((cur) => (list.some((d) => d.name === cur) ? cur : ""));
+    };
+    syncDepts();
+    window.addEventListener("kvell_departments_updated", syncDepts);
+    return () => window.removeEventListener("kvell_departments_updated", syncDepts);
   }, []);
 
-  const handleFinalizeAll = () => {
-    const updated = subjects.map((sub) => ({ ...sub, status: "COE FINALIZED" as const }));
-    setSubjects(updated);
+  const handleFinalizeAll = async () => {
     try {
-      localStorage.setItem(getScopedKey("kvell_admin_subjects"), JSON.stringify(updated));
-      window.dispatchEvent(new Event("kvell_subjects_updated"));
-    } catch (e) {
-      console.error(e);
+      await subjectsApi.finalizeAll();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Could not finalize subjects."));
+      return;
     }
+    await subjectsChanged();
     setIsAllFinalized(true);
     alert(`COE Official Finalization Completed! All subjects for ${college.name} are now approved.`);
   };
 
-  const handleAddSubject = (e: React.FormEvent) => {
+  const handleAddSubject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCode || !newTitle) {
       alert("Please enter subject code and title.");
       return;
     }
-    const newSubject: SubjectItem = {
-      id: String(Date.now()),
-      code: newCode.trim().toUpperCase(),
-      title: newTitle.trim(),
-      category: newCategory,
-      credits: Number(newCredits),
-      department: newDept,
-      semester: newSemester || "Semester I",
-      academicYear: "2026-27",
-      faculty: newFaculty.trim() || "Faculty In-Charge",
-      status: "COE FINALIZED",
-      studentsEnrolled: 0,
-    };
-    const updated = [newSubject, ...subjects];
-    setSubjects(updated);
-    try {
-      localStorage.setItem(getScopedKey("kvell_admin_subjects"), JSON.stringify(updated));
-      window.dispatchEvent(new Event("kvell_subjects_updated"));
-    } catch (e) {
-      console.error(e);
+    if (!newDept) {
+      alert("Choose a department first (add departments on the Departments page).");
+      return;
     }
+    if (!newCategory || !newSemester) {
+      alert(!newCategory ? "Choose the subject category." : "Choose the semester.");
+      return;
+    }
+    let created: SubjectItem;
+    try {
+      created = (await subjectsApi.create({
+        code: newCode.trim().toUpperCase(),
+        title: newTitle.trim(),
+        category: newCategory,
+        credits: Number(newCredits),
+        department: newDept,
+        semester: newSemester,
+        academicYear: "2026-27",
+        faculty: newFaculty.trim() || "Faculty In-Charge",
+        status: "COE FINALIZED",
+      })) as SubjectItem;
+    } catch (err) {
+      alert(apiErrorMessage(err, "Could not add the subject."));
+      return;
+    }
+    await subjectsChanged();
     setIsAddOpen(false);
     setNewCode("");
     setNewTitle("");
-    if (storedDepts.length > 0) setNewDept(storedDepts[0].name);
+    setNewDept("");
+    setNewCategory("");
+    setNewSemester("");
     setNewFaculty("");
-    alert(`Subject '${newSubject.code} - ${newSubject.title}' added to ${college.name}!`);
+    alert(`Subject '${created.code} - ${created.title}' added to ${college.name}!`);
   };
 
-  const handleDeleteSubject = (id: string, title: string) => {
+  const handleDeleteSubject = async (id: string, title: string) => {
     if (window.confirm(`Delete subject '${title}' from subject catalog?`)) {
-      const updated = subjects.filter((s) => s.id !== id);
-      setSubjects(updated);
       try {
-        localStorage.setItem(getScopedKey("kvell_admin_subjects"), JSON.stringify(updated));
-        window.dispatchEvent(new Event("kvell_subjects_updated"));
-      } catch (e) {
-        console.error(e);
+        await subjectsApi.remove(id);
+      } catch (err) {
+        alert(apiErrorMessage(err, "Could not delete the subject."));
+        return;
       }
+      await subjectsChanged();
     }
   };
 
-  const handleClearAllSubjects = () => {
-    if (window.confirm(`Are you sure you want to remove all subjects from ${college.name}?`)) {
-      setSubjects([]);
+  const handleClearAllSubjects = async () => {
+    if (window.confirm("Are you sure you want to remove all subjects from the catalog? This will make the subject catalog completely empty.")) {
       try {
-        localStorage.setItem(getScopedKey("kvell_admin_subjects"), JSON.stringify([]));
-        window.dispatchEvent(new Event("kvell_subjects_updated"));
-      } catch (e) {
-        console.error(e);
+        await subjectsApi.removeAll();
+      } catch (err) {
+        alert(apiErrorMessage(err, "Could not clear the subject catalog."));
+        return;
       }
-    }
-  };
-
-  const handleResetToCurriculum = () => {
-    if (isEngineeringCollege()) {
-      if (window.confirm("Reload all official Regulation 2026 Semester I subjects across all departments?")) {
-        setSubjects(allCurriculumSubjects as SubjectItem[]);
-        try {
-          localStorage.setItem("kvell_admin_subjects", JSON.stringify(allCurriculumSubjects));
-          window.dispatchEvent(new Event("kvell_subjects_updated"));
-        } catch (e) {
-          console.error(e);
-        }
-        setIsAllFinalized(true);
-        alert("Official Regulation 2026 subjects reloaded and synced successfully!");
-      }
-    } else {
-      setSubjects([]);
-      try {
-        localStorage.setItem(getScopedKey("kvell_admin_subjects"), JSON.stringify([]));
-        window.dispatchEvent(new Event("kvell_subjects_updated"));
-      } catch (e) {
-        console.error(e);
-      }
+      await subjectsChanged();
     }
   };
 
@@ -243,16 +206,6 @@ export const SubjectsPage: React.FC = () => {
               title="Remove all subjects from catalog"
             >
               <Trash2 size={16} /> Clear All Subjects
-            </button>
-          )}
-
-          {isEngineeringCollege() && (
-            <button
-              onClick={handleResetToCurriculum}
-              className="px-4 py-3 rounded-2xl bg-[#D4A72C]/20 hover:bg-[#D4A72C]/30 text-[#D4A72C] font-extrabold text-xs border border-[#D4A72C]/40 transition shadow flex items-center gap-2"
-              title="Reload official Regulation 2026 subjects for all departments"
-            >
-              <RotateCcw size={16} /> Official 2026 Subjects
             </button>
           )}
 
@@ -397,16 +350,20 @@ export const SubjectsPage: React.FC = () => {
               onChange={(e) => setSemesterFilter(e.target.value)}
               className="h-10 rounded-2xl border border-[#E5E1D8] bg-[#F8F5EE]/70 px-3 text-xs font-extrabold text-[#0B192C] focus:bg-white focus:outline-none transition shadow-sm"
             >
-              <option value="All">All Semesters (Semester I)</option>
-              <option value="Semester I">Semester I</option>
+              <option value="All">All Semesters</option>
+              {SEMESTER_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
             </select>
           </div>
         </div>
 
         {/* Subjects Table */}
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
+        <div className="overflow-auto rounded-2xl border border-slate-200 shadow-sm max-h-[75vh]">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider">
+            <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider sticky top-0 z-20">
               <tr>
                 <th className="p-4">Course Code</th>
                 <th className="p-4">Subject Title</th>
@@ -483,7 +440,8 @@ export const SubjectsPage: React.FC = () => {
                     </td>
                     <td className="p-4">
                       <span className="font-extrabold text-gray-800 block text-xs">
-                        Semester I <span className="text-[#B08014] font-black">(2026-27)</span>
+                        {sub.semester || "Semester I"}{" "}
+                        <span className="text-[#B08014] font-black">({sub.academicYear || "2026-27"})</span>
                       </span>
                       <span className="text-[10px] font-bold text-gray-400 block truncate max-w-[150px]">
                         {sub.department}
@@ -507,20 +465,16 @@ export const SubjectsPage: React.FC = () => {
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => {
-                            setSubjects((prev) =>
-                              prev.map((s) =>
-                                s.id === sub.id
-                                  ? {
-                                      ...s,
-                                      status:
-                                        s.status === "COE FINALIZED"
-                                          ? "PENDING APPROVAL"
-                                          : "COE FINALIZED",
-                                    }
-                                  : s
-                              )
-                            );
+                          onClick={async () => {
+                            try {
+                              await subjectsApi.setStatus(
+                                sub.id,
+                                sub.status === "COE FINALIZED" ? "PENDING APPROVAL" : "COE FINALIZED"
+                              );
+                              await subjectsChanged();
+                            } catch (err) {
+                              alert(apiErrorMessage(err, "Could not change the subject status."));
+                            }
                           }}
                           className="px-2.5 py-1 rounded-lg bg-[#0B192C] text-white font-extrabold text-[10px] hover:bg-[#152744] transition shadow-sm"
                           title="Toggle COE Approval"
@@ -619,15 +573,12 @@ export const SubjectsPage: React.FC = () => {
                   onChange={(e) => setNewDept(e.target.value)}
                   className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3.5 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
                 >
-                  {storedDepts.length > 0 ? (
-                    storedDepts.map((d) => (
-                      <option key={d.key} value={d.name}>
-                        {d.name} ({d.code})
-                      </option>
-                    ))
-                  ) : (
-                    <option value="General Engineering">General Engineering</option>
-                  )}
+                  <option value="">{storedDepts.length ? "Choose department" : "Choose department (none added yet)"}</option>
+                  {storedDepts.map((d) => (
+                    <option key={d.key} value={d.name}>
+                      {d.name} ({d.code})
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -645,6 +596,7 @@ export const SubjectsPage: React.FC = () => {
                     }
                     className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
                   >
+                    <option value="">Choose category</option>
                     <option value="Core Mandatory">Core Mandatory</option>
                     <option value="Professional Elective">Professional Elective</option>
                     <option value="Open Elective">Open Elective</option>
@@ -655,8 +607,19 @@ export const SubjectsPage: React.FC = () => {
                   <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
                     Academic Year & Semester *
                   </label>
-                  <div className="h-11 w-full rounded-2xl border border-[#D4A72C]/40 bg-[#D4A72C]/10 px-3.5 flex items-center justify-between text-xs font-extrabold text-[#0B192C]">
-                    <span>Semester I</span>
+                  <div className="h-11 w-full rounded-2xl border border-[#D4A72C]/40 bg-[#D4A72C]/10 px-2 flex items-center justify-between gap-2 text-xs font-extrabold text-[#0B192C]">
+                    <select
+                      value={newSemester}
+                      onChange={(e) => setNewSemester(e.target.value)}
+                      className="flex-1 h-8 bg-transparent font-extrabold text-[#0B192C] focus:outline-none"
+                    >
+                      <option value="">Choose semester</option>
+                      {SEMESTER_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+                    </select>
                     <span className="bg-[#0B192C] text-[#D4A72C] px-2 py-0.5 rounded text-[10px] font-mono font-bold">2026-27</span>
                   </div>
                 </div>

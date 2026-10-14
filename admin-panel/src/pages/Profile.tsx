@@ -3,6 +3,7 @@ import { User, ShieldCheck, Mail, Building, Key, Lock, Clock, LogOut } from "luc
 import { adminAuthApi } from "../services/api";
 import { useLocation } from "wouter";
 import { getActiveCollege } from "../utils/rbac";
+import { OPEN_PASSWORD_CHANGE } from "../components/PasswordChange";
 
 export const ProfilePage: React.FC = () => {
   const [, navigate] = useLocation();
@@ -12,7 +13,7 @@ export const ProfilePage: React.FC = () => {
     username: "ADMIN",
     name: "Dr. Controller of Examinations",
     role: "ADMIN",
-    email: "admin@kvell.edu.in",
+    email: "",
   };
 
   const handleLogout = () => {
@@ -63,7 +64,7 @@ export const ProfilePage: React.FC = () => {
             </div>
             <div className="p-3 bg-gray-50 rounded-xl flex justify-between items-center">
               <span className="text-gray-500 font-semibold">Official Email:</span>
-              <span className="font-bold text-[#0B192C]">{user.email || "admin@kvell.edu.in"}</span>
+              <span className="font-bold text-[#0B192C]">{user.email || "Not recorded"}</span>
             </div>
             <div className="p-3 bg-gray-50 rounded-xl flex justify-between items-center">
               <span className="text-gray-500 font-semibold">RBAC Jurisdiction:</span>
@@ -91,14 +92,20 @@ export const ProfilePage: React.FC = () => {
             <div className="p-3 bg-amber-50/50 border border-amber-100 rounded-xl flex items-center gap-3">
               <Key className="text-[#C98A18] shrink-0" size={20} />
               <div>
-                <span className="font-bold text-[#C98A18] block">API Bearer JWT Token Active</span>
+                <span className="font-bold text-[#C98A18] block">Signed-in Session Active</span>
                 <span className="text-gray-600 text-[11px] block">
                   Session secured with standard HTTP Bearer headers.
                 </span>
               </div>
             </div>
 
-            <div className="pt-2">
+            <div className="pt-2 space-y-2">
+              <button
+                onClick={() => window.dispatchEvent(new Event(OPEN_PASSWORD_CHANGE))}
+                className="w-full flex items-center justify-center gap-2 bg-[#0B192C] hover:bg-[#152744] text-white font-bold text-xs py-3 rounded-xl transition shadow-md"
+              >
+                <Key size={16} className="text-[#D4A72C]" /> Change Password
+              </button>
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-md"

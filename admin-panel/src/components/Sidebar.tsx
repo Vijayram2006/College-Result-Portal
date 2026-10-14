@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useLocation, Link } from "wouter";
 import {
+  FileText,
   LayoutDashboard,
   Users,
   UserCheck,
@@ -10,6 +11,7 @@ import {
   Upload,
   CheckCircle2,
   PenLine,
+  Send,
   Globe,
   BarChart3,
   ClipboardList,
@@ -158,6 +160,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
                   </Link>
 
                   <Link
+                    href="/admin/results/answer-scripts"
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                      isActive("/admin/results/answer-scripts")
+                        ? "bg-[#D4A72C] text-[#0B192C] font-bold"
+                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <FileText size={14} />
+                    <span>Answer Scripts</span>
+                  </Link>
+
+                  <Link
+                    href="/admin/results/publish"
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                      isActive("/admin/results/publish")
+                        ? "bg-[#D4A72C] text-[#0B192C] font-bold"
+                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <Send size={14} />
+                    <span>Publish Results</span>
+                  </Link>
+
+                  <Link
                     href="/admin/results/published"
                     onClick={() => setMobileOpen(false)}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
@@ -261,14 +289,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
               </span>
             </div>
             <a
-              href="http://localhost:3000"
+              href={import.meta.env.VITE_MAIN_PORTAL_URL || "http://localhost:3000"}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold bg-[#D4A72C]/10 border border-[#D4A72C]/30 text-[#D4A72C] hover:bg-[#D4A72C]/20 transition"
             >
               <div className="flex items-center gap-2.5">
                 <Globe size={16} />
-                <span>Main Portal (Port 3000)</span>
+                <span>Main Portal</span>
               </div>
               <Sparkles size={14} className="animate-pulse" />
             </a>

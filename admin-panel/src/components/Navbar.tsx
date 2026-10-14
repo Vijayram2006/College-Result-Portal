@@ -1,6 +1,7 @@
 import React from "react";
 import { Menu, ShieldCheck, Bell, Sparkles } from "lucide-react";
 import { adminAuthApi } from "../services/api";
+import { NotificationBell } from "./NotificationBell";
 import { getActiveCollege } from "../utils/rbac";
 
 interface NavbarProps {
@@ -39,10 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setMobileOpen, title }) => {
       <div className="flex items-center gap-3 sm:gap-4">
 
 
-        <button className="p-2 rounded-xl bg-[#F8F5EE] hover:bg-gray-200 text-[#0B192C] transition relative">
-          <Bell size={18} />
-          <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#D4A72C]" />
-        </button>
+        <NotificationBell />
 
         <div className="flex items-center gap-3 pl-3 border-l border-[#E5E1D8]">
           <div className="text-right hidden md:block">
@@ -50,7 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setMobileOpen, title }) => {
               {currentUser?.name || college.coeTitle}
             </span>
             <span className="block text-[10px] font-mono text-[#667085]">
-              {currentUser?.email || college.email}
+              {currentUser?.username || ""}
             </span>
           </div>
         </div>

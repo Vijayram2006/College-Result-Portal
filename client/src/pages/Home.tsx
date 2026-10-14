@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "../lib/trpc";
-import { aidsSem1Students } from "../data/aidsStudents";
-import { marksStudentsList, generalStudentsList, ensureDummyMarksLoaded, cseSem1Students, bmeSem1Students } from "../data/dummyMarksData";
+// Sample lists for the remaining demo-only screens (Faculty performance / Dean); real results come from the API
+import { marksStudentsList, generalStudentsList } from "../data/dummyMarksData";
+import { facultyApi, publicApi, type FacultyOverviewDTO, type PublicSummaryDTO } from "../services/api";
+import { apiErrorMessage, authApi, hodApi, studentApi, type HodOverviewDTO, type RegisteredSubjectDTO, type StudentResultsDTO } from "../services/api";
+
+const ADMIN_PANEL_URL = import.meta.env.VITE_ADMIN_PANEL_URL || "http://localhost:3002/admin/login";
 import * as XLSX from "xlsx";
-import { FacultyMarkEntry, clearFacultyPharmacyAndNursingData } from "../components/FacultyMarkEntry";
+import { downloadWorkbook } from "../utils/downloadWorkbook";
+import { FacultyMarkEntry } from "../components/FacultyMarkEntry";
+import { NotificationBell } from "../components/NotificationBell";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
@@ -522,29 +528,35 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
 
   const currentCollege = FACULTY_COLLEGES[activeCollege] || FACULTY_COLLEGES.Engineering;
 
+  // Real data for the signed-in faculty member: their subjects with live mark-entry progress
+  const [overview, setOverview] = useState<FacultyOverviewDTO | null>(null);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
   useEffect(() => {
-    if (activeCollege === "Pharmacy" || activeCollege === "Nursing") {
-      clearFacultyPharmacyAndNursingData();
-    }
-  }, [activeCollege]);
-
-  const courses = currentCollege.courses;
+    facultyApi
+      .overview()
+      .then(setOverview)
+      .catch((err) => setOverviewError(apiErrorMessage(err, "Could not load your subjects.")));
+  }, []);
+  const courses = overview?.courses ?? [];
   const [courseFilter, setCourseFilter] = useState<"ALL" | "Theory" | "Laboratory">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [showRosterModal, setShowRosterModal] = useState(false);
   const [showGradeAnalyticsModal, setShowGradeAnalyticsModal] = useState(false);
 
   // Dynamic Functional Metrics
-  const totalStudents = useMemo(
-    () => courses.reduce((acc, c) => acc + c.enrolledStudents, 0),
-    [courses]
-  );
+  // Each student takes every subject of their semester, so count them once per semester (not once per subject)
+  const totalStudents = useMemo(() => {
+    const perSemester = new Map<string, number>();
+    courses.forEach((c) => perSemester.set(c.semester, Math.max(perSemester.get(c.semester) ?? 0, c.enrolledStudents)));
+    return Array.from(perSemester.values()).reduce((a, b) => a + b, 0);
+  }, [courses]);
+  const totalScripts = useMemo(() => courses.reduce((acc, c) => acc + c.enrolledStudents, 0), [courses]);
   const totalCourses = courses.length;
   const totalEvaluated = useMemo(
     () => courses.reduce((acc, c) => acc + c.evaluatedStudents, 0),
     [courses]
   );
-  const marksProgress = totalStudents > 0 ? Math.round((totalEvaluated / totalStudents) * 100) : 0;
+  const marksProgress = totalScripts > 0 ? Math.round((totalEvaluated / totalScripts) * 100) : 0;
   const passRate =
     courses.length > 0
       ? (courses.reduce((acc, c) => acc + c.passRate, 0) / courses.length).toFixed(1)
@@ -703,7 +715,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
           </div>
           <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px]">
             <span className="font-bold text-blue-700">
-              {totalStudents > 0 ? `${totalEvaluated} / ${totalStudents} Evaluated` : "No submissions yet"}
+              {totalScripts > 0 ? `${totalEvaluated} / ${totalScripts} scripts evaluated` : "No submissions yet"}
             </span>
             <span className="font-extrabold text-[#0B192C] group-hover:text-[#B08014] group-hover:translate-x-0.5 transition flex items-center gap-0.5">
               <span>Enter Marks</span>
@@ -879,7 +891,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
                       {course.title}
                     </h3>
                     <p className="mt-0.5 text-xs text-slate-500 font-medium">
-                      Faculty: {currentCollege.facultyName}
+                      Faculty: {(overview?.facultyName ?? "Loading…")}
                     </p>
 
                     <div className="mt-4 rounded-xl bg-slate-50 p-3.5 border border-slate-100">
@@ -940,7 +952,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
               No Courses or Department Registrations Assigned
             </h3>
             <p className="mt-1 text-xs text-slate-500 max-w-md mx-auto">
-              There are currently no active course allocations for {currentCollege.collegeName}. All student cohorts and curriculum batches are synchronized with the Controller of Examinations.
+              {overviewError ? overviewError : overview ? `No subjects have been added for your department yet. The Controller of Examinations adds them on the Subjects page.` : "Loading your subjects…"}
             </p>
             <div className="mt-5">
               <button
@@ -1052,7 +1064,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
                 </div>
                 <div className="p-4 rounded-xl bg-[#F8F5EE] border border-slate-200 text-center">
                   <p className="text-[10px] font-extrabold uppercase text-slate-500">Evaluated Candidates</p>
-                  <p className="text-2xl font-black text-blue-700 mt-1">{totalEvaluated} / {totalStudents}</p>
+                  <p className="text-2xl font-black text-blue-700 mt-1">{totalEvaluated} / {totalScripts}</p>
                 </div>
               </div>
               <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
@@ -1107,76 +1119,12 @@ function AttentionTable({ compact = false, onView }: { compact?: boolean; onView
 }
 
 // Separate Component for HOD Student Result Search Directory
-function StudentResultView() {
+function StudentResultView({ students }: { students: HodOverviewDTO["students"] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedYear, setSelectedYear] = useState("All");
   const [selectedSection, setSelectedSection] = useState("All");
 
-  const [hodStudentsData, setHodStudentsData] = useState<any[]>([]);
-
-  useEffect(() => {
-    const load = () => {
-      let list: any[] = [];
-      try {
-        const raw = localStorage.getItem("kvell_students");
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            list = parsed.map((s: any) => ({
-              reg: s.regNo,
-              name: s.name,
-              year: s.year || "1st Year",
-              sem: s.semester || "Semester I",
-              section: s.section || "A",
-              average: s.sgpa ? Math.round(s.sgpa * 10) : 0,
-              status: s.status === "ACTIVE" ? "PASS" : "FAIL",
-            }));
-          }
-        }
-      } catch (e) {
-        console.error(e);
-      }
-
-      if (list.length === 0) {
-        try {
-          const rawBatches = localStorage.getItem("kvell_custom_batches");
-          if (rawBatches) {
-            const batches = JSON.parse(rawBatches);
-            if (Array.isArray(batches)) {
-              const studentMap = new Map<string, any>();
-              batches.forEach((b: any) => {
-                if (Array.isArray(b.records)) {
-                  b.records.forEach((r: any) => {
-                    if (r.regNo && !studentMap.has(r.regNo)) {
-                      studentMap.set(r.regNo, {
-                        reg: r.regNo,
-                        name: r.studentName || r.name || "Candidate",
-                        year: "1st Year",
-                        sem: b.semester || "Semester I",
-                        section: "Section A",
-                        average: r.totalMarks || 0,
-                        status: r.resultStatus || "PASS",
-                      });
-                    }
-                  });
-                }
-              });
-              list = Array.from(studentMap.values());
-            }
-          }
-        } catch (e) {}
-      }
-      setHodStudentsData(list);
-    };
-
-    load();
-    window.addEventListener("storage", load);
-    window.addEventListener("kvell_students_updated", load);
-    return () => {
-      window.removeEventListener("storage", load);
-      window.removeEventListener("kvell_students_updated", load);
-    };
-  }, []);
+  const hodStudentsData = students;
 
   const filteredStudents = hodStudentsData.filter((s) => {
     const matchesQuery =
@@ -1234,25 +1182,24 @@ function StudentResultView() {
 
           {/* Section Filter */}
           <div className="flex items-center gap-1.5">
-            <label className="text-[11px] font-bold text-slate-500 uppercase">Section:</label>
+            <label className="text-[11px] font-bold text-slate-500 uppercase">Category:</label>
             <select
               value={selectedSection}
               onChange={(e) => setSelectedSection(e.target.value)}
               className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-[#0B192C] focus:outline-none"
             >
-              <option value="All">All Sections</option>
-              <option value="CSE A">CSE A</option>
-              <option value="CSE B">CSE B</option>
-              <option value="IT A">IT A</option>
+              <option value="All">All Categories</option>
+              <option value="Regular">Regular</option>
+              <option value="Lateral">Lateral</option>
             </select>
           </div>
         </div>
       </div>
 
       {/* Student Results Table */}
-      <div className="overflow-x-auto rounded-2xl border border-slate-200">
+      <div className="overflow-auto rounded-2xl border border-slate-200 max-h-[75vh]">
         <table className="w-full text-left text-xs">
-          <thead className="bg-[#0B192C] text-white font-extrabold uppercase tracking-wider text-[11px]">
+          <thead className="bg-[#0B192C] text-white font-extrabold uppercase tracking-wider text-[11px] sticky top-0 z-20">
             <tr>
               <th className="px-5 py-3.5">STUDENT NAME &amp; REGISTER NO</th>
               <th className="px-4 py-3.5">ACADEMIC YEAR</th>
@@ -1272,13 +1219,15 @@ function StudentResultView() {
                 <td className="px-4 py-3.5 font-bold text-slate-800">{st.year}</td>
                 <td className="px-4 py-3.5 text-slate-600">{st.sem}</td>
                 <td className="px-4 py-3.5 text-slate-600 font-bold">{st.section}</td>
-                <td className="px-4 py-3.5 text-center font-black text-slate-900">{st.average}%</td>
+                <td className="px-4 py-3.5 text-center font-black text-slate-900">{st.average === null ? "—" : `${st.average}%`}</td>
                 <td className="px-5 py-3.5 text-right">
                   <span
                     className={`inline-block px-3 py-1 rounded-full text-xs font-black border ${
                       st.status === "PASS"
                         ? "bg-green-100 text-green-800 border-green-200"
-                        : "bg-red-100 text-red-800 border-red-200"
+                        : st.status === "FAIL"
+                          ? "bg-red-100 text-red-800 border-red-200"
+                          : "bg-slate-100 text-slate-600 border-slate-200"
                     }`}
                   >
                     {st.status}
@@ -1314,54 +1263,25 @@ function HodPortalDashboard({
 
   // Year-wise Bar Graph Data for 1st yr, 2nd yr, 3rd yr, 4th yr
   // Rule: < 40% -> RED (#EF4444), >= 40% -> GREEN (#22C55E)
-  const [yearGraphData, setYearGraphData] = useState([
-    { name: "1st yr", passPercentage: 94.2, students: 60 },
-    { name: "2nd yr", passPercentage: 36.5, students: 58 }, // < 40% -> RED
-    { name: "3rd yr", passPercentage: 92.0, students: 62 },
-    { name: "4th yr", passPercentage: 91.5, students: 55 },
-  ]);
+  const [overview, setOverview] = useState<HodOverviewDTO | null>(null);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+  useEffect(() => {
+    hodApi
+      .getOverview()
+      .then(setOverview)
+      .catch((err) => setOverviewError(apiErrorMessage(err, "Could not load department results.")));
+  }, []);
+  const yearGraphData = overview?.yearPass ?? [];
 
-  const toggleYearPass = (index: number) => {
-    setYearGraphData((prev) =>
-      prev.map((item, i) =>
-        i === index
-          ? { ...item, passPercentage: item.passPercentage < 40 ? 88.0 : 35.0 }
-          : item
-      )
-    );
-  };
-
-  // Top Pass Percentage Faculty Data matching CSE department
-  const topFacultyRanking = [
-    {
-      rank: "#1",
-      rankTone: "bg-[#D4A72C] text-[#0B192C]",
-      name: "Dr. Rajesh Sharma",
-      subject: "CS601 - Deep Learning & Neural Networks",
-      passRate: "98.5%",
-    },
-    {
-      rank: "#2",
-      rankTone: "bg-slate-700 text-white",
-      name: "Prof. Meenakshi Sundaram",
-      subject: "CS602 - Distributed Systems Architecture",
-      passRate: "96.8%",
-    },
-    {
-      rank: "#3",
-      rankTone: "bg-amber-900/80 text-amber-200",
-      name: "Dr. Ananya Menon",
-      subject: "CS201 - Object Oriented Programming",
-      passRate: "94.2%",
-    },
-    {
-      rank: "#4",
-      rankTone: "bg-slate-800 text-slate-400",
-      name: "Dr. Raghav Iyer",
-      subject: "CS301 - Data Structures & Algorithms",
-      passRate: "92.5%",
-    },
-  ];
+  // Top Pass Percentage Faculty: examiners of the department's published subjects (from the server)
+  const rankTones = ["bg-[#D4A72C] text-[#0B192C]", "bg-slate-700 text-white", "bg-amber-900/80 text-amber-200", "bg-slate-800 text-slate-400"];
+  const topFacultyRanking = (overview?.topFaculty ?? []).map((f, i) => ({
+    rank: `#${f.rank}`,
+    rankTone: rankTones[Math.min(i, rankTones.length - 1)],
+    name: `${f.name}${f.designation ? ` (${f.designation})` : ""}`,
+    subject: `${f.subjectCode} - ${f.subjectTitle} · ${f.students} students`,
+    passRate: `${f.passPercentage}%`,
+  }));
 
   return (
     <div className="min-h-screen bg-[#F8F5EE] text-[#172033] font-sans flex flex-col justify-between selection:bg-[#D4A72C] selection:text-[#0B192C]">
@@ -1372,7 +1292,7 @@ function HodPortalDashboard({
             # OFFICIAL PORTAL
           </span>
           <span className="text-slate-300 font-medium">
-            May 2025 Semester End Examination Results Published
+            <PublicationNotice />
           </span>
         </div>
 
@@ -1434,14 +1354,14 @@ function HodPortalDashboard({
             </button>
             
             <a
-              href="http://localhost:3002"
+              href={ADMIN_PANEL_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="px-3.5 py-2 rounded-xl text-xs font-black text-[#0B192C] bg-[#D4A72C]/20 hover:bg-[#D4A72C]/40 border border-[#D4A72C]/50 transition flex items-center gap-1.5 shadow-sm"
               title="Open Controller of Examinations Admin Panel"
             >
               <ExternalLink size={14} className="text-[#0B192C]" />
-              <span className="hidden md:inline">COE Portal (3002)</span>
+              <span className="hidden md:inline">COE Portal</span>
             </a>
           </div>
 
@@ -1451,6 +1371,14 @@ function HodPortalDashboard({
               <p className="text-sm font-extrabold text-[#0B192C]">{hodName}</p>
               <p className="text-[11px] font-bold text-[#B08014] tracking-wider uppercase">HOD - {department}</p>
             </div>
+            <button
+              onClick={() => window.dispatchEvent(new Event("kvell:open-change-password"))}
+              className="bg-white hover:bg-slate-50 text-[#0B192C] border border-slate-300 text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition"
+              title="Change password"
+            >
+              <KeyRound size={14} />
+              <span className="hidden md:inline">Password</span>
+            </button>
             <button
               onClick={onLogout}
               className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition"
@@ -1484,7 +1412,7 @@ function HodPortalDashboard({
               DEPARTMENT PASS RATE
             </span>
             <p className="text-2xl font-black text-[#38BDF8] mt-1 tracking-tight">
-              93.5% Overall Pass
+              {overview ? `${overview.overallPassPercentage}% Overall Pass` : "—"}
             </p>
           </div>
         </div>
@@ -1515,7 +1443,7 @@ function HodPortalDashboard({
                       Year-wise Pass Percentage Graph
                     </h3>
                     <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                      May 2025 Semester End Examination Pass Rate (%) by Academic Year
+                      Pass rate (%) of published results by year of study
                     </p>
                   </div>
                   {/* Graph Color Indicator Legend */}
@@ -1531,19 +1459,24 @@ function HodPortalDashboard({
 
                 {/* Threshold Interactive Toggles */}
                 <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-500 bg-white p-3 rounded-xl border border-slate-200">
-                  <span className="uppercase text-[10px] text-slate-400">Toggle Threshold:</span>
-                  {yearGraphData.map((yr, idx) => (
+                  <span className="uppercase text-[10px] text-slate-400">
+                    {overviewError ??
+                      (overview
+                        ? `Overall ${overview.overallPassPercentage}% pass (${overview.studentsWithResults} students with results):`
+                        : "Loading pass rates...")}
+                  </span>
+                  {yearGraphData.map((yr) => (
                     <button
                       key={yr.name}
-                      onClick={() => toggleYearPass(idx)}
+                      type="button"
                       className={`px-2.5 py-1 rounded-lg border transition text-[10px] font-black ${
                         yr.passPercentage < 40
                           ? "bg-red-50 text-red-700 border-red-300 hover:bg-red-100"
                           : "bg-green-50 text-green-700 border-green-300 hover:bg-green-100"
                       }`}
-                      title="Click to toggle pass percentage above/below 40% rule"
+                      title={`${yr.students} students with published results`}
                     >
-                      {yr.name}: {yr.passPercentage}%
+                      {yr.name}: {yr.students > 0 ? `${yr.passPercentage}%` : "no results"}
                     </button>
                   ))}
                 </div>
@@ -1581,12 +1514,17 @@ function HodPortalDashboard({
                     </p>
                   </div>
                   <span className="bg-white/10 text-slate-200 text-xs font-mono font-bold px-3 py-1 rounded-lg border border-white/10 shrink-0">
-                    COMPUTER SCIENCE AND ENGINEERING RANKING
+                    {department} RANKING
                   </span>
                 </div>
 
                 {/* Faculty Ranking List */}
                 <div className="space-y-3.5">
+                  {topFacultyRanking.length === 0 && (
+                    <p className="text-xs font-semibold text-slate-400 py-6 text-center">
+                      {overview ? "No results have been published for this department yet." : "Loading…"}
+                    </p>
+                  )}
                   {topFacultyRanking.map((fac) => (
                     <div
                       key={fac.rank}
@@ -1613,7 +1551,7 @@ function HodPortalDashboard({
           </div>
         ) : (
           /* Tab 2: Separate Component "Student Result" Search Directory */
-          <StudentResultView />
+          <StudentResultView students={overview?.students ?? []} />
         )}
       </main>
 
@@ -1655,7 +1593,7 @@ function DeanMarkReview({ onToast }: { onToast?: (message: string) => void }) {
     return { ...student, grades, res };
   });
   const review = (decision: "approve" | "return") => { if (selected && !reviewMutation.isPending) reviewMutation.mutate({ id: selected.submission.id, decision, reviewer: "Dean" }); };
-  const exportSelected = () => { if (!selected) return; const data = studentGradeRows.map((row) => ({ Department: "Computer Science and Engineering", Year: selected.submission.academicYear, Semester: selected.submission.semester, Subject: selected.subject?.name ?? "", Section: selected.submission.section, "Register Number": row.reg, "Student Name": row.name, "Sub 1": row.grades.sub1, "Sub 2": row.grades.sub2, "Sub 3": row.grades.sub3, "Sub 4": row.grades.sub4, "Sub 5": row.grades.sub5, Result: `${row.res.status} (${row.res.grade})` })); const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), selected.submission.assessment); XLSX.writeFile(workbook, `KVELL_CSE_${selected.submission.assessment}_review.xlsx`); };
+  const exportSelected = () => { if (!selected) return; const data = studentGradeRows.map((row) => ({ Department: "Computer Science and Engineering", Year: selected.submission.academicYear, Semester: selected.submission.semester, Subject: selected.subject?.name ?? "", Section: selected.submission.section, "Register Number": row.reg, "Student Name": row.name, "Sub 1": row.grades.sub1, "Sub 2": row.grades.sub2, "Sub 3": row.grades.sub3, "Sub 4": row.grades.sub4, "Sub 5": row.grades.sub5, Result: `${row.res.status} (${row.res.grade})` })); const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), selected.submission.assessment); downloadWorkbook(workbook, `KVELL_CSE_${selected.submission.assessment}_review.xlsx`); };
   return <div className="space-y-6"><PageIntro eyebrow="Dean workspace" title="Mark Review" description="Review HOD-approved internal assessment marks and publish finalized results to the student portal." action={<button onClick={() => publishMutation.mutate({})} disabled={publishMutation.isPending} className="inline-flex items-center gap-2 rounded-md bg-[#FC6226] px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#E04F18] disabled:opacity-50"><CheckCircle2 size={14} />{publishMutation.isPending ? "Publishing..." : "Publish All Results to Portal"}</button>} /><div className="grid gap-5 xl:grid-cols-[0.75fr_1.25fr]"><Panel className="p-5"><SectionHeading title="Review queue" detail="Select a HOD-approved assessment" /><div className="mt-4 space-y-3">{requests.map((row) => <button key={row.submission.id} onClick={() => setSelectedId(row.submission.id)} className={cn("w-full rounded-lg border p-3 text-left transition", selectedId === row.submission.id ? "border-[#F5D8B4] bg-[#FFE8C2]/50" : "border-slate-100 hover:border-[#FC6226]/30")}><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-semibold text-slate-800">{row.subject?.name ?? "Subject"}</p><p className="mt-1 text-[11px] leading-4 text-slate-500">YR {row.submission.academicYear} · SEM {row.submission.semester}<br />SUB {row.subject?.code ?? "—"} · SEC {row.submission.section} · {row.submission.assessment}</p></div><StatusBadge tone="warning">Pending</StatusBadge></div></button>)}{requests.length === 0 && <EmptyState title="No marks awaiting Dean review" detail="HOD-approved assessment submissions will appear here." />}</div></Panel>{selected ? <div className="space-y-5"><Panel className="overflow-hidden"><div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[11px] font-semibold uppercase tracking-wide text-[#C2410C]">Computer Science and Engineering · {selected.submission.assessment}</p><h2 className="mt-1 text-base font-semibold text-slate-900">{selected.subject?.name ?? "Subject"}</h2><p className="mt-1 text-xs text-slate-500">YR {selected.submission.academicYear} · SEM {selected.submission.semester} · SUB {selected.subject?.code ?? "—"} · SEC {selected.submission.section}</p></div><div className="flex gap-2"><button onClick={exportSelected} className="inline-flex items-center gap-2 self-start rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Download size={14} />Export Excel</button><button onClick={() => publishMutation.mutate({ subjectId: selected.submission.subjectId })} disabled={publishMutation.isPending} className="inline-flex items-center gap-1.5 rounded-md bg-[#FC6226] px-3 py-2 text-xs font-semibold text-white hover:bg-[#E04F18] disabled:opacity-50"><CheckCircle2 size={14} />Publish subject</button></div></div><div className="grid gap-3 border-b border-slate-100 p-5 sm:grid-cols-4">{([["Average Grade", "A+"], ["Pass Count", "5/5"], ["Fail Count", "0"], ["Pass percentage", "100%"]] as const).map(([label, value]) => <MetricTile key={label} label={label} value={String(value)} />)}</div><div className="mobile-table-scroll"><table className="w-full min-w-[650px] text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Register Number & Student</th><th className="px-3 py-3 text-center">Sub 1</th><th className="px-3 py-3 text-center">Sub 2</th><th className="px-3 py-3 text-center">Sub 3</th><th className="px-3 py-3 text-center">Sub 4</th><th className="px-3 py-3 text-center">Sub 5</th><th className="px-5 py-3 text-right">Result</th></tr></thead><tbody className="divide-y divide-slate-100">{studentGradeRows.map((row) => <tr key={row.reg}><td className="px-5 py-3.5"><p className="text-xs font-semibold text-slate-800">{row.name}</p><p className="text-[11px] font-mono text-slate-400">{row.reg}</p></td><td className="px-3 py-3.5 text-center text-xs font-bold text-slate-800">{row.grades.sub1}</td><td className="px-3 py-3.5 text-center text-xs font-bold text-slate-800">{row.grades.sub2}</td><td className="px-3 py-3.5 text-center text-xs font-bold text-slate-800">{row.grades.sub3}</td><td className="px-3 py-3.5 text-center text-xs font-bold text-slate-800">{row.grades.sub4}</td><td className="px-3 py-3.5 text-center text-xs font-bold text-slate-800">{row.grades.sub5}</td><td className="px-5 py-3.5 text-right"><StatusBadge tone={row.res.status === "PASS" ? "success" : "danger"}>{row.res.status} ({row.res.grade})</StatusBadge></td></tr>)}</tbody></table></div></Panel><Panel className="p-5"><SectionHeading title="IA-1 vs IA-2 · CSE" detail="Submitted review marks comparison" /><div className="h-[230px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={comparison}><CartesianGrid stroke="#e2e8f0" vertical={false} strokeDasharray="3 3" /><XAxis dataKey="assessment" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} /><YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="average" name="Average" fill="#FC6226" radius={[4, 4, 0, 0]} /><Bar dataKey="highest" name="Highest" fill="#E04F18" radius={[4, 4, 0, 0]} /><Bar dataKey="lowest" name="Lowest" fill="#FDBA74" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div></Panel><div className="flex justify-end gap-2"><button onClick={() => review("return")} disabled={reviewMutation.isPending} className="rounded-md border border-red-200 px-3 py-2 text-xs font-semibold text-red-700">Return to HOD</button><button onClick={() => review("approve")} disabled={reviewMutation.isPending} className="rounded-md bg-[#FC6226] px-3 py-2 text-xs font-semibold text-white hover:bg-[#E04F18]">Approve assessment</button></div></div> : <EmptyState title="Select a review request" detail="Choose an item from the Dean review queue to inspect its IA marks." />}</div></div>;
 }
 
@@ -1685,7 +1623,7 @@ function DeanDashboard({ onNavigate, onToast }: { onNavigate: (page: PageKey) =>
   const totalEntries = reportRows.reduce((sum, row) => { try { return sum + Object.keys(JSON.parse(row.submission.marksJson) as Record<string, number>).length; } catch { return sum; } }, 0);
   const average = totalEntries ? Math.round((totalMarks / (totalEntries * 20)) * 100) : 0;
   const review = (id: number, decision: "approve" | "return") => { if (!reviewMutation.isPending) reviewMutation.mutate({ id, decision, reviewer: "Dean" }); };
-  const exportSelected = () => { if (!selected) return; const data = selectedIaRows.map((row) => ({ Department: "Computer Science and Engineering", Year: selected.submission.academicYear, Semester: selected.submission.semester, Subject: selected.subject?.name ?? "", Section: selected.submission.section, Assessment: selected.submission.assessment, Name: row.name, "IA Mark": row.value })); const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), selected.submission.assessment); XLSX.writeFile(workbook, `KVELL_CSE_${selected.submission.assessment}_review.xlsx`); };
+  const exportSelected = () => { if (!selected) return; const data = selectedIaRows.map((row) => ({ Department: "Computer Science and Engineering", Year: selected.submission.academicYear, Semester: selected.submission.semester, Subject: selected.subject?.name ?? "", Section: selected.submission.section, Assessment: selected.submission.assessment, Name: row.name, "IA Mark": row.value })); const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), selected.submission.assessment); downloadWorkbook(workbook, `KVELL_CSE_${selected.submission.assessment}_review.xlsx`); };
   return <div className="space-y-6"><PageIntro eyebrow="Dean executive workspace" title="University overview" description="Review HOD-approved IA marks, inspect student assessment details, and publish approved results to the portal." action={<div className="flex items-center gap-2"><button onClick={() => publishMutation.mutate({})} disabled={publishMutation.isPending} className="inline-flex items-center gap-2 rounded-md bg-[#FC6226] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#E04F18] disabled:opacity-50"><CheckCircle2 size={14} />{publishMutation.isPending ? "Publishing..." : "Publish All Results"}</button><button onClick={() => onNavigate("reports")} className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><FileBarChart size={14} />Open reports</button></div>} /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><KpiCard label="Dean review requests" value={`${requests.length}`} note="HOD-approved marks awaiting decision" icon={FileText} tone="amber" trend={requests.length ? "down" : "flat"} /><KpiCard label="Subjects with data" value={`${subjects.length}`} note="Persisted subject records" icon={BookOpen} trend="flat" /><KpiCard label="Mark submissions" value={`${reportRows.length}`} note="Live persisted submissions" icon={BarChart3} trend="up" /><KpiCard label="Overall average" value={average ? `${average}%` : "—"} note="Calculated from saved marks" icon={TrendingUp} tone="green" trend="up" /></div><div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]"><Panel className="p-5"><SectionHeading title="Live academic summary" detail="Derived from current backend records" /><div className="space-y-4 pt-2"><div className="flex items-center justify-between border-b border-slate-100 pb-3"><span className="text-xs text-slate-600">Subjects monitored</span><span className="text-sm font-bold text-slate-900">{subjects.length}</span></div><div className="flex items-center justify-between border-b border-slate-100 pb-3"><span className="text-xs text-slate-600">Review queue</span><span className="text-sm font-bold text-amber-700">{requests.length} pending</span></div><div className="flex items-center justify-between"><span className="text-xs text-slate-600">Approved records</span><span className="text-sm font-bold text-green-700">{reportRows.filter((row) => row.submission.status === "FINAL_APPROVED" || (row.submission.status as string) === "approved").length}</span></div></div></Panel><Panel className="p-5"><SectionHeading title="Final approval queue" detail="Select a request to inspect read-only IA assessment marks" /><div className="space-y-3 pt-2">{requests.slice(0, 4).map((row) => <div key={row.submission.id} className={cn("rounded-lg border p-3", selectedId === row.submission.id ? "border-[#F5D8B4] bg-[#FFE8C2]/40" : "border-slate-100")}><button onClick={() => setSelectedId(row.submission.id)} className="w-full text-left"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-slate-800">{row.subject?.name ?? "Subject"}</p><p className="mt-1 text-[11px] text-slate-500">YR {row.submission.academicYear} · SEM {row.submission.semester} · SUB {row.subject?.code ?? "—"} · SEC {row.submission.section} · {row.submission.assessment}</p></div><StatusBadge tone="warning">Dean review</StatusBadge></div></button><div className="mt-3 flex gap-2"><button onClick={() => review(row.submission.id, "return")} disabled={reviewMutation.isPending} className="rounded-md border border-red-200 px-2.5 py-1.5 text-[11px] font-semibold text-red-700 disabled:opacity-50">Return to HOD</button><button onClick={() => review(row.submission.id, "approve")} disabled={reviewMutation.isPending} className="rounded-md bg-[#FC6226] px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-[#E04F18] disabled:opacity-50">Approve</button></div></div>)}{requests.length === 0 && <p className="py-6 text-center text-xs text-slate-500">No HOD-approved marks waiting for Dean review.</p>}</div></Panel></div>{selected && <><Panel className="overflow-hidden"><div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[11px] font-semibold uppercase tracking-wide text-[#C2410C]">Computer Science and Engineering · IA review</p><h2 className="mt-1 text-base font-semibold text-slate-900">{selected.subject?.name ?? "Subject"}</h2><p className="mt-1 text-xs text-slate-500">YR {selected.submission.academicYear} · SEM {selected.submission.semester} · SUB {selected.subject?.code ?? "—"} · SEC {selected.submission.section} · {selected.submission.assessment}</p></div><button onClick={exportSelected} className="inline-flex items-center gap-2 self-start rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Download size={14} />Export Excel</button></div><div className="grid gap-3 border-b border-slate-100 p-5 sm:grid-cols-4">{comparison.map((item) => <MetricTile key={item.assessment} label={`${item.assessment} average`} value={item.count ? `${item.average}` : "—"} />)}</div><div className="mobile-table-scroll"><table className="w-full min-w-[500px] text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Name</th><th className="px-4 py-3">IA mark</th><th className="px-5 py-3 text-right">Mode</th></tr></thead><tbody className="divide-y divide-slate-100">{selectedIaRows.map((row) => <tr key={row.reg}><td className="px-5 py-3.5 text-xs font-medium text-slate-700">{row.name}</td><td className="px-4 py-3.5 text-xs font-semibold text-slate-900">{row.value}</td><td className="px-5 py-3.5 text-right"><StatusBadge tone="neutral">Read only</StatusBadge></td></tr>)}</tbody></table></div></Panel><Panel className="p-5"><SectionHeading title="IA-1 vs IA-2 · CSE" detail="Average, highest, lowest, and pass percentage from submitted review marks" /><div className="mb-4 grid gap-4 lg:grid-cols-2">{comparison.map((item) => <div key={item.assessment} className="rounded-lg border border-slate-100 p-3"><p className="mb-3 text-xs font-bold text-[#8C2F00]">{item.assessment} · Computer Science and Engineering</p><div className="grid grid-cols-2 gap-2">{([["Average", item.average], ["Highest", item.highest], ["Lowest", item.lowest], ["Pass percentage", item.passPercentage]] as const).map(([label, value]) => <div key={label} className="rounded-md bg-[#FFF4D6]/50 p-2"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 text-lg font-bold text-slate-900">{value}{label === "Pass percentage" ? "%" : ""}</p></div>)}</div></div>)}</div><div className="h-[250px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={comparison}><CartesianGrid stroke="#e2e8f0" vertical={false} strokeDasharray="3 3" /><XAxis dataKey="assessment" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} /><YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="average" name="Average" fill="#FC6226" radius={[4, 4, 0, 0]} /><Bar dataKey="highest" name="Highest" fill="#E04F18" radius={[4, 4, 0, 0]} /><Bar dataKey="lowest" name="Lowest" fill="#FDBA74" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div></Panel></>}</div>;
 }
 
@@ -2149,7 +2087,7 @@ function ReportsPage({ onToast }: { onToast: (message: string) => void }) {
     }
   });
   const rows = reportsQuery.data ?? [];
-  const exportWorkbook = (kind: "overall" | "IA-1" | "IA-2") => { const selectedRows = rows.filter((row) => kind === "overall" || row.submission.assessment === kind); const data = selectedRows.map((row) => ({ Student: "Class marks", Subject: row.subject?.name ?? "", Semester: row.submission.semester, Section: row.submission.section, Assessment: row.submission.assessment, Status: row.submission.status, Marks: row.submission.marksJson })); const workbook = XLSX.utils.book_new(); const sheet = XLSX.utils.json_to_sheet(data.length ? data : [{ Notice: "No submitted marks match the selected parameters" }]); XLSX.utils.book_append_sheet(workbook, sheet, kind === "overall" ? "Overall Marks" : kind.replace("-", " ")); XLSX.writeFile(workbook, `KVELL_${kind.replace("-", "_")}_marks.xlsx`); onToast(`${kind === "overall" ? "Overall" : kind} Excel downloaded`); };
+  const exportWorkbook = (kind: "overall" | "IA-1" | "IA-2") => { const selectedRows = rows.filter((row) => kind === "overall" || row.submission.assessment === kind); const data = selectedRows.map((row) => ({ Student: "Class marks", Subject: row.subject?.name ?? "", Semester: row.submission.semester, Section: row.submission.section, Assessment: row.submission.assessment, Status: row.submission.status, Marks: row.submission.marksJson })); const workbook = XLSX.utils.book_new(); const sheet = XLSX.utils.json_to_sheet(data.length ? data : [{ Notice: "No submitted marks match the selected parameters" }]); XLSX.utils.book_append_sheet(workbook, sheet, kind === "overall" ? "Overall Marks" : kind.replace("-", " ")); downloadWorkbook(workbook, `KVELL_${kind.replace("-", "_")}_marks.xlsx`); onToast(`${kind === "overall" ? "Overall" : kind} Excel downloaded`); };
   return <div className="space-y-6"><PageIntro eyebrow="Reporting center" title="Reports" description="Export overall marks, publish assessment results to student portal, or download workbooks." action={<button onClick={() => publishMutation.mutate({ subjectId })} disabled={publishMutation.isPending} className="inline-flex items-center gap-2 rounded-md bg-[#FC6226] px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#E04F18] disabled:opacity-50"><CheckCircle2 size={14} />{publishMutation.isPending ? "Publishing..." : subjectId ? "Publish Selected Subject Results" : "Publish All Results to Portal"}</button>} /><Panel className="p-5"><SectionHeading title="Report parameters" detail="Filter the report dataset before downloading Excel or publishing results" /><div className="grid gap-4 sm:grid-cols-3"><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Semester</label><select value={semester} onChange={(event) => setSemester(event.target.value)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs"><option>VI</option><option>V</option><option>IV</option></select></div><FieldSelect label="Section" value={section} options={["All sections", "CSE A", "CSE B"]} /><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Subject</label><select value={subjectId ?? ""} onChange={(event) => setSubjectId(Number(event.target.value) || undefined)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs"><option value="">All subjects</option>{(subjectsQuery.data ?? []).map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></div></div><div className="mt-5 grid gap-3 md:grid-cols-3"><button onClick={() => exportWorkbook("overall")} className="inline-flex items-center justify-center gap-2 rounded-md bg-[#FC6226] px-3.5 py-3 text-xs font-semibold text-white hover:bg-[#E04F18]"><Download size={14} />Export overall marks Excel</button><button onClick={() => exportWorkbook("IA-1")} className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3.5 py-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Download size={14} />Export IA-1 Excel</button><button onClick={() => exportWorkbook("IA-2")} className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3.5 py-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Download size={14} />Export IA-2 Excel</button></div><p className="mt-4 text-[11px] text-slate-500">{rows.length} persisted submission records available for export.</p></Panel></div>;
 }
 
@@ -2165,7 +2103,7 @@ function FacultyPage() {
   const review = (decision: "approve" | "return") => { if (selected && !reviewMutation.isPending) reviewMutation.mutate({ id: selected.submission.id, decision, reviewer: "HOD" }); };
   const marks = selected ? (() => { try { return JSON.parse(selected.submission.marksJson) as Record<string, number>; } catch { return {}; } })() : {};
   const iaMarkRows = Object.entries(marks).filter(([key]) => key.endsWith("-internal")).map(([key, value]) => { const reg = key.replace(/-internal$/, ""); const student = students.find((item) => item.reg === reg); return { reg, name: student?.name ?? reg, value: Number(value || 0) }; });
-  const exportSelected = () => { if (!selected) return; const data = iaMarkRows.map((row) => ({ Department: "Computer Science and Engineering", Year: selected.submission.academicYear, Semester: selected.submission.semester, Subject: selected.subject?.name ?? "", Section: selected.submission.section, Assessment: selected.submission.assessment, Name: row.name, "IA Mark": row.value })); const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), selected.submission.assessment); XLSX.writeFile(workbook, `KVELL_CSE_${selected.submission.assessment}_review.xlsx`); };
+  const exportSelected = () => { if (!selected) return; const data = iaMarkRows.map((row) => ({ Department: "Computer Science and Engineering", Year: selected.submission.academicYear, Semester: selected.submission.semester, Subject: selected.subject?.name ?? "", Section: selected.submission.section, Assessment: selected.submission.assessment, Name: row.name, "IA Mark": row.value })); const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), selected.submission.assessment); downloadWorkbook(workbook, `KVELL_CSE_${selected.submission.assessment}_review.xlsx`); };
   return <div className="space-y-6"><PageIntro eyebrow="HOD workspace" title="Faculty review requests" description="Only faculty mark-review requests are shown. Select a request to inspect each student’s IA mark in read-only mode and approve or reject it." /><Panel className="p-5"><SectionHeading title="Pending review requests" detail="Every request includes year, semester, subject, section, and assessment." /><div className="mt-4 space-y-3">{requests.map((row) => <button key={row.submission.id} onClick={() => setSelectedId(row.submission.id)} className={cn("w-full rounded-lg border p-4 text-left transition hover:border-[#FC6226]/30 hover:bg-[#FFE8C2]/30", selectedId === row.submission.id ? "border-[#F5D8B4] bg-[#FFE8C2]/50" : "border-slate-100")}><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-slate-800">{row.subject?.name ?? "Subject"}</p><p className="mt-1 text-[11px] text-slate-500">YR {row.submission.academicYear} · SEM {row.submission.semester} · SUB {row.subject?.code ?? "—"} · SEC {row.submission.section} · {row.submission.assessment}</p></div><StatusBadge tone="warning">Awaiting review</StatusBadge></div></button>)}{requests.length === 0 && <EmptyState title="No faculty review requests" detail="Faculty requests will appear here after marks are submitted for HOD review." />}</div></Panel>{selected && <><Panel className="overflow-hidden"><div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[11px] font-semibold uppercase tracking-wide text-[#C2410C]">Computer Science and Engineering · IA review</p><h2 className="mt-1 text-base font-semibold text-slate-900">{selected.subject?.name ?? "Subject"}</h2><p className="mt-1 text-xs text-slate-500">YR {selected.submission.academicYear} · SEM {selected.submission.semester} · SUB {selected.subject?.code ?? "—"} · SEC {selected.submission.section} · {selected.submission.assessment}</p></div><div className="flex gap-2"><button onClick={exportSelected} className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Download size={14} />Export Excel</button><button onClick={() => review("return")} disabled={reviewMutation.isPending} className="rounded-md border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50">Reject</button><button onClick={() => review("approve")} disabled={reviewMutation.isPending} className="rounded-md bg-[#FC6226] px-3 py-2 text-xs font-semibold text-white hover:bg-[#E04F18]">Approve & send Dean</button></div></div><div className="mobile-table-scroll"><table className="w-full min-w-[500px] text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Name</th><th className="px-4 py-3">Value</th><th className="px-5 py-3 text-right">Mode</th></tr></thead><tbody className="divide-y divide-slate-100">{iaMarkRows.map((row) => <tr key={row.reg}><td className="px-5 py-3.5 text-xs font-medium text-slate-700">{row.name}</td><td className="px-4 py-3.5 text-xs font-semibold text-slate-900">{row.value}</td><td className="px-5 py-3.5 text-right"><StatusBadge tone="neutral">Read only</StatusBadge></td></tr>)}</tbody></table></div></Panel><Panel className="p-5"><SectionHeading title="IA-1 vs IA-2 · CSE" detail="Comparison of submitted review marks" /><div className="mb-4 grid gap-4 lg:grid-cols-2">{comparison.map((item) => <div key={item.assessment} className="rounded-lg border border-slate-100 p-3"><p className="mb-3 text-xs font-bold text-[#8C2F00]">{item.assessment} · Computer Science and Engineering</p><div className="grid grid-cols-2 gap-2">{([["Average", item.average], ["Highest", item.highest], ["Lowest", item.lowest], ["Pass percentage", item.passPercentage]] as const).map(([label, value]) => <div key={label} className="rounded-md bg-[#FFF4D6]/50 p-2"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 text-lg font-bold text-slate-900">{value}{label === "Pass percentage" ? "%" : ""}</p></div>)}</div></div>)}</div><div className="h-[250px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={comparison}><CartesianGrid stroke="#e2e8f0" vertical={false} strokeDasharray="3 3" /><XAxis dataKey="assessment" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} /><YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="average" name="Average" fill="#FC6226" radius={[4, 4, 0, 0]} /><Bar dataKey="highest" name="Highest" fill="#E04F18" radius={[4, 4, 0, 0]} /><Bar dataKey="lowest" name="Lowest" fill="#FDBA74" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div></Panel></>}</div>;
 }
 
@@ -2717,10 +2655,10 @@ function AdminPage({ onToast }: { onToast: (message: string) => void }) {
           </div>
         </div>
 
-        <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+        <div className="mt-3 overflow-auto rounded-2xl border border-slate-200 shadow-sm max-h-[75vh]">
           <div className="mobile-table-scroll">
             <table className="w-full min-w-[840px] text-left">
-              <thead className="bg-[#0B192C] text-white text-[11px] font-extrabold uppercase tracking-wider">
+              <thead className="bg-[#0B192C] text-white text-[11px] font-extrabold uppercase tracking-wider sticky top-0 z-20">
                 <tr>
                   <th className="px-5 py-3.5">User ID & Name</th>
                   <th className="px-4 py-3.5">Email & Dept</th>
@@ -3222,9 +3160,9 @@ function ElectiveDemandComponent({ onToast }: { onToast: (msg: string) => void }
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-2xl border border-slate-200">
+        <div className="overflow-auto rounded-2xl border border-slate-200 max-h-[75vh]">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#0B192C] text-white uppercase text-[11px] font-extrabold tracking-wider">
+            <thead className="bg-[#0B192C] text-white uppercase text-[11px] font-extrabold tracking-wider sticky top-0 z-20">
               <tr>
                 <th className="p-4">Rank</th>
                 <th className="p-4">Course Code</th>
@@ -3262,6 +3200,33 @@ function ElectiveDemandComponent({ onToast }: { onToast: (msg: string) => void }
   );
 }
 
+/** Latest publication figures from the server, shared by the banners and the login page. */
+function usePublicSummary() {
+  const [summary, setSummary] = useState<PublicSummaryDTO | null>(null);
+  useEffect(() => {
+    publicApi.summary().then(setSummary).catch(() => setSummary(null));
+  }, []);
+  return summary;
+}
+
+/** Banner text: when results were last published (or that none are published yet). */
+function PublicationNotice() {
+  const summary = usePublicSummary();
+  if (!summary) return <>Examination Result Portal</>;
+  return summary.lastPublishedAt ? (
+    <>Examination results last published on {summary.lastPublishedAt}</>
+  ) : (
+    <>Examination results will appear here once the Controller of Examinations publishes them</>
+  );
+}
+
+/** Login page figures from the published results. */
+function PublicFigure({ kind }: { kind: "pass" | "published" }) {
+  const summary = usePublicSummary();
+  if (kind === "pass") return <>{summary && summary.studentsWithResults > 0 ? `${summary.passPercentage}%` : "—"}</>;
+  return <>{summary?.lastPublishedLabel ?? "Not yet"}</>;
+}
+
 function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
   const [activePage, setActivePage] = useState<PageKey>(role === "Admin" ? "admin" : "dashboard");
   const [performanceStudent, setPerformanceStudent] = useState<
@@ -3276,16 +3241,9 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
   const activeNav =
     currentRoleNav.find((item) => item.key === activePage) ?? currentRoleNav[0];
   const meta = roleMeta[role] || roleMeta["Faculty"];
+  // The faculty member's college comes from their login (set from the server's answer at sign-in)
   const facultyCollegeKey = (role === "Faculty" ? localStorage.getItem("kvell_faculty_college") : null) as FacultyCollege | null;
   const facultyCollege = facultyCollegeKey && FACULTY_COLLEGES[facultyCollegeKey] ? FACULTY_COLLEGES[facultyCollegeKey] : (role === "Faculty" ? FACULTY_COLLEGES.Engineering : null);
-  const notificationRole = (role === "Admin" || (role as string) === "Student") ? "Faculty" : (role as any);
-  const notificationsQuery = trpc.notifications.list.useQuery({
-    role: notificationRole,
-  });
-  const markNotification = trpc.notifications.markRead.useMutation({
-    onSuccess: () => notificationsQuery.refetch(),
-  });
-  const notifications = notificationsQuery.data ?? [];
 
   useEffect(() => {
     if (toast) {
@@ -3429,7 +3387,7 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
               </span>
             </div>
             <p className="mt-1.5 text-[11px] leading-4 font-semibold text-slate-300">
-              Academic Year 2026-27 · Semester I
+              {authApi.currentUser()?.departmentName ?? ""}
             </p>
           </div>
         </div>
@@ -3465,16 +3423,24 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
         <div className="border-t border-white/10 p-4 bg-[#081220]">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#D4A72C] text-xs font-black text-[#0B192C] shadow-sm">
-              {facultyCollege ? facultyCollege.shortName[0] : meta.initials}
+              {facultyCollege ? (authApi.currentUser()?.name ?? "F")[0] : meta.initials}
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-extrabold text-white">
-                {facultyCollege ? facultyCollege.facultyName : meta.name}
+                {facultyCollege ? authApi.currentUser()?.name ?? facultyCollege.shortName : meta.name}
               </p>
               <p className="mt-0.5 truncate text-[10px] font-bold text-[#D4A72C]">
                 {facultyCollege ? `${facultyCollege.shortName} · Examiner` : meta.roleLabel}
               </p>
             </div>
+            <button
+              onClick={() => window.dispatchEvent(new Event("kvell:open-change-password"))}
+              className="rounded-lg p-1.5 text-slate-300 hover:bg-white/10 hover:text-[#D4A72C] transition"
+              aria-label="Change password"
+              title="Change password"
+            >
+              <KeyRound size={16} />
+            </button>
             <button
               onClick={onLogout}
               className="rounded-lg p-1.5 text-slate-300 hover:bg-red-500/20 hover:text-red-300 transition"
@@ -3556,72 +3522,17 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
               <CircleHelp size={18} />
             </button>
 
-            <div className="relative">
-              <button
-                onClick={() => setNotificationsOpen((current) => !current)}
-                className="relative rounded-xl p-2 text-slate-500 hover:bg-[#F8F5EE] hover:text-[#0B192C] transition"
-                aria-label="Notifications"
-              >
-                <Bell size={18} />
-                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white" />
-              </button>
-
-              {notificationsOpen && (
-                <div className="absolute right-0 top-11 z-30 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <p className="text-xs font-extrabold text-[#0B192C]">
-                      Notifications
-                    </p>
-                    <span className="text-[10px] font-bold text-[#B08014] bg-[#D4A72C]/10 px-2 py-0.5 rounded-md">
-                      {notifications.filter((item) => item.isRead === 0).length}{" "}
-                      unread
-                    </span>
-                  </div>
-                  <div className="space-y-3 pt-3">
-                    {notifications.length ? (
-                      notifications.slice(0, 5).map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() =>
-                            markNotification.mutate({ id: item.id })
-                          }
-                          className="flex w-full gap-2.5 text-left p-2 rounded-xl hover:bg-[#F8F5EE] transition"
-                        >
-                          <span
-                            className={cn(
-                              "mt-1 h-2 w-2 shrink-0 rounded-full",
-                              item.isRead ? "bg-slate-300" : "bg-[#D4A72C]"
-                            )}
-                          />
-                          <span>
-                            <p className="text-[11px] font-bold text-[#0B192C]">
-                              {item.title}
-                            </p>
-                            <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
-                              {item.message}
-                            </p>
-                          </span>
-                        </button>
-                      ))
-                    ) : (
-                      <p className="py-2 text-[11px] text-slate-400 font-medium">
-                        No workflow notifications yet.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+            <NotificationBell />
 
             <div className="hidden h-8 w-px bg-slate-200 sm:block" />
 
             <div className="flex items-center gap-2.5 bg-[#F8F5EE] border border-slate-200 px-3 py-1.5 rounded-full shadow-sm">
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0B192C] text-[11px] font-black text-[#D4A72C]">
-                {facultyCollege ? facultyCollege.shortName[0] : meta.initials}
+                {facultyCollege ? (authApi.currentUser()?.name ?? "F")[0] : meta.initials}
               </div>
               <div className="hidden text-left lg:block">
                 <p className="text-xs font-extrabold text-[#0B192C]">
-                  {facultyCollege ? facultyCollege.facultyName : meta.name}
+                  {facultyCollege ? authApi.currentUser()?.name ?? facultyCollege.shortName : meta.name}
                 </p>
                 <p className="text-[9px] font-bold text-[#B08014] uppercase tracking-wider">
                   {facultyCollege ? `${facultyCollege.collegeName}` : meta.roleLabel}
@@ -3674,93 +3585,49 @@ function LoginPage({
     hodInfo?: { name: string; department: string }
   ) => void;
 }) {
-  const usersQuery = trpc.admin.users.useQuery({ actorRole: "Admin" });
-  const allUsers: any[] = usersQuery.data ?? [];
-
-  const [selectedRole, setSelectedRole] = useState<"Student" | "HOD" | "Faculty">("Student");
-  const [regNumber, setRegNumber] = useState("20260110226001");
-  const [username, setUsername] = useState("FACULTY01");
-  const [password, setPassword] = useState("password123");
+  const [selectedRole, setSelectedRole] = useState<"Student" | "HOD" | "Faculty" | "Admin">("Student");
+  const [regNumber, setRegNumber] = useState("");
+  const [dob, setDob] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const submit = (event: React.FormEvent) => {
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setErrorMsg(null);
 
-    if (selectedRole === "Student") {
-      const trimmed = (regNumber || "").trim().toLowerCase();
-      const matched = allUsers.find(
-        (u: any) =>
-          (u.portalRole === "Student" || u.role === "user") &&
-          (u.username?.toLowerCase() === trimmed || u.openId?.toLowerCase() === trimmed || u.email?.toLowerCase() === trimmed)
-      );
+    // Result management happens in the Examination Control Panel (admin panel app)
+    if (selectedRole === "Admin") {
+      window.location.assign(ADMIN_PANEL_URL);
+      return;
+    }
 
-      const aidsMatch = aidsSem1Students.find((s) => s.regNo.toLowerCase() === trimmed);
-      const studentName = matched?.name || aidsMatch?.name || (aidsSem1Students[0]?.name || "ABI T");
-      const resolvedReg = matched?.openId || matched?.username || aidsMatch?.regNo || (regNumber || "20260110226001");
-
-      onAuthenticated("Student", {
-        reg: resolvedReg,
-        name: studentName,
-        semester: 1,
-      });
-    } else if (selectedRole === "HOD") {
-      const trimmed = (username || "").trim().toLowerCase();
-      const matched = allUsers.find(
-        (u: any) =>
-          (u.portalRole === "HOD" || u.portalRole === "Faculty" || u.portalRole === "Dean") &&
-          (u.username?.toLowerCase() === trimmed || u.openId?.toLowerCase() === trimmed || u.email?.toLowerCase() === trimmed || u.name?.toLowerCase().includes(trimmed))
-      );
-
-      if (matched && matched.portalRole === "Faculty") {
-        let resolvedCollege: FacultyCollege = "Engineering";
-        if (trimmed.includes("pharm") || matched?.department?.toLowerCase().includes("pharm")) {
-          resolvedCollege = "Pharmacy";
-        } else if (trimmed.includes("nur") || matched?.department?.toLowerCase().includes("nurs")) {
-          resolvedCollege = "Nursing";
-        }
-        if (resolvedCollege !== "Engineering") {
-          clearFacultyPharmacyAndNursingData();
-        }
-        localStorage.setItem("kvell_faculty_college", resolvedCollege);
+    setSubmitting(true);
+    try {
+      if (selectedRole === "Student") {
+        // Students sign in with Register Number + Date of Birth
+        const res = await authApi.login(regNumber.trim(), dob, "student");
+        onAuthenticated("Student", { reg: res.user.username, name: res.user.name, semester: 1 });
+      } else if (selectedRole === "Faculty") {
+        // Faculty enter marks for their own department and forward them to the COE
+        const res = await authApi.login(username.trim(), password, "faculty");
+        // The college comes from the account on the server, never from what was typed
+        const college = res.user.collegeKey === "pharmacy" ? "Pharmacy" : res.user.collegeKey === "nursing" ? "Nursing" : "Engineering";
+        localStorage.setItem("kvell_faculty_college", college);
         onAuthenticated("Faculty");
-      } else if (matched) {
-        onAuthenticated("HOD", undefined, {
-          name: matched.name,
-          department: matched.department || "COMPUTER SCIENCE AND ENGINEERING",
-        });
       } else {
+        const res = await authApi.login(username.trim(), password, "hod");
         onAuthenticated("HOD", undefined, {
-          name: username || "JAYAPRADHA",
-          department: "COMPUTER SCIENCE AND ENGINEERING",
+          name: res.user.name,
+          department: (res.user.departmentName || "").toUpperCase(),
         });
       }
-    } else if (selectedRole === "Faculty") {
-      const trimmed = (username || "").trim().toLowerCase();
-      let resolvedCollege: FacultyCollege = "Engineering";
-      if (trimmed.includes("pharm")) {
-        resolvedCollege = "Pharmacy";
-      } else if (trimmed.includes("nur")) {
-        resolvedCollege = "Nursing";
-      } else {
-        const matched = allUsers.find(
-          (u: any) =>
-            u.username?.toLowerCase() === trimmed ||
-            u.openId?.toLowerCase() === trimmed ||
-            u.email?.toLowerCase() === trimmed
-        );
-        if (matched?.college === "Pharmacy" || matched?.department?.toLowerCase().includes("pharm")) {
-          resolvedCollege = "Pharmacy";
-        } else if (matched?.college === "Nursing" || matched?.department?.toLowerCase().includes("nurs")) {
-          resolvedCollege = "Nursing";
-        }
-      }
-      if (resolvedCollege !== "Engineering") {
-        clearFacultyPharmacyAndNursingData();
-      }
-      localStorage.setItem("kvell_faculty_college", resolvedCollege);
-      onAuthenticated("Faculty");
+    } catch (err) {
+      setErrorMsg(apiErrorMessage(err, "Sign in failed. Please check your details."));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -3775,7 +3642,7 @@ function LoginPage({
             # OFFICIAL PORTAL
           </span>
           <span className="text-slate-300 font-medium">
-            May 2025 Semester End Examination Results Published for Faculty of Engineering and Emerging Sciences!
+            <PublicationNotice />
           </span>
         </div>
 
@@ -3848,12 +3715,12 @@ function LoginPage({
             </p>
             <div className="grid grid-cols-2 gap-4 pt-2">
               <div className="p-4 rounded-2xl bg-white/5 border border-white/10 shadow-sm">
-                <p className="text-2xl font-black text-[#D4A72C]">96.4%</p>
-                <p className="text-xs text-slate-300 font-bold mt-0.5">Engineering Pass Rate</p>
+                <p className="text-2xl font-black text-[#D4A72C]"><PublicFigure kind="pass" /></p>
+                <p className="text-xs text-slate-300 font-bold mt-0.5">Pass Rate (published results)</p>
               </div>
               <div className="p-4 rounded-2xl bg-white/5 border border-white/10 shadow-sm">
-                <p className="text-2xl font-black text-[#D4A72C]">May 2025</p>
-                <p className="text-xs text-slate-300 font-bold mt-0.5">Semester End Results</p>
+                <p className="text-2xl font-black text-[#D4A72C]"><PublicFigure kind="published" /></p>
+                <p className="text-xs text-slate-300 font-bold mt-0.5">Latest Results Published</p>
               </div>
             </div>
           </div>
@@ -3916,7 +3783,12 @@ function LoginPage({
 
               {/* Login Form */}
               <form onSubmit={submit} className="space-y-4">
-                {selectedRole === "Student" ? (
+                {selectedRole === "Admin" ? (
+                  <p className="text-xs font-semibold text-slate-600 leading-relaxed">
+                    Result upload, mark entry and publication are managed in the Examination Control Panel.
+                    Continue to sign in there with your administrator credentials.
+                  </p>
+                ) : selectedRole === "Student" ? (
                   <div>
                     <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
                       STUDENT REGISTER NUMBER
@@ -3945,7 +3817,7 @@ function LoginPage({
                           required
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
-                          placeholder="e.g. FACULTY01 / FACULTY_PHARM / FACULTY_NUR"
+                          placeholder="e.g. FACCSE"
                           className="w-full h-12 pl-11 pr-4 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 focus:bg-white text-xs font-semibold text-[#172033] focus:border-[#0B192C] focus:ring-1 focus:ring-[#0B192C] focus:outline-none transition shadow-sm"
                         />
                       </div>
@@ -3962,36 +3834,57 @@ function LoginPage({
                         required
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        placeholder="e.g. JAYAPRADHA"
+                        placeholder={selectedRole === "HOD" ? "e.g. HODCSE" : "e.g. FACCSE"}
                         className="w-full h-12 pl-11 pr-4 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 focus:bg-white text-xs font-semibold text-[#172033] focus:border-[#0B192C] focus:ring-1 focus:ring-[#0B192C] focus:outline-none transition shadow-sm"
                       />
                     </div>
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
-                    PASSWORD
-                  </label>
-                  <div className="relative">
-                    <KeyRound size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Enter password"
-                      className="w-full h-12 pl-11 pr-10 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 focus:bg-white text-xs font-semibold text-[#172033] focus:border-[#0B192C] focus:ring-1 focus:ring-[#0B192C] focus:outline-none transition shadow-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800 p-1"
-                    >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
+                {selectedRole === "Student" && (
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
+                      DATE OF BIRTH
+                    </label>
+                    <div className="relative">
+                      <KeyRound size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="date"
+                        required
+                        value={dob}
+                        onChange={(e) => setDob(e.target.value)}
+                        max={new Date().toISOString().slice(0, 10)}
+                        className="w-full h-12 pl-11 pr-4 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 focus:bg-white text-xs font-semibold text-[#172033] focus:border-[#0B192C] focus:ring-1 focus:ring-[#0B192C] focus:outline-none transition shadow-sm"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {(selectedRole === "HOD" || selectedRole === "Faculty") && (
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
+                      PASSWORD
+                    </label>
+                    <div className="relative">
+                      <KeyRound size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter password"
+                        className="w-full h-12 pl-11 pr-10 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 focus:bg-white text-xs font-semibold text-[#172033] focus:border-[#0B192C] focus:ring-1 focus:ring-[#0B192C] focus:outline-none transition shadow-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800 p-1"
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {errorMsg && (
                   <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-bold text-red-700 flex items-center gap-2 shadow-sm">
@@ -4002,78 +3895,17 @@ function LoginPage({
 
                 <button
                   type="submit"
-                  className="w-full h-12 rounded-2xl bg-[#0B192C] hover:bg-[#152744] text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition duration-150 active:scale-[0.99] cursor-pointer"
+                  disabled={submitting}
+                  className="w-full h-12 rounded-2xl bg-[#0B192C] hover:bg-[#152744] text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition duration-150 active:scale-[0.99] disabled:opacity-60"
                 >
                   <Lock size={14} className="text-[#D4A72C]" />
-                  Sign In to {selectedRole === "Faculty" ? "Faculty Portal" : `${selectedRole} Portal`}
+                  {selectedRole === "Admin"
+                    ? "Open Examination Control Panel"
+                    : submitting
+                      ? "Signing in..."
+                      : `Sign In to ${selectedRole} Portal`}
                 </button>
               </form>
-
-              {/* Demo Quick Sign-in Helper */}
-              <div className="mt-5 pt-4 border-t border-slate-200 text-center">
-                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2">
-                  DIRECT QUICK ACCESS (ONE-CLICK LOGIN):
-                </span>
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      localStorage.setItem("kvell_faculty_college", "Engineering");
-                      onAuthenticated("Faculty");
-                    }}
-                    className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-900 font-extrabold text-[11px] hover:bg-amber-100 transition shadow-sm border border-amber-300 cursor-pointer"
-                  >
-                    ⚙️ Engineering Faculty
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      clearFacultyPharmacyAndNursingData();
-                      localStorage.setItem("kvell_faculty_college", "Pharmacy");
-                      onAuthenticated("Faculty");
-                    }}
-                    className="px-3 py-1.5 rounded-full bg-sky-50 text-sky-900 font-extrabold text-[11px] hover:bg-sky-100 transition shadow-sm border border-sky-300 cursor-pointer"
-                  >
-                    💊 Pharmacy Faculty
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      clearFacultyPharmacyAndNursingData();
-                      localStorage.setItem("kvell_faculty_college", "Nursing");
-                      onAuthenticated("Faculty");
-                    }}
-                    className="px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-900 font-extrabold text-[11px] hover:bg-emerald-100 transition shadow-sm border border-emerald-300 cursor-pointer"
-                  >
-                    🏥 Nursing Faculty
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onAuthenticated("HOD", undefined, {
-                        name: "JAYAPRADHA",
-                        department: "COMPUTER SCIENCE AND ENGINEERING",
-                      });
-                    }}
-                    className="px-3 py-1.5 rounded-full bg-[#FC6226]/10 text-[#FC6226] font-extrabold text-[11px] hover:bg-[#FC6226]/20 transition shadow-sm border border-[#FC6226]/30 cursor-pointer"
-                  >
-                    👔 HOD (CSE)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onAuthenticated("Student", {
-                        reg: "20260110226001",
-                        name: "ABI T",
-                        semester: 1,
-                      });
-                    }}
-                    className="px-3 py-1.5 rounded-full bg-[#D4A72C]/20 text-[#0B192C] font-extrabold text-[11px] hover:bg-[#D4A72C]/30 transition shadow-sm border border-[#D4A72C] cursor-pointer"
-                  >
-                    🎓 Student (ABI T)
-                  </button>
-                </div>
-              </div>
 
             </div>
           </div>
@@ -4112,8 +3944,6 @@ function StudentDashboard({
 
   const kvellSealLogo = "/kvell-logo.png";
 
-  const semRoman = "I";
-  const semOrdinal = "1st";
   const isElectiveEligible = false;
 
   const semesterCoursesData: Record<
@@ -4214,57 +4044,63 @@ function StudentDashboard({
     },
   };
 
-  const isCse = studentReg.includes("2010") || studentName.toUpperCase().includes("AARAV") || studentName.toUpperCase().includes("ANANYA R") || studentName.toUpperCase().includes("DEEPAK");
-  const isBme = studentReg.includes("2040") || studentName.toUpperCase().includes("ABINAYA") || studentName.toUpperCase().includes("BALAJI R") || studentName.toUpperCase().includes("CHANDRU");
-  const detectedProgramName = isCse
-    ? "B.Tech Computer Science and Engineering"
-    : isBme
-    ? "B.Tech Biomedical Engineering"
-    : "B.Tech Artificial Intelligence & Data Science";
-
-  const studentCourses = useMemo(() => {
-    if (isCse) {
-      return [
-        { code: "UC26C01T", title: "Induction & Professional English", credits: 3, grade: "O", points: 10, status: "PASS" },
-        { code: "MA26C01T", title: "Matrices and Calculus", credits: 4, grade: "A+", points: 9, status: "PASS" },
-        { code: "CY26C01I", title: "Engineering Chemistry", credits: 4, grade: "O", points: 10, status: "PASS" },
-        { code: "CS26C02T", title: "Programming in C", credits: 3, grade: "O", points: 10, status: "PASS" },
-        { code: "CS26N01I", title: "Programming Laboratory", credits: 3, grade: "A+", points: 9, status: "PASS" },
-        { code: "ME26C02P", title: "Engineering Practices Laboratory", credits: 2, grade: "O", points: 10, status: "PASS" },
-        { code: "UC26C02P", title: "Physics & Chemistry Laboratory", credits: 2, grade: "A+", points: 9, status: "PASS" },
-        { code: "UC26C03P", title: "Professional Communication Laboratory", credits: 2, grade: "O", points: 10, status: "PASS" },
-      ];
-    }
-    if (isBme) {
-      return [
-        { code: "EN26C01T", title: "Professional English", credits: 3, grade: "O", points: 10, status: "PASS" },
-        { code: "MA26C01T", title: "Matrices and Calculus", credits: 4, grade: "A+", points: 9, status: "PASS" },
-        { code: "PH26C01I", title: "Engineering Physics", credits: 4, grade: "A", points: 8, status: "PASS" },
-        { code: "EE26C01T", title: "Basic Electrical and Electronics Engineering", credits: 3, grade: "O", points: 10, status: "PASS" },
-        { code: "CS26C01I", title: "Problem Solving and Python Programming", credits: 3, grade: "A+", points: 9, status: "PASS" },
-        { code: "ME26C02P", title: "Engineering Practices Laboratory", credits: 2, grade: "O", points: 10, status: "PASS" },
-        { code: "UC26C02P", title: "Physics & Chemistry Laboratory", credits: 2, grade: "A+", points: 9, status: "PASS" },
-        { code: "UC26C03P", title: "Professional Communication Laboratory", credits: 2, grade: "O", points: 10, status: "PASS" },
-      ];
-    }
-    return [
-      { code: "UC26C01T", title: "Induction & Professional English", credits: 3, grade: "O", points: 10, status: "PASS" },
-      { code: "MA26C01T", title: "Matrices and Calculus", credits: 4, grade: "A+", points: 9, status: "PASS" },
-      { code: "CY26C01I", title: "Engineering Chemistry", credits: 4, grade: "O", points: 10, status: "PASS" },
-      { code: "CS26C02T", title: "Programming in C", credits: 3, grade: "O", points: 10, status: "PASS" },
-      { code: "CS26N01I", title: "Programming Laboratory", credits: 3, grade: "O", points: 10, status: "PASS" },
-      { code: "ME26C02P", title: "Engineering Practices Laboratory", credits: 2, grade: "A+", points: 9, status: "PASS" },
-      { code: "UC26C02P", title: "Physics & Chemistry Laboratory", credits: 2, grade: "O", points: 10, status: "PASS" },
-      { code: "UC26C03P", title: "Professional Communication Laboratory", credits: 2, grade: "O", points: 10, status: "PASS" },
-    ];
-  }, [isCse, isBme]);
-
-  const totalCredits = studentCourses.reduce((sum, c) => sum + c.credits, 0);
-  const totalPoints = studentCourses.reduce((sum, c) => sum + c.points * c.credits, 0);
-  const computedSgpa = Number((totalPoints / Math.max(totalCredits, 1)).toFixed(2));
+  const [results, setResults] = useState<StudentResultsDTO | null>(null);
+  const [resultsError, setResultsError] = useState<string | null>(null);
+  useEffect(() => {
+    studentApi
+      .getMyResults()
+      .then(setResults)
+      .catch((err) => setResultsError(apiErrorMessage(err, "Could not load your results.")));
+  }, []);
+  // Each published assessment (IAT-1, IAT-2, End Semester) is its own statement; the latest is shown first
+  const [resultIndex, setResultIndex] = useState<number | null>(null);
+  const resultEntries = results?.semesters ?? [];
+  const latestSemester =
+    resultEntries.length > 0 ? resultEntries[resultIndex ?? resultEntries.length - 1] ?? resultEntries[resultEntries.length - 1] : null;
+  const isInternal = !!latestSemester?.internalAssessment;
+  // The student's own current semester (from their student record)
+  const semNumber = Math.min(8, Math.max(1, results?.profile.currentSemester ?? 1));
+  const semRoman = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"][semNumber - 1];
+  const semOrdinal = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"][semNumber - 1];
+  const studentCourses = (latestSemester?.subjects ?? []).map((sub) => ({
+    code: sub.code,
+    title: sub.title,
+    credits: sub.credits,
+    total: sub.total,
+    grade: sub.grade,
+    points: sub.gradePoints,
+    status: sub.status,
+  }));
+  const deptName = results?.profile.departmentName ?? "—";
+  const programPrefix = (key: string) => (key === "mba" ? "MBA" : key === "mca" ? "MCA" : "B.Tech");
+  const programLabel = results
+    ? ["mba", "mca"].includes(results.profile.departmentKey)
+      ? results.profile.departmentName
+      : `${programPrefix(results.profile.departmentKey)} ${results.profile.departmentName}`
+    : "—";
+  const academicYearLabel = results?.profile.academicYear ?? "";
+  const categoryLabel = results ? (results.profile.category === "lateral" ? "Lateral Entry" : "Regular") : "—";
+  const initials =
+    studentName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "ST";
 
   const currentSemData = semesterCoursesData[currentSemesterNum] ?? semesterCoursesData[3];
-  const currentCoreSubjects = currentSemData.core;
+  // Registered subjects come from the COE subject catalog on the server
+  const [mySubjects, setMySubjects] = useState<RegisteredSubjectDTO[]>([]);
+  useEffect(() => {
+    studentApi.getMySubjects().then(setMySubjects).catch(() => setMySubjects([]));
+  }, []);
+  const currentCoreSubjects = mySubjects.map((sub) => ({
+    code: sub.code,
+    title: sub.title,
+    credits: sub.credits,
+    category: sub.category,
+    faculty: sub.faculty,
+  }));
   const currentElectiveOptions = currentSemData.electives ?? [];
   const totalCoreCredits = currentCoreSubjects.reduce((acc, c) => acc + c.credits, 0);
 
@@ -4293,7 +4129,7 @@ function StudentDashboard({
             # OFFICIAL PORTAL
           </span>
           <span className="text-slate-300 font-medium">
-            May 2025 Semester End Examination Results Published for Faculty of Engineering and Emerging Sciences!
+            <PublicationNotice />
           </span>
         </div>
 
@@ -4371,6 +4207,8 @@ function StudentDashboard({
               </span>
             </div>
 
+            <NotificationBell onLink={(link) => link === "result" && setActiveTab("result")} />
+
             <div className="text-right hidden sm:block">
               <p className="text-sm font-extrabold text-[#0B192C]">{studentName}</p>
               <p className="text-xs font-bold text-slate-500">Register: {studentReg}</p>
@@ -4423,7 +4261,7 @@ function StudentDashboard({
               <div className="p-6 sm:p-8 border-b border-slate-100 bg-[#F8F5EE]/50 flex flex-wrap items-center justify-between gap-6">
                 <div className="flex items-center gap-5">
                   <div className="h-20 w-20 rounded-full bg-[#0B192C] text-[#D4A72C] font-black text-2xl flex items-center justify-center border-2 border-[#D4A72C] shadow-lg">
-                    AS
+                    {initials}
                   </div>
                   <div>
                     <h2 className="text-2xl font-black text-[#0B192C]">{studentName}</h2>
@@ -4431,7 +4269,7 @@ function StudentDashboard({
                       Register No: <span className="font-mono text-[#0B192C]">{studentReg}</span>
                     </p>
                     <p className="text-xs font-bold text-[#B08014] mt-1">
-                      Undergraduate • B.Tech Artificial Intelligence & Data Science
+                      Undergraduate • {programLabel}
                     </p>
                   </div>
                 </div>
@@ -4462,14 +4300,14 @@ function StudentDashboard({
                     <p className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-slate-400">
                       DEPARTMENT
                     </p>
-                    <p className="text-sm font-extrabold text-[#0B192C] mt-1">Computer Science & Engineering</p>
+                    <p className="text-sm font-extrabold text-[#0B192C] mt-1">{deptName}</p>
                   </div>
 
                   <div className="p-5 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60">
                     <p className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-slate-400">
                       ACADEMIC PROGRAM
                     </p>
-                    <p className="text-sm font-extrabold text-[#0B192C] mt-1">B.Tech CSE & Artificial Intelligence</p>
+                    <p className="text-sm font-extrabold text-[#0B192C] mt-1">{programLabel}</p>
                   </div>
 
                   <div className="p-5 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60">
@@ -4477,15 +4315,15 @@ function StudentDashboard({
                       SEMESTER & YEAR
                     </p>
                     <p className="text-sm font-extrabold text-[#0B192C] mt-1">
-                      Semester {semRoman} ({semOrdinal} Semester • Academic Year 2026-27)
+                      Semester {semRoman} ({semOrdinal} Semester{academicYearLabel ? ` • Academic Year ${academicYearLabel}` : ""})
                     </p>
                   </div>
 
                   <div className="p-5 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60">
                     <p className="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-slate-400">
-                      INSTITUTIONAL EMAIL
+                      ADMISSION CATEGORY
                     </p>
-                    <p className="text-sm font-bold text-[#0B192C] mt-1 truncate">aarav.sharma@students.kvell.edu</p>
+                    <p className="text-sm font-bold text-[#0B192C] mt-1 truncate">{categoryLabel}</p>
                   </div>
 
                 </div>
@@ -4497,7 +4335,9 @@ function StudentDashboard({
                     ACADEMIC RESULT MODULE
                   </p>
                   <p className="text-base font-bold mt-1">
-                    May 2025 Semester End Grade Card and Official Statement of Marks are published.
+                    {latestSemester
+                      ? `${latestSemester.semesterLabel} ${latestSemester.assessmentType} results are published. Open the Result Module to see your marks.`
+                      : "Your results have not been published yet. Please check back after the Controller of Examinations releases them."}
                   </p>
                 </div>
                 <button
@@ -4581,9 +4421,9 @@ function StudentDashboard({
                   </span>
                 </div>
 
-                <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                <div className="overflow-auto rounded-2xl border border-slate-200 max-h-[75vh]">
                   <table className="w-full text-left text-xs sm:text-sm">
-                    <thead className="bg-[#0B192C] text-white text-xs sm:text-xs font-extrabold uppercase tracking-wider">
+                    <thead className="bg-[#0B192C] text-white text-xs sm:text-xs font-extrabold uppercase tracking-wider sticky top-0 z-20">
                       <tr>
                         <th className="px-5 py-4">COURSE CODE</th>
                         <th className="px-5 py-4">SUBJECT TITLE</th>
@@ -4726,9 +4566,9 @@ function StudentDashboard({
                     </span>
                   </div>
 
-                  <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <div className="overflow-auto rounded-2xl border border-slate-200 bg-white shadow-sm max-h-[75vh]">
                     <table className="w-full text-left text-xs sm:text-sm">
-                      <thead className="bg-[#0B192C] text-white text-xs font-extrabold uppercase tracking-wider">
+                      <thead className="bg-[#0B192C] text-white text-xs font-extrabold uppercase tracking-wider sticky top-0 z-20">
                         <tr>
                           <th className="px-5 py-4">CODE</th>
                           <th className="px-5 py-4">APPROVED COURSE TITLE</th>
@@ -4796,7 +4636,8 @@ function StudentDashboard({
                     KVELL UNIVERSITY
                   </h3>
                   <p className="text-xs font-bold text-[#D4A72C] tracking-wider uppercase mt-0.5">
-                    FACULTY OF ENGINEERING & EMERGING SCIENCES • OFFICIAL STATEMENT OF MARKS
+                    FACULTY OF ENGINEERING & EMERGING SCIENCES •{" "}
+                    {isInternal ? `INTERNAL ASSESSMENT MARKS (${latestSemester?.assessmentType})` : "OFFICIAL STATEMENT OF MARKS"}
                   </p>
                 </div>
               </div>
@@ -4817,30 +4658,61 @@ function StudentDashboard({
               </div>
               <div>
                 <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">ENGINEERING PROGRAM</p>
-                <p className="font-extrabold text-[#0B192C] mt-1">B.Tech Artificial Intelligence & Data Science</p>
+                <p className="font-extrabold text-[#0B192C] mt-1">{programLabel}</p>
               </div>
               <div>
-                <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">SEMESTER & EXAM MONTH</p>
-                <p className="font-extrabold text-[#0B192C] mt-1">Semester I (Academic Year 2026-27)</p>
+                <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
+                  {isInternal ? "SEMESTER & ASSESSMENT" : "SEMESTER & EXAM MONTH"}
+                </p>
+                <p className="font-extrabold text-[#0B192C] mt-1">
+                  {latestSemester
+                    ? `${latestSemester.semesterLabel} • ${latestSemester.examMonthYear} (Academic Year ${latestSemester.academicYear})`
+                    : "No results published yet"}
+                </p>
               </div>
             </div>
 
             {/* Course Grade Breakdown Table */}
             <div className="mx-6 sm:mx-8 mt-8 space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="font-extrabold text-base text-[#0B192C]">Course Grade Breakdown</h4>
-                <span className="text-xs sm:text-sm font-extrabold text-slate-500">Total Credits: 23</span>
+                <h4 className="font-extrabold text-base text-[#0B192C]">
+                  {isInternal ? `${latestSemester?.assessmentType} Marks` : "Course Grade Breakdown"}
+                </h4>
+                {!isInternal && (
+                  <span className="text-xs sm:text-sm font-extrabold text-slate-500">Total Credits: {latestSemester?.totalCredits ?? 0}</span>
+                )}
               </div>
 
-              <div className="overflow-x-auto rounded-2xl border border-slate-200">
+              {resultEntries.length > 1 && (
+                <div className="flex flex-wrap gap-2">
+                  {resultEntries.map((entry, i) => {
+                    const active = entry === latestSemester;
+                    return (
+                      <button
+                        key={`${entry.semester}-${entry.assessmentType}`}
+                        type="button"
+                        onClick={() => setResultIndex(i)}
+                        className={`px-4 py-2 rounded-xl text-xs font-extrabold border transition ${
+                          active ? "bg-[#0B192C] text-white border-[#0B192C]" : "bg-white text-[#0B192C] border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        {entry.semesterLabel} • {entry.assessmentType}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="overflow-auto rounded-2xl border border-slate-200 max-h-[75vh]">
                 <table className="w-full text-left text-xs sm:text-sm">
-                  <thead className="bg-[#0B192C] text-white text-xs font-extrabold uppercase tracking-wider">
+                  <thead className="bg-[#0B192C] text-white text-xs font-extrabold uppercase tracking-wider sticky top-0 z-20">
                     <tr>
                       <th className="px-5 py-4">COURSE CODE</th>
                       <th className="px-5 py-4">COURSE TITLE</th>
-                      <th className="px-5 py-4 text-center">CREDITS</th>
+                      {!isInternal && <th className="px-5 py-4 text-center">CREDITS</th>}
+                      <th className="px-5 py-4 text-center">MARKS (/100)</th>
                       <th className="px-5 py-4 text-center">GRADE</th>
-                      <th className="px-5 py-4 text-center">GRADE POINTS</th>
+                      {!isInternal && <th className="px-5 py-4 text-center">GRADE POINTS</th>}
                       <th className="px-5 py-4 text-center">STATUS</th>
                     </tr>
                   </thead>
@@ -4849,16 +4721,30 @@ function StudentDashboard({
                       <tr key={c.code} className="hover:bg-slate-50/80 transition">
                         <td className="px-5 py-4 font-mono font-bold text-[#0B192C]">{c.code}</td>
                         <td className="px-5 py-4 font-extrabold text-slate-900">{c.title}</td>
-                        <td className="px-5 py-4 text-center text-slate-600">{c.credits}</td>
+                        {!isInternal && <td className="px-5 py-4 text-center text-slate-600">{c.credits}</td>}
+                        <td className="px-5 py-4 text-center font-bold text-slate-800">{c.total}</td>
                         <td className="px-5 py-4 text-center font-extrabold text-[#0B192C]">{c.grade}</td>
-                        <td className="px-5 py-4 text-center font-bold text-slate-800">{c.points}</td>
+                        {!isInternal && <td className="px-5 py-4 text-center font-bold text-slate-800">{c.points}</td>}
                         <td className="px-5 py-4 text-center">
-                          <span className="inline-block bg-green-100 text-green-800 text-xs font-extrabold px-3 py-1 rounded-full border border-green-200">
+                          <span
+                            className={`inline-block text-xs font-extrabold px-3 py-1 rounded-full border ${
+                              c.status === "PASS"
+                                ? "bg-green-100 text-green-800 border-green-200"
+                                : "bg-red-100 text-red-800 border-red-200"
+                            }`}
+                          >
                             {c.status}
                           </span>
                         </td>
                       </tr>
                     ))}
+                    {studentCourses.length === 0 && (
+                      <tr>
+                        <td colSpan={isInternal ? 5 : 7} className="px-5 py-10 text-center text-sm font-bold text-slate-500">
+                          {resultsError ?? (results ? "Your results have not been published yet." : "Loading your results...")}
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -4866,18 +4752,44 @@ function StudentDashboard({
 
             {/* Footer Card */}
             <div className="bg-[#0B192C] text-white p-6 sm:p-8 mt-10 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center items-center divide-y sm:divide-y-0 sm:divide-x divide-white/10">
-              <div className="py-3 sm:py-0">
-                <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">SEMESTER SGPA</p>
-                <p className="text-3xl font-black text-white mt-1">9.42</p>
-              </div>
-              <div className="py-3 sm:py-0">
-                <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">CUMULATIVE CGPA</p>
-                <p className="text-3xl font-black text-white mt-1">9.28</p>
-              </div>
-              <div className="py-3 sm:py-0">
-                <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">OVERALL RESULT</p>
-                <p className="text-lg font-black text-[#38BDF8] mt-1 tracking-wide">PASS - DISTINCTION</p>
-              </div>
+              {isInternal && latestSemester ? (
+                <>
+                  {/* Internal assessment tests have no SGPA / CGPA */}
+                  <div className="py-3 sm:py-0">
+                    <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">ASSESSMENT</p>
+                    <p className="text-2xl font-black text-white mt-1">{latestSemester.assessmentType}</p>
+                  </div>
+                  <div className="py-3 sm:py-0">
+                    <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">TOTAL MARKS</p>
+                    <p className="text-3xl font-black text-white mt-1">
+                      {latestSemester.totalMarks} <span className="text-base text-white/60">/ {latestSemester.maxMarks}</span>
+                    </p>
+                  </div>
+                  <div className="py-3 sm:py-0">
+                    <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">AVERAGE</p>
+                    <p className="text-3xl font-black text-white mt-1">
+                      {latestSemester.maxMarks ? ((latestSemester.totalMarks * 100) / latestSemester.maxMarks).toFixed(1) : "0"}%
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="py-3 sm:py-0">
+                    <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">SEMESTER SGPA</p>
+                    <p className="text-3xl font-black text-white mt-1">
+                      {latestSemester?.sgpa != null ? Number(latestSemester.sgpa).toFixed(2) : "—"}
+                    </p>
+                  </div>
+                  <div className="py-3 sm:py-0">
+                    <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">CUMULATIVE CGPA</p>
+                    <p className="text-3xl font-black text-white mt-1">{results?.cgpa != null ? Number(results.cgpa).toFixed(2) : "—"}</p>
+                  </div>
+                  <div className="py-3 sm:py-0">
+                    <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">OVERALL RESULT</p>
+                    <p className="text-lg font-black text-[#38BDF8] mt-1 tracking-wide">{results?.overallResult ?? "—"}</p>
+                  </div>
+                </>
+              )}
             </div>
 
           </div>
@@ -4932,7 +4844,10 @@ export default function Home() {
         studentReg={activeStudent.reg}
         studentName={activeStudent.name}
         initialSemester={activeStudent.semester}
-        onLogout={() => setAuthenticatedRole(null)}
+        onLogout={() => {
+          authApi.logout();
+          setAuthenticatedRole(null);
+        }}
       />
     );
   }
@@ -4942,7 +4857,10 @@ export default function Home() {
       <HodPortalDashboard
         hodName={activeHod.name}
         department={activeHod.department}
-        onLogout={() => setAuthenticatedRole(null)}
+        onLogout={() => {
+          authApi.logout();
+          setAuthenticatedRole(null);
+        }}
       />
     );
   }
@@ -4950,7 +4868,10 @@ export default function Home() {
   return (
     <AppShell
       role={authenticatedRole}
-      onLogout={() => setAuthenticatedRole(null)}
+      onLogout={() => {
+          authApi.logout();
+          setAuthenticatedRole(null);
+        }}
     />
   );
 }

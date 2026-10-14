@@ -78,9 +78,9 @@ export const ElectiveDemand: React.FC = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[75vh]">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider">
+            <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider sticky top-0 z-20">
               <tr>
                 <th className="p-3">Rank</th>
                 <th className="p-3">Course Code</th>

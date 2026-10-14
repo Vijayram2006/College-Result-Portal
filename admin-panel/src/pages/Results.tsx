@@ -182,9 +182,9 @@ export const ResultsPage: React.FC = () => {
 
       {/* Batches Table */}
       <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[75vh]">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#0B192C] text-white font-bold uppercase tracking-wider">
+            <thead className="bg-[#0B192C] text-white font-bold uppercase tracking-wider sticky top-0 z-20">
               <tr>
                 <th className="p-4">Batch ID & Title</th>
                 <th className="p-4">Department & Semester</th>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { SEMESTER_OPTIONS } from "../utils/semesters";
 import { Link, useLocation } from "wouter";
 import {
   BarChart3,
@@ -24,6 +25,7 @@ import {
   ExternalLink,
   Info,
 } from "lucide-react";
+import { adminResultsApi, apiErrorMessage, marksApi, ResultBatchRecord, StudentMarkRecord } from "../services/api";
 import {
   ResponsiveContainer,
   BarChart,
@@ -75,17 +77,13 @@ const deptNamesMap: Record<string, string> = {
   cse: "CSE",
   bme: "BME",
   ece: "ECE",
-  it: "IT",
   eee: "EEE",
   mech: "MECH",
-  auto: "AUTO",
-  biotech: "BIOTECH",
+  bt: "BT",
   civil: "CIVIL",
-  robotics: "ROBOTICS",
+  ra: "RA",
   mba: "MBA",
   mca: "MCA",
-  nursing: "Nursing",
-  pharmacy: "Pharmacy",
 };
 
 /**
@@ -109,12 +107,7 @@ export const fetchAllLiveMarks = (): LiveStudentMark[] => {
     });
   }
 
-  // Ensure dummy marks are present (only seeds for engineering)
-  try {
-    ensureDummyMarksLoaded();
-  } catch (e) {
-    console.error("Error ensuring dummy marks:", e);
-  }
+  // Marks come from the server (marksApi.all); no dummy marks are seeded
 
   const deptStudentsPrefix = getScopedKey("kvell_dept_students_");
   const marksPrefix = getScopedKey("kvell_marks_");
@@ -393,6 +386,61 @@ export const fetchAllLiveMarks = (): LiveStudentMark[] => {
   return Array.from(marksMap.values());
 };
 
+/** Published results from the server, in the shape the charts use (one entry per student per subject). */
+export const marksFromBatches = (batches: ResultBatchRecord[]): LiveStudentMark[] =>
+  batches
+    .filter((b) => b.publicationStatus === "PUBLISHED")
+    .flatMap((b) =>
+      (b.records || []).map((r: any) => {
+        const aType = String(r.assessmentType || "End Semester");
+        const assessment: "IA1" | "IA2" | "END_SEM" =
+          aType.includes("2") ? "IA2" : aType.includes("1") ? "IA1" : "END_SEM";
+        return {
+          regNo: r.regNo,
+          name: r.studentName,
+          dob: "",
+          deptKey: b.departmentKey,
+          deptName: deptNamesMap[b.departmentKey] || b.departmentName,
+          semester: b.semester,
+          subjectCode: r.courseCode,
+          subjectTitle: r.courseTitle,
+          assessment,
+          partA: Number(r.internalMarks) || 0,
+          partBC: Number(r.externalMarks) || 0,
+          totalMarks: Number(r.totalMarks) || 0,
+          grade: r.grade,
+          resultStatus: r.resultStatus,
+        } as LiveStudentMark;
+      })
+    );
+
+/** Entered marks from the server (live as examiners confirm marks, before publishing). */
+export const marksFromEntries = (entries: StudentMarkRecord[]): LiveStudentMark[] =>
+  entries
+    .filter((m) => m.hasMarks)
+    .map((m) => {
+      const aType = String(m.assessmentType || "IAT-1");
+      const assessment: "IA1" | "IA2" | "END_SEM" =
+        aType.includes("2") ? "IA2" : aType.includes("1") ? "IA1" : "END_SEM";
+      const deptKey = m.deptKey || "";
+      return {
+        regNo: m.regNo,
+        name: m.name,
+        dob: m.dob,
+        deptKey,
+        deptName: deptNamesMap[deptKey] || m.deptName || deptKey.toUpperCase(),
+        semester: m.semester || "Semester I",
+        subjectCode: m.subjectCode || "",
+        subjectTitle: m.subjectTitle || "",
+        assessment,
+        partA: Number(m.partATotal) || 0,
+        partBC: Number(m.partBCTotal) || 0,
+        totalMarks: Number(m.grandTotal) || 0,
+        grade: m.grade,
+        resultStatus: m.resultStatus,
+      } as LiveStudentMark;
+    });
+
 export const AnalyticsPage: React.FC = () => {
   const [, navigate] = useLocation();
   const college = getActiveCollege();
@@ -411,13 +459,14 @@ export const AnalyticsPage: React.FC = () => {
   const [lastRefreshed, setLastRefreshed] = useState<string>("");
 
   const refreshData = () => {
-    try {
-      ensureDummyMarksLoaded();
-    } catch {}
-    const marks = fetchAllLiveMarks();
-    setLiveMarks(marks);
+    marksApi
+      .all()
+      .then((entries) => {
+        setLiveMarks(marksFromEntries(entries));
+        setLastRefreshed(new Date().toLocaleTimeString());
+      })
+      .catch((err) => console.error("Could not load marks for analytics", err));
     setDepartments(getStoredDepartments());
-    setLastRefreshed(new Date().toLocaleTimeString());
   };
 
   useEffect(() => {
@@ -437,29 +486,19 @@ export const AnalyticsPage: React.FC = () => {
     };
   }, []);
 
-  const handleClearAllMarks = () => {
+  const handleClearAllMarks = async () => {
     if (
       window.confirm(
-        "Are you sure you want to clear all entered examination marks? Analytics and graphs will become completely empty."
+        "Are you sure you want to delete ALL published result batches? Students will no longer see these results. Entered marks are kept (re-publish them from Mark Entry)."
       )
     ) {
       try {
-        const marksPrefix = getScopedKey("kvell_marks_");
-        const keysToRemove: string[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && k.startsWith(marksPrefix)) {
-            keysToRemove.push(k);
-          }
-        }
-        keysToRemove.forEach((k) => localStorage.removeItem(k));
-        localStorage.removeItem(getScopedKey("kvell_published_results"));
-        localStorage.removeItem(getScopedKey("kvell_custom_batches"));
+        await adminResultsApi.clearAllBatches();
         window.dispatchEvent(new Event("kvell_marks_updated"));
         refreshData();
-        alert("All marks data successfully cleared. Analytics is now empty.");
-      } catch (e) {
-        console.error(e);
+        alert("All published result batches were deleted. Entered marks are kept and still shown here.");
+      } catch (err) {
+        alert(apiErrorMessage(err, "Could not clear the results."));
       }
     }
   };
@@ -559,27 +598,13 @@ export const AnalyticsPage: React.FC = () => {
       const ia2List = list.filter((m) => m.assessment === "IA2");
       const endSemList = list.filter((m) => m.assessment === "END_SEM");
 
-      let ia1Avg = ia1List.length ? Number((ia1List.reduce((a, b) => a + (Number(b.totalMarks) || 0), 0) / ia1List.length).toFixed(1)) : 0;
-      let ia2Avg = ia2List.length ? Number((ia2List.reduce((a, b) => a + (Number(b.totalMarks) || 0), 0) / ia2List.length).toFixed(1)) : 0;
+      const ia1Avg = ia1List.length ? Number((ia1List.reduce((a, b) => a + (Number(b.totalMarks) || 0), 0) / ia1List.length).toFixed(1)) : 0;
+      const ia2Avg = ia2List.length ? Number((ia2List.reduce((a, b) => a + (Number(b.totalMarks) || 0), 0) / ia2List.length).toFixed(1)) : 0;
       const endSemAvg = endSemList.length ? Number((endSemList.reduce((a, b) => a + (Number(b.totalMarks) || 0), 0) / endSemList.length).toFixed(1)) : 0;
 
-      // If IA1 or IA2 are not yet uploaded separately, interpolate based on EndSem
-      if (ia1Avg === 0 && endSemAvg > 0) {
-        ia1Avg = Number(Math.max(40, endSemAvg - 7).toFixed(1));
-      }
-      if (ia2Avg === 0 && endSemAvg > 0) {
-        ia2Avg = Number(Math.max(45, endSemAvg - 3).toFixed(1));
-      }
-
-      // When specific assessment is selected
+      // Only real marks: an assessment with no marks shows 0 (nothing is estimated)
       const targetList =
-        assessment === "IA1"
-          ? (ia1List.length ? ia1List : list)
-          : assessment === "IA2"
-          ? (ia2List.length ? ia2List : list)
-          : assessment === "END_SEM"
-          ? (endSemList.length ? endSemList : list)
-          : list;
+        assessment === "IA1" ? ia1List : assessment === "IA2" ? ia2List : assessment === "END_SEM" ? endSemList : list;
 
       const avgScore = targetList.length ? Number((targetList.reduce((a, b) => a + (Number(b.totalMarks) || 0), 0) / targetList.length).toFixed(1)) : 0;
       const passedCount = targetList.filter((m) => m.resultStatus === "PASS" || (Number(m.totalMarks) || 0) >= 40).length;
@@ -657,18 +682,10 @@ export const AnalyticsPage: React.FC = () => {
     const ia2 = getStats(filteredMarks.filter((m) => m.assessment === "IA2"));
     const endSem = getStats(filteredMarks.filter((m) => m.assessment === "END_SEM"));
 
-    // If IA1 or IA2 are empty, compute smooth continuous assessment growth from EndSem
-    const ia1Avg = ia1.avg || (endSem.avg > 0 ? Number(Math.max(45, endSem.avg - 7).toFixed(1)) : 0);
-    const ia1Pass = ia1.pass || (endSem.pass > 0 ? Number(Math.max(65, endSem.pass - 5).toFixed(1)) : 0);
-    const ia2Avg = ia2.avg || (endSem.avg > 0 ? Number(Math.max(50, endSem.avg - 3).toFixed(1)) : 0);
-    const ia2Pass = ia2.pass || (endSem.pass > 0 ? Number(Math.max(70, endSem.pass - 2).toFixed(1)) : 0);
-    const midAvg = endSem.avg > 0 ? Number(((ia2Avg + endSem.avg) / 2).toFixed(1)) : 0;
-    const midPass = endSem.pass > 0 ? Number(((ia2Pass + endSem.pass) / 2).toFixed(1)) : 0;
-
+    // Only real marks: an assessment with no marks entered shows 0
     return [
-      { milestone: "IAT-1", averageScore: ia1Avg, passRate: ia1Pass },
-      { milestone: "IAT-2", averageScore: ia2Avg, passRate: ia2Pass },
-      { milestone: "Model Exam", averageScore: midAvg, passRate: midPass },
+      { milestone: "IAT-1", averageScore: ia1.avg, passRate: ia1.pass },
+      { milestone: "IAT-2", averageScore: ia2.avg, passRate: ia2.pass },
       { milestone: "End Semester", averageScore: endSem.avg, passRate: endSem.pass },
     ];
   }, [filteredMarks]);
@@ -684,16 +701,10 @@ export const AnalyticsPage: React.FC = () => {
       return { PartA, PartBC };
     };
 
-    let ia1 = getPartAvg(filteredMarks.filter((m) => m.assessment === "IA1"));
-    let ia2 = getPartAvg(filteredMarks.filter((m) => m.assessment === "IA2"));
+    const ia1 = getPartAvg(filteredMarks.filter((m) => m.assessment === "IA1"));
+    const ia2 = getPartAvg(filteredMarks.filter((m) => m.assessment === "IA2"));
     const endSem = getPartAvg(filteredMarks.filter((m) => m.assessment === "END_SEM"));
 
-    if (ia1.PartA === 0 && endSem.PartA > 0) {
-      ia1 = { PartA: Number(Math.max(5, endSem.PartA - 2).toFixed(1)), PartBC: Number(Math.max(25, endSem.PartBC - 6).toFixed(1)) };
-    }
-    if (ia2.PartA === 0 && endSem.PartA > 0) {
-      ia2 = { PartA: Number(Math.max(6, endSem.PartA - 1).toFixed(1)), PartBC: Number(Math.max(28, endSem.PartBC - 2).toFixed(1)) };
-    }
 
     return [
       { assessment: "IA1 (IAT-1)", PartA: ia1.PartA, PartBC: ia1.PartBC },
@@ -894,8 +905,12 @@ export const AnalyticsPage: React.FC = () => {
                 onChange={(e) => setSemesterFilter(e.target.value)}
                 className="px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] font-bold text-[#0B192C] focus:outline-none"
               >
-                <option value="all">All Semesters (Semester I)</option>
-                <option value="Semester I">Semester I</option>
+                <option value="all">All Semesters</option>
+                {SEMESTER_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
               </select>
             </div>
           </div>
@@ -1265,9 +1280,9 @@ export const AnalyticsPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[75vh]">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider">
+            <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider sticky top-0 z-20">
               <tr>
                 <th className="p-3.5">Registration Number</th>
                 <th className="p-3.5">Student Name</th>

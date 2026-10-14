@@ -203,10 +203,13 @@ function vitePluginStorageProxy(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), vitePluginStorageProxy()];
-
-export default defineConfig({
-  plugins,
+// The template's editor plugins (source locations, Manus runtime and debug collector) only serve the dev server;
+// the runtime alone would inline ~360 KB of unused script into the production page.
+export default defineConfig(({ command }) => ({
+  plugins:
+    command === "serve"
+      ? [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), vitePluginStorageProxy()]
+      : [react(), tailwindcss()],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
@@ -238,4 +241,4 @@ export default defineConfig({
       deny: ["**/.*"],
     },
   },
-});
+}));

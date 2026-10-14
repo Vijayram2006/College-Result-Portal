@@ -12,6 +12,8 @@ import {
   CheckCircle2,
   Upload,
 } from "lucide-react";
+import * as XLSX from "xlsx";
+import { downloadWorkbook } from "../utils/downloadWorkbook";
 import { adminResultsApi, AuditLogRecord } from "../services/api";
 import { getActiveCollege } from "../utils/rbac";
 
@@ -22,8 +24,28 @@ export const AuditLogsPage: React.FC = () => {
   const [actionFilter, setActionFilter] = useState("ALL");
 
   useEffect(() => {
-    adminResultsApi.getAuditLogs().then(setLogs);
+    adminResultsApi.getAuditLogs().then(setLogs).catch(() => setLogs([]));
   }, []);
+
+  // Downloads the logs currently shown (search and action filter applied) as an Excel workbook
+  const exportAuditLog = () => {
+    const rows = filteredLogs.map((log) => ({
+      "Log ID": log.id,
+      Timestamp: log.timestamp,
+      Action: log.action,
+      Target: log.target,
+      Description: log.description,
+      "User ID": log.adminId,
+      "User Name": log.adminName,
+      "IP Address": log.ipAddress,
+    }));
+    const sheet = XLSX.utils.json_to_sheet(rows.length ? rows : [{ Notice: "No audit log entries match the current filter" }]);
+    sheet["!cols"] = [{ wch: 10 }, { wch: 20 }, { wch: 30 }, { wch: 36 }, { wch: 80 }, { wch: 16 }, { wch: 32 }, { wch: 16 }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, "Audit Log");
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+    downloadWorkbook(workbook, `Audit_Log_${college.shortName}_${stamp}.xlsx`);
+  };
 
   const filteredLogs = logs.filter((log) => {
     const matchesSearch =
@@ -80,7 +102,7 @@ export const AuditLogsPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => alert("Audit log report downloaded")}
+            onClick={exportAuditLog}
             className="flex items-center gap-2 bg-[#0B192C] hover:bg-[#0B192C]/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow-md"
           >
             <Download size={14} /> Export Audit Log
@@ -122,9 +144,9 @@ export const AuditLogsPage: React.FC = () => {
 
       {/* Audit Log Table */}
       <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[75vh]">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#0B192C] text-white font-bold uppercase tracking-wider">
+            <thead className="bg-[#0B192C] text-white font-bold uppercase tracking-wider sticky top-0 z-20">
               <tr>
                 <th className="p-4">Log ID & Timestamp</th>
                 <th className="p-4">Administrator</th>

@@ -116,28 +116,3 @@ export function getScopedKey(baseKey: string, targetCollege?: CollegeKey): strin
   }
   return `kvell_${collegeKey}_${baseKey}`;
 }
-
-/**
- * Quick switch college role (for presentation / administrative switching in the same panel)
- */
-export function switchCollegeRole(newCollege: CollegeKey) {
-  const currentUser = adminAuthApi.getCurrentUser();
-  if (!currentUser) return;
-
-  const conf = COLLEGES[newCollege];
-  const updatedUser = {
-    ...currentUser,
-    id: newCollege === "nursing" ? "ADM-NUR-001" : newCollege === "pharmacy" ? "ADM-PHARM-001" : "ADM-ENG-001",
-    role: conf.role,
-    collegeKey: newCollege,
-    collegeName: conf.name,
-    name: conf.coeTitle,
-    email: conf.email,
-    username: newCollege === "nursing" ? "COE_NURSING" : newCollege === "pharmacy" ? "COE_PHARMACY" : "ADMIN",
-  };
-
-  localStorage.setItem("kvell_admin_user", JSON.stringify(updatedUser));
-  localStorage.setItem("kvell_admin_token", `demo-token-${newCollege}`);
-  window.dispatchEvent(new Event("storage"));
-  window.location.reload();
-}

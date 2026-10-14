@@ -8,12 +8,13 @@ import {
   ShieldAlert,
   Trash2,
 } from "lucide-react";
-import { adminResultsApi, ResultBatchRecord, addAuditLog } from "../services/api";
-import { getRealLocalTimestamp } from "../utils/dateUtils";
-import { getScopedKey, getActiveCollege } from "../utils/rbac";
+import { useLocation } from "wouter";
+import { adminResultsApi, ResultBatchRecord, apiErrorMessage } from "../services/api";
+import { getActiveCollege } from "../utils/rbac";
 
 export const ResultsPublished: React.FC = () => {
   const college = getActiveCollege();
+  const [, navigate] = useLocation();
   const [batches, setBatches] = useState<ResultBatchRecord[]>([]);
   const [selectedBatchModal, setSelectedBatchModal] = useState<ResultBatchRecord | null>(null);
   const [publishConfirmBatch, setPublishConfirmBatch] = useState<ResultBatchRecord | null>(null);
@@ -25,96 +26,50 @@ export const ResultsPublished: React.FC = () => {
   }, []);
 
   const loadBatches = () => {
-    adminResultsApi.getResultBatches().then(setBatches);
+    adminResultsApi
+      .getResultBatches()
+      .then(setBatches)
+      .catch((err) => setFeedbackMessage(apiErrorMessage(err, "Could not load result batches.")));
   };
 
   const handleDeleteBatch = async (batchId: string, title: string) => {
     if (!window.confirm(`Are you sure you want to delete result batch "${title}"?`)) return;
-    await adminResultsApi.deleteResultBatch(batchId);
+    try {
+      await adminResultsApi.deleteResultBatch(batchId);
+    } catch (err) {
+      alert(apiErrorMessage(err, "Could not delete the batch."));
+      return;
+    }
     setBatches(batches.filter((b) => b.id !== batchId));
     setFeedbackMessage(`Batch "${title}" deleted successfully.`);
   };
 
   const handleClearAllBatches = async () => {
     if (!window.confirm("Are you sure you want to delete ALL result batches? This action cannot be undone.")) return;
-    await adminResultsApi.clearAllBatches();
+    try {
+      await adminResultsApi.clearAllBatches();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Could not clear the batches."));
+      return;
+    }
     setBatches([]);
     setFeedbackMessage("All result batches cleared successfully.");
   };
 
+  // "Approve & Publish": the server publishes the whole department and semester of this subject, and refuses
+  // (with the reason) until faculty have forwarded every subject with marks for every student.
   const handlePublishConfirm = async () => {
     if (!publishConfirmBatch) return;
     setPublishing(true);
-
-    const targetId = publishConfirmBatch.id;
-    const nowTimestamp = getRealLocalTimestamp(true);
-
     try {
-      await adminResultsApi.publishResultBatch(targetId);
-    } catch (err: any) {
-      console.warn("Server publish endpoint error, applying local persistence:", err);
+      const res = await adminResultsApi.publishResultBatch(publishConfirmBatch.id);
+      setFeedbackMessage(`${res.message} Results are now visible on the Student & HOD portals.`);
+      loadBatches();
+    } catch (err) {
+      setFeedbackMessage(apiErrorMessage(err, "Could not publish these results."));
     }
-
-    // Always persist PUBLISHED status in localStorage scoped to active college
-    try {
-      const batchKey = getScopedKey("kvell_custom_batches");
-      const raw = localStorage.getItem(batchKey);
-      let list: ResultBatchRecord[] = raw ? JSON.parse(raw) : [];
-      let found = false;
-
-      list = list.map((b) => {
-        if (b.id === targetId) {
-          found = true;
-          return {
-            ...b,
-            publicationStatus: "PUBLISHED" as const,
-            publishedAt: nowTimestamp,
-            publishedBy: `Dr. Controller of Examinations (${college.shortName.toUpperCase()})`,
-          };
-        }
-        return b;
-      });
-
-      if (!found) {
-        list.unshift({
-          ...publishConfirmBatch,
-          publicationStatus: "PUBLISHED" as const,
-          publishedAt: nowTimestamp,
-          publishedBy: `Dr. Controller of Examinations (${college.shortName.toUpperCase()})`,
-        });
-      }
-
-      localStorage.setItem(batchKey, JSON.stringify(list));
-      window.dispatchEvent(new Event("storage"));
-    } catch (e) {
-      console.error("Error writing published batch to localStorage", e);
-    }
-
-    setBatches((prev) =>
-      prev.map((b) =>
-        b.id === targetId
-          ? {
-              ...b,
-              publicationStatus: "PUBLISHED" as const,
-              publishedAt: nowTimestamp,
-              publishedBy: `Dr. Controller of Examinations (${college.shortName.toUpperCase()})`,
-            }
-          : b
-      )
-    );
-
-    addAuditLog({
-      action: "COE_PUBLISHED_RESULTS",
-      target: `${publishConfirmBatch.id} (${publishConfirmBatch.batchTitle})`,
-      timestamp: nowTimestamp,
-      description: `Controller of Examinations officially verified and PUBLISHED examination results for batch "${publishConfirmBatch.batchTitle}" (${publishConfirmBatch.totalStudents} candidates). Evaluated and forwarded by ${publishConfirmBatch.uploadedBy}.`,
-    });
-
-    setFeedbackMessage(
-      `Results for "${publishConfirmBatch.batchTitle}" successfully PUBLISHED by COE! Visible live on Student & HOD Portals.`
-    );
-    setPublishConfirmBatch(null);
     setPublishing(false);
+    setPublishConfirmBatch(null);
   };
 
   return (
@@ -165,9 +120,9 @@ export const ResultsPublished: React.FC = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[75vh]">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider">
+            <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider sticky top-0 z-20">
               <tr>
                 <th className="p-3.5">Batch Title & Dept</th>
                 <th className="p-3.5">Semester & Year</th>

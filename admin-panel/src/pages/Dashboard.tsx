@@ -21,10 +21,9 @@ import {
   Layers,
   Filter,
 } from "lucide-react";
-import { adminDashboardApi, AdminDashboardStats } from "../services/api";
-import { getStoredDepartments, Department } from "./Departments";
-import { aidsProfiles, cseSem1Students, bmeSem1Students } from "../data/dummyMarksData";
-import { getScopedKey, getActiveCollege, getActiveCollegeKey, isEngineeringCollege } from "../utils/rbac";
+import { adminDashboardApi, AdminDashboardStats, studentsApi, StudentRecord } from "../services/api";
+import { getStoredDepartments, refreshDepartments, Department } from "./Departments";
+import { getActiveCollege } from "../utils/rbac";
 
 export const Dashboard: React.FC = () => {
   const [, navigate] = useLocation();
@@ -38,114 +37,53 @@ export const Dashboard: React.FC = () => {
   const [selectedDeptFilter, setSelectedDeptFilter] = useState("all");
   const [studentSearchQuery, setStudentSearchQuery] = useState("");
 
+  const [students, setStudents] = useState<StudentRecord[]>([]);
+
   const loadData = () => {
-    adminDashboardApi.getStats().then(setStats);
+    adminDashboardApi.getStats().then(setStats).catch(() => undefined);
     setDepartments(getStoredDepartments());
+    refreshDepartments().then(setDepartments).catch(() => undefined);
+    studentsApi.list().then(setStudents).catch(() => undefined);
   };
 
   useEffect(() => {
     loadData();
+    // Live numbers: other COE sessions and faculty submissions update the server, not this tab
+    const timer = window.setInterval(() => adminDashboardApi.getStats().then(setStats).catch(() => undefined), 20000);
     window.addEventListener("kvell_marks_updated", loadData);
     window.addEventListener("kvell_subjects_updated", loadData);
-    window.addEventListener("kvell_departments_updated", loadData);
+    const syncDepts = () => setDepartments(getStoredDepartments());
+    window.addEventListener("kvell_departments_updated", syncDepts);
     window.addEventListener("kvell_students_updated", loadData);
     window.addEventListener("storage", loadData);
     window.addEventListener("focus", loadData);
     return () => {
       window.removeEventListener("kvell_marks_updated", loadData);
       window.removeEventListener("kvell_subjects_updated", loadData);
-      window.removeEventListener("kvell_departments_updated", loadData);
+      window.removeEventListener("kvell_departments_updated", syncDepts);
       window.removeEventListener("kvell_students_updated", loadData);
       window.removeEventListener("storage", loadData);
       window.removeEventListener("focus", loadData);
+      window.clearInterval(timer);
     };
   }, []);
 
   // Helper to get student count for any department
-  const getDeptStudentCount = (key: string): number => {
-    const k = key.toLowerCase();
-    const studentPrefix = getScopedKey("kvell_dept_students_");
-    try {
-      const rawDept =
-        sessionStorage.getItem(`${studentPrefix}${k}`) ||
-        localStorage.getItem(`${studentPrefix}${k}`);
-      if (rawDept) {
-        const parsed = JSON.parse(rawDept);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed.length;
-      }
-    } catch {}
-    if (isEngineeringCollege()) {
-      if (k === "aids" || k === "ads") return 50;
-      if (k === "cse") return 20;
-      if (k === "bme") return 15;
-    }
-    return 0;
-  };
+  const getDeptStudentCount = (key: string): number =>
+    departments.find((d) => d.key === key.toLowerCase())?.totalStudents ?? 0;
 
-  // Compile full enrolled student list across departments
-  const allEnrolledStudents = useMemo(() => {
-    const list: { regNo: string; name: string; deptKey: string; deptName: string; category?: string }[] = [];
-    const seen = new Set<string>();
-    const studentPrefix = getScopedKey("kvell_dept_students_");
-
-    departments.forEach((dept) => {
-      const k = dept.key.toLowerCase();
-      try {
-        const raw =
-          sessionStorage.getItem(`${studentPrefix}${k}`) ||
-          localStorage.getItem(`${studentPrefix}${k}`);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            parsed.forEach((s: any) => {
-              const reg = s.regNo || s["Register Number"];
-              const nm = s.name || s.studentName || s["Name"];
-              if (reg && !seen.has(reg)) {
-                seen.add(reg);
-                list.push({
-                  regNo: reg,
-                  name: nm,
-                  deptKey: k,
-                  deptName: dept.name,
-                  category: s.category || s["Category"] || "regular",
-                });
-              }
-            });
-          }
-        }
-      } catch {}
-    });
-
-    // Fallbacks if engineering college and not already in list
-    if (isEngineeringCollege()) {
-      if (!seen.has("20260110226001")) {
-        aidsProfiles.forEach((s) => {
-          if (!seen.has(s.regNo)) {
-            seen.add(s.regNo);
-            list.push({ regNo: s.regNo, name: s.name, deptKey: "aids", deptName: "Artificial Intelligence & Data Science", category: s.category });
-          }
-        });
-      }
-      if (!seen.has("20260110201001")) {
-        cseSem1Students.forEach((s) => {
-          if (!seen.has(s.regNo)) {
-            seen.add(s.regNo);
-            list.push({ regNo: s.regNo, name: s.name, deptKey: "cse", deptName: "Computer Science and Engineering", category: s.category });
-          }
-        });
-      }
-      if (!seen.has("20260110204001")) {
-        bmeSem1Students.forEach((s) => {
-          if (!seen.has(s.regNo)) {
-            seen.add(s.regNo);
-            list.push({ regNo: s.regNo, name: s.name, deptKey: "bme", deptName: "Biomedical Engineering", category: s.category });
-          }
-        });
-      }
-    }
-
-    return list;
-  }, [departments]);
+  // Full enrolled student list across the college's departments
+  const allEnrolledStudents = useMemo(
+    () =>
+      students.map((s) => ({
+        regNo: s.regNo,
+        name: s.studentName,
+        deptKey: s.deptKey,
+        deptName: s.deptName,
+        category: s.category,
+      })),
+    [students]
+  );
 
   // Filtered students for quick search modal
   const filteredModalStudents = useMemo(() => {
@@ -217,7 +155,7 @@ export const Dashboard: React.FC = () => {
                   Total Students
                 </span>
                 <span className="font-display font-black text-3xl sm:text-4xl text-[#0B192C] mt-1 block">
-                  {stats !== null ? stats.totalStudents : (isEngineeringCollege() ? 85 : 0)}
+                  {stats !== null ? stats.totalStudents : 0}
                 </span>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-[#0B192C]/5 text-[#0B192C] group-hover:bg-[#0B192C] group-hover:text-[#D4A72C] flex items-center justify-center shrink-0 transition-all duration-200 shadow-sm">
@@ -246,7 +184,7 @@ export const Dashboard: React.FC = () => {
                   Total Departments
                 </span>
                 <span className="font-display font-black text-3xl sm:text-4xl text-[#0B192C] mt-1 block">
-                  {stats !== null ? stats.totalDepartments : (isEngineeringCollege() ? 12 : 0)}
+                  {stats !== null ? stats.totalDepartments : 0}
                 </span>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-[#0B192C]/5 text-[#0B192C] group-hover:bg-[#0B192C] group-hover:text-[#D4A72C] flex items-center justify-center shrink-0 transition-all duration-200 shadow-sm">
@@ -275,7 +213,7 @@ export const Dashboard: React.FC = () => {
                   Total Faculty & HODs
                 </span>
                 <span className="font-display font-black text-3xl sm:text-4xl text-[#0B192C] mt-1 block">
-                  {stats !== null ? stats.totalFaculty : (isEngineeringCollege() ? 12 : 0)}
+                  {stats !== null ? stats.totalFaculty : 0}
                 </span>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-[#0B192C]/5 text-[#0B192C] group-hover:bg-[#0B192C] group-hover:text-[#D4A72C] flex items-center justify-center shrink-0 transition-all duration-200 shadow-sm">
@@ -304,7 +242,7 @@ export const Dashboard: React.FC = () => {
                   Total Courses
                 </span>
                 <span className="font-display font-black text-3xl sm:text-4xl text-[#0B192C] mt-1 block">
-                  {stats !== null ? stats.totalCourses : (isEngineeringCollege() ? 18 : 0)}
+                  {stats !== null ? stats.totalCourses : 0}
                 </span>
               </div>
               <div className="w-12 h-12 rounded-2xl bg-[#0B192C]/5 text-[#0B192C] group-hover:bg-[#0B192C] group-hover:text-[#D4A72C] flex items-center justify-center shrink-0 transition-all duration-200 shadow-sm">
@@ -406,7 +344,7 @@ export const Dashboard: React.FC = () => {
 
                     <h4 className="font-display font-bold text-sm text-[#0B192C] line-clamp-1">{d.name}</h4>
                     <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-                      HOD: <span className="font-semibold text-gray-700">{d.headName || "Assigned"}</span>
+                      HOD: <span className="font-semibold text-gray-700">{d.headName || "Not assigned"}</span>
                     </p>
                   </div>
 
@@ -491,15 +429,63 @@ export const Dashboard: React.FC = () => {
               Overall Pass Rate
             </span>
             <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-200 flex items-center gap-1">
-              <TrendingUp size={12} /> May 2025
+              <TrendingUp size={12} /> Published results
             </span>
           </div>
           <span className="font-display font-black text-3xl text-[#0B192C]">
             {stats?.overallPassPercentage || 0}%
           </span>
           <p className="text-xs text-gray-500 mt-2">
-            Cumulative pass percentage across all {college.shortName} departments.
+            Share of students with published results who passed every subject.
           </p>
+        </div>
+      </div>
+
+      {/* Live department overview */}
+      <div className="bg-white rounded-2xl border border-[#E5E1D8] shadow-sm p-6">
+        <div className="mb-4 border-b border-[#E5E1D8] pb-4">
+          <h3 className="font-display font-bold text-lg text-[#0B192C]">Department Overview</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Live from the database; refreshes every 20 seconds</p>
+        </div>
+        <div className="overflow-auto max-h-[75vh]">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider sticky top-0 z-20">
+              <tr>
+                <th className="p-3">Department</th>
+                <th className="p-3 text-center">Students</th>
+                <th className="p-3 text-center">Without DOB</th>
+                <th className="p-3 text-center">Subjects</th>
+                <th className="p-3 text-center">Marks Entered</th>
+                <th className="p-3 text-center">Published</th>
+                <th className="p-3 text-right">Pass %</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#E5E1D8]">
+              {!stats?.departments || stats.departments.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-gray-500 font-semibold text-xs">
+                    No departments have students or subjects yet.
+                  </td>
+                </tr>
+              ) : (
+                stats.departments.map((d) => (
+                  <tr key={d.deptKey} className="hover:bg-[#F8F5EE]/60 transition">
+                    <td className="p-3 font-semibold text-gray-800">{d.name}</td>
+                    <td className="p-3 text-center font-bold text-gray-900">{d.students}</td>
+                    <td className={`p-3 text-center font-bold ${d.studentsWithoutDob > 0 ? "text-amber-700" : "text-gray-400"}`}>
+                      {d.studentsWithoutDob}
+                    </td>
+                    <td className="p-3 text-center text-gray-700">{d.subjects}</td>
+                    <td className="p-3 text-center text-gray-700">{d.marksEntered}</td>
+                    <td className="p-3 text-center text-gray-700">{d.publishedBatches}</td>
+                    <td className="p-3 text-right font-mono text-gray-700">
+                      {d.publishedBatches > 0 ? `${d.passPercentage}%` : "—"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -522,9 +508,9 @@ export const Dashboard: React.FC = () => {
           </Link>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[75vh]">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider">
+            <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider sticky top-0 z-20">
               <tr>
                 <th className="p-3">Batch ID</th>
                 <th className="p-3">Department</th>
@@ -734,7 +720,10 @@ export const Dashboard: React.FC = () => {
                 departments.map((d) => (
                   <div key={d.key} className="py-3 flex items-center justify-between text-xs">
                     <div>
-                      <span className="font-bold text-gray-900 block text-sm">{d.headName || `HOD ${d.code}`}</span>
+                      <span className="font-bold text-gray-900 block text-sm">{d.headName || "HOD name not assigned"}</span>
+                      <span className="text-[10px] font-mono text-gray-500 block">
+                        Logins: {d.hodLogin || "—"} (HOD) · {d.facultyLogin || "—"} (Faculty)
+                      </span>
                       <span className="text-gray-500 text-[11px] font-medium">{d.name} ({d.code})</span>
                     </div>
                     <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold">
