@@ -18,6 +18,8 @@ import {
   Info,
   X,
   ChevronRight,
+  ShieldAlert,
+  Lock,
 } from "lucide-react";
 import { adminResultsApi, ResultBatchRecord, ResultRecordItem, addAuditLog } from "../services/api";
 import { getRealLocalTimestamp } from "../utils/dateUtils";
@@ -26,6 +28,7 @@ import { aidsSem1Students } from "../data/aidsStudents";
 import { cseSem1Students, bmeSem1Students, seedDummyMarksForDepts, generateStudentMarkDetail, ensureDummyMarksLoaded } from "../data/dummyMarksData";
 import { departmentSubjectsCatalog } from "../data/curriculumSubjects";
 import { getScopedKey, getActiveCollege, getActiveCollegeKey, isEngineeringCollege } from "../utils/rbac";
+import { getSystemConfig, SystemConfig } from "../utils/systemConfig";
 
 // Initial student registry populated with AIDS, CSE, and BME Semester 1 students
 const baseStudentsByDept: Record<string, { regNo: string; name: string; dob: string }[]> = {
@@ -74,6 +77,24 @@ interface StudentMarkData {
 
 export const ResultsValidation: React.FC = () => {
   const [, navigate] = useLocation();
+
+  const [systemConfig, setSystemConfig] = useState<SystemConfig>(getSystemConfig());
+
+  useEffect(() => {
+    const handleConfig = () => setSystemConfig(getSystemConfig());
+    window.addEventListener("kvell_system_config_updated", handleConfig);
+    window.addEventListener("storage", handleConfig);
+    return () => {
+      window.removeEventListener("kvell_system_config_updated", handleConfig);
+      window.removeEventListener("storage", handleConfig);
+    };
+  }, []);
+
+  const activeCollegeKey = getActiveCollegeKey();
+  const isCollegeLocked =
+    systemConfig.systemMode === "EMERGENCY_LOCK" ||
+    systemConfig.institutionalLocks[activeCollegeKey]?.locked === true ||
+    systemConfig.institutionalLocks[activeCollegeKey]?.freezeSubmissions === true;
 
   // Step 1: Target Selection State
   const [deptKey, setDeptKey] = useState("aids");
@@ -508,19 +529,70 @@ export const ResultsValidation: React.FC = () => {
   // Grand Total (A + B + C)
   const grandTotal = Math.min(100, Math.round(partATotal + partBCTotal));
 
-  // Letter Grade
-  const calculateGrade = (total: number) => {
-    if (total >= 90) return "O";
-    if (total >= 80) return "A+";
-    if (total >= 70) return "A";
-    if (total >= 60) return "B+";
-    if (total >= 50) return "B";
-    if (total >= 40) return "C";
-    return "F";
+  // Dynamic Statutory Grading based on Regulations configured by Dr. Sathish in Super Admin
+  const collegeRegulation = systemConfig.gradingRegulations[activeCollegeKey] || {
+    regulation: "Anna University CBCS",
+    passMinInternal: 45,
+    passMinExternal: 45,
+    passMinTotal: 50,
+  };
+  const moderationConfig = systemConfig.gradingRegulations.moderation || {
+    maxGraceMarks: 5,
+    enableCondonation: true,
   };
 
-  const grandGrade = calculateGrade(grandTotal);
-  const resultStatus = grandTotal >= 40 ? "PASS" : "FAIL";
+  const calculateDynamicGradeAndStatus = (total: number, partA: number, partBC: number) => {
+    const internalPercent = (partA / 20) * 100;
+    const externalPercent = (partBC / 80) * 100;
+    const minTotal = collegeRegulation.passMinTotal ?? 50;
+    const minInternal = collegeRegulation.passMinInternal ?? 45;
+    const minExternal = collegeRegulation.passMinExternal ?? 45;
+    const maxGrace = moderationConfig.maxGraceMarks ?? 0;
+
+    let status: "PASS" | "FAIL" = "FAIL";
+    let isGraceApplied = false;
+
+    if (total >= minTotal && internalPercent >= minInternal && externalPercent >= minExternal) {
+      status = "PASS";
+    } else if (total < minTotal && (total + maxGrace) >= minTotal && internalPercent >= (minInternal - maxGrace)) {
+      status = "PASS";
+      isGraceApplied = true;
+    }
+
+    let grade = "U";
+    if (activeCollegeKey === "nursing") {
+      // Indian Nursing Council (INC) bands
+      if (total >= 75) grade = "Distinction";
+      else if (total >= 60) grade = "First Class";
+      else if (total >= 50) grade = "Pass";
+      else grade = "Fail";
+    } else if (activeCollegeKey === "pharmacy") {
+      // Pharmacy Council of India (PCI) 10-point scale
+      if (total >= 90) grade = "O";
+      else if (total >= 80) grade = "A";
+      else if (total >= 70) grade = "B";
+      else if (total >= 60) grade = "C";
+      else if (total >= 50) grade = "D";
+      else grade = "F";
+    } else {
+      // Anna University 10-point CBCS
+      if (total >= 90) grade = "O";
+      else if (total >= 80) grade = "A+";
+      else if (total >= 70) grade = "A";
+      else if (total >= 60) grade = "B+";
+      else if (total >= 50) grade = "B";
+      else if (total >= minTotal || isGraceApplied) grade = "C";
+      else grade = "U";
+    }
+
+    return { grade, status, isGraceApplied };
+  };
+
+  const { grade: grandGrade, status: resultStatus, isGraceApplied } = calculateDynamicGradeAndStatus(
+    grandTotal,
+    partATotal,
+    partBCTotal
+  );
 
   // Pre-fill realistic sample marks matching the examination paper
   const handleFillSampleMarks = () => {
@@ -541,6 +613,10 @@ export const ResultsValidation: React.FC = () => {
   // CONFIRM MARK button action
   const handleConfirmMark = () => {
     if (!selectedStudent) return;
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Marks modification is locked by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
 
     const updatedStudent: StudentMarkData = {
       ...selectedStudent,
@@ -595,6 +671,10 @@ export const ResultsValidation: React.FC = () => {
 
   // Publish / Commit All Entered Marks
   const handleCommitBatch = async () => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Publishing is locked by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
     const entered = students.filter((s) => s.hasMarks);
     if (entered.length === 0) {
       alert("Please enter marks for at least one student before publishing batch.");
@@ -658,6 +738,29 @@ export const ResultsValidation: React.FC = () => {
 
   return (
     <div className="space-y-8 w-full">
+      {/* Institutional Freeze Alert Banner */}
+      {isCollegeLocked && (
+        <div className="p-5 rounded-3xl bg-red-950/80 border-2 border-red-500/60 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-red-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-red-600/30 border border-red-400 flex items-center justify-center shrink-0">
+              <Lock className="text-red-300" size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-sm uppercase tracking-wider text-red-300">INSTITUTIONAL EXAMINATION LOCK ACTIVE</span>
+                <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase">Dr. Sathish Enforcement</span>
+              </div>
+              <p className="text-xs text-red-200/90 mt-0.5">
+                Mark entry and batch publication are strictly locked by the Controller of Examinations. All submission pathways are currently read-only.
+              </p>
+            </div>
+          </div>
+          <span className="px-3 py-1.5 rounded-xl bg-red-900/60 border border-red-500/50 text-red-200 text-xs font-mono font-bold whitespace-nowrap">
+            STATUTORY FREEZE
+          </span>
+        </div>
+      )}
+
       {/* Header Banner */}
       <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
@@ -677,9 +780,15 @@ export const ResultsValidation: React.FC = () => {
           {isDataFetched && students.some((s) => s.hasMarks) && (
             <button
               onClick={handleCommitBatch}
-              className="px-5 py-3 rounded-xl bg-[#2E7D5B] hover:bg-emerald-700 text-white font-extrabold text-xs transition shadow flex items-center gap-2"
+              disabled={isCollegeLocked}
+              className={`px-5 py-3 rounded-xl font-extrabold text-xs transition shadow flex items-center gap-2 ${
+                isCollegeLocked
+                  ? "bg-slate-700/80 text-gray-300 cursor-not-allowed opacity-60 border border-slate-600"
+                  : "bg-[#2E7D5B] hover:bg-emerald-700 text-white"
+              }`}
             >
-              <Globe size={16} /> Publish & Commit All Marks
+              {isCollegeLocked ? <Lock size={16} /> : <Globe size={16} />}
+              {isCollegeLocked ? "Publishing Locked by Dr. Sathish" : "Publish & Commit All Marks"}
             </button>
           )}
         </div>

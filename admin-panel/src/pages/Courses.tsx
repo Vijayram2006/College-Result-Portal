@@ -1,5 +1,7 @@
-import React, { useState } from "react";
-import { Plus, Search, Edit } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Plus, Search, Edit, Lock } from "lucide-react";
+import { getActiveCollegeKey } from "../utils/rbac";
+import { getSystemConfig, SystemConfig } from "../utils/systemConfig";
 
 interface Course {
   code: string;
@@ -16,6 +18,27 @@ export const CoursesPage: React.FC = () => {
   const [courses] = useState<Course[]>(initialCourses);
   const [query, setQuery] = useState("");
 
+  // Real-time System Governance Configuration & Lock Enforcement
+  const [systemConfig, setSystemConfig] = useState<SystemConfig>(getSystemConfig);
+
+  useEffect(() => {
+    const handleConfigUpdate = () => {
+      setSystemConfig(getSystemConfig());
+    };
+    window.addEventListener("kvell_system_config_updated", handleConfigUpdate);
+    window.addEventListener("storage", handleConfigUpdate);
+    return () => {
+      window.removeEventListener("kvell_system_config_updated", handleConfigUpdate);
+      window.removeEventListener("storage", handleConfigUpdate);
+    };
+  }, []);
+
+  const activeCollegeKey = getActiveCollegeKey();
+  const isCollegeLocked =
+    systemConfig.systemMode === "EMERGENCY_LOCK" ||
+    systemConfig.institutionalLocks?.[activeCollegeKey]?.locked === true ||
+    systemConfig.institutionalLocks?.[activeCollegeKey]?.freezeSubmissions === true;
+
   const filtered = courses.filter(
     (c) =>
       c.code.toLowerCase().includes(query.toLowerCase()) ||
@@ -25,6 +48,29 @@ export const CoursesPage: React.FC = () => {
 
   return (
     <div className="space-y-6 w-full">
+      {/* Institutional Freeze Alert Banner */}
+      {isCollegeLocked && (
+        <div className="p-5 rounded-3xl bg-red-950/80 border-2 border-red-500/60 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-red-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-red-600/30 border border-red-400 flex items-center justify-center shrink-0">
+              <Lock className="text-red-300" size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-sm uppercase tracking-wider text-red-300">INSTITUTIONAL EXAMINATION LOCK ACTIVE</span>
+                <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase">Dr. Sathish Enforcement</span>
+              </div>
+              <p className="text-xs text-red-200/90 mt-0.5">
+                Curriculum subject catalogs and course configurations are strictly locked by the Controller of Examinations. All course registries are read-only.
+              </p>
+            </div>
+          </div>
+          <span className="px-3 py-1.5 rounded-xl bg-red-900/60 border border-red-500/50 text-red-200 text-xs font-mono font-bold whitespace-nowrap">
+            STATUTORY FREEZE
+          </span>
+        </div>
+      )}
+
       <div className="bg-white rounded-2xl p-4 sm:p-6 border border-[#E5E1D8] shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="relative flex-1 max-w-md w-full">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -38,10 +84,22 @@ export const CoursesPage: React.FC = () => {
         </div>
 
         <button
-          onClick={() => alert("Add Course modal")}
-          className="px-4 py-2.5 rounded-xl bg-[#0B192C] text-white text-xs font-extrabold flex items-center gap-2 hover:bg-[#132943] transition shadow w-full sm:w-auto justify-center"
+          disabled={isCollegeLocked}
+          onClick={() => {
+            if (isCollegeLocked) {
+              alert("Institutional Freeze Active: Adding new courses is restricted by the Controller of Examinations (Dr. Sathish).");
+              return;
+            }
+            alert("Add Course modal");
+          }}
+          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition shadow w-full sm:w-auto justify-center ${
+            isCollegeLocked
+              ? "bg-slate-700 text-gray-400 cursor-not-allowed border border-slate-600"
+              : "bg-[#0B192C] text-white hover:bg-[#132943]"
+          }`}
         >
-          <Plus size={15} className="text-[#D4A72C]" /> Add New Course
+          {isCollegeLocked ? <Lock size={15} className="text-red-400" /> : <Plus size={15} className="text-[#D4A72C]" />}
+          <span>{isCollegeLocked ? "Locked by COE" : "Add New Course"}</span>
         </button>
       </div>
 

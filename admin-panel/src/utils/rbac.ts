@@ -2,7 +2,7 @@ import { adminAuthApi } from "../services/api";
 
 export type CollegeKey = "engineering" | "nursing" | "pharmacy";
 
-export type AdminRole = "ADMIN" | "COE_ENGINEERING" | "COE_NURSING" | "COE_PHARMACY";
+export type AdminRole = "SUPER_ADMIN" | "ADMIN" | "COE_ENGINEERING" | "COE_NURSING" | "COE_PHARMACY";
 
 export interface CollegeConfig {
   key: CollegeKey;
@@ -19,6 +19,21 @@ export interface CollegeConfig {
   description: string;
   logoUrl: string;
 }
+
+export const SUPER_ADMIN_CONFIG = {
+  id: "ADM-SUPER-001",
+  name: "Dr. Sathish",
+  username: "Sathish",
+  title: "Overall University COE & Super Administrator",
+  shortTitle: "Chief COE & Super Admin",
+  email: "coe.sathish@kvell.edu.in",
+  role: "SUPER_ADMIN" as AdminRole,
+  universityName: "Karpaga Vinayaga Educational Group (Central University)",
+  avatar: "/kvell-logo.png",
+  badgeBg: "bg-amber-500/20",
+  badgeText: "text-amber-400",
+  themeColor: "#D4A72C",
+};
 
 export const COLLEGES: Record<CollegeKey, CollegeConfig> = {
   engineering: {
@@ -69,11 +84,30 @@ export const COLLEGES: Record<CollegeKey, CollegeConfig> = {
 };
 
 /**
+ * Checks if the user is a Super Administrator (Dr. Sathish or SUPER_ADMIN role)
+ */
+export function isSuperAdmin(user?: any): boolean {
+  const currentUser = user || adminAuthApi.getCurrentUser();
+  if (!currentUser) return false;
+  return (
+    currentUser.role === "SUPER_ADMIN" ||
+    (currentUser.username && currentUser.username.trim().toUpperCase() === "SATHISH") ||
+    (currentUser.name && currentUser.name.toLowerCase().includes("sathish"))
+  );
+}
+
+/**
  * Returns the currently authenticated user's CollegeConfig
  */
 export function getActiveCollege(): CollegeConfig {
   const user = adminAuthApi.getCurrentUser();
   if (!user) return COLLEGES.engineering;
+
+  // If super admin, allow switching the active view context
+  const superAdminCollegeView = localStorage.getItem("kvell_superadmin_view_college") as CollegeKey;
+  if (isSuperAdmin(user) && superAdminCollegeView && COLLEGES[superAdminCollegeView]) {
+    return COLLEGES[superAdminCollegeView];
+  }
 
   if (user.collegeKey && COLLEGES[user.collegeKey as CollegeKey]) {
     return COLLEGES[user.collegeKey as CollegeKey];
@@ -115,6 +149,26 @@ export function getScopedKey(baseKey: string, targetCollege?: CollegeKey): strin
     return baseKey.replace(/^kvell_/, `kvell_${collegeKey}_`);
   }
   return `kvell_${collegeKey}_${baseKey}`;
+}
+
+/**
+ * Set active college inspection context for Super Admin (Dr. Sathish)
+ */
+export function setSuperAdminCollegeView(college: CollegeKey) {
+  localStorage.setItem("kvell_superadmin_view_college", college);
+  const currentUser = adminAuthApi.getCurrentUser();
+  if (currentUser) {
+    const conf = COLLEGES[college];
+    const updatedUser = {
+      ...currentUser,
+      collegeKey: college,
+      collegeName: conf ? conf.name : currentUser.collegeName,
+    };
+    localStorage.setItem("kvell_admin_user", JSON.stringify(updatedUser));
+  }
+  window.dispatchEvent(new Event("storage"));
+  window.dispatchEvent(new Event("kvell_college_switched"));
+  window.location.reload();
 }
 
 /**

@@ -15,8 +15,10 @@ import { AuditLogsPage } from "./pages/AuditLogs";
 import { ProfilePage } from "./pages/Profile";
 import { SubjectsPage } from "./pages/Subjects";
 import { DepartmentsPage } from "./pages/Departments";
+import { SuperAdminControlPage } from "./pages/SuperAdminControl";
 
 const pageTitles: Record<string, string> = {
+  "/admin/super-admin": "Chief COE & Super Admin Console",
   "/admin/dashboard": "University Admin Dashboard",
   "/admin/departments": "University Department Directory & Management",
   "/admin/results": "Result Management Hub",
@@ -57,6 +59,14 @@ export const App: React.FC = () => {
       <Route path="/admin/login" component={Login} />
 
       {/* Protected Admin Routes */}
+      <Route path="/admin/super-admin">
+        {() => (
+          <AdminLayout>
+            <ProtectedRoute component={SuperAdminControlPage} />
+          </AdminLayout>
+        )}
+      </Route>
+
       <Route path="/admin/dashboard">
         {() => (
           <AdminLayout>

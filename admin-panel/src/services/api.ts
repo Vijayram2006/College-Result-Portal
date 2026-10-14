@@ -1,7 +1,7 @@
 import axios from "axios";
 import { getRealLocalTimestamp } from "../utils/dateUtils";
 import { seedDummyMarksForDepts, ensureDummyMarksLoaded } from "../data/dummyMarksData";
-import { getScopedKey, getActiveCollegeKey, getActiveCollege, AdminRole, CollegeKey } from "../utils/rbac";
+import { getScopedKey, getActiveCollegeKey, getActiveCollege, AdminRole, CollegeKey, COLLEGES } from "../utils/rbac";
 
 // Environment-configured API URL connecting to Spring Boot backend
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
@@ -194,7 +194,81 @@ export const adminAuthApi = {
       }
       return response.data;
     } catch (err: any) {
-      // Local fallback handler for RBAC demo authentication
+      // Dynamic Officer Check: Inspect officers provisioned by Super Admin Dr. Sathish
+      try {
+        const rawOfficers = localStorage.getItem("kvell_officer_users");
+        if (rawOfficers) {
+          const officers = JSON.parse(rawOfficers);
+          if (Array.isArray(officers)) {
+            const matchedOfficer = officers.find(
+              (o: any) =>
+                (o.username && o.username.trim().toUpperCase() === cleanUser) ||
+                (o.email && o.email.trim().toUpperCase() === cleanUser)
+            );
+
+            if (matchedOfficer) {
+              if (matchedOfficer.status === "SUSPENDED") {
+                throw new Error("Access Denied: Account has been SUSPENDED by Overall University COE (Dr. Sathish).");
+              }
+
+              if (matchedOfficer.customPassword && password && matchedOfficer.customPassword !== password) {
+                throw new Error("Invalid Credentials for provisioned officer account.");
+              }
+
+              const resolvedRole = matchedOfficer.role || (cleanUser.includes("SATHISH") ? "SUPER_ADMIN" : "COE_ENGINEERING");
+              const collegeKey = matchedOfficer.collegeKey === "all" ? "engineering" : (matchedOfficer.collegeKey || "engineering");
+              const collegeConf = COLLEGES[collegeKey as CollegeKey];
+
+              const officerAuth: AdminAuthResponse = {
+                token: `mock-jwt-${matchedOfficer.username.toLowerCase()}-token`,
+                role: resolvedRole,
+                user: {
+                  id: matchedOfficer.id || "ADM-PROV-001",
+                  username: matchedOfficer.username,
+                  name: matchedOfficer.name,
+                  role: resolvedRole,
+                  collegeKey: collegeKey as CollegeKey,
+                  collegeName: collegeConf ? collegeConf.name : "Karpaga Vinayaga Educational Group",
+                  email: matchedOfficer.email,
+                },
+              };
+
+              localStorage.setItem("kvell_admin_token", officerAuth.token);
+              localStorage.setItem("kvell_admin_user", JSON.stringify(officerAuth.user));
+              return officerAuth;
+            }
+          }
+        }
+      } catch (officerErr: any) {
+        if (officerErr.message?.includes("Access Denied") || officerErr.message?.includes("Invalid Credentials")) {
+          throw officerErr;
+        }
+      }
+
+      // 0. Super Admin (Dr. Sathish - Overall University COE & Super Administrator)
+      if (
+        cleanUser === "SATHISH" ||
+        cleanUser.includes("SATHISH") ||
+        cleanUser.includes("SUPERADMIN") ||
+        cleanUser === "SUPER"
+      ) {
+        const mockSuperAdmin: AdminAuthResponse = {
+          token: "mock-jwt-superadmin-sathish-token-2026",
+          role: "SUPER_ADMIN",
+          user: {
+            id: "ADM-SUPER-001",
+            username: "Sathish",
+            name: "Dr. Sathish",
+            role: "SUPER_ADMIN",
+            collegeKey: "engineering",
+            collegeName: "Karpaga Vinayaga Educational Group (Central University)",
+            email: "coe.sathish@kvell.edu.in",
+          },
+        };
+        localStorage.setItem("kvell_admin_token", mockSuperAdmin.token);
+        localStorage.setItem("kvell_admin_user", JSON.stringify(mockSuperAdmin.user));
+        return mockSuperAdmin;
+      }
 
       // 1. Nursing College COE
       if (cleanUser.includes("NURSING") || cleanUser === "NUR") {

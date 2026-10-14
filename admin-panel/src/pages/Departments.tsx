@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Building2, Plus, Edit, Trash2, X, Check, AlertCircle, RotateCcw } from "lucide-react";
+import { Building2, Plus, Edit, Trash2, X, Check, AlertCircle, RotateCcw, Lock } from "lucide-react";
 import { getScopedKey, getActiveCollege, getActiveCollegeKey, isEngineeringCollege } from "../utils/rbac";
+import { getSystemConfig, SystemConfig } from "../utils/systemConfig";
 
 export interface Department {
   key: string;
@@ -184,6 +185,27 @@ export const DepartmentsPage: React.FC = () => {
     setDepts(getStoredDepartments());
   };
 
+  // Real-time System Governance Configuration & Lock Enforcement
+  const [systemConfig, setSystemConfig] = useState<SystemConfig>(getSystemConfig);
+
+  useEffect(() => {
+    const handleConfigUpdate = () => {
+      setSystemConfig(getSystemConfig());
+    };
+    window.addEventListener("kvell_system_config_updated", handleConfigUpdate);
+    window.addEventListener("storage", handleConfigUpdate);
+    return () => {
+      window.removeEventListener("kvell_system_config_updated", handleConfigUpdate);
+      window.removeEventListener("storage", handleConfigUpdate);
+    };
+  }, []);
+
+  const activeCollegeKey = getActiveCollegeKey();
+  const isCollegeLocked =
+    systemConfig.systemMode === "EMERGENCY_LOCK" ||
+    systemConfig.institutionalLocks?.[activeCollegeKey]?.locked === true ||
+    systemConfig.institutionalLocks?.[activeCollegeKey]?.freezeSubmissions === true;
+
   useEffect(() => {
     loadDepartments();
     const handleUpdate = () => loadDepartments();
@@ -198,6 +220,10 @@ export const DepartmentsPage: React.FC = () => {
   }, []);
 
   const openAddModal = () => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Adding departments is restricted by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
     setEditingKey(null);
     setFormName("");
     setFormCode("");
@@ -209,6 +235,10 @@ export const DepartmentsPage: React.FC = () => {
   };
 
   const openEditModal = (d: Department) => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Editing department details is restricted by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
     setEditingKey(d.key);
     setFormName(d.name);
     setFormCode(d.code);
@@ -244,6 +274,10 @@ export const DepartmentsPage: React.FC = () => {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Modifying department configuration is restricted by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
     const trimmedName = formName.trim();
     const trimmedCode = formCode.trim().toUpperCase();
     const trimmedKey = (formKey.trim() || trimmedCode).toLowerCase();
@@ -299,6 +333,10 @@ export const DepartmentsPage: React.FC = () => {
   };
 
   const handleDelete = (key: string, name: string) => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Deleting departments is restricted by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
     if (window.confirm(`Are you sure you want to delete '${name}' department?`)) {
       const updated = depts.filter((d) => d.key !== key);
       saveStoredDepartments(updated);
@@ -309,6 +347,10 @@ export const DepartmentsPage: React.FC = () => {
   const college = getActiveCollege();
 
   const handleClearAll = () => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Clearing departments is restricted by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
     if (window.confirm(`Are you sure you want to remove ALL departments for ${college.name}?`)) {
       saveStoredDepartments([]);
       setDepts([]);
@@ -316,6 +358,10 @@ export const DepartmentsPage: React.FC = () => {
   };
 
   const handleResetDefaults = () => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Resetting departments is restricted by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
     if (isEngineeringCollege()) {
       if (window.confirm("Reset department list to all university departments with standard abbreviations?")) {
         saveStoredDepartments(initialDefaultDepts);
@@ -359,6 +405,29 @@ export const DepartmentsPage: React.FC = () => {
 
   return (
     <div className="space-y-6 w-full">
+      {/* Institutional Freeze Alert Banner */}
+      {isCollegeLocked && (
+        <div className="p-5 rounded-3xl bg-red-950/80 border-2 border-red-500/60 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-red-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-red-600/30 border border-red-400 flex items-center justify-center shrink-0">
+              <Lock className="text-red-300" size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-sm uppercase tracking-wider text-red-300">INSTITUTIONAL EXAMINATION LOCK ACTIVE</span>
+                <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase">Dr. Sathish Enforcement</span>
+              </div>
+              <p className="text-xs text-red-200/90 mt-0.5">
+                Department configurations and structural modifications are strictly locked by the Controller of Examinations. All department structures are read-only.
+              </p>
+            </div>
+          </div>
+          <span className="px-3 py-1.5 rounded-xl bg-red-900/60 border border-red-500/50 text-red-200 text-xs font-mono font-bold whitespace-nowrap">
+            STATUTORY FREEZE
+          </span>
+        </div>
+      )}
+
       {/* Header Bar */}
       <div className="bg-white rounded-2xl p-4 sm:p-6 border border-[#E5E1D8] shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -377,25 +446,42 @@ export const DepartmentsPage: React.FC = () => {
           {isEngineeringCollege() && (
             <button
               onClick={handleResetDefaults}
-              className="px-3.5 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs font-bold transition flex items-center gap-1.5"
-              title="Restore standard university departments"
+              disabled={isCollegeLocked}
+              className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
+                isCollegeLocked
+                  ? "border-gray-200 text-gray-400 cursor-not-allowed opacity-50 bg-gray-50"
+                  : "border-gray-200 text-gray-700 hover:bg-gray-100"
+              }`}
+              title={isCollegeLocked ? "Locked by COE" : "Restore standard university departments"}
             >
-              <RotateCcw size={14} /> Reset Defaults
+              {isCollegeLocked ? <Lock size={14} /> : <RotateCcw size={14} />} Reset Defaults
             </button>
           )}
           {depts.length > 0 && (
             <button
               onClick={handleClearAll}
-              className="px-3.5 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold transition flex items-center gap-1.5"
+              disabled={isCollegeLocked}
+              className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
+                isCollegeLocked
+                  ? "border-gray-200 text-gray-400 cursor-not-allowed opacity-50 bg-gray-50"
+                  : "border-red-200 text-red-600 hover:bg-red-50"
+              }`}
+              title={isCollegeLocked ? "Locked by COE" : "Clear all departments"}
             >
-              <Trash2 size={14} /> Clear All
+              {isCollegeLocked ? <Lock size={14} /> : <Trash2 size={14} />} Clear All
             </button>
           )}
           <button
             onClick={openAddModal}
-            className="px-4 py-2.5 rounded-xl bg-[#0B192C] text-white text-xs font-extrabold flex items-center gap-2 hover:bg-[#132943] transition shadow"
+            disabled={isCollegeLocked}
+            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition shadow ${
+              isCollegeLocked
+                ? "bg-slate-700 text-gray-400 cursor-not-allowed border border-slate-600"
+                : "bg-[#0B192C] text-white hover:bg-[#132943]"
+            }`}
           >
-            <Plus size={15} className="text-[#D4A72C]" /> Add Department
+            {isCollegeLocked ? <Lock size={15} className="text-red-400" /> : <Plus size={15} className="text-[#D4A72C]" />}
+            <span>{isCollegeLocked ? "Locked by COE" : "Add Department"}</span>
           </button>
         </div>
       </div>
@@ -468,16 +554,30 @@ export const DepartmentsPage: React.FC = () => {
 
               <div className="mt-5 pt-3 border-t border-[#E5E1D8] flex items-center justify-between">
                 <button
+                  type="button"
+                  disabled={isCollegeLocked}
                   onClick={() => handleDelete(d.key, d.name)}
-                  className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1"
+                  className={`text-xs font-bold flex items-center gap-1 transition ${
+                    isCollegeLocked
+                      ? "text-gray-300 cursor-not-allowed opacity-50"
+                      : "text-red-600 hover:text-red-700"
+                  }`}
+                  title={isCollegeLocked ? "Locked by COE" : "Delete department"}
                 >
-                  <Trash2 size={13} /> Delete
+                  {isCollegeLocked ? <Lock size={12} /> : <Trash2 size={13} />} Delete
                 </button>
                 <button
+                  type="button"
+                  disabled={isCollegeLocked}
                   onClick={() => openEditModal(d)}
-                  className="text-xs font-bold text-[#0B192C] hover:text-[#B08014] flex items-center gap-1"
+                  className={`text-xs font-bold flex items-center gap-1 transition ${
+                    isCollegeLocked
+                      ? "text-gray-400 cursor-not-allowed opacity-60"
+                      : "text-[#0B192C] hover:text-[#B08014]"
+                  }`}
+                  title={isCollegeLocked ? "Locked by COE" : "Edit Details"}
                 >
-                  <Edit size={14} /> Edit Details
+                  {isCollegeLocked ? <Lock size={12} /> : <Edit size={14} />} Edit Details
                 </button>
               </div>
             </div>

@@ -12,6 +12,7 @@ import {
   UsersRound,
   Sparkles,
   CheckCircle2,
+  Crown,
 } from "lucide-react";
 import { adminAuthApi } from "../services/api";
 
@@ -32,17 +33,41 @@ export const Login: React.FC = () => {
 
     try {
       const res = await adminAuthApi.login(username, password);
-      const allowedRoles = ["ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY"];
+      const allowedRoles = ["SUPER_ADMIN", "ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY"];
       if (allowedRoles.includes(res.role)) {
-        navigate("/admin/dashboard");
+        if (res.role === "SUPER_ADMIN") {
+          navigate("/admin/super-admin");
+        } else {
+          navigate("/admin/dashboard");
+        }
       } else {
         setError("Access Denied: 403 Forbidden. Only accounts with Controller of Examination role can log in.");
         adminAuthApi.logout();
       }
     } catch (err: any) {
+      if (err?.message?.includes("SUSPENDED") || err?.message?.includes("Access Denied") || err?.message?.includes("Invalid Credentials")) {
+        setError(err.message);
+        return;
+      }
+
       // Fallback demo authentication for admin portal
       const clean = username.trim().toUpperCase();
-      if (clean.includes("NURSING")) {
+      if (clean.includes("SATHISH") || clean.includes("SUPERADMIN") || clean === "SUPER") {
+        localStorage.setItem("kvell_admin_token", "demo-coe-superadmin-token");
+        localStorage.setItem(
+          "kvell_admin_user",
+          JSON.stringify({
+            id: "ADM-SUPER-001",
+            name: "Dr. Sathish",
+            username: "Sathish",
+            email: "coe.sathish@kvell.edu.in",
+            role: "SUPER_ADMIN",
+            collegeKey: "engineering",
+            collegeName: "Karpaga Vinayaga Educational Group (Central University)",
+          })
+        );
+        navigate("/admin/super-admin");
+      } else if (clean.includes("NURSING")) {
         localStorage.setItem("kvell_admin_token", "demo-coe-nursing-token");
         localStorage.setItem(
           "kvell_admin_user",
@@ -241,7 +266,35 @@ export const Login: React.FC = () => {
                 <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2.5">
                   RBAC DEMO QUICK SIGN-IN (SEPARATE COE ROLES):
                 </span>
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-1 gap-2.5">
+                  {/* Super Admin - Dr. Sathish */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUsername("Sathish");
+                      setPassword("admin123");
+                    }}
+                    className="w-full px-3.5 py-3 rounded-2xl bg-gradient-to-r from-amber-500/10 via-[#D4A72C]/20 to-amber-500/10 hover:from-amber-500/20 hover:to-amber-500/20 text-[#0B192C] border-2 border-[#D4A72C] font-bold text-xs transition flex items-center justify-between shadow-md group relative overflow-hidden"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <span className="w-8 h-8 rounded-full bg-[#0B192C] text-[#D4A72C] flex items-center justify-center shrink-0 shadow-sm border border-[#D4A72C]">
+                        <Crown size={15} />
+                      </span>
+                      <span className="text-left">
+                        <span className="block font-black text-[#0B192C] flex items-center gap-1.5">
+                          Dr. Sathish • Super Admin
+                          <span className="text-[9px] bg-[#0B192C] text-[#D4A72C] px-1.5 py-0.2 rounded font-extrabold uppercase">
+                            Chief COE
+                          </span>
+                        </span>
+                        <span className="block text-[10px] font-mono text-[#8C6D1F]">User ID: Sathish</span>
+                      </span>
+                    </span>
+                    <span className="text-[10px] bg-[#D4A72C] text-[#0B192C] font-black px-2.5 py-1 rounded-full shadow-sm">
+                      Total System Control
+                    </span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => {

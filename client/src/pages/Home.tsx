@@ -3684,11 +3684,47 @@ function LoginPage({
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // System Gateway status check (set by Overall University COE Dr. Sathish)
+  const [systemConfig, setSystemConfig] = useState<any>(() => {
+    try {
+      const raw = localStorage.getItem("kvell_system_config");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const handleConfigUpdate = () => {
+      try {
+        const raw = localStorage.getItem("kvell_system_config");
+        if (raw) setSystemConfig(JSON.parse(raw));
+      } catch {}
+    };
+    window.addEventListener("kvell_system_config_updated", handleConfigUpdate);
+    window.addEventListener("storage", handleConfigUpdate);
+    return () => {
+      window.removeEventListener("kvell_system_config_updated", handleConfigUpdate);
+      window.removeEventListener("storage", handleConfigUpdate);
+    };
+  }, []);
+
+  const isStudentPortalLocked =
+    selectedRole === "Student" &&
+    systemConfig &&
+    (systemConfig.systemMode === "EMERGENCY_LOCK" ||
+      systemConfig.systemMode === "MAINTENANCE" ||
+      systemConfig.gateways?.studentResultPortal?.enabled === false);
+
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     setErrorMsg(null);
 
     if (selectedRole === "Student") {
+      if (isStudentPortalLocked) {
+        setErrorMsg("Access Denied: Student Portal is currently offline under maintenance by Controller of Examinations (Dr. Sathish).");
+        return;
+      }
       const trimmed = (regNumber || "").trim().toLowerCase();
       const matched = allUsers.find(
         (u: any) =>
@@ -3914,6 +3950,35 @@ function LoginPage({
                 </button>
               </div>
 
+              {/* Public Announcement Banner from Super Admin Dr. Sathish */}
+              {systemConfig?.gateways?.studentResultPortal?.announcement && (
+                <div className="mb-4 p-3 rounded-2xl bg-amber-50 border border-[#D4A72C]/40 text-[#0B192C] flex items-center gap-2.5 shadow-sm">
+                  <Sparkles size={16} className="text-[#B08014] shrink-0 animate-pulse" />
+                  <div className="text-left text-xs">
+                    <span className="font-extrabold uppercase text-[9px] text-[#B08014] block">Official COE Announcement</span>
+                    <span className="font-bold text-slate-800">{systemConfig.gateways.studentResultPortal.announcement}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Student Portal Lockdown Notice */}
+              {isStudentPortalLocked && (
+                <div className="mb-4 p-4 rounded-2xl bg-red-50 border-2 border-red-200 text-red-950 flex items-start gap-3 shadow-md">
+                  <ShieldAlert size={22} className="text-red-600 shrink-0 mt-0.5" />
+                  <div className="text-left">
+                    <h4 className="font-extrabold text-sm text-red-950 flex items-center gap-2">
+                      <span>Student Result Portal Offline</span>
+                      <span className="text-[9px] bg-red-200 text-red-900 font-black px-2 py-0.5 rounded-full uppercase">
+                        COE Maintenance
+                      </span>
+                    </h4>
+                    <p className="text-xs text-red-800 mt-1 leading-relaxed">
+                      The Student Result Portal has been temporarily placed in maintenance mode by Overall University COE (Dr. Sathish) for result moderation and data synchronization.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Login Form */}
               <form onSubmit={submit} className="space-y-4">
                 {selectedRole === "Student" ? (
@@ -4002,10 +4067,17 @@ function LoginPage({
 
                 <button
                   type="submit"
-                  className="w-full h-12 rounded-2xl bg-[#0B192C] hover:bg-[#152744] text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition duration-150 active:scale-[0.99] cursor-pointer"
+                  disabled={isStudentPortalLocked}
+                  className={`w-full h-12 rounded-2xl font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition duration-150 active:scale-[0.99] ${
+                    isStudentPortalLocked
+                      ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                      : "bg-[#0B192C] hover:bg-[#152744] text-white cursor-pointer"
+                  }`}
                 >
-                  <Lock size={14} className="text-[#D4A72C]" />
-                  Sign In to {selectedRole === "Faculty" ? "Faculty Portal" : `${selectedRole} Portal`}
+                  <Lock size={14} className={isStudentPortalLocked ? "text-slate-400" : "text-[#D4A72C]"} />
+                  {isStudentPortalLocked
+                    ? "Student Portal Offline (COE Locked)"
+                    : `Sign In to ${selectedRole === "Faculty" ? "Faculty Portal" : `${selectedRole} Portal`}`}
                 </button>
               </form>
 
@@ -4109,6 +4181,59 @@ function StudentDashboard({
   const [electiveSubmitted, setElectiveSubmitted] = useState<boolean>(true);
   const [coeStatus, setCoeStatus] = useState<"PENDING" | "APPROVED">("PENDING");
   const [notificationMsg, setNotificationMsg] = useState<string | null>(null);
+
+  // Universal System Configuration from Super Admin Dr. Sathish
+  const [systemConfig, setSystemConfig] = useState<any>(() => {
+    try {
+      const raw = localStorage.getItem("kvell_system_config");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const handleConfigUpdate = () => {
+      try {
+        const raw = localStorage.getItem("kvell_system_config");
+        if (raw) setSystemConfig(JSON.parse(raw));
+      } catch {}
+    };
+    window.addEventListener("kvell_system_config_updated", handleConfigUpdate);
+    window.addEventListener("storage", handleConfigUpdate);
+    return () => {
+      window.removeEventListener("kvell_system_config_updated", handleConfigUpdate);
+      window.removeEventListener("storage", handleConfigUpdate);
+    };
+  }, []);
+
+  // Revaluation Application State
+  const [revalSelectedCourses, setRevalSelectedCourses] = useState<string[]>([]);
+  const [revalSubmitted, setRevalSubmitted] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("kvell_revaluation_requests");
+      if (saved) {
+        const list = JSON.parse(saved);
+        return Array.isArray(list) && list.some((r: any) => r.regNo === studentReg);
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  });
+  const [revalRefId, setRevalRefId] = useState<string | null>(() => {
+    try {
+      const saved = localStorage.getItem("kvell_revaluation_requests");
+      if (saved) {
+        const list = JSON.parse(saved);
+        const found = Array.isArray(list) ? list.find((r: any) => r.regNo === studentReg) : null;
+        return found ? found.refId : null;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  });
 
   const kvellSealLogo = "/kvell-logo.png";
 
@@ -4284,6 +4409,92 @@ function StudentDashboard({
     setTimeout(() => setNotificationMsg(null), 4000);
   };
 
+  // Revaluation Handlers
+  const toggleRevalCourse = (code: string) => {
+    setRevalSelectedCourses((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+    );
+  };
+
+  const handleApplyRevaluation = () => {
+    if (revalSelectedCourses.length === 0) {
+      alert("Please select at least one course for revaluation.");
+      return;
+    }
+    const feePer = systemConfig?.gateways?.revaluationWindow?.feePerCourse ?? 400;
+    const totalFee = feePer * revalSelectedCourses.length;
+    const ref = `REV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newReq = {
+      refId: ref,
+      regNo: studentReg,
+      studentName,
+      courses: revalSelectedCourses,
+      totalFee,
+      appliedAt: new Date().toISOString(),
+      status: "UNDER_REVIEW",
+    };
+    try {
+      const saved = localStorage.getItem("kvell_revaluation_requests");
+      const list = saved ? JSON.parse(saved) : [];
+      list.push(newReq);
+      localStorage.setItem("kvell_revaluation_requests", JSON.stringify(list));
+      window.dispatchEvent(new Event("storage"));
+    } catch (e) {
+      console.error(e);
+    }
+    setRevalSubmitted(true);
+    setRevalRefId(ref);
+    setNotificationMsg(`Revaluation Application ${ref} submitted for ${revalSelectedCourses.length} course(s). Prescribed Fee: ₹${totalFee}`);
+    setTimeout(() => setNotificationMsg(null), 5000);
+  };
+
+  const handleDownloadGradeCard = () => {
+    const lines = [
+      "================================================================================",
+      "                      KVELL DEEMED TO BE UNIVERSITY                             ",
+      "                 OFFICIAL END-SEMESTER STATEMENT OF MARKS                       ",
+      "================================================================================",
+      `Student Name    : ${studentName}`,
+      `Register Number : ${studentReg}`,
+      `Program         : ${detectedProgramName}`,
+      `Academic Year   : 2026-27 (Semester ${semRoman})`,
+      `Issuing Auth    : Dr. Sathish (Overall University COE & Super Administrator)`,
+      "--------------------------------------------------------------------------------",
+      "COURSE CODE   COURSE TITLE                                CREDITS  GRADE  PTS  STATUS",
+      "--------------------------------------------------------------------------------",
+      ...studentCourses.map(
+        (c) =>
+          `${c.code.padEnd(14)} ${c.title.padEnd(42)} ${String(c.credits).padStart(3)}   ${c.grade.padStart(4)}   ${String(c.points).padStart(2)}  ${c.status}`
+      ),
+      "--------------------------------------------------------------------------------",
+      `Total Credits   : 23`,
+      `Semester SGPA   : ${computedSgpa || 9.42}`,
+      `Cumulative CGPA : 9.28`,
+      `Final Result    : PASS - DISTINCTION`,
+      "================================================================================",
+      `Official Timestamp: ${new Date().toLocaleString()} (Verified by Dr. Sathish COE)`,
+      "================================================================================",
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `KVELL_Official_Statement_Marks_${studentReg}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setNotificationMsg("Official Statement of Marks downloaded successfully.");
+    setTimeout(() => setNotificationMsg(null), 3000);
+  };
+
+  const isResultsWithheld = systemConfig?.gateways?.studentResultPortal?.withholdResults === true;
+  const isGradeDownloadAllowed = systemConfig?.gateways?.studentResultPortal?.allowGradeDownload !== false;
+  const isRevalWindowOpen = systemConfig?.gateways?.revaluationWindow?.enabled === true;
+  const revalFeePerCourse = systemConfig?.gateways?.revaluationWindow?.feePerCourse ?? 400;
+  const revalDeadline = systemConfig?.gateways?.revaluationWindow?.deadline ?? "2026-11-15T17:00:00";
+  const publicAnnouncement = systemConfig?.gateways?.studentResultPortal?.announcement;
+
   return (
     <div className="min-h-screen bg-[#F8F5EE] text-[#172033] font-sans flex flex-col justify-between selection:bg-[#D4A72C] selection:text-[#0B192C]">
       {/* Top Banner Bar */}
@@ -4293,7 +4504,7 @@ function StudentDashboard({
             # OFFICIAL PORTAL
           </span>
           <span className="text-slate-300 font-medium">
-            May 2025 Semester End Examination Results Published for Faculty of Engineering and Emerging Sciences!
+            {publicAnnouncement || "May 2025 Semester End Examination Results Published for Faculty of Engineering and Emerging Sciences!"}
           </span>
         </div>
 
@@ -4783,7 +4994,7 @@ function StudentDashboard({
           /* Result Module: Enlarged Official Statement of Marks */
           <div className="w-full max-w-7xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
 
-            {/* Card Dark Header */}
+            {/* Card Dark Header with Grade Sheet Download Control */}
             <div className="bg-[#0B192C] text-white p-6 sm:p-8 flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <img
@@ -4800,84 +5011,244 @@ function StudentDashboard({
                   </p>
                 </div>
               </div>
-              <span className="bg-white/10 text-white border border-white/20 px-4 py-1.5 rounded-xl text-xs sm:text-sm font-mono font-bold">
-                {studentReg}
-              </span>
-            </div>
-
-            {/* Candidate Details Box */}
-            <div className="bg-[#F8F5EE] border border-slate-200/80 rounded-2xl p-6 sm:p-8 mx-6 sm:mx-8 mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs sm:text-sm">
-              <div>
-                <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">CANDIDATE NAME</p>
-                <p className="font-black text-[#0B192C] text-base mt-1">{studentName}</p>
-              </div>
-              <div>
-                <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">REGISTER NUMBER</p>
-                <p className="font-black text-[#0B192C] text-base font-mono mt-1">{studentReg}</p>
-              </div>
-              <div>
-                <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">ENGINEERING PROGRAM</p>
-                <p className="font-extrabold text-[#0B192C] mt-1">B.Tech Artificial Intelligence & Data Science</p>
-              </div>
-              <div>
-                <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">SEMESTER & EXAM MONTH</p>
-                <p className="font-extrabold text-[#0B192C] mt-1">Semester I (Academic Year 2026-27)</p>
-              </div>
-            </div>
-
-            {/* Course Grade Breakdown Table */}
-            <div className="mx-6 sm:mx-8 mt-8 space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-extrabold text-base text-[#0B192C]">Course Grade Breakdown</h4>
-                <span className="text-xs sm:text-sm font-extrabold text-slate-500">Total Credits: 23</span>
-              </div>
-
-              <div className="overflow-x-auto rounded-2xl border border-slate-200">
-                <table className="w-full text-left text-xs sm:text-sm">
-                  <thead className="bg-[#0B192C] text-white text-xs font-extrabold uppercase tracking-wider">
-                    <tr>
-                      <th className="px-5 py-4">COURSE CODE</th>
-                      <th className="px-5 py-4">COURSE TITLE</th>
-                      <th className="px-5 py-4 text-center">CREDITS</th>
-                      <th className="px-5 py-4 text-center">GRADE</th>
-                      <th className="px-5 py-4 text-center">GRADE POINTS</th>
-                      <th className="px-5 py-4 text-center">STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                    {studentCourses.map((c) => (
-                      <tr key={c.code} className="hover:bg-slate-50/80 transition">
-                        <td className="px-5 py-4 font-mono font-bold text-[#0B192C]">{c.code}</td>
-                        <td className="px-5 py-4 font-extrabold text-slate-900">{c.title}</td>
-                        <td className="px-5 py-4 text-center text-slate-600">{c.credits}</td>
-                        <td className="px-5 py-4 text-center font-extrabold text-[#0B192C]">{c.grade}</td>
-                        <td className="px-5 py-4 text-center font-bold text-slate-800">{c.points}</td>
-                        <td className="px-5 py-4 text-center">
-                          <span className="inline-block bg-green-100 text-green-800 text-xs font-extrabold px-3 py-1 rounded-full border border-green-200">
-                            {c.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex items-center gap-3">
+                <span className="bg-white/10 text-white border border-white/20 px-4 py-1.5 rounded-xl text-xs sm:text-sm font-mono font-bold">
+                  {studentReg}
+                </span>
+                {/* Download Official Grade Sheet Button controlled by allowGradeDownload */}
+                {isGradeDownloadAllowed ? (
+                  <button
+                    onClick={handleDownloadGradeCard}
+                    className="px-4 py-2 bg-[#D4A72C] hover:bg-[#c29624] text-[#0B192C] font-extrabold text-xs rounded-xl shadow transition flex items-center gap-2"
+                  >
+                    <Download size={15} />
+                    <span>Download Official Grade Sheet</span>
+                  </button>
+                ) : (
+                  <button
+                    disabled
+                    className="px-4 py-2 bg-slate-800 text-slate-400 font-bold text-xs rounded-xl border border-slate-700 cursor-not-allowed flex items-center gap-2"
+                    title="Grade Sheet download temporarily locked by University COE (Dr. Sathish)"
+                  >
+                    <Lock size={14} className="text-amber-400" />
+                    <span>Download Locked by COE</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Footer Card */}
-            <div className="bg-[#0B192C] text-white p-6 sm:p-8 mt-10 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center items-center divide-y sm:divide-y-0 sm:divide-x divide-white/10">
-              <div className="py-3 sm:py-0">
-                <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">SEMESTER SGPA</p>
-                <p className="text-3xl font-black text-white mt-1">9.42</p>
+            {/* If Results are Withheld by Dr. Sathish */}
+            {isResultsWithheld ? (
+              <div className="m-6 sm:m-8 bg-red-50/90 border-2 border-red-300 rounded-3xl p-8 sm:p-12 text-center shadow-lg space-y-4">
+                <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto text-red-600 shadow-inner">
+                  <ShieldAlert size={36} />
+                </div>
+                <div>
+                  <span className="inline-block bg-red-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full mb-2">
+                    STATUTORY HOLD DIRECTIVE
+                  </span>
+                  <h3 className="text-xl sm:text-2xl font-black text-red-950 tracking-tight">
+                    Results Withheld by University Controller of Examinations (Dr. Sathish)
+                  </h3>
+                  <p className="text-xs sm:text-sm text-red-800 max-w-2xl mx-auto mt-2 leading-relaxed font-medium">
+                    The examination results for candidate <strong className="font-mono font-bold text-red-950">{studentReg}</strong> ({studentName}) have been temporarily withheld pending statutory moderation audit and grade audit verification. Mark breakdowns will be re-enabled once certified by the Office of the Controller of Examinations.
+                  </p>
+                </div>
+                <div className="pt-2 flex flex-wrap items-center justify-center gap-3 text-xs font-mono font-bold text-red-700">
+                  <span className="bg-red-100 px-3 py-1 rounded-lg border border-red-200">SEAL REF: COE/WITHHOLD/AUDIT-2026</span>
+                  <span className="bg-red-100 px-3 py-1 rounded-lg border border-red-200">AUTH: DR. SATHISH (SUPER ADMIN)</span>
+                </div>
               </div>
-              <div className="py-3 sm:py-0">
-                <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">CUMULATIVE CGPA</p>
-                <p className="text-3xl font-black text-white mt-1">9.28</p>
+            ) : (
+              <>
+                {/* Candidate Details Box */}
+                <div className="bg-[#F8F5EE] border border-slate-200/80 rounded-2xl p-6 sm:p-8 mx-6 sm:mx-8 mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs sm:text-sm">
+                  <div>
+                    <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">CANDIDATE NAME</p>
+                    <p className="font-black text-[#0B192C] text-base mt-1">{studentName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">REGISTER NUMBER</p>
+                    <p className="font-black text-[#0B192C] text-base font-mono mt-1">{studentReg}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">ENGINEERING PROGRAM</p>
+                    <p className="font-extrabold text-[#0B192C] mt-1">{detectedProgramName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">SEMESTER & EXAM MONTH</p>
+                    <p className="font-extrabold text-[#0B192C] mt-1">Semester {semRoman} (Academic Year 2026-27)</p>
+                  </div>
+                </div>
+
+                {/* Course Grade Breakdown Table */}
+                <div className="mx-6 sm:mx-8 mt-8 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-extrabold text-base text-[#0B192C]">Course Grade Breakdown</h4>
+                    <span className="text-xs sm:text-sm font-extrabold text-slate-500">Total Credits: 23</span>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                    <table className="w-full text-left text-xs sm:text-sm">
+                      <thead className="bg-[#0B192C] text-white text-xs font-extrabold uppercase tracking-wider">
+                        <tr>
+                          <th className="px-5 py-4">COURSE CODE</th>
+                          <th className="px-5 py-4">COURSE TITLE</th>
+                          <th className="px-5 py-4 text-center">CREDITS</th>
+                          <th className="px-5 py-4 text-center">GRADE</th>
+                          <th className="px-5 py-4 text-center">GRADE POINTS</th>
+                          <th className="px-5 py-4 text-center">STATUS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                        {studentCourses.map((c) => (
+                          <tr key={c.code} className="hover:bg-slate-50/80 transition">
+                            <td className="px-5 py-4 font-mono font-bold text-[#0B192C]">{c.code}</td>
+                            <td className="px-5 py-4 font-extrabold text-slate-900">{c.title}</td>
+                            <td className="px-5 py-4 text-center text-slate-600">{c.credits}</td>
+                            <td className="px-5 py-4 text-center font-extrabold text-[#0B192C]">{c.grade}</td>
+                            <td className="px-5 py-4 text-center font-bold text-slate-800">{c.points}</td>
+                            <td className="px-5 py-4 text-center">
+                              <span className="inline-block bg-green-100 text-green-800 text-xs font-extrabold px-3 py-1 rounded-full border border-green-200">
+                                {c.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Footer Result Card */}
+                <div className="bg-[#0B192C] text-white p-6 sm:p-8 mt-10 mx-6 sm:mx-8 rounded-2xl grid grid-cols-1 sm:grid-cols-3 gap-6 text-center items-center divide-y sm:divide-y-0 sm:divide-x divide-white/10">
+                  <div className="py-3 sm:py-0">
+                    <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">SEMESTER SGPA</p>
+                    <p className="text-3xl font-black text-white mt-1">9.42</p>
+                  </div>
+                  <div className="py-3 sm:py-0">
+                    <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">CUMULATIVE CGPA</p>
+                    <p className="text-3xl font-black text-white mt-1">9.28</p>
+                  </div>
+                  <div className="py-3 sm:py-0">
+                    <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">OVERALL RESULT</p>
+                    <p className="text-lg font-black text-[#38BDF8] mt-1 tracking-wide">PASS - DISTINCTION</p>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Revaluation & Grievance Gateway Section (Controlled by revaluationWindow) */}
+            <div className="p-6 sm:p-8 m-6 sm:m-8 bg-[#F8F5EE] rounded-3xl border border-slate-200 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                    <RotateCcw size={20} />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm sm:text-base text-[#0B192C]">
+                      University Revaluation & Answer Script Photocopy Window
+                    </h4>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Statutory grievance & re-assessment gateway authorized by Controller of Examinations (Dr. Sathish)
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  {isRevalWindowOpen ? (
+                    <span className="bg-purple-100 text-purple-800 border border-purple-200 text-xs font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                      <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+                      WINDOW OPEN (Fee: ₹{revalFeePerCourse} / Course)
+                    </span>
+                  ) : (
+                    <span className="bg-slate-200 text-slate-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5">
+                      <Lock size={12} />
+                      WINDOW CLOSED BY COE
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="py-3 sm:py-0">
-                <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">OVERALL RESULT</p>
-                <p className="text-lg font-black text-[#38BDF8] mt-1 tracking-wide">PASS - DISTINCTION</p>
-              </div>
+
+              {isRevalWindowOpen ? (
+                revalSubmitted ? (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle2 size={24} className="text-emerald-600 shrink-0" />
+                      <div>
+                        <h5 className="font-extrabold text-sm text-emerald-950">
+                          Revaluation Application Successfully Submitted
+                        </h5>
+                        <p className="text-xs text-emerald-800 mt-0.5">
+                          Reference ID: <strong className="font-mono">{revalRefId}</strong> • Status: Under Re-evaluation by Chief Evaluator Panel
+                        </p>
+                      </div>
+                    </div>
+                    <span className="bg-emerald-600 text-white text-xs font-extrabold px-3.5 py-1.5 rounded-xl shadow-sm">
+                      VERIFICATION IN PROGRESS
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-600">
+                      <span>Select course(s) to apply for answer script copy and revaluation:</span>
+                      <span className="text-slate-500">
+                        Application Deadline: <strong className="text-[#0B192C]">{new Date(revalDeadline).toLocaleDateString()}</strong>
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {studentCourses.slice(0, 6).map((c) => {
+                        const isSelected = revalSelectedCourses.includes(c.code);
+                        return (
+                          <div
+                            key={c.code}
+                            onClick={() => toggleRevalCourse(c.code)}
+                            className={`p-3.5 rounded-2xl border transition cursor-pointer flex items-center justify-between ${
+                              isSelected
+                                ? "border-purple-600 bg-purple-50/70 shadow-sm"
+                                : "border-slate-200 bg-white hover:border-slate-300"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleRevalCourse(c.code)}
+                                className="h-4 w-4 text-purple-600 rounded focus:ring-purple-500"
+                              />
+                              <div>
+                                <span className="font-mono text-xs font-bold text-[#0B192C]">{c.code}</span>
+                                <p className="text-xs font-semibold text-slate-700 truncate max-w-[200px]">{c.title}</p>
+                              </div>
+                            </div>
+                            <span className="text-xs font-mono font-bold text-slate-500">Grade: {c.grade}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
+                      <div className="text-xs font-semibold text-slate-700">
+                        Selected: <strong className="text-[#0B192C] font-black">{revalSelectedCourses.length}</strong> course(s) • Total Prescribed Fee: <strong className="text-purple-700 font-black text-sm">₹{revalSelectedCourses.length * revalFeePerCourse}</strong>
+                      </div>
+
+                      <button
+                        onClick={handleApplyRevaluation}
+                        disabled={revalSelectedCourses.length === 0}
+                        className="px-6 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-extrabold text-xs flex items-center gap-2 shadow-md transition"
+                      >
+                        <RotateCcw size={14} />
+                        <span>Submit Revaluation Application</span>
+                      </button>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  The Controller of Examinations (Dr. Sathish) has not currently scheduled an active revaluation period for Semester {semRoman}. Students with result queries should submit an official written petition to the COE administrative office.
+                </p>
+              )}
             </div>
 
           </div>

@@ -11,7 +11,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ component: Compo
   const currentUser = adminAuthApi.getCurrentUser();
 
   // Route protection: requires authentication AND authorized COE role
-  const allowedRoles = ["ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY"];
+  const allowedRoles = ["SUPER_ADMIN", "ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY"];
   if (!token || !currentUser || !allowedRoles.includes(currentUser.role)) {
     return <Redirect to="/admin/login" />;
   }
