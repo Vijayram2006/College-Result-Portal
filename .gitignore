@@ -114,3 +114,6 @@ client/public/__manus__/version.json
 
 # Local assistant notes
 .remember/
+
+# Vercel CLI project link
+.vercel
