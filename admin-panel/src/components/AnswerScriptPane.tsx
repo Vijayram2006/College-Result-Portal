@@ -21,7 +21,12 @@ const PdfPages: React.FC<{ blob: Blob; zoom: number; onError: () => void }> = ({
 
   useEffect(() => {
     if (!box.current) return;
-    const observer = new ResizeObserver(([entry]) => setWidth(Math.floor(entry.contentRect.width)));
+    // Redraw only on a real resize (e.g. rotating the phone). Small changes, like the scrollbar appearing once the
+    // pages are drawn, would otherwise trigger an endless redraw loop.
+    const observer = new ResizeObserver(([entry]) => {
+      const next = Math.floor(entry.contentRect.width);
+      setWidth((prev) => (prev === 0 || Math.abs(next - prev) > 48 ? next : prev));
+    });
     observer.observe(box.current);
     return () => observer.disconnect();
   }, []);
@@ -30,7 +35,6 @@ const PdfPages: React.FC<{ blob: Blob; zoom: number; onError: () => void }> = ({
     const container = pages.current;
     if (!container || width === 0) return;
     let cancelled = false;
-    setDrawn(false);
     let destroy: (() => void) | undefined;
     (async () => {
       // Loaded only when needed, so desktop users never download pdf.js
@@ -51,7 +55,8 @@ const PdfPages: React.FC<{ blob: Blob; zoom: number; onError: () => void }> = ({
         canvas.className = "block mx-auto mb-2 bg-white shadow";
         canvas.setAttribute("aria-label", `Answer script page ${n} of ${doc.numPages}`);
         await page.render({ canvasContext: canvas.getContext("2d")!, viewport }).promise;
-        // Show pages as they finish instead of waiting for the whole script
+        // Show pages as they finish instead of waiting for the whole script; a redraw (zoom, rotation) swaps the
+        // old pages out only once its first page is ready, so nothing flickers
         if (!cancelled) {
           if (n === 1) {
             container.replaceChildren();
@@ -60,6 +65,7 @@ const PdfPages: React.FC<{ blob: Blob; zoom: number; onError: () => void }> = ({
           container.appendChild(canvas);
         }
       }
+      if (!cancelled) container.dataset.renders = String(Number(container.dataset.renders || 0) + 1);
     })().catch(() => {
       if (!cancelled) onError();
     });
@@ -76,7 +82,7 @@ const PdfPages: React.FC<{ blob: Blob; zoom: number; onError: () => void }> = ({
           <RefreshCw size={14} className="animate-spin" /> Rendering pages…
         </span>
       )}
-      <div ref={pages} />
+      <div ref={pages} data-testid="answer-script-pages" />
     </div>
   );
 };
@@ -161,7 +167,7 @@ export const AnswerScriptPane: React.FC<{
           </span>
         )}
       </div>
-      <div className={`flex-1 bg-gray-100 flex ${state === "ready" && ownViewer ? "items-start overflow-auto max-h-[75vh] lg:max-h-none" : "items-center justify-center"}`}>
+      <div className={`flex-1 bg-gray-100 flex ${state === "ready" && ownViewer ? "items-start overflow-auto [scrollbar-gutter:stable] max-h-[75vh] lg:max-h-none" : "items-center justify-center"}`}>
         {prompt ? (
           <div className="text-center px-6 space-y-2">
             <FileText size={36} className="mx-auto text-gray-300" />
