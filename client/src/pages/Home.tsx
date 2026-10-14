@@ -1316,7 +1316,7 @@ function HodPortalDashboard({
           </span>
         </div>
 
-        <div className="flex items-center gap-3 text-slate-400 text-[11px] font-semibold">
+        <div className="hidden sm:flex items-center gap-3 text-slate-400 text-[11px] font-semibold">
           <span>AICTE & UGC Approved</span>
           <span>•</span>
           <span className="text-[#D4A72C]">NAAC A++ Accredited</span>
@@ -1324,7 +1324,7 @@ function HodPortalDashboard({
       </div>
 
       {/* Main Header Navbar */}
-      <header className="bg-white border-b border-[#E5E1D8] sticky top-0 z-40 shadow-sm">
+      <header className="bg-white border-b border-[#E5E1D8] relative sm:sticky top-0 z-40 shadow-sm">
         <div className="w-full px-4 sm:px-10 py-3 flex flex-wrap items-center justify-between gap-4">
           {/* Logo & Title */}
           <div className="flex items-center gap-4">
@@ -1335,7 +1335,7 @@ function HodPortalDashboard({
             />
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-lg sm:text-xl tracking-tight text-[#0B192C]">
+                <span className="font-extrabold text-base sm:text-xl tracking-tight text-[#0B192C]">
                   KVELL DEEMED TO BE UNIVERSITY
                 </span>
                 <span className="hidden sm:inline-block bg-slate-100 text-slate-700 text-[10px] font-extrabold px-2 py-0.5 rounded border border-slate-200">
@@ -1349,10 +1349,10 @@ function HodPortalDashboard({
           </div>
 
           {/* Center Component Navigation Tabs & COE Admin Switcher */}
-          <div className="flex items-center gap-2 bg-[#F8F5EE] p-1.5 rounded-2xl border border-[#E5E1D8]">
+          <div className="flex w-full sm:w-auto items-center gap-1.5 sm:gap-2 bg-[#F8F5EE] p-1.5 rounded-2xl border border-[#E5E1D8]">
             <button
               onClick={() => setActiveTab("dashboard")}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
+              className={`flex-1 sm:flex-none justify-center whitespace-nowrap px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
                 activeTab === "dashboard"
                   ? "bg-[#0B192C] text-white shadow-md"
                   : "text-slate-600 hover:bg-white hover:text-slate-900"
@@ -1363,7 +1363,7 @@ function HodPortalDashboard({
             </button>
             <button
               onClick={() => setActiveTab("studentResult")}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
+              className={`flex-1 sm:flex-none justify-center whitespace-nowrap px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
                 activeTab === "studentResult"
                   ? "bg-[#0B192C] text-white shadow-md"
                   : "text-slate-600 hover:bg-white hover:text-slate-900"
@@ -1386,7 +1386,7 @@ function HodPortalDashboard({
           </div>
 
           {/* Right HOD Info & Logout */}
-          <div className="flex items-center gap-4">
+          <div className="flex w-full sm:w-auto sm:ml-auto items-center justify-end gap-3 sm:gap-4">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-extrabold text-[#0B192C]">{hodName}</p>
               <p className="text-[11px] font-bold text-[#B08014] tracking-wider uppercase">HOD - {department}</p>
@@ -1401,7 +1401,7 @@ function HodPortalDashboard({
             </button>
             <button
               onClick={onLogout}
-              className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition"
+              className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition whitespace-nowrap"
             >
               <LogOut size={14} />
               Sign Out
@@ -1524,7 +1524,7 @@ function HodPortalDashboard({
 
               {/* Right Column: Top Pass Percentage Faculty Card (Dark Navy Card) */}
               <div className="bg-[#0B192C] text-white rounded-[2rem] p-6 shadow-xl border border-slate-800 space-y-5">
-                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
                   <div>
                     <h3 className="text-base font-extrabold text-[#D4A72C] flex items-center gap-2">
                       🏅 Top Pass Percentage Faculty
@@ -1533,7 +1533,7 @@ function HodPortalDashboard({
                       Faculty members with highest student pass percentage in their handling courses.
                     </p>
                   </div>
-                  <span className="bg-white/10 text-slate-200 text-xs font-mono font-bold px-3 py-1 rounded-lg border border-white/10 shrink-0">
+                  <span className="bg-white/10 text-slate-200 text-xs font-mono font-bold px-3 py-1 rounded-lg border border-white/10 self-start sm:shrink-0 max-w-full">
                     {department} RANKING
                   </span>
                 </div>
@@ -3666,7 +3666,7 @@ function LoginPage({
           </span>
         </div>
 
-        <div className="flex items-center gap-3 text-slate-400 text-[11px] font-semibold">
+        <div className="hidden sm:flex items-center gap-3 text-slate-400 text-[11px] font-semibold">
           <span>AICTE & UGC Approved</span>
           <span>•</span>
           <span className="text-[#D4A72C]">NAAC A++ Accredited Engineering Faculty</span>
@@ -3674,7 +3674,7 @@ function LoginPage({
       </div>
 
       {/* Main Header Navbar */}
-      <header className="bg-white border-b border-[#E5E1D8] sticky top-0 z-40 shadow-sm">
+      <header className="bg-white border-b border-[#E5E1D8] relative sm:sticky top-0 z-40 shadow-sm">
         <div className="w-full px-3 sm:px-6 py-2.5 flex items-center justify-between gap-4">
           {/* Logo & Title */}
           <div className="flex items-center gap-3">
@@ -4153,7 +4153,7 @@ function StudentDashboard({
           </span>
         </div>
 
-        <div className="flex items-center gap-3 text-slate-400 text-[11px] font-semibold">
+        <div className="hidden sm:flex items-center gap-3 text-slate-400 text-[11px] font-semibold">
           <span>AICTE & UGC Approved</span>
           <span>•</span>
           <span className="text-[#D4A72C]">NAAC A++ Accredited Engineering Faculty</span>
@@ -4161,7 +4161,7 @@ function StudentDashboard({
       </div>
 
       {/* Main Header Navbar */}
-      <header className="bg-white border-b border-[#E5E1D8] sticky top-0 z-40 shadow-sm">
+      <header className="bg-white border-b border-[#E5E1D8] relative sm:sticky top-0 z-40 shadow-sm">
         <div className="w-full px-4 sm:px-10 py-3 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <img
@@ -4171,7 +4171,7 @@ function StudentDashboard({
             />
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-lg sm:text-xl tracking-tight text-[#0B192C]">
+                <span className="font-extrabold text-base sm:text-xl tracking-tight text-[#0B192C]">
                   KVELL DEEMED TO BE UNIVERSITY
                 </span>
                 <span className="hidden sm:inline-block bg-slate-100 text-slate-700 text-[10px] font-extrabold px-2 py-0.5 rounded border border-slate-200">
@@ -4185,10 +4185,10 @@ function StudentDashboard({
           </div>
 
           {/* Navigation Module Switcher Tabs */}
-          <div className="flex items-center gap-1.5 bg-[#F8F5EE] border border-slate-200 p-1.5 rounded-2xl shadow-inner">
+          <div className="flex w-full sm:w-auto items-center gap-1 sm:gap-1.5 bg-[#F8F5EE] border border-slate-200 p-1.5 rounded-2xl shadow-inner">
             <button
               onClick={() => setActiveTab("dashboard")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition duration-150 ${activeTab === "dashboard"
+              className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap px-2 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition duration-150 ${activeTab === "dashboard"
                   ? "bg-[#0B192C] text-white shadow-md"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 }`}
@@ -4198,7 +4198,7 @@ function StudentDashboard({
             </button>
             <button
               onClick={() => setActiveTab("result")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition duration-150 ${activeTab === "result"
+              className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap px-2 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition duration-150 ${activeTab === "result"
                   ? "bg-[#0B192C] text-white shadow-md"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 }`}
@@ -4208,7 +4208,7 @@ function StudentDashboard({
             </button>
             <button
               onClick={() => setActiveTab("subjects")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition duration-150 ${activeTab === "subjects"
+              className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap px-2 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition duration-150 ${activeTab === "subjects"
                   ? "bg-[#0B192C] text-white shadow-md"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 }`}
@@ -4218,11 +4218,11 @@ function StudentDashboard({
             </button>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex w-full sm:w-auto sm:ml-auto items-center justify-between sm:justify-start gap-3 sm:gap-4">
             {/* Static Current Semester Display Badge */}
-            <div className="flex items-center gap-2 bg-[#F8F5EE] border border-slate-300 rounded-xl px-3.5 py-1.5 shadow-sm text-xs font-extrabold text-[#0B192C]">
-              <span>Current Semester:</span>
-              <span className="bg-[#0B192C] text-[#D4A72C] px-2.5 py-0.5 rounded-lg font-black text-xs tracking-wide">
+            <div className="flex items-center gap-2 bg-[#F8F5EE] border border-slate-300 rounded-xl px-2.5 sm:px-3.5 py-1.5 shadow-sm text-xs font-extrabold text-[#0B192C]">
+              <span className="hidden sm:inline">Current Semester:</span>
+              <span className="bg-[#0B192C] text-[#D4A72C] px-2.5 py-0.5 rounded-lg font-black text-xs tracking-wide whitespace-nowrap">
                 Semester {semRoman} ({semOrdinal} Sem)
               </span>
             </div>
@@ -4235,7 +4235,7 @@ function StudentDashboard({
             </div>
             <button
               onClick={onLogout}
-              className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition"
+              className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition whitespace-nowrap"
             >
               <LogOut size={14} />
               Sign Out

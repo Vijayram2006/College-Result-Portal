@@ -63,8 +63,11 @@ body {
   font-family: 'Manrope', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
-button, input { font: inherit; }
-button { cursor: pointer; }
+/* In the base layer so Tailwind utilities (text-xs, font-black, ...) on buttons and inputs win over it */
+@layer base {
+  button, input { font: inherit; }
+  button { cursor: pointer; }
+}
 button:focus-visible, input:focus-visible { outline: 3px solid rgba(212, 167, 44, .3); outline-offset: 2px; }
 
 .font-display { font-family: 'DM Sans', sans-serif; }

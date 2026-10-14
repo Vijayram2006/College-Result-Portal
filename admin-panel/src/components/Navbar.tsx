@@ -9,12 +9,13 @@ interface NavbarProps {
   title: string;
 }
 
-const MIN_NAME_PX = 14;
+const MIN_NAME_PX = 13;
 const MAX_NAME_PX = 36;
 
 /**
  * Font size that fits the college name on one line in the space left between the logo and the bell / user block
- * (the user's name differs per account, so a screen-width formula is not enough). Below MIN_NAME_PX the name wraps.
+ * (the user's name differs per account, so a screen-width formula is not enough). Below MIN_NAME_PX the name wraps
+ * onto as many lines as it needs (phones), so it is never cut off.
  */
 function useFittedNameSize(text: string) {
   const box = useRef<HTMLDivElement>(null);
@@ -56,11 +57,11 @@ export const Navbar: React.FC<NavbarProps> = ({ setMobileOpen, title }) => {
 
   return (
     <header className="sticky top-0 z-30 bg-[#0B192C] text-white border-b-4 border-[#D4A72C] shadow-lg box-border min-h-[6.75rem] lg:h-[6.75rem]">
-      <div className="relative flex items-center justify-between gap-4 px-4 sm:px-8 py-3 h-full min-h-[6.5rem]">
-        <div className="flex flex-1 items-center gap-3 sm:gap-5 min-w-0 self-stretch">
+      <div className="relative flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-8 py-3 h-full min-h-[6.5rem]">
+        <div className="flex flex-1 items-center gap-2 sm:gap-5 min-w-0 self-stretch">
           <button
             onClick={() => setMobileOpen(true)}
-            className="lg:hidden p-2 rounded-xl text-white hover:bg-white/10 transition shrink-0"
+            className="lg:hidden p-1.5 sm:p-2 rounded-xl text-white hover:bg-white/10 transition shrink-0"
             aria-label="Open menu"
           >
             <Menu size={20} />
@@ -68,7 +69,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setMobileOpen, title }) => {
           <img
             src={college.logoUrl || "/kvell-logo.png"}
             alt={college.name}
-            className="h-14 w-14 sm:h-[4.5rem] sm:w-[4.5rem] rounded-full bg-white p-1 border-2 border-[#D4A72C] shrink-0 object-contain shadow-lg"
+            className="h-12 w-12 sm:h-[4.5rem] sm:w-[4.5rem] rounded-full bg-white p-1 border-2 border-[#D4A72C] shrink-0 object-contain shadow-lg"
           />
           {/* The name is sized to fill this box on one line; Kyro stands right after it */}
           <div ref={name.box} className="relative flex flex-1 items-center min-w-0 self-stretch">
@@ -77,7 +78,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setMobileOpen, title }) => {
                 Office of the Controller of Examinations
               </span>
               <h1
-                className={`font-display font-black leading-tight ${wraps ? "line-clamp-2" : "whitespace-nowrap"}`}
+                className={`font-display font-black ${wraps ? "leading-snug" : "leading-tight whitespace-nowrap"}`}
                 style={{ fontSize: name.size ? `${name.size}px` : undefined }}
               >
                 {college.name}
@@ -90,7 +91,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setMobileOpen, title }) => {
               onLoad={name.fit}
               src="/kyro-crossed.png"
               alt="Kyro, the KVELL campus mascot"
-              className="hidden xl:block self-end -mb-3 h-[6.25rem] ml-3 w-auto shrink-0 object-contain object-bottom pointer-events-none select-none drop-shadow-xl"
+              className="block self-end -mb-3 h-16 sm:h-20 xl:h-[6.25rem] ml-1.5 sm:ml-3 w-auto shrink-0 object-contain object-bottom pointer-events-none select-none drop-shadow-xl"
             />
             {/* Invisible copy at 100px, used to measure how wide the name is (clipped so it never widens the page) */}
             <div aria-hidden className="absolute left-0 top-0 w-0 h-0 overflow-hidden invisible pointer-events-none">
