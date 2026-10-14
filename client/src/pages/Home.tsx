@@ -3,7 +3,7 @@ import { trpc } from "../lib/trpc";
 // Sample lists for the remaining demo-only screens (Faculty performance / Dean); real results come from the API
 import { marksStudentsList, generalStudentsList } from "../data/dummyMarksData";
 import { facultyApi, publicApi, type FacultyOverviewDTO, type PublicSummaryDTO } from "../services/api";
-import { apiErrorMessage, authApi, hodApi, studentApi, type HodOverviewDTO, type RegisteredSubjectDTO, type StudentResultsDTO } from "../services/api";
+import { apiErrorMessage, authApi, hodApi, studentApi, type HodOverviewDTO, type RegisteredSubjectDTO, type RevaluationRequestDTO, type StudentResultsDTO } from "../services/api";
 
 const ADMIN_PANEL_URL = import.meta.env.VITE_ADMIN_PANEL_URL || "http://localhost:3002/admin/login";
 import * as XLSX from "xlsx";
@@ -11,6 +11,7 @@ import { downloadWorkbook } from "../utils/downloadWorkbook";
 import { FacultyMarkEntry } from "../components/FacultyMarkEntry";
 import { NotificationBell } from "../components/NotificationBell";
 import { PublishedResultsDownload } from "../components/PublishedResultsDownload";
+import { useSystemConfig, isStudentPortalClosed, isRevaluationOpen } from "../utils/systemConfig";
 import type { PublishedBatch } from "../utils/publishedResults";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -3614,9 +3615,18 @@ function LoginPage({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Portal gateways set by the Super Admin, served by the result server (which also refuses a closed portal's sign-in)
+  const systemConfig = useSystemConfig();
+  const isStudentPortalLocked = selectedRole === "Student" && isStudentPortalClosed(systemConfig);
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setErrorMsg(null);
+
+    if (isStudentPortalLocked) {
+      setErrorMsg("The student result portal is closed by the Controller of Examinations. Please try again later.");
+      return;
+    }
 
     // Result management happens in the Examination Control Panel (admin panel app)
     if (selectedRole === "Admin") {
@@ -3801,6 +3811,35 @@ function LoginPage({
                 </button>
               </div>
 
+              {/* Public Announcement Banner from Super Admin Dr. Sathish */}
+              {systemConfig?.gateways?.studentResultPortal?.announcement && (
+                <div className="mb-4 p-3 rounded-2xl bg-amber-50 border border-[#D4A72C]/40 text-[#0B192C] flex items-center gap-2.5 shadow-sm">
+                  <Sparkles size={16} className="text-[#B08014] shrink-0 animate-pulse" />
+                  <div className="text-left text-xs">
+                    <span className="font-extrabold uppercase text-[9px] text-[#B08014] block">Official COE Announcement</span>
+                    <span className="font-bold text-slate-800">{systemConfig.gateways.studentResultPortal.announcement}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Student Portal Lockdown Notice */}
+              {isStudentPortalLocked && (
+                <div className="mb-4 p-4 rounded-2xl bg-red-50 border-2 border-red-200 text-red-950 flex items-start gap-3 shadow-md">
+                  <ShieldAlert size={22} className="text-red-600 shrink-0 mt-0.5" />
+                  <div className="text-left">
+                    <h4 className="font-extrabold text-sm text-red-950 flex items-center gap-2">
+                      <span>Student Result Portal Offline</span>
+                      <span className="text-[9px] bg-red-200 text-red-900 font-black px-2 py-0.5 rounded-full uppercase">
+                        COE Maintenance
+                      </span>
+                    </h4>
+                    <p className="text-xs text-red-800 mt-1 leading-relaxed">
+                      The Student Result Portal has been temporarily placed in maintenance mode by Overall University COE (Dr. Sathish) for result moderation and data synchronization.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Login Form */}
               <form onSubmit={submit} className="space-y-4">
                 {selectedRole === "Admin" ? (
@@ -3915,11 +3954,13 @@ function LoginPage({
 
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || isStudentPortalLocked}
                   className="w-full h-12 rounded-2xl bg-[#0B192C] hover:bg-[#152744] text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition duration-150 active:scale-[0.99] disabled:opacity-60"
                 >
-                  <Lock size={14} className="text-[#D4A72C]" />
-                  {selectedRole === "Admin"
+                  <Lock size={14} className={isStudentPortalLocked ? "text-slate-400" : "text-[#D4A72C]"} />
+                  {isStudentPortalLocked
+                    ? "Student Portal Offline (COE Locked)"
+                    : selectedRole === "Admin"
                     ? "Open Examination Control Panel"
                     : submitting
                       ? "Signing in..."
@@ -3961,6 +4002,20 @@ function StudentDashboard({
   const [electiveSubmitted, setElectiveSubmitted] = useState<boolean>(true);
   const [coeStatus, setCoeStatus] = useState<"PENDING" | "APPROVED">("PENDING");
   const [notificationMsg, setNotificationMsg] = useState<string | null>(null);
+
+  // Gateways set by the Super Admin, from the result server (which also enforces them)
+  const systemConfig = useSystemConfig() as any;
+
+  // Revaluation requests are stored on the result server, where the COE works through them
+  const [revalSelectedCourses, setRevalSelectedCourses] = useState<string[]>([]);
+  const [myRevaluations, setMyRevaluations] = useState<RevaluationRequestDTO[]>([]);
+  const [revalBusy, setRevalBusy] = useState(false);
+  const loadRevaluations = () => {
+    studentApi.getMyRevaluations().then(setMyRevaluations).catch(() => undefined);
+  };
+  useEffect(() => {
+    loadRevaluations();
+  }, []);
 
   const kvellSealLogo = "/kvell-logo.png";
 
@@ -4140,6 +4195,101 @@ function StudentDashboard({
     setTimeout(() => setNotificationMsg(null), 4000);
   };
 
+  // Revaluation Handlers
+  const toggleRevalCourse = (code: string) => {
+    setRevalSelectedCourses((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+    );
+  };
+
+  const handleApplyRevaluation = async () => {
+    if (!latestSemester || revalSelectedCourses.length === 0) {
+      alert("Please select at least one course for revaluation.");
+      return;
+    }
+    setRevalBusy(true);
+    try {
+      const created = await studentApi.applyRevaluation({
+        semester: String(latestSemester.semester),
+        assessmentType: latestSemester.assessmentType,
+        subjectCodes: revalSelectedCourses,
+      });
+      setRevalSelectedCourses([]);
+      loadRevaluations();
+      setNotificationMsg(`Revaluation request ${created.refId} submitted for ${created.subjectCodes.length} course(s). Fee: ₹${created.totalFee}`);
+      setTimeout(() => setNotificationMsg(null), 5000);
+    } catch (err) {
+      alert(apiErrorMessage(err, "Could not submit the revaluation request."));
+      loadRevaluations();
+    }
+    setRevalBusy(false);
+  };
+
+  // The statement shown on screen, as a text file (the same published marks the server sent)
+  const handleDownloadGradeCard = () => {
+    if (!latestSemester) return;
+    const internal = latestSemester.internalAssessment;
+    const lines = [
+      "================================================================================",
+      "                      KVELL DEEMED TO BE UNIVERSITY                             ",
+      `                 STATEMENT OF MARKS - ${latestSemester.assessmentType.toUpperCase()}`,
+      "================================================================================",
+      `Student Name    : ${studentName}`,
+      `Register Number : ${studentReg}`,
+      `Program         : ${programLabel}`,
+      `Semester        : ${latestSemester.semesterLabel} (Academic Year ${latestSemester.academicYear})`,
+      `Examination     : ${latestSemester.examMonthYear}`,
+      "--------------------------------------------------------------------------------",
+      "COURSE CODE    COURSE TITLE                               CREDITS  MARKS  GRADE  STATUS",
+      "--------------------------------------------------------------------------------",
+      ...studentCourses.map(
+        (c) =>
+          `${c.code.padEnd(14)} ${c.title.slice(0, 42).padEnd(42)} ${String(c.credits).padStart(5)}  ${String(c.total).padStart(5)}  ${c.grade.padStart(5)}  ${c.status}`
+      ),
+      "--------------------------------------------------------------------------------",
+      `Total Marks     : ${latestSemester.totalMarks} / ${latestSemester.maxMarks}`,
+      ...(internal
+        ? []
+        : [
+            `Credits         : ${latestSemester.earnedCredits} earned of ${latestSemester.totalCredits}`,
+            `Semester SGPA   : ${latestSemester.sgpa != null ? Number(latestSemester.sgpa).toFixed(2) : "-"}`,
+            `Cumulative CGPA : ${results?.cgpa != null ? Number(results.cgpa).toFixed(2) : "-"}`,
+            `Overall Result  : ${results?.overallResult ?? "-"}`,
+          ]),
+      `Result          : ${latestSemester.result}`,
+      "================================================================================",
+      `Downloaded on ${new Date().toLocaleString()} from the KVELL Result Portal (provisional copy).`,
+      "================================================================================",
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `KVELL_Statement_of_Marks_${studentReg}_${latestSemester.assessmentType.replace(/\s+/g, "_")}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    setNotificationMsg("Statement of marks downloaded.");
+    setTimeout(() => setNotificationMsg(null), 3000);
+  };
+
+  // Withheld: the server sends no marks and says so; the gateway flag covers the moment before the next refresh
+  const isResultsWithheld = results?.withheld === true || systemConfig?.gateways?.studentResultPortal?.withholdResults === true;
+  const isGradeDownloadAllowed = systemConfig?.gateways?.studentResultPortal?.allowGradeDownload !== false;
+  const isRevalWindowOpen = isRevaluationOpen(systemConfig);
+  const revalFeePerCourse = systemConfig?.gateways?.revaluationWindow?.feePerCourse ?? 400;
+  const revalDeadline: string = systemConfig?.gateways?.revaluationWindow?.deadline ?? "";
+  const activeRevaluation =
+    myRevaluations.find(
+      (r) =>
+        latestSemester &&
+        r.assessmentType === latestSemester.assessmentType &&
+        r.semester === latestSemester.semesterLabel &&
+        (r.status === "SUBMITTED" || r.status === "IN_REVIEW")
+    ) ?? null;
+  const publicAnnouncement = systemConfig?.gateways?.studentResultPortal?.announcement;
+
   return (
     <div className="min-h-screen bg-[#F8F5EE] text-[#172033] font-sans flex flex-col justify-between selection:bg-[#D4A72C] selection:text-[#0B192C]">
       {/* Top Banner Bar */}
@@ -4149,7 +4299,7 @@ function StudentDashboard({
             # OFFICIAL PORTAL
           </span>
           <span className="text-slate-300 font-medium">
-            <PublicationNotice />
+            {publicAnnouncement || <PublicationNotice />}
           </span>
         </div>
 
@@ -4643,7 +4793,7 @@ function StudentDashboard({
           /* Result Module: Enlarged Official Statement of Marks */
           <div className="w-full max-w-7xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
 
-            {/* Card Dark Header */}
+            {/* Card Dark Header with Grade Sheet Download Control */}
             <div className="bg-[#0B192C] text-white p-6 sm:p-8 flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <img
@@ -4661,10 +4811,51 @@ function StudentDashboard({
                   </p>
                 </div>
               </div>
-              <span className="bg-white/10 text-white border border-white/20 px-4 py-1.5 rounded-xl text-xs sm:text-sm font-mono font-bold">
-                {studentReg}
-              </span>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="bg-white/10 text-white border border-white/20 px-4 py-1.5 rounded-xl text-xs sm:text-sm font-mono font-bold">
+                  {studentReg}
+                </span>
+                {/* Grade sheet download, allowed or locked by the Super Admin */}
+                {!isResultsWithheld && studentCourses.length > 0 &&
+                  (isGradeDownloadAllowed ? (
+                    <button
+                      onClick={handleDownloadGradeCard}
+                      className="px-4 py-2 bg-[#D4A72C] hover:bg-[#c29624] text-[#0B192C] font-extrabold text-xs rounded-xl shadow transition flex items-center gap-2"
+                    >
+                      <Download size={15} />
+                      <span>Download Grade Sheet</span>
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="px-4 py-2 bg-slate-800 text-slate-400 font-bold text-xs rounded-xl border border-slate-700 cursor-not-allowed flex items-center gap-2"
+                      title="Grade sheet download is turned off by the Controller of Examinations"
+                    >
+                      <Lock size={14} className="text-amber-400" />
+                      <span>Download Locked by COE</span>
+                    </button>
+                  ))}
+              </div>
             </div>
+
+            {/* Results withheld by the Super Admin: the server returns no marks while this is on */}
+            {isResultsWithheld && (
+              <div className="m-6 sm:m-8 bg-red-50/90 border-2 border-red-300 rounded-3xl p-8 sm:p-12 text-center shadow-lg space-y-3">
+                <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto text-red-600 shadow-inner">
+                  <ShieldAlert size={36} />
+                </div>
+                <span className="inline-block bg-red-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                  Results withheld
+                </span>
+                <h3 className="text-xl sm:text-2xl font-black text-red-950 tracking-tight">
+                  Results are temporarily withheld by the Controller of Examinations
+                </h3>
+                <p className="text-xs sm:text-sm text-red-800 max-w-2xl mx-auto leading-relaxed font-medium">
+                  The results for <strong className="font-mono font-bold text-red-950">{studentReg}</strong> ({studentName}) are on hold
+                  pending verification. They will appear here as soon as they are released.
+                </p>
+              </div>
+            )}
 
             {/* Candidate Details Box */}
             <div className="bg-[#F8F5EE] border border-slate-200/80 rounded-2xl p-6 sm:p-8 mx-6 sm:mx-8 mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs sm:text-sm">
@@ -4769,6 +4960,127 @@ function StudentDashboard({
                 </table>
               </div>
             </div>
+
+            {/* Revaluation & answer-script photocopy (window opened by the Super Admin; requests go to the COE) */}
+            {!isResultsWithheld && studentCourses.length > 0 && (
+              <div className="p-6 sm:p-8 m-6 sm:m-8 bg-[#F8F5EE] rounded-3xl border border-slate-200 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                      <RotateCcw size={20} />
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-sm sm:text-base text-[#0B192C]">Revaluation & Answer Script Photocopy</h4>
+                      <p className="text-xs text-slate-500 font-medium">
+                        For {latestSemester?.semesterLabel} · {latestSemester?.assessmentType}; requests go to the Controller of Examinations
+                      </p>
+                    </div>
+                  </div>
+                  {isRevalWindowOpen ? (
+                    <span className="bg-purple-100 text-purple-800 border border-purple-200 text-xs font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm self-start">
+                      <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+                      WINDOW OPEN (Fee: ₹{revalFeePerCourse} / course)
+                    </span>
+                  ) : (
+                    <span className="bg-slate-200 text-slate-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 self-start">
+                      <Lock size={12} />
+                      WINDOW CLOSED
+                    </span>
+                  )}
+                </div>
+
+                {myRevaluations.length > 0 && (
+                  <div className="space-y-2">
+                    {myRevaluations.map((r) => (
+                      <div key={r.id} className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                        <div>
+                          <span className="font-mono font-bold text-[#0B192C]">{r.refId}</span>
+                          <span className="text-slate-500"> · {r.semester} · {r.assessmentType} · {r.subjectCodes.join(", ")} · ₹{r.totalFee}</span>
+                          {r.note && <p className="text-slate-600 mt-1">COE note: {r.note}</p>}
+                        </div>
+                        <span
+                          className={`self-start sm:self-auto px-3 py-1 rounded-full font-extrabold text-[10px] ${
+                            r.status === "COMPLETED"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : r.status === "REJECTED"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {r.status === "IN_REVIEW" ? "IN REVIEW" : r.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {isRevalWindowOpen ? (
+                  activeRevaluation ? (
+                    <p className="text-xs text-emerald-800 font-semibold">
+                      Your request {activeRevaluation.refId} for these results is being processed.
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-600">
+                        <span>Select the course(s) for answer-script copy and revaluation:</span>
+                        {revalDeadline && (
+                          <span className="text-slate-500">
+                            Deadline: <strong className="text-[#0B192C]">{new Date(revalDeadline).toLocaleString()}</strong>
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {studentCourses.map((c) => {
+                          const isSelected = revalSelectedCourses.includes(c.code);
+                          return (
+                            <label
+                              key={c.code}
+                              className={`p-3.5 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-3 ${
+                                isSelected ? "border-purple-600 bg-purple-50/70 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"
+                              }`}
+                            >
+                              <span className="flex items-center gap-3 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleRevalCourse(c.code)}
+                                  className="h-4 w-4 text-purple-600 rounded focus:ring-purple-500 shrink-0"
+                                />
+                                <span className="min-w-0">
+                                  <span className="font-mono text-xs font-bold text-[#0B192C]">{c.code}</span>
+                                  <span className="block text-xs font-semibold text-slate-700 truncate">{c.title}</span>
+                                </span>
+                              </span>
+                              <span className="text-xs font-mono font-bold text-slate-500 shrink-0">
+                                {c.total} · {c.grade}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
+                        <div className="text-xs font-semibold text-slate-700">
+                          Selected: <strong className="text-[#0B192C] font-black">{revalSelectedCourses.length}</strong> course(s) · Fee:{" "}
+                          <strong className="text-purple-700 font-black text-sm">₹{revalSelectedCourses.length * revalFeePerCourse}</strong>
+                        </div>
+                        <button
+                          onClick={handleApplyRevaluation}
+                          disabled={revalSelectedCourses.length === 0 || revalBusy}
+                          className="px-6 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-extrabold text-xs flex items-center gap-2 shadow-md transition"
+                        >
+                          <RotateCcw size={14} />
+                          <span>{revalBusy ? "Submitting..." : "Submit Revaluation Request"}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    The revaluation window is not open at the moment. The Controller of Examinations announces when it opens.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Footer Card */}
             <div className="bg-[#0B192C] text-white p-6 sm:p-8 mt-10 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center items-center divide-y sm:divide-y-0 sm:divide-x divide-white/10">

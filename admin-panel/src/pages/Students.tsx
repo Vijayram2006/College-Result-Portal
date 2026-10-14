@@ -12,10 +12,13 @@ import {
   AlertCircle,
   UsersRound,
   RotateCcw,
+  Lock,
 } from "lucide-react";
 import { getStoredDepartments, Department } from "./Departments";
 import { aidsSem1Students } from "../data/aidsStudents";
 import { cseSem1Students, bmeSem1Students } from "../data/dummyMarksData";
+import { getActiveCollegeKey } from "../utils/rbac";
+import { getSystemConfig, SystemConfig } from "../utils/systemConfig";
 
 export interface Student {
   regNo: string;
@@ -142,6 +145,27 @@ export const Students: React.FC = () => {
 
   const [availableDepts, setAvailableDepts] = useState<Department[]>([]);
 
+  // Real-time System Governance Configuration & Lock Enforcement
+  const [systemConfig, setSystemConfig] = useState<SystemConfig>(getSystemConfig);
+
+  useEffect(() => {
+    const handleConfigUpdate = () => {
+      setSystemConfig(getSystemConfig());
+    };
+    window.addEventListener("kvell_system_config_updated", handleConfigUpdate);
+    window.addEventListener("storage", handleConfigUpdate);
+    return () => {
+      window.removeEventListener("kvell_system_config_updated", handleConfigUpdate);
+      window.removeEventListener("storage", handleConfigUpdate);
+    };
+  }, []);
+
+  const activeCollegeKey = getActiveCollegeKey();
+  const isCollegeLocked =
+    systemConfig.systemMode === "EMERGENCY_LOCK" ||
+    systemConfig.institutionalLocks?.[activeCollegeKey]?.locked === true ||
+    systemConfig.institutionalLocks?.[activeCollegeKey]?.freezeSubmissions === true;
+
   const loadData = () => {
     setStudents(getStoredStudents());
     const depts = getStoredDepartments();
@@ -165,6 +189,10 @@ export const Students: React.FC = () => {
   }, []);
 
   const openAddModal = () => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Adding new student records is restricted by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
     setEditingRegNo(null);
     setFormRegNo("");
     setFormName("");
@@ -181,6 +209,10 @@ export const Students: React.FC = () => {
   };
 
   const openEditModal = (s: Student) => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Editing student records is restricted by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
     setEditingRegNo(s.regNo);
     setFormRegNo(s.regNo);
     setFormName(s.name);
@@ -206,6 +238,10 @@ export const Students: React.FC = () => {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Modifying student candidate records is restricted by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
     const cleanReg = formRegNo.trim().toUpperCase();
     const cleanName = formName.trim();
     const cleanEmail = formEmail.trim() || `${cleanReg.toLowerCase()}@students.kvell.edu`;
@@ -271,6 +307,10 @@ export const Students: React.FC = () => {
   };
 
   const handleDelete = (regNo: string, name: string) => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Deleting student candidate records is restricted by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
     if (window.confirm(`Are you sure you want to delete student '${name}' (${regNo})?`)) {
       const updated = students.filter((s) => s.regNo !== regNo);
       saveStoredStudents(updated);
@@ -284,6 +324,10 @@ export const Students: React.FC = () => {
   const [deptFilter, setDeptFilter] = useState("all");
 
   const handleResetToAids = () => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Resetting student records is restricted by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
     if (window.confirm("Keep only the 50 AIDS Semester 1 students and remove all other student data?")) {
       saveStoredStudents(defaultAidsStudents);
       setStudents(defaultAidsStudents);
@@ -291,6 +335,10 @@ export const Students: React.FC = () => {
   };
 
   const handleClearAll = () => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Clearing student records is restricted by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
     if (window.confirm("Are you sure you want to remove ALL enrolled students? This will clear the student directory.")) {
       saveStoredStudents([]);
       setStudents([]);
@@ -298,6 +346,10 @@ export const Students: React.FC = () => {
   };
 
   const toggleStatus = (regNo: string) => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Changing student status is restricted by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
     const updated = students.map((s) =>
       s.regNo === regNo ? { ...s, status: (s.status === "ACTIVE" ? "INACTIVE" : "ACTIVE") as "ACTIVE" | "INACTIVE" } : s
     );
@@ -320,6 +372,29 @@ export const Students: React.FC = () => {
 
   return (
     <div className="space-y-6 w-full">
+      {/* Institutional Freeze Alert Banner */}
+      {isCollegeLocked && (
+        <div className="p-5 rounded-3xl bg-red-950/80 border-2 border-red-500/60 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-red-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-red-600/30 border border-red-400 flex items-center justify-center shrink-0">
+              <Lock className="text-red-300" size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-sm uppercase tracking-wider text-red-300">INSTITUTIONAL EXAMINATION LOCK ACTIVE</span>
+                <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase">Dr. Sathish Enforcement</span>
+              </div>
+              <p className="text-xs text-red-200/90 mt-0.5">
+                Candidate registrations, status changes, and directory modifications are strictly locked by the Controller of Examinations. All student records are read-only.
+              </p>
+            </div>
+          </div>
+          <span className="px-3 py-1.5 rounded-xl bg-red-900/60 border border-red-500/50 text-red-200 text-xs font-mono font-bold whitespace-nowrap">
+            STATUTORY FREEZE
+          </span>
+        </div>
+      )}
+
       {/* Action Bar */}
       <div className="bg-white rounded-2xl p-4 sm:p-6 border border-[#E5E1D8] shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
@@ -363,24 +438,41 @@ export const Students: React.FC = () => {
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           <button
             onClick={handleResetToAids}
-            className="px-3.5 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs font-bold transition flex items-center gap-1.5"
-            title="Keep only AIDS Semester 1 students (50 Candidates)"
+            disabled={isCollegeLocked}
+            className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
+              isCollegeLocked
+                ? "border-gray-200 text-gray-400 cursor-not-allowed opacity-50 bg-gray-50"
+                : "border-gray-200 text-gray-700 hover:bg-gray-100"
+            }`}
+            title={isCollegeLocked ? "Locked by COE" : "Keep only AIDS Semester 1 students (50 Candidates)"}
           >
-            <RotateCcw size={14} /> AIDS Only (50)
+            {isCollegeLocked ? <Lock size={14} /> : <RotateCcw size={14} />} AIDS Only (50)
           </button>
           {students.length > 0 && (
             <button
               onClick={handleClearAll}
-              className="px-3.5 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold transition flex items-center gap-1.5"
+              disabled={isCollegeLocked}
+              className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
+                isCollegeLocked
+                  ? "border-gray-200 text-gray-400 cursor-not-allowed opacity-50 bg-gray-50"
+                  : "border-red-200 text-red-600 hover:bg-red-50"
+              }`}
+              title={isCollegeLocked ? "Locked by COE" : "Clear all students"}
             >
-              <Trash2 size={14} /> Clear All
+              {isCollegeLocked ? <Lock size={14} /> : <Trash2 size={14} />} Clear All
             </button>
           )}
           <button
             onClick={openAddModal}
-            className="px-4 py-2.5 rounded-xl bg-[#0B192C] text-white text-xs font-extrabold flex items-center gap-2 hover:bg-[#132943] transition shadow justify-center"
+            disabled={isCollegeLocked}
+            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition shadow justify-center ${
+              isCollegeLocked
+                ? "bg-slate-700 text-gray-400 cursor-not-allowed border border-slate-600"
+                : "bg-[#0B192C] text-white hover:bg-[#132943]"
+            }`}
           >
-            <UserPlus size={15} className="text-[#D4A72C]" /> Add New Student
+            {isCollegeLocked ? <Lock size={15} className="text-red-400" /> : <UserPlus size={15} className="text-[#D4A72C]" />}
+            <span>{isCollegeLocked ? "Locked by COE" : "Add New Student"}</span>
           </button>
         </div>
       </div>
@@ -462,29 +554,45 @@ export const Students: React.FC = () => {
                         <Eye size={14} />
                       </button>
                       <button
+                        type="button"
+                        disabled={isCollegeLocked}
                         onClick={() => openEditModal(s)}
-                        className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-[#0B192C] transition"
-                        title="Edit Student"
+                        className={`p-1.5 rounded-lg transition ${
+                          isCollegeLocked
+                            ? "bg-gray-100 text-gray-400 cursor-not-allowed opacity-50"
+                            : "bg-gray-100 hover:bg-gray-200 text-[#0B192C]"
+                        }`}
+                        title={isCollegeLocked ? "Locked by COE" : "Edit Student"}
                       >
-                        <Edit size={14} />
+                        {isCollegeLocked ? <Lock size={13} /> : <Edit size={14} />}
                       </button>
                       <button
+                        type="button"
+                        disabled={isCollegeLocked}
                         onClick={() => toggleStatus(s.regNo)}
                         className={`p-1.5 rounded-lg transition ${
-                          s.status === "ACTIVE"
+                          isCollegeLocked
+                            ? "bg-gray-100 text-gray-400 cursor-not-allowed opacity-50"
+                            : s.status === "ACTIVE"
                             ? "bg-red-50 text-red-600 hover:bg-red-100"
                             : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
                         }`}
-                        title={s.status === "ACTIVE" ? "Deactivate Student" : "Activate Student"}
+                        title={isCollegeLocked ? "Locked by COE" : s.status === "ACTIVE" ? "Deactivate Student" : "Activate Student"}
                       >
-                        {s.status === "ACTIVE" ? <XCircle size={14} /> : <CheckCircle size={14} />}
+                        {isCollegeLocked ? <Lock size={13} /> : s.status === "ACTIVE" ? <XCircle size={14} /> : <CheckCircle size={14} />}
                       </button>
                       <button
+                        type="button"
+                        disabled={isCollegeLocked}
                         onClick={() => handleDelete(s.regNo, s.name)}
-                        className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition"
-                        title="Delete Student"
+                        className={`p-1.5 rounded-lg transition ${
+                          isCollegeLocked
+                            ? "bg-gray-100 text-gray-400 cursor-not-allowed opacity-50"
+                            : "bg-red-50 hover:bg-red-100 text-red-600"
+                        }`}
+                        title={isCollegeLocked ? "Locked by COE" : "Delete Student"}
                       >
-                        <Trash2 size={14} />
+                        {isCollegeLocked ? <Lock size={13} /> : <Trash2 size={14} />}
                       </button>
                     </td>
                   </tr>

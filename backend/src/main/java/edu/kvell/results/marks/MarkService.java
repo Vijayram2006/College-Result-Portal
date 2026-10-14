@@ -9,6 +9,7 @@ import static edu.kvell.results.grading.GradeCalculator.SUBDIVISION_MAX;
 import edu.kvell.results.auth.CurrentUser;
 import edu.kvell.results.common.ApiException;
 import edu.kvell.results.common.AuditService;
+import edu.kvell.results.governance.GovernanceService;
 import edu.kvell.results.common.Departments;
 import edu.kvell.results.common.Semesters;
 import edu.kvell.results.grading.GradeCalculator;
@@ -58,11 +59,13 @@ public class MarkService {
     private final JdbcClient db;
     private final Departments departments;
     private final AuditService audit;
+    private final GovernanceService governance;
 
-    public MarkService(JdbcClient db, Departments departments, AuditService audit) {
+    public MarkService(JdbcClient db, Departments departments, AuditService audit, GovernanceService governance) {
         this.db = db;
         this.departments = departments;
         this.audit = audit;
+        this.governance = governance;
     }
 
     /** Every entered answer script (all departments and subjects), for the Analytics page. */
@@ -135,6 +138,9 @@ public class MarkService {
                     new double[] {partBC[q * 6 + 3], partBC[q * 6 + 4], partBC[q * 6 + 5]});
         }
         GradeCalculator.Grade grade = GradeCalculator.grade(partATotal, partBCTotal);
+        if (user.role() == CurrentUser.Role.FACULTY) {
+            checkPartLocks(deptKey, sem, code, regNo, assessment, partA, partBC);
+        }
 
         db.sql("""
                         INSERT INTO marks (dept_key, semester, subject_code, subject_title, reg_no, assessment_type,
@@ -266,6 +272,37 @@ public class MarkService {
                 rs.getInt("grand_total"), rs.getString("grade"), rs.getBoolean("passed") ? "PASS" : "FAIL", partA,
                 partBC, assessment, deptKey, deptName, Semesters.label(sem), code, title,
                 rs.getString("examiner_name"), rs.getString("examiner_designation"));
+    }
+
+    /**
+     * The Super Admin can stop faculty changing Part A (internal) or Part B + C (external) marks. A locked part must
+     * stay exactly as it was saved (or empty, for a script not marked yet).
+     */
+    private void checkPartLocks(String deptKey, int sem, String code, String regNo, String assessment,
+                                double[] partA, double[] partBC) {
+        boolean mayA = governance.facultyMayEditPartA();
+        boolean mayBC = governance.facultyMayEditPartBC();
+        if (mayA && mayBC) return;
+        double[][] saved = db.sql("""
+                        SELECT part_a, part_bc FROM marks
+                        WHERE dept_key = ? AND semester = ? AND subject_code = ? AND reg_no = ? AND assessment_type = ?
+                        """)
+                .params(deptKey, sem, code, regNo, assessment)
+                .query((rs, n) -> new double[][] {doubles(rs.getArray("part_a")), doubles(rs.getArray("part_bc"))})
+                .optional()
+                .orElse(new double[][] {new double[partA.length], new double[partBC.length]});
+        if (!mayA && !java.util.Arrays.equals(saved[0], partA)) {
+            throw new ApiException(org.springframework.http.HttpStatus.LOCKED,
+                    "Part A (internal) marks are locked by the Controller of Examinations.");
+        }
+        if (!mayBC && !java.util.Arrays.equals(saved[1], partBC)) {
+            throw new ApiException(org.springframework.http.HttpStatus.LOCKED,
+                    "Part B + C (external) marks are locked by the Controller of Examinations.");
+        }
+    }
+
+    private static double[] doubles(Array array) throws SQLException {
+        return toList(array).stream().mapToDouble(Double::doubleValue).toArray();
     }
 
     private static List<Double> toList(Array array) throws SQLException {

@@ -10,7 +10,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 public record CurrentUser(long id, String username, String name, Role role, String deptKey, String regNo,
                           String collegeKey, boolean mustChangePassword) {
 
-    public enum Role { ADMIN, HOD, STUDENT, FACULTY }
+    /** SUPER_ADMIN: the overall university COE; also has every ADMIN right, in whichever college it inspects. */
+    public enum Role { SUPER_ADMIN, ADMIN, HOD, STUDENT, FACULTY }
 
     public static CurrentUser get() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

@@ -23,9 +23,11 @@ import {
   Menu,
   X,
   Sparkles,
+  Crown,
+  RotateCcw,
 } from "lucide-react";
 import { adminAuthApi } from "../services/api";
-import { getActiveCollege } from "../utils/rbac";
+import { getActiveCollege, isSuperAdmin, SUPER_ADMIN_CONFIG } from "../utils/rbac";
 
 const kvellSealLogo = "/kvell-logo.png";
 
@@ -40,6 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
 
   const currentUser = adminAuthApi.getCurrentUser();
   const college = getActiveCollege();
+  const isSuper = isSuperAdmin(currentUser);
 
   const handleLogout = () => {
     adminAuthApi.logout();
@@ -79,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
                   KVELL UNIVERSITY
                 </span>
                 <span className="text-[10px] font-extrabold text-[#D4A72C] tracking-wider uppercase block truncate">
-                  {college.shortName || "COE Portal"}
+                  {isSuper ? "Chief COE • Super Admin" : (college.shortName || "COE Portal")}
                 </span>
               </div>
             </div>
@@ -93,6 +96,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
 
           {/* Navigation Links */}
           <nav className="p-4 space-y-1.5 overflow-y-auto max-h-[calc(100vh-180px)]">
+            {/* Super Admin Control Console (Supreme COE) */}
+            {isSuper && (
+              <div className="pb-2">
+                <div className="pb-1">
+                  <span className="text-[10px] font-extrabold text-[#D4A72C] uppercase tracking-widest px-3.5 flex items-center gap-1.5">
+                    <Crown size={12} />
+                    Supreme University Control
+                  </span>
+                </div>
+                <Link
+                  href="/admin/super-admin"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-black transition border ${
+                    isActive("/admin/super-admin")
+                      ? "bg-[#D4A72C] text-[#0B192C] border-[#D4A72C] shadow-lg ring-2 ring-[#D4A72C]/40"
+                      : "bg-gradient-to-r from-[#D4A72C]/20 to-amber-500/10 text-[#D4A72C] border-[#D4A72C]/40 hover:bg-[#D4A72C]/30"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Crown size={17} className={isActive("/admin/super-admin") ? "text-[#0B192C]" : "text-[#D4A72C]"} />
+                    <span>Super Admin Control</span>
+                  </div>
+                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#0B192C] text-[#D4A72C] border border-[#D4A72C]/40">
+                    CENTRAL
+                  </span>
+                </Link>
+              </div>
+            )}
+
             {/* Dashboard */}
             <Link
               href="/admin/dashboard"
@@ -197,6 +229,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
                   >
                     <Globe size={14} />
                     <span>Published Results</span>
+                  </Link>
+
+                  <Link
+                    href="/admin/results/revaluation"
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                      isActive("/admin/results/revaluation")
+                        ? "bg-[#D4A72C] text-[#0B192C] font-bold"
+                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <RotateCcw size={14} />
+                    <span>Revaluation Requests</span>
                   </Link>
                 </div>
               )}
@@ -309,14 +354,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5 overflow-hidden">
               <div className="w-8 h-8 rounded-full bg-[#D4A72C]/20 border border-[#D4A72C] text-[#D4A72C] font-bold text-xs flex items-center justify-center shrink-0">
-                {college.code}
+                {isSuper ? <Crown size={15} /> : college.code}
               </div>
               <div className="overflow-hidden">
                 <span className="block text-xs font-bold text-white truncate">
-                  {currentUser?.name || college.coeTitle}
+                  {isSuper ? SUPER_ADMIN_CONFIG.name : (currentUser?.name || college.coeTitle)}
                 </span>
                 <span className="block text-[9px] font-extrabold uppercase text-[#D4A72C] tracking-wider truncate">
-                  ROLE: {currentUser?.role || college.role}
+                  {isSuper ? "OVERALL UNIVERSITY COE & SUPER ADMIN" : `ROLE: ${currentUser?.role || college.role}`}
                 </span>
               </div>
             </div>

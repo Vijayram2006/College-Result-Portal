@@ -18,8 +18,13 @@ import { AuditLogsPage } from "./pages/AuditLogs";
 import { ProfilePage } from "./pages/Profile";
 import { SubjectsPage } from "./pages/Subjects";
 import { DepartmentsPage, refreshDepartments } from "./pages/Departments";
+import { SuperAdminControlPage } from "./pages/SuperAdminControl";
+import { startSystemConfigSync } from "./utils/systemConfig";
+import { RevaluationRequestsPage } from "./pages/RevaluationRequests";
 
 const pageTitles: Record<string, string> = {
+  "/admin/super-admin": "Chief COE & Super Admin Console",
+  "/admin/results/revaluation": "Student Revaluation Requests",
   "/admin/dashboard": "University Admin Dashboard",
   "/admin/departments": "University Department Directory & Management",
   "/admin/results": "Result Management Hub",
@@ -47,6 +52,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     refreshDepartments().catch(() => undefined);
   }, []);
 
+  // The Super Admin's gateways and locks, kept current while the panel is open
+  useEffect(() => startSystemConfigSync(), []);
+
   const title = pageTitles[location] || "Admin Panel";
 
   return (
@@ -68,6 +76,22 @@ export const App: React.FC = () => {
       <Route path="/admin/login" component={Login} />
 
       {/* Protected Admin Routes */}
+      <Route path="/admin/super-admin">
+        {() => (
+          <AdminLayout>
+            <ProtectedRoute component={SuperAdminControlPage} />
+          </AdminLayout>
+        )}
+      </Route>
+
+      <Route path="/admin/results/revaluation">
+        {() => (
+          <AdminLayout>
+            <ProtectedRoute component={RevaluationRequestsPage} />
+          </AdminLayout>
+        )}
+      </Route>
+
       <Route path="/admin/dashboard">
         {() => (
           <AdminLayout>

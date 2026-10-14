@@ -5,7 +5,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import edu.kvell.results.common.Departments;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -44,12 +46,28 @@ public class TokenAuthFilter extends OncePerRequestFilter {
                             + "\"passwordChangeRequired\":true}");
                     return;
                 }
-                var authentication = new UsernamePasswordAuthenticationToken(user.get(), null,
-                        List.of(new SimpleGrantedAuthority("ROLE_" + user.get().role().name())));
+                CurrentUser current = user.get();
+                List<SimpleGrantedAuthority> roles = List.of(new SimpleGrantedAuthority("ROLE_" + current.role().name()));
+                if (current.role() == CurrentUser.Role.SUPER_ADMIN) {
+                    // The Super Admin works in the college it is inspecting, with every COE right there
+                    current = new CurrentUser(current.id(), current.username(), current.name(), current.role(),
+                            null, null, inspectedCollege(request, current.collegeKey()), current.mustChangePassword());
+                    roles = List.of(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"), new SimpleGrantedAuthority("ROLE_ADMIN"));
+                }
+                var authentication = new UsernamePasswordAuthenticationToken(current, null, roles);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         }
         chain.doFilter(request, response);
+    }
+
+    /** The college named in X-College-View when it is a real one, else the account's own (Engineering by default). */
+    static String inspectedCollege(HttpServletRequest request, String own) {
+        String asked = request.getHeader("X-College-View");
+        if (asked != null && Departments.COLLEGES.contains(asked.trim().toLowerCase(Locale.ROOT))) {
+            return asked.trim().toLowerCase(Locale.ROOT);
+        }
+        return own != null && Departments.COLLEGES.contains(own) ? own : "engineering";
     }
 
     static String bearerToken(HttpServletRequest request) {

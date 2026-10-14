@@ -13,9 +13,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Creates the staff logins: one Controller of Examinations per college (ADMIN for Engineering, COE_NURSING,
- * COE_PHARMACY), and per department one HOD (HODCSE, ...) and one faculty login (FACCSE, ...). Students, subjects
- * and marks are entered through the portal.
+ * Creates the staff logins: the Super Admin (SATHISH, overall university COE), one Controller of Examinations per
+ * college (ADMIN for Engineering, COE_NURSING, COE_PHARMACY), and per department one HOD (HODCSE, ...) and one
+ * faculty login (FACCSE, ...). Students, subjects and marks are entered through the portal.
  */
 @Component
 public class DemoDataSeeder implements ApplicationRunner {
@@ -30,6 +30,7 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final String facultyPassword;
     private final String nursingCoePassword;
     private final String pharmacyCoePassword;
+    private final String superAdminPassword;
 
     public DemoDataSeeder(JdbcClient db, PasswordEncoder encoder,
                           @Value("${app.seed.enabled}") boolean enabled,
@@ -37,7 +38,8 @@ public class DemoDataSeeder implements ApplicationRunner {
                           @Value("${app.seed.hod-password}") String hodPassword,
                           @Value("${app.seed.faculty-password}") String facultyPassword,
                           @Value("${app.seed.nursing-coe-password}") String nursingCoePassword,
-                          @Value("${app.seed.pharmacy-coe-password}") String pharmacyCoePassword) {
+                          @Value("${app.seed.pharmacy-coe-password}") String pharmacyCoePassword,
+                          @Value("${app.seed.super-admin-password:}") String superAdminPassword) {
         this.db = db;
         this.encoder = encoder;
         this.enabled = enabled;
@@ -46,12 +48,14 @@ public class DemoDataSeeder implements ApplicationRunner {
         this.facultyPassword = facultyPassword;
         this.nursingCoePassword = nursingCoePassword;
         this.pharmacyCoePassword = pharmacyCoePassword;
+        this.superAdminPassword = superAdminPassword;
     }
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
         if (!enabled) return;
+        createSuperAdmin("SATHISH", "Dr. Sathish", superAdminPassword);
         createCoe("ADMIN", "Dr. Controller of Examinations (Engineering)", "engineering", adminPassword);
         createCoe("COE_NURSING", "Dr. Controller of Examinations (Nursing)", "nursing", nursingCoePassword);
         createCoe("COE_PHARMACY", "Dr. Controller of Examinations (Pharmacy)", "pharmacy", pharmacyCoePassword);
@@ -72,6 +76,20 @@ public class DemoDataSeeder implements ApplicationRunner {
                         """)
                 .params(username, encoder.encode(password), name, college).update();
         log.info("Created COE login {}", username);
+    }
+
+    private void createSuperAdmin(String username, String name, String password) {
+        if (exists(username)) return;
+        if (!usable(password)) {
+            log.warn("No password configured for the Super Admin {}; that login was not created", username);
+            return;
+        }
+        db.sql("""
+                        INSERT INTO users (username, password_hash, role, display_name, email, must_change_password)
+                        VALUES (?, ?, 'SUPER_ADMIN', ?, 'coe.sathish@kvell.edu.in', TRUE)
+                        """)
+                .params(username, encoder.encode(password), name).update();
+        log.info("Created Super Admin login {}", username);
     }
 
     /** HOD<DEPT> and FAC<DEPT> logins for a department, when missing (also called when a COE adds a department). */

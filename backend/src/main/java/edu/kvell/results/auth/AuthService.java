@@ -3,6 +3,7 @@ package edu.kvell.results.auth;
 import edu.kvell.results.auth.CurrentUser.Role;
 import edu.kvell.results.common.ApiException;
 import edu.kvell.results.common.AuditService;
+import edu.kvell.results.governance.GovernanceService;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -70,16 +71,18 @@ public class AuthService {
     private final PasswordEncoder encoder;
     private final LoginRateLimiter rateLimiter;
     private final AuditService audit;
+    private final GovernanceService governance;
     private final long tokenHours;
     /** Compared against when the username does not exist, so timing does not reveal valid usernames. */
     private final String dummyHash;
 
     public AuthService(JdbcClient db, PasswordEncoder encoder, LoginRateLimiter rateLimiter, AuditService audit,
-                       @Value("${app.auth.token-hours}") long tokenHours) {
+                       GovernanceService governance, @Value("${app.auth.token-hours}") long tokenHours) {
         this.db = db;
         this.encoder = encoder;
         this.rateLimiter = rateLimiter;
         this.audit = audit;
+        this.governance = governance;
         this.tokenHours = tokenHours;
         this.dummyHash = encoder.encode("not-a-real-password");
     }
@@ -103,13 +106,22 @@ public class AuthService {
         boolean credentialOk = portal == Role.STUDENT
                 ? dobMatches(found, password)
                 : encoder.matches(password, found.map(UserRow::passwordHash).orElse(dummyHash));
-        if (found.isEmpty() || !credentialOk || !found.get().enabled() || !found.get().role().equals(portal.name())) {
+        if (found.isEmpty() || !credentialOk || !portalAccepts(portal, found.get().role())) {
             rateLimiter.recordFailure(ip, username);
             throw new ApiException(HttpStatus.UNAUTHORIZED, invalid);
         }
 
         UserRow user = found.get();
         rateLimiter.recordSuccess(ip, username);
+        // Only told once the password is right, so this never reveals which accounts exist
+        if (!user.enabled()) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This account is suspended. Contact the Super Admin.");
+        }
+        if (portal == Role.STUDENT && governance.studentPortalClosed()) {
+            throw new ApiException(HttpStatus.FORBIDDEN,
+                    "The student result portal is closed by the Controller of Examinations. Please try again later.");
+        }
+        db.sql("UPDATE users SET last_login_at = now() WHERE id = ?").param(user.id()).update();
         db.sql("DELETE FROM auth_tokens WHERE expires_at < now()").update();
 
         String token = newToken();
@@ -180,7 +192,7 @@ public class AuthService {
     }
 
     /** Why a new password is not acceptable, or null when it is. */
-    static String passwordProblem(String password, String oldPassword, String username) {
+    public static String passwordProblem(String password, String oldPassword, String username) {
         if (password.length() < MIN_PASSWORD_LENGTH) {
             return "The new password must be at least " + MIN_PASSWORD_LENGTH + " characters long";
         }
@@ -223,6 +235,10 @@ public class AuthService {
 
     private static UserView view(UserRow u) {
         String college = u.collegeKey() == null ? "engineering" : u.collegeKey();
+        if ("SUPER_ADMIN".equals(u.role())) {
+            return new UserView(u.id(), u.username(), u.displayName(), "SUPER_ADMIN", null, null, null, college,
+                    "Karpaga Vinayaga Educational Group (Central University)", u.mustChangePassword());
+        }
         String role = "ADMIN".equals(u.role()) ? "COE_" + college.toUpperCase(Locale.ROOT) : u.role();
         return new UserView(u.id(), u.username(), u.displayName(), role, u.deptKey(), u.deptName(), u.regNo(),
                 college, COLLEGE_NAMES.getOrDefault(college, college), u.mustChangePassword());
@@ -248,6 +264,12 @@ public class AuthService {
     }
 
     /** The login form's portal tab. */
+    /** The admin portal is for college COEs and the Super Admin; every other portal takes only its own role. */
+    private static boolean portalAccepts(Role portal, String accountRole) {
+        if (portal == Role.ADMIN) return "ADMIN".equals(accountRole) || "SUPER_ADMIN".equals(accountRole);
+        return portal.name().equals(accountRole);
+    }
+
     private static Role portalRole(String role) {
         if (role == null) return null;
         return switch (role.trim().toLowerCase(Locale.ROOT)) {
@@ -259,7 +281,7 @@ public class AuthService {
         };
     }
 
-    static String normalize(String username) {
+    public static String normalize(String username) {
         return username == null ? "" : username.trim().toUpperCase(Locale.ROOT);
     }
 

@@ -112,6 +112,28 @@ export interface StudentResultsDTO {
   cgpa: number | null;
   overallResult: string;
   arrears: number;
+  /** The Super Admin is withholding this college's results: no marks are sent while true. */
+  withheld?: boolean;
+}
+
+/** A student's revaluation / answer-script photocopy request. */
+export interface RevaluationRequestDTO {
+  id: number;
+  refId: string;
+  regNo: string;
+  studentName: string;
+  deptKey: string;
+  departmentName: string;
+  semester: string;
+  assessmentType: string;
+  subjectCodes: string[];
+  feePerCourse: number;
+  totalFee: number;
+  status: "SUBMITTED" | "IN_REVIEW" | "COMPLETED" | "REJECTED";
+  note: string | null;
+  createdAt: string;
+  updatedBy: string | null;
+  updatedAt: string | null;
 }
 
 export interface HodOverviewDTO {
@@ -238,6 +260,16 @@ export const studentApi = {
   async getMySubjects(): Promise<RegisteredSubjectDTO[]> {
     const response = await apiClient.get<RegisteredSubjectDTO[]>("/student/me/subjects");
     return response.data;
+  },
+
+  /** The student's own revaluation requests. */
+  async getMyRevaluations(): Promise<RevaluationRequestDTO[]> {
+    return (await apiClient.get<RevaluationRequestDTO[]>("/student/revaluation")).data;
+  },
+
+  /** Applies for revaluation of published subjects (only while the revaluation window is open). */
+  async applyRevaluation(body: { semester: string; assessmentType: string; subjectCodes: string[] }): Promise<RevaluationRequestDTO> {
+    return (await apiClient.post<RevaluationRequestDTO>("/student/revaluation", body)).data;
   },
 };
 

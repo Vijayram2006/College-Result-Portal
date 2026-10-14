@@ -19,6 +19,11 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // The college a Super Admin is inspecting; the server ignores this header for every other account
+    const view = localStorage.getItem("kvell_superadmin_view_college");
+    if (view) {
+      config.headers["X-College-View"] = view;
+    }
     return config;
   },
   (error) => Promise.reject(error)
@@ -32,6 +37,10 @@ apiClient.interceptors.response.use(
     // An account that still has its shared starting password must choose its own first (PasswordChangeGate)
     if (error?.response?.status === 403 && error.response.data?.passwordChangeRequired) {
       window.dispatchEvent(new Event("kvell:password-change-required"));
+    }
+    // A Super Admin lock refused this change: refresh the gateways so the page shows the lock
+    if (error?.response?.status === 423) {
+      window.dispatchEvent(new Event("kvell:system-config-stale"));
     }
     if (error?.response?.status === 401 && !isLogin) {
       localStorage.removeItem("kvell_admin_token");
@@ -285,6 +294,8 @@ export const adminAuthApi = {
     }
     localStorage.removeItem("kvell_admin_token");
     localStorage.removeItem("kvell_admin_user");
+    // The next account to sign in on this browser starts in its own college
+    localStorage.removeItem("kvell_superadmin_view_college");
   },
 
   getCurrentUser(): AdminUser | null {
@@ -582,3 +593,112 @@ export const adminResultsApi = {
 export function addAuditLog(_log: Omit<AuditLogRecord, "id" | "adminId" | "adminName" | "ipAddress">) {
   window.dispatchEvent(new Event("kvell_marks_updated"));
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Super Admin console (server: /api/super-admin, SUPER_ADMIN accounts only)
+
+export interface OfficerAccount {
+  id: string;
+  name: string;
+  username: string;
+  email: string;
+  role: "SUPER_ADMIN" | "COE_ENGINEERING" | "COE_NURSING" | "COE_PHARMACY" | "DEPUTY_COE";
+  collegeKey: CollegeKey | "all";
+  status: "ACTIVE" | "SUSPENDED";
+  lastLogin: string;
+  departmentScope: string;
+  mustChangePassword: boolean;
+}
+
+export interface CollegeOverview {
+  key: CollegeKey;
+  name: string;
+  coeName: string;
+  departments: number;
+  students: number;
+  studentsWithoutDob: number;
+  subjects: number;
+  marksEntered: number;
+  expectedScripts: number;
+  publishedBatches: number;
+  awaitingPublish: number;
+  publishedRecords: number;
+  passPercentage: number;
+  lock: { locked: boolean; resultsLive: boolean; freezeSubmissions: boolean };
+}
+
+export interface SuperAuditEntry {
+  id: string;
+  college: string;
+  actor: string;
+  actorName: string;
+  action: string;
+  target: string;
+  description: string;
+  ipAddress: string | null;
+  timestamp: string;
+}
+
+export interface StorageStats {
+  databaseBytes: number;
+  tables: { table: string; label: string; rows: number; bytes: number }[];
+  configUpdatedBy: string;
+  configUpdatedAt: string;
+}
+
+export const superAdminApi = {
+  async officers(): Promise<OfficerAccount[]> {
+    return (await apiClient.get<OfficerAccount[]>("/super-admin/officers")).data;
+  },
+  async createOfficer(body: { name: string; username: string; email: string; role: string; collegeKey: string; password: string }): Promise<OfficerAccount> {
+    return (await apiClient.post<OfficerAccount>("/super-admin/officers", body)).data;
+  },
+  async setStatus(id: string, status: "ACTIVE" | "SUSPENDED"): Promise<OfficerAccount> {
+    return (await apiClient.post<OfficerAccount>(`/super-admin/officers/${encodeURIComponent(id)}/status`, { status })).data;
+  },
+  async resetPassword(id: string, password: string): Promise<OfficerAccount> {
+    return (await apiClient.post<OfficerAccount>(`/super-admin/officers/${encodeURIComponent(id)}/reset-password`, { password })).data;
+  },
+  async overview(): Promise<CollegeOverview[]> {
+    return (await apiClient.get<CollegeOverview[]>("/super-admin/overview")).data;
+  },
+  async audit(limit = 500): Promise<SuperAuditEntry[]> {
+    return (await apiClient.get<SuperAuditEntry[]>("/super-admin/audit", { params: { limit } })).data;
+  },
+  async storage(): Promise<StorageStats> {
+    return (await apiClient.get<StorageStats>("/super-admin/storage")).data;
+  },
+  async exportBackup(): Promise<unknown> {
+    return (await apiClient.get("/super-admin/export")).data;
+  },
+};
+
+// Student revaluation requests for the signed-in COE's college
+
+export interface RevaluationRequest {
+  id: number;
+  refId: string;
+  regNo: string;
+  studentName: string;
+  deptKey: string;
+  departmentName: string;
+  semester: string;
+  assessmentType: string;
+  subjectCodes: string[];
+  feePerCourse: number;
+  totalFee: number;
+  status: "SUBMITTED" | "IN_REVIEW" | "COMPLETED" | "REJECTED";
+  note: string | null;
+  createdAt: string;
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
+
+export const revaluationApi = {
+  async list(): Promise<RevaluationRequest[]> {
+    return (await apiClient.get<RevaluationRequest[]>("/admin/revaluation")).data;
+  },
+  async setStatus(id: number, status: RevaluationRequest["status"], note: string): Promise<RevaluationRequest> {
+    return (await apiClient.post<RevaluationRequest>(`/admin/revaluation/${id}/status`, { status, note })).data;
+  },
+};

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { handleArrowNavigation } from "../utils/arrowNavigation";
 import { SEMESTER_OPTIONS } from "../utils/semesters";
 import { AnswerScriptPane } from "./AnswerScriptPane";
+import { useSystemConfig } from "../utils/systemConfig";
 import { partACo, partBCCo } from "../utils/coMapping";
 import {
   Eye,
@@ -26,6 +27,7 @@ import {
   Send,
   Clock,
   ShieldCheck,
+  ShieldAlert,
 } from "lucide-react";
 import { apiErrorMessage, authApi, facultyApi, type FacultySubjectDTO } from "../services/api";
 import { getRealLocalTimestamp } from "../utils/dateUtils";
@@ -283,6 +285,35 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
   const ownDeptKey = me?.departmentKey || "";
   const ownDeptName = me?.departmentName || ownDeptKey.toUpperCase();
 
+  // Gateways and locks set by the Super Admin, from the result server (which refuses locked saves itself)
+  const systemConfig = useSystemConfig() as any;
+
+  // The college comes from the faculty member's login (the server uses the same one)
+  const activeColKey = String(me?.collegeKey || getActiveFacultyCollege()).toLowerCase();
+  const facultyGateway = systemConfig?.gateways?.facultyMarkEntry;
+  const deadline = facultyGateway?.submissionDeadline;
+  const isDeadlinePassed = deadline ? new Date() > new Date(deadline) : false;
+  const isEmergencyLocked = systemConfig?.systemMode === "EMERGENCY_LOCK";
+  const isCollegeLocked =
+    systemConfig?.institutionalLocks?.[activeColKey]?.locked === true ||
+    systemConfig?.institutionalLocks?.[activeColKey]?.freezeSubmissions === true;
+  const isFacultyGatewayDisabled = facultyGateway?.enabled === false;
+  const isFacultyPortalLocked =
+    isEmergencyLocked || isFacultyGatewayDisabled || isDeadlinePassed || isCollegeLocked;
+
+  const lockReason = isEmergencyLocked
+    ? "EMERGENCY LOCKDOWN: Faculty evaluation portal is temporarily closed by University Controller of Examinations (Dr. Sathish)."
+    : isFacultyGatewayDisabled
+    ? (facultyGateway?.lockNotice || "Faculty Mark Evaluation Portal has been closed by the Controller of Examinations (Dr. Sathish).")
+    : isDeadlinePassed
+    ? `SUBMISSION DEADLINE EXPIRED: The evaluation deadline (${new Date(deadline!).toLocaleString()}) set by Dr. Sathish has passed. Marks submission is now auto-locked.`
+    : isCollegeLocked
+    ? `COLLEGE DATA FROZEN: Dr. Sathish (Super Admin) has frozen mark submissions and edits for ${activeColKey.toUpperCase()}.`
+    : "";
+
+  const allowInternal = facultyGateway ? facultyGateway.allowInternalMarkEdit !== false : true;
+  const allowExternal = facultyGateway ? facultyGateway.allowExternalMarkEdit !== false : true;
+
   // Step 1: Target Selection State
   const [deptKey, setDeptKey] = useState("");
   const [semester, setSemester] = useState("");
@@ -533,7 +564,65 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
   // Grand Total (A + B + C)
   const grandTotal = Math.min(100, Math.round(partATotal + partBCTotal));
 
-  // Letter Grade
+  // Dynamic Statutory Grading based on Regulations configured by Dr. Sathish in Super Admin
+  const collegeRegulation = systemConfig?.gradingRegulations?.[activeColKey] || {
+    regulation: "Anna University CBCS",
+    passMinInternal: 45,
+    passMinExternal: 45,
+    passMinTotal: 50,
+  };
+  const moderationConfig = systemConfig?.gradingRegulations?.moderation || {
+    maxGraceMarks: 5,
+    enableCondonation: true,
+  };
+
+  const calculateDynamicGradeAndStatus = (total: number, partA: number, partBC: number) => {
+    const internalPercent = (partA / 20) * 100;
+    const externalPercent = (partBC / 80) * 100;
+    const minTotal = collegeRegulation.passMinTotal ?? 50;
+    const minInternal = collegeRegulation.passMinInternal ?? 45;
+    const minExternal = collegeRegulation.passMinExternal ?? 45;
+    const maxGrace = moderationConfig.maxGraceMarks ?? 0;
+
+    let status: "PASS" | "FAIL" = "FAIL";
+    let isGraceApplied = false;
+
+    if (total >= minTotal && internalPercent >= minInternal && externalPercent >= minExternal) {
+      status = "PASS";
+    } else if (total < minTotal && (total + maxGrace) >= minTotal && internalPercent >= (minInternal - maxGrace)) {
+      status = "PASS";
+      isGraceApplied = true;
+    }
+
+    let grade = "U";
+    if (activeColKey === "nursing") {
+      // Indian Nursing Council (INC) bands
+      if (total >= 75) grade = "Distinction";
+      else if (total >= 60) grade = "First Class";
+      else if (total >= 50) grade = "Pass";
+      else grade = "Fail";
+    } else if (activeColKey === "pharmacy") {
+      // Pharmacy Council of India (PCI) 10-point scale
+      if (total >= 90) grade = "O";
+      else if (total >= 80) grade = "A";
+      else if (total >= 70) grade = "B";
+      else if (total >= 60) grade = "C";
+      else if (total >= 50) grade = "D";
+      else grade = "F";
+    } else {
+      // Anna University 10-point CBCS
+      if (total >= 90) grade = "O";
+      else if (total >= 80) grade = "A+";
+      else if (total >= 70) grade = "A";
+      else if (total >= 60) grade = "B+";
+      else if (total >= 50) grade = "B";
+      else if (total >= minTotal || isGraceApplied) grade = "C";
+      else grade = "U";
+    }
+
+    return { grade, status, isGraceApplied };
+  };
+
   const calculateGrade = (total: number) => {
     if (total >= 90) return "O";
     if (total >= 80) return "A+";
@@ -544,8 +633,14 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
     return "F";
   };
 
+
+  // The preview must match what the server saves: its grading is O>=90 ... C>=40, PASS at 40, no grace marks.
+  // The Super Admin regulation settings (calculateDynamicGradeAndStatus) are not applied until the college confirms
+  // its pass rules; until then they would show faculty a different result from the stored one.
+  void calculateDynamicGradeAndStatus;
   const grandGrade = calculateGrade(grandTotal);
-  const resultStatus = grandTotal >= 40 ? "PASS" : "FAIL";
+  const resultStatus: "PASS" | "FAIL" = grandTotal >= 40 ? "PASS" : "FAIL";
+  const isGraceApplied = false;
 
   // Pre-fill realistic sample marks matching the examination paper
   const handleFillSampleMarks = () => {
@@ -563,6 +658,10 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
   // CONFIRM MARK: saved on the server, which recomputes the totals and grade
   const handleConfirmMark = async () => {
     if (!selectedStudent || saving) return;
+    if (isFacultyPortalLocked) {
+      alert(lockReason || "Mark submission is locked by the Controller of Examinations.");
+      return;
+    }
     if (!assessmentType) {
       alert("Choose the assessment type (IAT-1, IAT-2 or End Semester) first.");
       return;
@@ -596,6 +695,10 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
 
   // Forward the subject to the Controller of Examinations (COE) for verification & official publication
   const handleForwardToCOE = async () => {
+    if (isFacultyPortalLocked) {
+      alert(lockReason || "Marks submission is locked by the Controller of Examinations.");
+      return;
+    }
     const entered = students.filter((s) => s.hasMarks).length;
     if (entered === 0) {
       alert("Please enter marks for at least one student before forwarding to COE.");
@@ -634,6 +737,24 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
 
   return (
     <div className="space-y-8 w-full max-w-7xl mx-auto">
+      {/* Super Admin Lock Alert */}
+      {isFacultyPortalLocked && (
+        <div className="p-4 rounded-2xl bg-red-50 border-2 border-red-200 text-red-950 flex items-start gap-3 shadow-md">
+          <ShieldAlert size={22} className="text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-extrabold text-sm text-red-950 flex items-center gap-2">
+              <span>Evaluation Portal Locked by University Controller of Examinations (Dr. Sathish)</span>
+              <span className="text-[10px] bg-red-200 text-red-900 font-black px-2 py-0.5 rounded-full uppercase">
+                COE Directive
+              </span>
+            </h4>
+            <p className="text-xs text-red-800 mt-1 font-medium">
+              {lockReason}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header Banner */}
       <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
@@ -1309,8 +1430,13 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 pt-2">
                 {/* PART - A (Questions 1 to 10): stretches to the height of Part B + Part C beside it */}
                 <div className="lg:col-span-4 border-2 border-red-900/60 rounded-xl overflow-hidden bg-white flex flex-col">
-                  <div className="bg-red-950 text-white font-black text-xs text-center py-2 uppercase tracking-wider">
-                    PART - A (Max 20)
+                  <div className="bg-red-950 text-white font-black text-xs text-center py-2 uppercase tracking-wider flex items-center justify-center gap-2">
+                    <span>PART - A (Max 20)</span>
+                    {!allowInternal && (
+                      <span className="bg-amber-400 text-[#0B192C] text-[9px] px-1.5 py-0.5 rounded font-black">
+                        LOCKED BY COE
+                      </span>
+                    )}
                   </div>
                   <table className="w-full flex-1 h-full text-center text-xs divide-y divide-red-900/40">
                     <thead className="bg-red-50 text-red-950 font-extrabold text-[10px] uppercase">
@@ -1332,6 +1458,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                               min="0"
                               max="2"
                               step="0.5"
+                              disabled={isFacultyPortalLocked || !allowInternal}
                               value={mark === 0 ? "" : mark}
                               placeholder="0"
                               onChange={(e) => {
@@ -1340,7 +1467,11 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                 updated[i] = isNaN(val) ? 0 : Math.min(2, Math.max(0, val));
                                 setPartAMarks(updated);
                               }}
-                              className="w-14 text-center font-bold px-1.5 py-1 rounded border border-gray-300 bg-[#FFFEFA] focus:ring-1 focus:ring-red-900"
+                              className={`w-14 text-center font-bold px-1.5 py-1 rounded border border-gray-300 bg-[#FFFEFA] focus:ring-1 focus:ring-red-900 ${
+                                isFacultyPortalLocked || !allowInternal
+                                  ? "bg-slate-100 cursor-not-allowed opacity-60 text-slate-500"
+                                  : ""
+                              }`}
                             />
                           </td>
                           <td className="p-1.5 font-extrabold text-[10px] text-[#0B192C] bg-[#D4A72C]/15">{partACo(assessmentType, i + 1)}</td>
@@ -1365,8 +1496,13 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                 <div className="lg:col-span-8 space-y-4">
                 {/* PART - B (Questions 11 to 15, choice a or b) */}
                 <div className="border-2 border-red-900/60 rounded-xl overflow-hidden bg-white">
-                  <div className="bg-red-950 text-white font-black text-xs text-center py-2 uppercase tracking-wider">
-                    PART - B (Questions 11 - 15)
+                  <div className="bg-red-950 text-white font-black text-xs text-center py-2 uppercase tracking-wider flex items-center justify-center gap-2">
+                    <span>PART - B (Questions 11 - 15)</span>
+                    {!allowExternal && (
+                      <span className="bg-amber-400 text-[#0B192C] text-[9px] px-1.5 py-0.5 rounded font-black">
+                        LOCKED BY COE
+                      </span>
+                    )}
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-center text-xs divide-y divide-red-900/40">
@@ -1401,6 +1537,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                     type="number"
                                     min="0"
                                     max="16"
+                                    disabled={isFacultyPortalLocked || !allowExternal}
                                     value={qData.a.i === 0 ? "" : qData.a.i}
                                     placeholder="0"
                                     onChange={(e) => {
@@ -1413,7 +1550,11 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         },
                                       });
                                     }}
-                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${
+                                      isFacultyPortalLocked || !allowExternal
+                                        ? "bg-slate-100 cursor-not-allowed opacity-60 text-slate-500"
+                                        : ""
+                                    }`}
                                   />
                                 </td>
                                 <td className="p-1 border-r border-red-900/40">
@@ -1421,6 +1562,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                     type="number"
                                     min="0"
                                     max="16"
+                                    disabled={isFacultyPortalLocked || !allowExternal}
                                     value={qData.a.ii === 0 ? "" : qData.a.ii}
                                     placeholder="0"
                                     onChange={(e) => {
@@ -1433,7 +1575,11 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         },
                                       });
                                     }}
-                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${
+                                      isFacultyPortalLocked || !allowExternal
+                                        ? "bg-slate-100 cursor-not-allowed opacity-60 text-slate-500"
+                                        : ""
+                                    }`}
                                   />
                                 </td>
                                 <td className="p-1 border-r border-red-900/40">
@@ -1441,6 +1587,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                     type="number"
                                     min="0"
                                     max="16"
+                                    disabled={isFacultyPortalLocked || !allowExternal}
                                     value={qData.a.iii === 0 ? "" : qData.a.iii}
                                     placeholder="0"
                                     onChange={(e) => {
@@ -1453,7 +1600,11 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         },
                                       });
                                     }}
-                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${
+                                      isFacultyPortalLocked || !allowExternal
+                                        ? "bg-slate-100 cursor-not-allowed opacity-60 text-slate-500"
+                                        : ""
+                                    }`}
                                   />
                                 </td>
                                 <td rowSpan={2} className="p-2 font-mono font-bold text-sm text-[#0B192C] align-middle bg-red-50/20 border-r border-red-900/40">
@@ -1472,6 +1623,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                     type="number"
                                     min="0"
                                     max="16"
+                                    disabled={isFacultyPortalLocked || !allowExternal}
                                     value={qData.b.i === 0 ? "" : qData.b.i}
                                     placeholder="0"
                                     onChange={(e) => {
@@ -1484,7 +1636,11 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         },
                                       });
                                     }}
-                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${
+                                      isFacultyPortalLocked || !allowExternal
+                                        ? "bg-slate-100 cursor-not-allowed opacity-60 text-slate-500"
+                                        : ""
+                                    }`}
                                   />
                                 </td>
                                 <td className="p-1 border-r border-red-900/40">
@@ -1492,6 +1648,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                     type="number"
                                     min="0"
                                     max="16"
+                                    disabled={isFacultyPortalLocked || !allowExternal}
                                     value={qData.b.ii === 0 ? "" : qData.b.ii}
                                     placeholder="0"
                                     onChange={(e) => {
@@ -1504,7 +1661,11 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         },
                                       });
                                     }}
-                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${
+                                      isFacultyPortalLocked || !allowExternal
+                                        ? "bg-slate-100 cursor-not-allowed opacity-60 text-slate-500"
+                                        : ""
+                                    }`}
                                   />
                                 </td>
                                 <td className="p-1 border-r border-red-900/40">
@@ -1512,6 +1673,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                     type="number"
                                     min="0"
                                     max="16"
+                                    disabled={isFacultyPortalLocked || !allowExternal}
                                     value={qData.b.iii === 0 ? "" : qData.b.iii}
                                     placeholder="0"
                                     onChange={(e) => {
@@ -1524,7 +1686,11 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         },
                                       });
                                     }}
-                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${
+                                      isFacultyPortalLocked || !allowExternal
+                                        ? "bg-slate-100 cursor-not-allowed opacity-60 text-slate-500"
+                                        : ""
+                                    }`}
                                   />
                                 </td>
                               </tr>

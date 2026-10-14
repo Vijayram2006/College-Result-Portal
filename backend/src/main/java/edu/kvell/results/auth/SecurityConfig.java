@@ -13,6 +13,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import edu.kvell.results.governance.GovernanceFilter;
+import edu.kvell.results.governance.GovernanceService;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -23,7 +25,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain api(HttpSecurity http, AuthService auth) throws Exception {
+    SecurityFilterChain api(HttpSecurity http, AuthService auth, GovernanceService governance) throws Exception {
         http
                 // Tokens travel in the Authorization header, never in cookies, so CSRF does not apply.
                 .csrf(csrf -> csrf.disable())
@@ -39,13 +41,16 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
+                        .requestMatchers("/api/super-admin/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/hod/**").hasRole("HOD")
                         .requestMatchers("/api/student/**").hasRole("STUDENT")
                         .requestMatchers("/api/faculty/**").hasRole("FACULTY")
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
-                .addFilterBefore(new TokenAuthFilter(auth), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new TokenAuthFilter(auth), UsernamePasswordAuthenticationFilter.class)
+                // Gateways and locks are applied once the user is known (TokenAuthFilter) and before any handler runs
+                .addFilterAfter(new GovernanceFilter(governance), TokenAuthFilter.class);
         return http.build();
     }
 
@@ -67,7 +72,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(Arrays.stream(origins.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-College-View"));
         config.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", config);

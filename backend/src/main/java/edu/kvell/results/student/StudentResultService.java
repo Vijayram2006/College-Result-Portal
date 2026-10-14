@@ -35,8 +35,13 @@ public class StudentResultService {
                                  List<Subject> subjects) {
     }
 
+    /** withheld: the Super Admin is holding back this college's results, so no marks are sent. */
     public record StudentResults(Profile profile, List<SemesterResult> semesters, BigDecimal cgpa,
-                                 String overallResult, int arrears) {
+                                 String overallResult, int arrears, boolean withheld) {
+
+        public StudentResults withheldCopy() {
+            return new StudentResults(profile, List.of(), null, "WITHHELD", 0, true);
+        }
     }
 
     private record Row(int semester, String assessment, String exam, String academicYear, Subject subject) {
@@ -133,7 +138,7 @@ public class StudentResultService {
         String overall = semesters.isEmpty() ? "AWAITING RESULTS"
                 : endSemester.isEmpty() ? "INTERNAL ASSESSMENT"
                 : GradeCalculator.classification(cgpa, arrears > 0);
-        return new StudentResults(profile, semesters, cgpa, overall, arrears);
+        return new StudentResults(profile, semesters, cgpa, overall, arrears, false);
     }
 
     private static int order(String assessment) {

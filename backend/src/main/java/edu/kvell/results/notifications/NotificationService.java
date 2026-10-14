@@ -89,7 +89,7 @@ public class NotificationService {
     /** Which notifications a user may see: by role, college and department (students also by semester). */
     private static String target(CurrentUser user) {
         return switch (user.role()) {
-            case ADMIN -> " n.audience = 'COE' AND n.college_key = :college ";
+            case SUPER_ADMIN, ADMIN -> " n.audience = 'COE' AND n.college_key = :college ";
             case HOD -> " n.audience = 'HOD' AND n.dept_key = :dept ";
             case FACULTY -> " n.audience = 'FACULTY' AND n.dept_key = :dept ";
             case STUDENT -> """

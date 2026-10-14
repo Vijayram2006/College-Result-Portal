@@ -12,6 +12,7 @@ import {
   UsersRound,
   Sparkles,
   CheckCircle2,
+  Crown,
 } from "lucide-react";
 import { adminAuthApi, apiErrorMessage } from "../services/api";
 import { refreshDepartments } from "./Departments";
@@ -33,10 +34,10 @@ export const Login: React.FC = () => {
 
     try {
       const res = await adminAuthApi.login(username, password);
-      const allowedRoles = ["ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY"];
+      const allowedRoles = ["SUPER_ADMIN", "ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY"];
       if (allowedRoles.includes(res.role)) {
         await refreshDepartments().catch(() => undefined);
-        navigate("/admin/dashboard");
+        navigate(res.role === "SUPER_ADMIN" ? "/admin/super-admin" : "/admin/dashboard");
       } else {
         setError("Access Denied: 403 Forbidden. Only accounts with Controller of Examination role can log in.");
         adminAuthApi.logout();
@@ -194,7 +195,35 @@ export const Login: React.FC = () => {
                 <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2.5">
                   SELECT YOUR COLLEGE (FILLS THE USER ID):
                 </span>
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-1 gap-2.5">
+                  {/* Super Admin - Dr. Sathish */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUsername("SATHISH");
+                      setPassword("");
+                    }}
+                    className="w-full px-3.5 py-3 rounded-2xl bg-gradient-to-r from-amber-500/10 via-[#D4A72C]/20 to-amber-500/10 hover:from-amber-500/20 hover:to-amber-500/20 text-[#0B192C] border-2 border-[#D4A72C] font-bold text-xs transition flex items-center justify-between shadow-md group relative overflow-hidden"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <span className="w-8 h-8 rounded-full bg-[#0B192C] text-[#D4A72C] flex items-center justify-center shrink-0 shadow-sm border border-[#D4A72C]">
+                        <Crown size={15} />
+                      </span>
+                      <span className="text-left">
+                        <span className="block font-black text-[#0B192C] flex items-center gap-1.5">
+                          Dr. Sathish • Super Admin
+                          <span className="text-[9px] bg-[#0B192C] text-[#D4A72C] px-1.5 py-0.2 rounded font-extrabold uppercase">
+                            Chief COE
+                          </span>
+                        </span>
+                        <span className="block text-[10px] font-mono text-[#8C6D1F]">User ID: SATHISH</span>
+                      </span>
+                    </span>
+                    <span className="text-[10px] bg-[#D4A72C] text-[#0B192C] font-black px-2.5 py-1 rounded-full shadow-sm">
+                      Total System Control
+                    </span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => {

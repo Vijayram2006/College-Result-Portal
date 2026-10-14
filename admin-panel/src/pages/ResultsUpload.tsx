@@ -17,6 +17,7 @@ import {
   Users,
   GraduationCap,
   Calendar,
+  Lock,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { downloadWorkbook } from "../utils/downloadWorkbook";
@@ -25,6 +26,7 @@ import { getRealLocalTimestamp } from "../utils/dateUtils";
 import { getStoredDepartments, Department } from "./Departments";
 import { aidsSem1Students } from "../data/aidsStudents";
 import { cseSem1Students, bmeSem1Students } from "../data/dummyMarksData";
+import { getSystemConfig, SystemConfig } from "../utils/systemConfig";
 
 // Date formatter for DOB parsing (supports string, Date instance, and Excel serial numbers)
 const formatDob = (rawDob: any): string => {
@@ -262,6 +264,27 @@ export const ResultsUpload: React.FC = () => {
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Real-time System Governance Configuration & Lock Enforcement
+  const [systemConfig, setSystemConfig] = useState<SystemConfig>(getSystemConfig);
+
+  useEffect(() => {
+    const handleConfigUpdate = () => {
+      setSystemConfig(getSystemConfig());
+    };
+    window.addEventListener("kvell_system_config_updated", handleConfigUpdate);
+    window.addEventListener("storage", handleConfigUpdate);
+    return () => {
+      window.removeEventListener("kvell_system_config_updated", handleConfigUpdate);
+      window.removeEventListener("storage", handleConfigUpdate);
+    };
+  }, []);
+
+  const activeCollegeKey = getActiveCollegeKey();
+  const isCollegeLocked =
+    systemConfig.systemMode === "EMERGENCY_LOCK" ||
+    systemConfig.institutionalLocks?.[activeCollegeKey]?.locked === true ||
+    systemConfig.institutionalLocks?.[activeCollegeKey]?.freezeSubmissions === true;
+
   // Load available departments dynamically from storage
   useEffect(() => {
     const loadDepts = () => {
@@ -336,6 +359,10 @@ export const ResultsUpload: React.FC = () => {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Uploading student data is restricted by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setSelectedFile(file);
@@ -531,6 +558,10 @@ export const ResultsUpload: React.FC = () => {
   // Add Student Handler (Modal Form Submit)
   const handleAddStudentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Adding student records is restricted by the Controller of Examinations (Dr. Sathish).");
+      return;
+    }
     if (!addRegNo.trim()) {
       setFeedback({ type: "error", message: "Register Number is required." });
       return;
@@ -579,6 +610,10 @@ export const ResultsUpload: React.FC = () => {
 
   // Delete Individual Student (and the saved record, if it was already saved)
   const handleDeleteStudent = async (regNo: string) => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: deleting student records is locked by the Super Admin.");
+      return;
+    }
     const target = parsedData.find(
       (s) => String(s.regNo || s["Register Number"]).trim().toUpperCase() === regNo.trim().toUpperCase()
     );
@@ -626,6 +661,10 @@ export const ResultsUpload: React.FC = () => {
   };
 
   const handleStartUpload = async () => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: saving the class list is locked by the Super Admin.");
+      return;
+    }
     if (parsedData.length === 0) {
       setFeedback({
         type: "error",
@@ -655,6 +694,10 @@ export const ResultsUpload: React.FC = () => {
 
   // Delete Complete Target Semester Data
   const handleDeleteTargetSemester = async () => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: deleting semester data is locked by the Super Admin.");
+      return;
+    }
     if (!deptKey || !semester) {
       setFeedback({ type: "error", message: "Choose the department, year and semester first." });
       return;
@@ -690,6 +733,10 @@ export const ResultsUpload: React.FC = () => {
 
   // Delete Target Year Data
   const handleDeleteTargetYearData = async () => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: deleting year data is locked by the Super Admin.");
+      return;
+    }
     if (!deptKey || !semester || !studyYear) {
       setFeedback({ type: "error", message: "Choose the department, year and semester first." });
       return;
@@ -746,6 +793,29 @@ export const ResultsUpload: React.FC = () => {
 
   return (
     <div className="space-y-8 w-full">
+      {/* Institutional Freeze Alert Banner */}
+      {isCollegeLocked && (
+        <div className="p-5 rounded-3xl bg-red-950/80 border-2 border-red-500/60 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-red-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-red-600/30 border border-red-400 flex items-center justify-center shrink-0">
+              <Lock className="text-red-300" size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-sm uppercase tracking-wider text-red-300">INSTITUTIONAL EXAMINATION LOCK ACTIVE</span>
+                <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase">Dr. Sathish Enforcement</span>
+              </div>
+              <p className="text-xs text-red-200/90 mt-0.5">
+                Student data uploads and registry modifications are strictly locked by the Controller of Examinations. All student records are in read-only audit mode.
+              </p>
+            </div>
+          </div>
+          <span className="px-3 py-1.5 rounded-xl bg-red-900/60 border border-red-500/50 text-red-200 text-xs font-mono font-bold whitespace-nowrap">
+            STATUTORY FREEZE
+          </span>
+        </div>
+      )}
+
       {/* Instructions Header */}
       <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
@@ -763,7 +833,9 @@ export const ResultsUpload: React.FC = () => {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <button
             type="button"
+            disabled={isCollegeLocked}
             onClick={() => {
+              if (isCollegeLocked) return;
               setAddDept(deptKey);
               setAddStudentYear(studyYear);
               setAddRegNo("");
@@ -772,10 +844,14 @@ export const ResultsUpload: React.FC = () => {
               setAddCategory("regular");
               setShowAddStudentModal(true);
             }}
-            className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs transition shadow-lg flex items-center justify-center gap-2 active:scale-95"
+            className={`px-4 py-2.5 rounded-xl font-extrabold text-xs transition shadow-lg flex items-center justify-center gap-2 active:scale-95 ${
+              isCollegeLocked
+                ? "bg-slate-700 text-gray-400 cursor-not-allowed border border-slate-600"
+                : "bg-emerald-500 hover:bg-emerald-600 text-white"
+            }`}
           >
-            <UserPlus size={16} />
-            <span>+ Add Student</span>
+            {isCollegeLocked ? <Lock size={16} /> : <UserPlus size={16} />}
+            <span>{isCollegeLocked ? "Locked by COE" : "+ Add Student"}</span>
           </button>
 
           <button
@@ -937,22 +1013,30 @@ export const ResultsUpload: React.FC = () => {
             <button
               type="button"
               onClick={handleDeleteTargetSemester}
-              disabled={isDeleting}
-              className="px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm active:scale-95 disabled:opacity-50"
-              title={`Delete all student records and batches for ${deptKey.toUpperCase()} ${semester}`}
+              disabled={isDeleting || isCollegeLocked}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm active:scale-95 ${
+                isCollegeLocked
+                  ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-50"
+                  : "bg-red-50 hover:bg-red-100 text-red-700 border border-red-200"
+              }`}
+              title={isCollegeLocked ? "Locked by COE" : `Delete all student records and batches for ${deptKey.toUpperCase()} ${semester}`}
             >
-              <Trash2 size={13} className="text-red-600" />
+              {isCollegeLocked ? <Lock size={13} className="text-gray-400" /> : <Trash2 size={13} className="text-red-600" />}
               <span>Delete Target Semester Data</span>
             </button>
 
             <button
               type="button"
               onClick={handleDeleteTargetYearData}
-              disabled={isDeleting}
-              className="px-4 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm active:scale-95 disabled:opacity-50"
-              title={`Delete student records matching ${studyYear}`}
+              disabled={isDeleting || isCollegeLocked}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm active:scale-95 ${
+                isCollegeLocked
+                  ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-50"
+                  : "bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200"
+              }`}
+              title={isCollegeLocked ? "Locked by COE" : `Delete student records matching ${studyYear}`}
             >
-              <Trash2 size={13} className="text-amber-700" />
+              {isCollegeLocked ? <Lock size={13} className="text-gray-400" /> : <Trash2 size={13} className="text-amber-700" />}
               <span>Delete Target Year Data{studyYear ? ` (${studyYear})` : ""}</span>
             </button>
           </div>
@@ -967,48 +1051,73 @@ export const ResultsUpload: React.FC = () => {
               2. Upload Student Spreadsheet (Non-Destructive Append)
             </h3>
             <p className="text-xs text-gray-500">
-              Uploading a new file will merge with existing students for {studyYear} without affecting previous data.
+              {isCollegeLocked
+                ? "Spreadsheet uploads are suspended due to Institutional Lock active under Dr. Sathish."
+                : `Uploading a new file will merge with existing students for ${studyYear} without affecting previous data.`}
             </p>
           </div>
 
           <button
             type="button"
+            disabled={isCollegeLocked}
             onClick={() => {
+              if (isCollegeLocked) return;
               setAddDept(deptKey);
               setAddStudentYear(studyYear);
               setShowAddStudentModal(true);
             }}
-            className="px-3.5 py-2 rounded-xl bg-[#0B192C] hover:bg-[#132943] text-white font-bold text-xs transition flex items-center gap-1.5 shadow"
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow ${
+              isCollegeLocked
+                ? "bg-slate-700 text-gray-400 cursor-not-allowed"
+                : "bg-[#0B192C] hover:bg-[#132943] text-white"
+            }`}
           >
-            <UserPlus size={14} className="text-[#D4A72C]" />
-            <span>+ Add Student Manually</span>
+            {isCollegeLocked ? <Lock size={14} className="text-gray-400" /> : <UserPlus size={14} className="text-[#D4A72C]" />}
+            <span>{isCollegeLocked ? "Locked by COE" : "+ Add Student Manually"}</span>
           </button>
         </div>
 
-        <div className="border-2 border-dashed border-[#D4A72C] rounded-2xl p-6 sm:p-10 bg-[#F8F5EE]/40 hover:bg-[#F8F5EE] transition flex flex-col items-center justify-center relative text-center">
+        <div className={`border-2 border-dashed rounded-2xl p-6 sm:p-10 transition flex flex-col items-center justify-center relative text-center ${
+          isCollegeLocked
+            ? "border-red-300 bg-red-50/20 cursor-not-allowed"
+            : "border-[#D4A72C] bg-[#F8F5EE]/40 hover:bg-[#F8F5EE]"
+        }`}>
           <input
             type="file"
             accept=".xlsx, .xls, .csv"
+            disabled={isCollegeLocked}
             onChange={handleFileChange}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+            className={`absolute inset-0 w-full h-full opacity-0 z-10 ${
+              isCollegeLocked ? "cursor-not-allowed" : "cursor-pointer"
+            }`}
           />
 
-          <div className="w-14 h-14 rounded-2xl bg-[#0B192C]/10 text-[#0B192C] flex items-center justify-center mb-3">
-            <UploadCloud size={28} />
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-3 ${
+            isCollegeLocked ? "bg-red-100 text-red-600" : "bg-[#0B192C]/10 text-[#0B192C]"
+          }`}>
+            {isCollegeLocked ? <Lock size={28} /> : <UploadCloud size={28} />}
           </div>
 
           <h3 className="font-display font-bold text-lg text-[#0B192C]">
-            Drag & Drop Student Data Spreadsheet (.xlsx, .csv)
+            {isCollegeLocked ? "Uploads Locked by Dr. Sathish" : "Drag & Drop Student Data Spreadsheet (.xlsx, .csv)"}
           </h3>
           <p className="text-xs text-gray-500 mt-1 max-w-lg">
-            Expected Columns: <strong>Register Number</strong> • <strong>Name</strong> • <strong>DOB</strong> • <strong>Category (Optional: Regular / Lateral)</strong>
+            {isCollegeLocked
+              ? "Institutional examination lock is actively enforced. Mark and student registry uploads are restricted."
+              : "Expected Columns: Register Number • Name • DOB • Category (Optional: Regular / Lateral)"}
           </p>
 
           <button
             type="button"
-            className="mt-4 px-5 py-2.5 rounded-xl bg-[#0B192C] text-white font-extrabold text-xs transition shadow flex items-center gap-2 pointer-events-none"
+            disabled={isCollegeLocked}
+            className={`mt-4 px-5 py-2.5 rounded-xl text-xs font-extrabold transition shadow flex items-center gap-2 pointer-events-none ${
+              isCollegeLocked
+                ? "bg-slate-700 text-gray-300"
+                : "bg-[#0B192C] text-white"
+            }`}
           >
-            <FileSpreadsheet size={15} className="text-[#D4A72C]" /> Browse File
+            {isCollegeLocked ? <Lock size={15} className="text-red-400" /> : <FileSpreadsheet size={15} className="text-[#D4A72C]" />}
+            <span>{isCollegeLocked ? "Locked by COE" : "Browse File"}</span>
           </button>
         </div>
       </div>
@@ -1175,9 +1284,14 @@ export const ResultsUpload: React.FC = () => {
                         <td className="p-3 text-right">
                           <button
                             type="button"
+                            disabled={isCollegeLocked}
                             onClick={() => handleDeleteStudent(reg)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
-                            title={`Remove ${name} (${reg})`}
+                            className={`p-1.5 rounded-lg transition ${
+                              isCollegeLocked
+                                ? "text-gray-300 cursor-not-allowed opacity-40"
+                                : "text-gray-400 hover:text-red-600 hover:bg-red-50"
+                            }`}
+                            title={isCollegeLocked ? "Locked by COE" : `Remove ${name} (${reg})`}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -1194,13 +1308,20 @@ export const ResultsUpload: React.FC = () => {
           <div className="pt-3 border-t border-[#E5E1D8] flex flex-col sm:flex-row items-center justify-between gap-4">
             <button
               type="button"
+              disabled={isCollegeLocked}
               onClick={() => {
+                if (isCollegeLocked) {
+                  alert("Institutional Freeze Active: Clearing records is restricted by the Controller of Examinations (Dr. Sathish).");
+                  return;
+                }
                 if (window.confirm(`Are you sure you want to clear loaded student records for ${deptKey.toUpperCase()}?`)) {
                   setParsedData([]);
                   setSelectedFile(null);
                 }
               }}
-              className="text-xs text-red-600 font-bold hover:underline"
+              className={`text-xs font-bold ${
+                isCollegeLocked ? "text-gray-400 cursor-not-allowed" : "text-red-600 hover:underline"
+              }`}
             >
               Clear All Loaded Records
             </button>
@@ -1208,11 +1329,15 @@ export const ResultsUpload: React.FC = () => {
             <button
               type="button"
               onClick={handleStartUpload}
-              disabled={isUploading}
-              className="px-6 py-3 rounded-xl bg-[#0B192C] hover:bg-[#132943] text-white text-xs font-extrabold transition shadow-lg flex items-center gap-2 active:scale-95"
+              disabled={isUploading || isCollegeLocked}
+              className={`px-6 py-3 rounded-xl text-xs font-extrabold transition shadow-lg flex items-center gap-2 active:scale-95 ${
+                isCollegeLocked
+                  ? "bg-slate-700 text-gray-400 cursor-not-allowed border border-slate-600"
+                  : "bg-[#0B192C] hover:bg-[#132943] text-white"
+              }`}
             >
-              <span>Proceed to Mark Entry ({parsedData.length} Students)</span>
-              <ArrowRight size={16} className="text-[#D4A72C]" />
+              <span>{isCollegeLocked ? "Mark Entry Locked by Dr. Sathish" : `Proceed to Mark Entry (${parsedData.length} Students)`}</span>
+              {isCollegeLocked ? <Lock size={16} className="text-red-400" /> : <ArrowRight size={16} className="text-[#D4A72C]" />}
             </button>
           </div>
         </div>

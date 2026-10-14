@@ -1,8 +1,8 @@
 import React, { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { Menu } from "lucide-react";
+import { Crown, Menu } from "lucide-react";
 import { adminAuthApi } from "../services/api";
 import { NotificationBell } from "./NotificationBell";
-import { getActiveCollege } from "../utils/rbac";
+import { getActiveCollege, isSuperAdmin, setSuperAdminCollegeView, CollegeKey } from "../utils/rbac";
 
 interface NavbarProps {
   setMobileOpen: (open: boolean) => void;
@@ -52,6 +52,7 @@ function useFittedNameSize(text: string) {
 export const Navbar: React.FC<NavbarProps> = ({ setMobileOpen, title }) => {
   const currentUser = adminAuthApi.getCurrentUser();
   const college = getActiveCollege();
+  const isSuper = isSuperAdmin(currentUser);
   const name = useFittedNameSize(college.name);
   const wraps = name.size !== null && name.size <= MIN_NAME_PX;
 
@@ -74,8 +75,14 @@ export const Navbar: React.FC<NavbarProps> = ({ setMobileOpen, title }) => {
           {/* The name is sized to fill this box on one line; Kyro stands right after it */}
           <div ref={name.box} className="relative flex flex-1 items-center min-w-0 self-stretch">
             <div className="min-w-0">
-              <span className="hidden sm:inline-block bg-[#D4A72C] text-[#0B192C] text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-widest mb-1">
-                Office of the Controller of Examinations
+              <span className="hidden sm:inline-flex items-center gap-1 bg-[#D4A72C] text-[#0B192C] text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-widest mb-1">
+                {isSuper ? (
+                  <>
+                    <Crown size={11} /> Super Admin · inspecting {college.shortName}
+                  </>
+                ) : (
+                  "Office of the Controller of Examinations"
+                )}
               </span>
               <h1
                 className={`font-display font-black ${wraps ? "leading-snug" : "leading-tight whitespace-nowrap"}`}
@@ -103,6 +110,27 @@ export const Navbar: React.FC<NavbarProps> = ({ setMobileOpen, title }) => {
         </div>
 
         <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+          {isSuper && (
+            <div className="hidden lg:flex items-center gap-1 bg-white/10 p-1 rounded-2xl border border-white/15">
+              <span className="text-[9px] font-black uppercase text-white/50 px-2 tracking-wider">Inspect</span>
+              {([
+                ["engineering", "Eng"],
+                ["nursing", "Nur"],
+                ["pharmacy", "Pharm"],
+              ] as [CollegeKey, string][]).map(([key, short]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => college.key !== key && setSuperAdminCollegeView(key)}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition ${
+                    college.key === key ? "bg-[#D4A72C] text-[#0B192C] shadow-sm" : "text-white/70 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  {short}
+                </button>
+              ))}
+            </div>
+          )}
           <NotificationBell />
           <div className="hidden xl:block text-right pl-3 border-l border-white/20">
             <span className="block text-xs font-bold text-white whitespace-nowrap">{currentUser?.name || college.coeTitle}</span>

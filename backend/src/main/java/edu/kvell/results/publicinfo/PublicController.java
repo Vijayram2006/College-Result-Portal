@@ -1,6 +1,8 @@
 package edu.kvell.results.publicinfo;
 
 import edu.kvell.results.common.Semesters;
+import edu.kvell.results.governance.GovernanceService;
+import edu.kvell.results.governance.SystemConfig;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
@@ -23,9 +25,20 @@ public class PublicController {
     }
 
     private final JdbcClient db;
+    private final GovernanceService governance;
 
-    public PublicController(JdbcClient db) {
+    public PublicController(JdbcClient db, GovernanceService governance) {
         this.db = db;
+        this.governance = governance;
+    }
+
+    /**
+     * The Super Admin's gateways and locks (portal open/closed, announcement, deadlines, revaluation window). Read by
+     * both portals, before sign-in too; the server enforces them independently.
+     */
+    @GetMapping("/system-config")
+    SystemConfig systemConfig() {
+        return governance.current();
     }
 
     @GetMapping("/summary")

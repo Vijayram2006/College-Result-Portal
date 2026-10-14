@@ -89,11 +89,12 @@ if (Test-Port 8080) {
     $env:DEMO_FACULTY_PASSWORD = $logins.DEMO_FACULTY_PASSWORD
     $env:DEMO_NURSING_COE_PASSWORD = $logins.DEMO_NURSING_COE_PASSWORD
     $env:DEMO_PHARMACY_COE_PASSWORD = $logins.DEMO_PHARMACY_COE_PASSWORD
+    $env:DEMO_SUPER_ADMIN_PASSWORD = $logins.DEMO_SUPER_ADMIN_PASSWORD
     $log = Join-Path $backend "backend-demo.log"
     $errLog = Join-Path $backend "backend-demo-error.log"
     Start-Process -FilePath "java" -ArgumentList "-jar", "`"$jar`"" -WorkingDirectory $backend `
         -RedirectStandardOutput $log -RedirectStandardError $errLog -WindowStyle Minimized
-    Remove-Item Env:DB_PASSWORD, Env:DEMO_ADMIN_PASSWORD, Env:DEMO_HOD_PASSWORD, Env:DEMO_FACULTY_PASSWORD, Env:DEMO_NURSING_COE_PASSWORD, Env:DEMO_PHARMACY_COE_PASSWORD
+    Remove-Item Env:DB_PASSWORD, Env:DEMO_ADMIN_PASSWORD, Env:DEMO_HOD_PASSWORD, Env:DEMO_FACULTY_PASSWORD, Env:DEMO_NURSING_COE_PASSWORD, Env:DEMO_PHARMACY_COE_PASSWORD, Env:DEMO_SUPER_ADMIN_PASSWORD
     if (-not (Wait-Http "http://127.0.0.1:8080/api/auth/me" 90 @(401))) {
         throw "Backend did not start; see $log and $errLog"
     }
