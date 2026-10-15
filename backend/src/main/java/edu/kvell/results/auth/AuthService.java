@@ -45,6 +45,18 @@ public class AuthService {
     public record ChangePasswordRequest(String currentPassword, String newPassword) {
     }
 
+    /** A staff member's own profile; username, role, college and department are shown but never edited here. */
+    public record ProfileView(String username, String name, String email, String phone, String designation,
+                              String role, String collegeName, String departmentName, Instant lastLoginAt) {
+    }
+
+    public record ProfileUpdate(String name, String email, String phone, String designation) {
+    }
+
+    private static final java.util.regex.Pattern EMAIL =
+            java.util.regex.Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+    private static final java.util.regex.Pattern PHONE = java.util.regex.Pattern.compile("^\\+?[0-9 ()-]{7,20}$");
+
     private record UserRow(long id, String username, String passwordHash, String role, String displayName,
                            String deptKey, String deptName, String regNo, LocalDate dob, boolean enabled,
                            String collegeKey, boolean mustChangePassword) {
@@ -207,6 +219,57 @@ public class AuthService {
             return "The new password must not contain the username";
         }
         return null;
+    }
+
+    public ProfileView profile(CurrentUser current) {
+        requireStaff(current);
+        UserView view = me(current);
+        return db.sql("SELECT display_name, email, phone, designation, last_login_at FROM users WHERE id = ?")
+                .param(view.id())
+                .query((rs, n) -> new ProfileView(view.username(), rs.getString("display_name"), rs.getString("email"),
+                        rs.getString("phone"), rs.getString("designation"), view.role(), view.collegeName(),
+                        view.departmentName(),
+                        rs.getTimestamp("last_login_at") == null ? null : rs.getTimestamp("last_login_at").toInstant()))
+                .single();
+    }
+
+    /** Staff (COEs, the Chief COE, HODs, faculty) edit their own name and contact details. */
+    public ProfileView updateProfile(CurrentUser current, ProfileUpdate request, String ip) {
+        requireStaff(current);
+        if (request == null) throw ApiException.badRequest("Nothing to save");
+        String name = trimToNull(request.name());
+        String email = trimToNull(request.email());
+        String phone = trimToNull(request.phone());
+        String designation = trimToNull(request.designation());
+        if (name == null || name.length() < 2 || name.length() > 100) {
+            throw ApiException.badRequest("Enter a name of 2 to 100 characters");
+        }
+        if (email != null && (email.length() > 120 || !EMAIL.matcher(email).matches())) {
+            throw ApiException.badRequest("Enter a valid email address");
+        }
+        if (phone != null && !PHONE.matcher(phone).matches()) {
+            throw ApiException.badRequest("Enter a valid phone number (digits, spaces, +, - or brackets; 7 to 20 characters)");
+        }
+        if (designation != null && designation.length() > 80) {
+            throw ApiException.badRequest("The designation must be at most 80 characters");
+        }
+        db.sql("UPDATE users SET display_name = ?, email = ?, phone = ?, designation = ? WHERE id = ?")
+                .params(name, email, phone, designation, current.id()).update();
+        audit.record(current.username(), name, "UPDATED_PROFILE", current.username(),
+                "Updated own profile (name, email, phone, designation).", ip);
+        return profile(current);
+    }
+
+    private static void requireStaff(CurrentUser current) {
+        if (current.role() == Role.STUDENT) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Student details are kept by the Controller of Examinations");
+        }
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null) return null;
+        String t = value.trim();
+        return t.isEmpty() ? null : t;
     }
 
     public UserView me(CurrentUser current) {

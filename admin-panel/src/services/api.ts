@@ -20,8 +20,9 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     // The college a Super Admin is inspecting; the server ignores this header for every other account
+    // A call may name its own college (Super Admin college window); otherwise the inspected one is used
     const view = localStorage.getItem("kvell_superadmin_view_college");
-    if (view) {
+    if (view && !config.headers["X-College-View"]) {
       config.headers["X-College-View"] = view;
     }
     return config;
@@ -312,7 +313,40 @@ export const adminAuthApi = {
     }
     return response.data;
   },
+
+  async getProfile(): Promise<StaffProfile> {
+    return (await apiClient.get<StaffProfile>("/auth/profile")).data;
+  },
+
+  /** Saves the signed-in officer's own name and contact details; the new name shows in the header straight away. */
+  async updateProfile(profile: StaffProfileUpdate): Promise<StaffProfile> {
+    const saved = (await apiClient.put<StaffProfile>("/auth/profile", profile)).data;
+    const stored = adminAuthApi.getCurrentUser();
+    if (stored) {
+      localStorage.setItem("kvell_admin_user", JSON.stringify({ ...stored, name: saved.name, email: saved.email || "" }));
+    }
+    return saved;
+  },
 };
+
+export interface StaffProfile {
+  username: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  designation: string | null;
+  role: string;
+  collegeName: string | null;
+  departmentName: string | null;
+  lastLoginAt: string | null;
+}
+
+export interface StaffProfileUpdate {
+  name: string;
+  email: string;
+  phone: string;
+  designation: string;
+}
 
 export const adminDashboardApi = {
   async getStats(): Promise<AdminDashboardStats> {
@@ -366,6 +400,141 @@ export const departmentsApi = {
 
   async remove(key: string): Promise<void> {
     await apiClient.delete(`/admin/departments/${encodeURIComponent(key)}`);
+  },
+};
+
+export interface FacultyAddress {
+  doorNo?: string | null;
+  street?: string | null;
+  city?: string | null;
+  country?: string | null;
+  state?: string | null;
+  district?: string | null;
+  pincode?: string | null;
+}
+export interface FacultyQualification { qualification: string; discipline: string; completedOn: string }
+export type EmploymentSection = "ENGINEERING" | "INDUSTRIAL" | "POLYTECHNIC";
+export interface FacultyEmployment {
+  section: EmploymentSection;
+  designation: string;
+  organisation: string;
+  location: string;
+  from: string;
+  to: string;
+}
+export interface FacultyCourse { kind: "THEORY" | "PRACTICAL"; branch: string; course: string; timesOffered: number }
+export interface FacultyExperience { section: string; years: number; months: number }
+
+export interface FacultyInput {
+  title: string;
+  name: string;
+  relationName: string;
+  dept: string;
+  gender: string;
+  dob: string;
+  designation: string;
+  joinedServiceOn: string;
+  joinedPostOn: string;
+  aadhaar: string;
+  commAddress: FacultyAddress;
+  permAddress: FacultyAddress;
+  residentialPhone: string;
+  mobile: string;
+  email: string;
+  qualifications: FacultyQualification[];
+  employment: FacultyEmployment[];
+  courses: FacultyCourse[];
+}
+
+export interface FacultySummary {
+  id: number;
+  title: string;
+  name: string;
+  deptKey: string;
+  deptName: string;
+  designation: string;
+  gender: string;
+  mobile: string;
+  email: string | null;
+  joinedServiceOn: string;
+  totalExperience: FacultyExperience;
+  hasPhoto: boolean;
+  updatedAt: string;
+}
+
+export interface FacultyDetail {
+  id: number;
+  title: string;
+  name: string;
+  relationName: string | null;
+  deptKey: string;
+  deptName: string;
+  gender: string;
+  dob: string;
+  designation: string;
+  joinedServiceOn: string;
+  joinedPostOn: string;
+  aadhaar: string | null;
+  commAddress: FacultyAddress;
+  permAddress: FacultyAddress;
+  residentialPhone: string | null;
+  mobile: string;
+  email: string | null;
+  qualifications: FacultyQualification[];
+  employment: FacultyEmployment[];
+  courses: FacultyCourse[];
+  experience: FacultyExperience[];
+  hasPhoto: boolean;
+  hasSignature: boolean;
+  createdBy: string;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+/** Faculty master (Faculty Detail): the college COE adds and edits; the Chief COE can only read. */
+export const facultyMasterApi = {
+  async list(dept?: string): Promise<FacultySummary[]> {
+    const res = await apiClient.get<FacultySummary[]>("/admin/faculty-master", { params: { dept: dept || undefined } });
+    return res.data;
+  },
+
+  async get(id: number): Promise<FacultyDetail> {
+    const res = await apiClient.get<FacultyDetail>(`/admin/faculty-master/${id}`);
+    return res.data;
+  },
+
+  async create(input: FacultyInput): Promise<FacultyDetail> {
+    const res = await apiClient.post<FacultyDetail>("/admin/faculty-master", input);
+    return res.data;
+  },
+
+  async update(id: number, input: FacultyInput): Promise<FacultyDetail> {
+    const res = await apiClient.put<FacultyDetail>(`/admin/faculty-master/${id}`, input);
+    return res.data;
+  },
+
+  async remove(id: number): Promise<void> {
+    await apiClient.delete(`/admin/faculty-master/${id}`);
+  },
+
+  async uploadImage(id: number, kind: "photo" | "signature", file: File): Promise<void> {
+    const form = new FormData();
+    form.append("file", file);
+    await apiClient.post(`/admin/faculty-master/${id}/image`, form, {
+      params: { kind },
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 60000,
+    });
+  },
+
+  /** The image as a blob (the request needs the sign-in token, so it can't be a plain <img src>). */
+  async image(id: number, kind: "photo" | "signature"): Promise<Blob> {
+    const res = await apiClient.get(`/admin/faculty-master/${id}/image`, { params: { kind }, responseType: "blob" });
+    return res.data;
+  },
+
+  async removeImage(id: number, kind: "photo" | "signature"): Promise<void> {
+    await apiClient.delete(`/admin/faculty-master/${id}/image`, { params: { kind } });
   },
 };
 
@@ -673,6 +842,19 @@ export const superAdminApi = {
   },
 };
 
+/** One college's COE data, read by the Super Admin without switching the inspected college. */
+export const collegeViewApi = {
+  async dashboard(college: CollegeKey): Promise<AdminDashboardStats> {
+    return (await apiClient.get<AdminDashboardStats>("/admin/dashboard", { headers: { "X-College-View": college } })).data;
+  },
+  async departments(college: CollegeKey): Promise<DepartmentRecord[]> {
+    return (await apiClient.get<DepartmentRecord[]>("/admin/departments", { headers: { "X-College-View": college } })).data;
+  },
+  async batches(college: CollegeKey): Promise<ResultBatchRecord[]> {
+    return (await apiClient.get<ResultBatchRecord[]>("/admin/results", { headers: { "X-College-View": college } })).data;
+  },
+};
+
 // Student revaluation requests for the signed-in COE's college
 
 export interface RevaluationRequest {
@@ -702,3 +884,100 @@ export const revaluationApi = {
     return (await apiClient.post<RevaluationRequest>(`/admin/revaluation/${id}/status`, { status, note })).data;
   },
 };
+
+// ---- Internal marks (quiz, activity, assignment, attendance hours + IAT-1/IAT-2 -> internal mark)
+
+/** quiz1 / activity1 / assignment1 go with IAT-1, quiz2 / ... with IAT-2; attendance is for the whole semester. */
+export type InternalComponent = "quiz1" | "activity1" | "assignment1" | "quiz2" | "activity2" | "assignment2" | "attendance";
+
+/** Each IAT cycle: IAT (of 100) x iatWeight + quiz + activity + assignment; the two cycles combine by cycleCombine. */
+export interface InternalConfig {
+  iatWeight: number;
+  quiz: { max: number; weight: number };
+  activity: { max: number; weight: number };
+  assignment: { max: number; weight: number };
+  cycleCombine: "AVERAGE" | "BEST" | "SUM";
+  hoursPerSubject: number;
+  attendanceWeight: number;
+  attendanceSlabs: { minPercent: number; marks: number }[];
+  rounding: "NEAREST" | "UP" | "NONE";
+}
+
+export interface InternalScheme {
+  config: InternalConfig;
+  maxMarks: number;
+  confirmed: boolean;
+  visibleToStudents: boolean;
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
+
+export interface InternalCycle {
+  iat: number;
+  quiz: number;
+  activity: number;
+  assignment: number;
+  total: number;
+  max: number;
+}
+
+export interface InternalBreakdown {
+  cycle1: InternalCycle;
+  cycle2: InternalCycle;
+  cycles: number;
+  attendance: number;
+  attendancePercent: number | null;
+  total: number;
+  max: number;
+  complete: boolean;
+}
+
+export interface InternalRow {
+  regNo: string;
+  name: string;
+  category: string;
+  values: Partial<Record<InternalComponent, number>>;
+  iat1: number | null;
+  iat2: number | null;
+  breakdown: InternalBreakdown;
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
+
+export interface InternalRoster {
+  deptKey: string;
+  deptName: string;
+  semester: string;
+  subjectCode: string;
+  subjectTitle: string;
+  scheme: InternalScheme;
+  rows: InternalRow[];
+}
+
+export interface InternalHistoryItem {
+  regNo: string;
+  component: InternalComponent;
+  oldValue: number | null;
+  newValue: number | null;
+  changedBy: string;
+  changedAt: string;
+}
+
+export const internalMarksApi = {
+  async scheme(): Promise<InternalScheme> {
+    return (await apiClient.get<InternalScheme>("/admin/internal-scheme")).data;
+  },
+
+  async saveScheme(config: InternalConfig, confirmed: boolean, visibleToStudents: boolean): Promise<InternalScheme> {
+    return (await apiClient.put<InternalScheme>("/admin/internal-scheme", { config, confirmed, visibleToStudents })).data;
+  },
+
+  async roster(dept: string, semester: string, subject: string): Promise<InternalRoster> {
+    return (await apiClient.get<InternalRoster>("/admin/internal-marks", { params: { dept, semester, subject } })).data;
+  },
+
+  async history(dept: string, semester: string, subject: string, regNo?: string): Promise<InternalHistoryItem[]> {
+    return (await apiClient.get<InternalHistoryItem[]>("/admin/internal-marks/history", { params: { dept, semester, subject, regNo } })).data;
+  },
+};
+

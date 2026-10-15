@@ -1,5 +1,6 @@
 import React, { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { Crown, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
+import { Link } from "wouter";
 import { adminAuthApi } from "../services/api";
 import { NotificationBell } from "./NotificationBell";
 import { getActiveCollege, isSuperAdmin, setSuperAdminCollegeView, CollegeKey } from "../utils/rbac";
@@ -48,11 +49,90 @@ function useFittedNameSize(text: string) {
   return { box, kyro, probe, size, fit };
 }
 
-/** The college banner, kept at the top of every admin page while scrolling. */
-export const Navbar: React.FC<NavbarProps> = ({ setMobileOpen, title }) => {
+/** Height of the Chief COE's university bar; the layout and sidebar start below it. */
+export const UNIVERSITY_BAR_HEIGHT = "5.5rem";
+
+const INSPECT_OPTIONS: [CollegeKey, string][] = [
+  ["engineering", "Eng"],
+  ["nursing", "Nur"],
+  ["pharmacy", "Pharm"],
+];
+
+/** The Chief COE's bar: KVELL University across the full width, above the sidebar too. */
+const UniversityBar: React.FC<{ setMobileOpen: (open: boolean) => void }> = ({ setMobileOpen }) => {
   const currentUser = adminAuthApi.getCurrentUser();
   const college = getActiveCollege();
-  const isSuper = isSuperAdmin(currentUser);
+
+  return (
+    <header
+      className="fixed top-0 inset-x-0 z-[60] bg-[#0B192C] text-white border-b-4 border-[#D4A72C] shadow-lg box-border"
+      style={{ height: UNIVERSITY_BAR_HEIGHT }}
+    >
+      <div className="flex items-center justify-between gap-3 px-3 sm:px-6 h-full">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0 self-stretch">
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="lg:hidden p-1.5 sm:p-2 rounded-xl text-white hover:bg-white/10 transition shrink-0"
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
+          <img
+            src="/kvell-logo.png"
+            alt="KVELL University"
+            className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-white p-1 border-2 border-[#D4A72C] shrink-0 object-contain shadow-lg"
+          />
+          <div className="min-w-0">
+            <h1 className="font-display font-black text-lg sm:text-2xl lg:text-3xl leading-tight tracking-wide uppercase truncate">
+              KVELL University
+            </h1>
+            <p className="text-[10px] sm:text-sm font-extrabold text-[#D4A72C] uppercase tracking-widest truncate">
+              Controller of Examinations
+            </p>
+          </div>
+          {/* Kyro, the KVELL campus mascot, standing on the gold rule beside the title */}
+          <img
+            src="/kyro-crossed.png"
+            alt="Kyro, the KVELL campus mascot"
+            className="hidden min-[420px]:block self-end -mb-1 h-14 sm:h-[4.75rem] w-auto shrink-0 object-contain object-bottom pointer-events-none select-none drop-shadow-xl"
+          />
+        </div>
+
+        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+          <div className="hidden lg:flex items-center gap-1 bg-white/10 p-1 rounded-2xl border border-white/15">
+            <span className="text-[9px] font-black uppercase text-white/50 px-2 tracking-wider">Inspect</span>
+            {INSPECT_OPTIONS.map(([key, short]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => college.key !== key && setSuperAdminCollegeView(key)}
+                title={`Work in ${short === "Eng" ? "Engineering" : short === "Nur" ? "Nursing" : "Pharmacy"} College`}
+                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition ${
+                  college.key === key ? "bg-[#D4A72C] text-[#0B192C] shadow-sm" : "text-white/70 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                {short}
+              </button>
+            ))}
+          </div>
+          <NotificationBell />
+          <Link href="/admin/profile" title="My profile" className="hidden xl:block text-right pl-3 border-l border-white/20 hover:opacity-80">
+            <span className="block text-xs font-bold text-white whitespace-nowrap">{currentUser?.name || "Controller of Examinations"}</span>
+            <span className="block text-[10px] font-mono text-white/60">{currentUser?.username || ""}</span>
+          </Link>
+        </div>
+      </div>
+    </header>
+  );
+};
+
+/** The college banner, kept at the top of every admin page while scrolling (the Chief COE gets the university bar). */
+export const Navbar: React.FC<NavbarProps> = (props) =>
+  isSuperAdmin() ? <UniversityBar setMobileOpen={props.setMobileOpen} /> : <CollegeBanner {...props} />;
+
+const CollegeBanner: React.FC<NavbarProps> = ({ setMobileOpen, title }) => {
+  const currentUser = adminAuthApi.getCurrentUser();
+  const college = getActiveCollege();
   const name = useFittedNameSize(college.name);
   const wraps = name.size !== null && name.size <= MIN_NAME_PX;
 
@@ -76,13 +156,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setMobileOpen, title }) => {
           <div ref={name.box} className="relative flex flex-1 items-center min-w-0 self-stretch">
             <div className="min-w-0">
               <span className="hidden sm:inline-flex items-center gap-1 bg-[#D4A72C] text-[#0B192C] text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-widest mb-1">
-                {isSuper ? (
-                  <>
-                    <Crown size={11} /> Super Admin · inspecting {college.shortName}
-                  </>
-                ) : (
-                  "Office of the Controller of Examinations"
-                )}
+                Office of the Controller of Examinations
               </span>
               <h1
                 className={`font-display font-black ${wraps ? "leading-snug" : "leading-tight whitespace-nowrap"}`}
@@ -110,32 +184,11 @@ export const Navbar: React.FC<NavbarProps> = ({ setMobileOpen, title }) => {
         </div>
 
         <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-          {isSuper && (
-            <div className="hidden lg:flex items-center gap-1 bg-white/10 p-1 rounded-2xl border border-white/15">
-              <span className="text-[9px] font-black uppercase text-white/50 px-2 tracking-wider">Inspect</span>
-              {([
-                ["engineering", "Eng"],
-                ["nursing", "Nur"],
-                ["pharmacy", "Pharm"],
-              ] as [CollegeKey, string][]).map(([key, short]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => college.key !== key && setSuperAdminCollegeView(key)}
-                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition ${
-                    college.key === key ? "bg-[#D4A72C] text-[#0B192C] shadow-sm" : "text-white/70 hover:text-white hover:bg-white/10"
-                  }`}
-                >
-                  {short}
-                </button>
-              ))}
-            </div>
-          )}
           <NotificationBell />
-          <div className="hidden xl:block text-right pl-3 border-l border-white/20">
+          <Link href="/admin/profile" title="My profile" className="hidden xl:block text-right pl-3 border-l border-white/20 hover:opacity-80">
             <span className="block text-xs font-bold text-white whitespace-nowrap">{currentUser?.name || college.coeTitle}</span>
             <span className="block text-[10px] font-mono text-white/60">{currentUser?.username || ""}</span>
-          </div>
+          </Link>
         </div>
       </div>
     </header>

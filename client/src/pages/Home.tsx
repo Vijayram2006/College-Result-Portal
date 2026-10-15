@@ -14,6 +14,8 @@ import { PublishedResultsDownload } from "../components/PublishedResultsDownload
 import { useSystemConfig, isStudentPortalClosed, isRevaluationOpen } from "../utils/systemConfig";
 import type { PublishedBatch } from "../utils/publishedResults";
 import type { LucideIcon } from "lucide-react";
+import { HodAnalytics } from "../components/hodAnalytics/HodAnalytics";
+import { InternalMarksSheet, StudentInternalMarks } from "../components/InternalMarks";
 import {
   Activity,
   AlertCircle,
@@ -48,6 +50,7 @@ import {
   FileText,
   GraduationCap,
   KeyRound,
+  UserRound,
   Layers,
   LayoutDashboard,
   Lock,
@@ -56,6 +59,8 @@ import {
   MoreHorizontal,
   PanelLeftClose,
   PenLine,
+  PieChart,
+  ClipboardCheck,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -107,7 +112,8 @@ type PageKey =
   | "electives"
   | "elective-demand"
   | "verification"
-  | "noticeboard";
+  | "noticeboard"
+  | "internal-marks";
 
 interface NavItem {
   key: PageKey;
@@ -166,6 +172,7 @@ const roleNav: Record<Role, NavItem[]> = {
   Faculty: [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { key: "marks", label: "Marks Entry", icon: PenLine },
+    { key: "internal-marks", label: "Internal Marks", icon: ClipboardCheck },
   ],
   HOD: [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -1280,7 +1287,7 @@ function HodPortalDashboard({
   department?: string;
 }) {
   const kvellSealLogo = "/kvell-logo.png";
-  const [activeTab, setActiveTab] = useState<"dashboard" | "studentResult">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "internals" | "studentResult">("dashboard");
 
   // Year-wise Bar Graph Data for 1st yr, 2nd yr, 3rd yr, 4th yr
   // Rule: < 40% -> RED (#EF4444), >= 40% -> GREEN (#22C55E)
@@ -1359,8 +1366,30 @@ function HodPortalDashboard({
                   : "text-slate-600 hover:bg-white hover:text-slate-900"
               }`}
             >
-              <BarChart3 size={15} className={activeTab === "dashboard" ? "text-[#D4A72C]" : "text-slate-500"} />
+              <BarChart3 size={15} className={`hidden sm:block ${activeTab === "dashboard" ? "text-[#D4A72C]" : "text-slate-500"}`} />
               Dashboard
+            </button>
+            <button
+              onClick={() => setActiveTab("analytics")}
+              className={`flex-1 sm:flex-none justify-center whitespace-nowrap px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
+                activeTab === "analytics"
+                  ? "bg-[#0B192C] text-white shadow-md"
+                  : "text-slate-600 hover:bg-white hover:text-slate-900"
+              }`}
+            >
+              <PieChart size={15} className={`hidden sm:block ${activeTab === "analytics" ? "text-[#D4A72C]" : "text-slate-500"}`} />
+              Analytics
+            </button>
+            <button
+              onClick={() => setActiveTab("internals")}
+              className={`flex-1 sm:flex-none justify-center whitespace-nowrap px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
+                activeTab === "internals"
+                  ? "bg-[#0B192C] text-white shadow-md"
+                  : "text-slate-600 hover:bg-white hover:text-slate-900"
+              }`}
+            >
+              <ClipboardCheck size={15} className={`hidden sm:block ${activeTab === "internals" ? "text-[#D4A72C]" : "text-slate-500"}`} />
+              Internals
             </button>
             <button
               onClick={() => setActiveTab("studentResult")}
@@ -1370,7 +1399,7 @@ function HodPortalDashboard({
                   : "text-slate-600 hover:bg-white hover:text-slate-900"
               }`}
             >
-              <Users size={15} className={activeTab === "studentResult" ? "text-[#D4A72C]" : "text-slate-500"} />
+              <Users size={15} className={`hidden sm:block ${activeTab === "studentResult" ? "text-[#D4A72C]" : "text-slate-500"}`} />
               Student Result
             </button>
             
@@ -1392,6 +1421,14 @@ function HodPortalDashboard({
               <p className="text-sm font-extrabold text-[#0B192C]">{hodName}</p>
               <p className="text-[11px] font-bold text-[#B08014] tracking-wider uppercase">HOD - {department}</p>
             </div>
+            <button
+              onClick={() => window.dispatchEvent(new Event("kvell:open-profile-edit"))}
+              className="bg-white hover:bg-slate-50 text-[#0B192C] border border-slate-300 text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition"
+              title="Edit profile"
+            >
+              <UserRound size={14} />
+              <span className="hidden md:inline">Profile</span>
+            </button>
             <button
               onClick={() => window.dispatchEvent(new Event("kvell:open-change-password"))}
               className="bg-white hover:bg-slate-50 text-[#0B192C] border border-slate-300 text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition"
@@ -1570,8 +1607,14 @@ function HodPortalDashboard({
               </div>
             </div>
           </div>
+        ) : activeTab === "internals" ? (
+          /* Tab: internal marks of the department (view only, with change history) */
+          <InternalMarksSheet role="hod" />
+        ) : activeTab === "analytics" ? (
+          /* Tab 2: the department's full result analytics (same as the COE's, for this department only) */
+          <HodAnalytics />
         ) : (
-          /* Tab 2: Separate Component "Student Result" Search Directory */
+          /* Tab 3: Separate Component "Student Result" Search Directory */
           <StudentResultView students={overview?.students ?? []} />
         )}
       </main>
@@ -3313,6 +3356,8 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
         return <SubjectsPage onToast={setToast} />;
       case "marks":
         return <FacultyMarkEntry onToast={setToast} />;
+      case "internal-marks":
+        return <InternalMarksSheet role="faculty" onToast={setToast} />;
       case "verification":
       case "noticeboard":
         return <FacultyDashboard onNavigate={navigate} />;
@@ -3454,6 +3499,14 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
                 {facultyCollege ? `${facultyCollege.shortName} · Examiner` : meta.roleLabel}
               </p>
             </div>
+            <button
+              onClick={() => window.dispatchEvent(new Event("kvell:open-profile-edit"))}
+              className="rounded-lg p-1.5 text-slate-300 hover:bg-white/10 hover:text-[#D4A72C] transition"
+              aria-label="Edit profile"
+              title="Edit profile"
+            >
+              <UserRound size={16} />
+            </button>
             <button
               onClick={() => window.dispatchEvent(new Event("kvell:open-change-password"))}
               className="rounded-lg p-1.5 text-slate-300 hover:bg-white/10 hover:text-[#D4A72C] transition"
@@ -3992,7 +4045,7 @@ function StudentDashboard({
   initialSemester?: number;
   onLogout: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "result" | "subjects">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "result" | "internals" | "subjects">("dashboard");
   const [currentSemesterNum, setCurrentSemesterNum] = useState<number>(initialSemester);
 
   useEffect(() => {
@@ -4225,52 +4278,42 @@ function StudentDashboard({
     setRevalBusy(false);
   };
 
-  // The statement shown on screen, as a text file (the same published marks the server sent)
-  const handleDownloadGradeCard = () => {
+  // The statement shown on screen, as a PDF (the same published marks the server sent)
+  const handleDownloadGradeCard = async () => {
     if (!latestSemester) return;
-    const internal = latestSemester.internalAssessment;
-    const lines = [
-      "================================================================================",
-      "                      KVELL DEEMED TO BE UNIVERSITY                             ",
-      `                 STATEMENT OF MARKS - ${latestSemester.assessmentType.toUpperCase()}`,
-      "================================================================================",
-      `Student Name    : ${studentName}`,
-      `Register Number : ${studentReg}`,
-      `Program         : ${programLabel}`,
-      `Semester        : ${latestSemester.semesterLabel} (Academic Year ${latestSemester.academicYear})`,
-      `Examination     : ${latestSemester.examMonthYear}`,
-      "--------------------------------------------------------------------------------",
-      "COURSE CODE    COURSE TITLE                               CREDITS  MARKS  GRADE  STATUS",
-      "--------------------------------------------------------------------------------",
-      ...studentCourses.map(
-        (c) =>
-          `${c.code.padEnd(14)} ${c.title.slice(0, 42).padEnd(42)} ${String(c.credits).padStart(5)}  ${String(c.total).padStart(5)}  ${c.grade.padStart(5)}  ${c.status}`
-      ),
-      "--------------------------------------------------------------------------------",
-      `Total Marks     : ${latestSemester.totalMarks} / ${latestSemester.maxMarks}`,
-      ...(internal
-        ? []
-        : [
-            `Credits         : ${latestSemester.earnedCredits} earned of ${latestSemester.totalCredits}`,
-            `Semester SGPA   : ${latestSemester.sgpa != null ? Number(latestSemester.sgpa).toFixed(2) : "-"}`,
-            `Cumulative CGPA : ${results?.cgpa != null ? Number(results.cgpa).toFixed(2) : "-"}`,
-            `Overall Result  : ${results?.overallResult ?? "-"}`,
-          ]),
-      `Result          : ${latestSemester.result}`,
-      "================================================================================",
-      `Downloaded on ${new Date().toLocaleString()} from the KVELL Result Portal (provisional copy).`,
-      "================================================================================",
-    ];
-    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `KVELL_Statement_of_Marks_${studentReg}_${latestSemester.assessmentType.replace(/\s+/g, "_")}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-    setNotificationMsg("Statement of marks downloaded.");
+    const internal = Boolean(latestSemester.internalAssessment);
+    try {
+      const { downloadStatementPdf } = await import("../lib/statementPdf");
+      await downloadStatementPdf({
+        studentName,
+        regNo: studentReg,
+        program: programLabel,
+        semesterLabel: latestSemester.semesterLabel,
+        academicYear: latestSemester.academicYear,
+        examMonthYear: latestSemester.examMonthYear,
+        assessmentType: latestSemester.assessmentType,
+        courses: studentCourses.map((c) => ({
+          code: c.code,
+          title: c.title,
+          credits: c.credits,
+          total: c.total,
+          grade: c.grade,
+          status: c.status,
+        })),
+        totalMarks: latestSemester.totalMarks,
+        maxMarks: latestSemester.maxMarks,
+        internal,
+        earnedCredits: latestSemester.earnedCredits,
+        totalCredits: latestSemester.totalCredits,
+        sgpa: latestSemester.sgpa != null ? Number(latestSemester.sgpa).toFixed(2) : "-",
+        cgpa: results?.cgpa != null ? Number(results.cgpa).toFixed(2) : "-",
+        overallResult: results?.overallResult ?? "-",
+        result: latestSemester.result,
+      });
+      setNotificationMsg("Statement of marks downloaded (PDF).");
+    } catch {
+      setNotificationMsg("Could not create the PDF. Please try again.");
+    }
     setTimeout(() => setNotificationMsg(null), 3000);
   };
 
@@ -4355,6 +4398,16 @@ function StudentDashboard({
             >
               <FileText size={16} className={activeTab === "result" ? "text-[#D4A72C]" : ""} />
               Result
+            </button>
+            <button
+              onClick={() => setActiveTab("internals")}
+              className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap px-2 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition duration-150 ${activeTab === "internals"
+                  ? "bg-[#0B192C] text-white shadow-md"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                }`}
+            >
+              <ClipboardCheck size={16} className={`hidden sm:block ${activeTab === "internals" ? "text-[#D4A72C]" : ""}`} />
+              Internals
             </button>
             <button
               onClick={() => setActiveTab("subjects")}
@@ -4521,6 +4574,11 @@ function StudentDashboard({
 
             </div>
 
+          </div>
+        ) : activeTab === "internals" ? (
+          /* Internal marks: quiz, activity, assignment, attendance and IATs, live from the faculty's entries */
+          <div className="w-full max-w-7xl">
+            <StudentInternalMarks />
           </div>
         ) : activeTab === "subjects" ? (
           /* My Subjects Module: Enlarged View */
@@ -4823,7 +4881,7 @@ function StudentDashboard({
                       className="px-4 py-2 bg-[#D4A72C] hover:bg-[#c29624] text-[#0B192C] font-extrabold text-xs rounded-xl shadow transition flex items-center gap-2"
                     >
                       <Download size={15} />
-                      <span>Download Grade Sheet</span>
+                      <span>Download Grade Sheet (PDF)</span>
                     </button>
                   ) : (
                     <button
@@ -5151,6 +5209,16 @@ export default function Home() {
     name: "JAYAPRADHA",
     department: "COMPUTER SCIENCE AND ENGINEERING",
   });
+
+  // A saved staff profile: show the new name (HOD header reads activeHod; the staff shell reads the stored user)
+  useEffect(() => {
+    const onSaved = (e: Event) => {
+      const name = (e as CustomEvent<string>).detail;
+      setActiveHod((prev) => ({ ...prev, name: name || prev.name }));
+    };
+    window.addEventListener("kvell:profile-updated", onSaved);
+    return () => window.removeEventListener("kvell:profile-updated", onSaved);
+  }, []);
 
   const handleAuth = (
     role: Role,

@@ -84,16 +84,12 @@ export const COLLEGES: Record<CollegeKey, CollegeConfig> = {
 };
 
 /**
- * Checks if the user is a Super Administrator (Dr. Sathish or SUPER_ADMIN role)
+ * Checks if the user is the Super Administrator (Chief COE). Only the role the server issued counts.
  */
 export function isSuperAdmin(user?: any): boolean {
   const currentUser = user || adminAuthApi.getCurrentUser();
   if (!currentUser) return false;
-  return (
-    currentUser.role === "SUPER_ADMIN" ||
-    (currentUser.username && currentUser.username.trim().toUpperCase() === "SATHISH") ||
-    (currentUser.name && currentUser.name.toLowerCase().includes("sathish"))
-  );
+  return currentUser.role === "SUPER_ADMIN";
 }
 
 /**

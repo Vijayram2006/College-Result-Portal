@@ -1,5 +1,6 @@
 import type { PublishedBatch } from "../utils/publishedResults";
 import axios from "axios";
+import type { ResultBatchRecord, StudentMarkRecord, StudentRecord, SubjectRecord } from "../components/hodAnalytics/types";
 
 // Target Spring Boot REST API Backend URL (Configurable via VITE_API_BASE_URL)
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
@@ -177,7 +178,34 @@ export const publicApi = {
   },
 };
 
+export interface StaffProfile {
+  username: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  designation: string | null;
+  role: string;
+  collegeName: string | null;
+  departmentName: string | null;
+  lastLoginAt: string | null;
+}
+
 export const authApi = {
+  /** The signed-in staff member's own profile (HOD / faculty). */
+  async getProfile(): Promise<StaffProfile> {
+    return (await apiClient.get<StaffProfile>("/auth/profile")).data;
+  },
+
+  /** Saves name and contact details; the stored user gets the new name so headers update. */
+  async updateProfile(profile: { name: string; email: string; phone: string; designation: string }): Promise<StaffProfile> {
+    const saved = (await apiClient.put<StaffProfile>("/auth/profile", profile)).data;
+    const stored = authApi.currentUser();
+    if (stored) {
+      localStorage.setItem("kvell_auth_user", JSON.stringify({ ...stored, name: saved.name }));
+    }
+    return saved;
+  },
+
   /** Students sign in with Register Number + Date of Birth; HOD and Admin with username + password. */
   async login(username: string, password: string, role: PortalRole): Promise<AuthResponseDTO> {
     const response = await apiClient.post<AuthResponseDTO>("/auth/login", { username, password, role });
@@ -287,7 +315,23 @@ export const hodApi = {
     const response = await apiClient.get<HodOverviewDTO>("/hod/overview");
     return response.data;
   },
+
+  /** Full result analytics of the HOD's department: every entered mark (published or not), batches and subjects. */
+  async getAnalytics(): Promise<HodAnalyticsDTO> {
+    const response = await apiClient.get<HodAnalyticsDTO>("/hod/analytics", { timeout: 60000 });
+    return response.data;
+  },
 };
+
+export interface HodAnalyticsDTO {
+  departmentKey: string;
+  departmentName: string;
+  departmentCode: string;
+  marks: StudentMarkRecord[];
+  batches: ResultBatchRecord[];
+  subjects: SubjectRecord[];
+  students: StudentRecord[];
+}
 
 export interface FacultySubjectDTO {
   id: string;
@@ -424,5 +468,134 @@ export const facultyApi = {
   /** Published results of the faculty member's own department, with every student's marks (for download). */
   async publishedResults(): Promise<PublishedBatch[]> {
     return (await apiClient.get<PublishedBatch[]>("/faculty/published-results", { timeout: 60000 })).data;
+  },
+};
+
+// ---- Internal marks (quiz, activity, assignment, attendance hours + IAT-1/IAT-2 -> internal mark)
+
+/** quiz1 / activity1 / assignment1 go with IAT-1, quiz2 / ... with IAT-2; attendance is for the whole semester. */
+export type InternalComponent = "quiz1" | "activity1" | "assignment1" | "quiz2" | "activity2" | "assignment2" | "attendance";
+
+/** Each IAT cycle: IAT (of 100) x iatWeight + quiz + activity + assignment; the two cycles combine by cycleCombine. */
+export interface InternalConfig {
+  iatWeight: number;
+  quiz: { max: number; weight: number };
+  activity: { max: number; weight: number };
+  assignment: { max: number; weight: number };
+  cycleCombine: "AVERAGE" | "BEST" | "SUM";
+  hoursPerSubject: number;
+  attendanceWeight: number;
+  attendanceSlabs: { minPercent: number; marks: number }[];
+  rounding: "NEAREST" | "UP" | "NONE";
+}
+
+export interface InternalScheme {
+  config: InternalConfig;
+  maxMarks: number;
+  confirmed: boolean;
+  visibleToStudents: boolean;
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
+
+export interface InternalCycle {
+  iat: number;
+  quiz: number;
+  activity: number;
+  assignment: number;
+  total: number;
+  max: number;
+}
+
+export interface InternalBreakdown {
+  cycle1: InternalCycle;
+  cycle2: InternalCycle;
+  cycles: number;
+  attendance: number;
+  attendancePercent: number | null;
+  total: number;
+  max: number;
+  complete: boolean;
+}
+
+export interface InternalRow {
+  regNo: string;
+  name: string;
+  category: string;
+  values: Partial<Record<InternalComponent, number>>;
+  iat1: number | null;
+  iat2: number | null;
+  breakdown: InternalBreakdown;
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
+
+export interface InternalRoster {
+  deptKey: string;
+  deptName: string;
+  semester: string;
+  subjectCode: string;
+  subjectTitle: string;
+  scheme: InternalScheme;
+  rows: InternalRow[];
+}
+
+export interface InternalHistoryItem {
+  regNo: string;
+  component: InternalComponent;
+  oldValue: number | null;
+  newValue: number | null;
+  changedBy: string;
+  changedAt: string;
+}
+
+export interface StudentInternalSubject {
+  subjectCode: string;
+  subjectTitle: string;
+  values: Partial<Record<InternalComponent, number>>;
+  iat1: number | null;
+  iat2: number | null;
+  iat1Published: boolean;
+  iat2Published: boolean;
+  breakdown: InternalBreakdown;
+  updatedAt: string | null;
+}
+
+export interface StudentInternalView {
+  visible: boolean;
+  scheme: InternalScheme | null;
+  semester: string;
+  subjects: StudentInternalSubject[];
+}
+
+/** Faculty (enter) and HOD (correct) share the same sheet; the server picks the department from the login. */
+export const internalMarksApi = {
+  async subjects(role: "faculty" | "hod"): Promise<FacultySubjectDTO[]> {
+    return (await apiClient.get<FacultySubjectDTO[]>(`/${role}/subjects`)).data;
+  },
+
+  async roster(role: "faculty" | "hod", semester: string, subject: string): Promise<InternalRoster> {
+    return (await apiClient.get<InternalRoster>(`/${role}/internal-marks`, { params: { semester, subject } })).data;
+  },
+
+  /** Faculty enter, the HOD corrects; both only for their own department. */
+  async save(role: "faculty" | "hod", payload: {
+    semester: string;
+    subjectCode: string;
+    rows: { regNo: string; values: Partial<Record<InternalComponent, number | null>> }[];
+  }): Promise<InternalRoster> {
+    return (await apiClient.put<InternalRoster>(`/${role}/internal-marks`, payload)).data;
+  },
+
+  async history(role: "faculty" | "hod", semester: string, subject: string, regNo?: string): Promise<InternalHistoryItem[]> {
+    return (await apiClient.get<InternalHistoryItem[]>(`/${role}/internal-marks/history`, { params: { semester, subject, regNo } })).data;
+  },
+
+  async mine(): Promise<StudentInternalView> {
+    return (await apiClient.get<StudentInternalView>("/student/internal-marks")).data;
+  },
+
+  async myHistory(subject: string): Promise<InternalHistoryItem[]> {
+    return (await apiClient.get<InternalHistoryItem[]>("/student/internal-marks/history", { params: { subject } })).data;
   },
 };

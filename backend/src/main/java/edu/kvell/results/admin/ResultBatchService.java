@@ -381,6 +381,11 @@ public class ResultBatchService {
                 + "ORDER BY b.semester, b.assessment_type, b.subject_code", new Object[] {deptKey}));
     }
 
+    /** Every result batch of one department, forwarded or published (HOD analytics). */
+    public List<ResultBatch> listForDepartment(String deptKey) {
+        return assemble(rows("WHERE b.dept_key = ? ORDER BY b.uploaded_at DESC", new Object[] {deptKey}));
+    }
+
     public List<ResultBatch> list() {
         return assemble(rows("WHERE " + departments.inCollege("b.dept_key") + " ORDER BY b.uploaded_at DESC",
                 new Object[0]));

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Route, Switch, Redirect, useLocation } from "wouter";
 import { Sidebar } from "./components/Sidebar";
-import { Navbar } from "./components/Navbar";
+import { Navbar, UNIVERSITY_BAR_HEIGHT } from "./components/Navbar";
+import { isSuperAdmin } from "./utils/rbac";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { PasswordChangeGate } from "./components/PasswordChange";
 
@@ -21,9 +22,11 @@ import { DepartmentsPage, refreshDepartments } from "./pages/Departments";
 import { SuperAdminControlPage } from "./pages/SuperAdminControl";
 import { startSystemConfigSync } from "./utils/systemConfig";
 import { RevaluationRequestsPage } from "./pages/RevaluationRequests";
+import { FacultyMasterPage } from "./pages/FacultyMaster";
+import { InternalMarksPage } from "./pages/InternalMarks";
 
 const pageTitles: Record<string, string> = {
-  "/admin/super-admin": "Chief COE & Super Admin Console",
+  "/admin/super-admin": "Dashboard",
   "/admin/results/revaluation": "Student Revaluation Requests",
   "/admin/dashboard": "University Admin Dashboard",
   "/admin/departments": "University Department Directory & Management",
@@ -37,6 +40,8 @@ const pageTitles: Record<string, string> = {
   "/admin/audit-logs": "Administrative Audit Trail",
   "/admin/profile": "Controller Profile & Security",
   "/admin/subjects": "COE Subject Catalog & Finalization Hub",
+  "/admin/faculty-master": "Faculty Master",
+  "/admin/results/internal-marks": "Internal Marks",
 };
 
 interface AdminLayoutProps {
@@ -55,6 +60,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   // The Super Admin's gateways and locks, kept current while the panel is open
   useEffect(() => startSystemConfigSync(), []);
 
+  // A saved profile changes the name shown in the sidebar and top bar
+  const [, setProfileVersion] = useState(0);
+  useEffect(() => {
+    const refresh = () => setProfileVersion((v) => v + 1);
+    window.addEventListener("kvell_profile_updated", refresh);
+    return () => window.removeEventListener("kvell_profile_updated", refresh);
+  }, []);
+
   const title = pageTitles[location] || "Admin Panel";
 
   return (
@@ -62,6 +75,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
       <div className="flex-1 lg:pl-72 flex flex-col min-w-0 min-h-screen">
         <Navbar setMobileOpen={setMobileOpen} title={title} />
+        {/* The Chief COE's university bar is fixed across the full width; keep the page below it */}
+        {isSuperAdmin() && <div aria-hidden className="shrink-0" style={{ height: UNIVERSITY_BAR_HEIGHT }} />}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full min-w-0">{children}</main>
       </div>
       <PasswordChangeGate />
@@ -173,6 +188,22 @@ export const App: React.FC = () => {
       </Route>
 
       
+      <Route path="/admin/results/internal-marks">
+        {() => (
+          <AdminLayout>
+            <ProtectedRoute component={InternalMarksPage} />
+          </AdminLayout>
+        )}
+      </Route>
+
+      <Route path="/admin/faculty-master">
+        {() => (
+          <AdminLayout>
+            <ProtectedRoute component={FacultyMasterPage} />
+          </AdminLayout>
+        )}
+      </Route>
+
       <Route path="/admin/subjects">
         {() => (
           <AdminLayout>

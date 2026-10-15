@@ -32,7 +32,7 @@ import { getStoredDepartments, Department } from "./Departments";
 import { aidsSem1Students } from "../data/aidsStudents";
 import { cseSem1Students, bmeSem1Students, seedDummyMarksForDepts, generateStudentMarkDetail, ensureDummyMarksLoaded } from "../data/dummyMarksData";
 import { departmentSubjectsCatalog } from "../data/curriculumSubjects";
-import { getScopedKey, getActiveCollege, getActiveCollegeKey, isEngineeringCollege } from "../utils/rbac";
+import { getScopedKey, getActiveCollege, getActiveCollegeKey, isEngineeringCollege, isSuperAdmin } from "../utils/rbac";
 import { getSystemConfig, SystemConfig } from "../utils/systemConfig";
 
 // Department & Subject Catalog (Includes AIDS & MA8201 from examination paper)
@@ -163,6 +163,8 @@ export const ResultsValidation: React.FC = () => {
   }, []);
 
   const activeCollegeKey = getActiveCollegeKey();
+  // The Chief COE only views marks; the college's COE and faculty enter them (the server enforces this too)
+  const chiefViewOnly = isSuperAdmin();
   const isCollegeLocked =
     systemConfig.systemMode === "EMERGENCY_LOCK" ||
     systemConfig.institutionalLocks[activeCollegeKey]?.locked === true ||
@@ -601,6 +603,13 @@ export const ResultsValidation: React.FC = () => {
         </div>
       )}
 
+      {chiefViewOnly && (
+        <div className="p-4 rounded-2xl bg-sky-50 border border-sky-200 text-sky-900 text-xs font-semibold flex items-center gap-2">
+          <Lock size={15} className="shrink-0" />
+          View only: the Chief COE can see entered marks here (use View on a row). Marks are entered and forwarded by the college's faculty and Controller of Examinations.
+        </div>
+      )}
+
       {/* Header Banner */}
       <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
@@ -609,15 +618,15 @@ export const ResultsValidation: React.FC = () => {
           </span>
           <h2 className="font-display text-2xl font-bold flex items-center gap-3">
             <PenLine className="text-[#D4A72C]" size={26} />
-            Student Mark Entry
+            {chiefViewOnly ? "Student Marks (View Only)" : "Student Mark Entry"}
           </h2>
           <p className="text-xs text-white/70 mt-1 max-w-xl">
-            Select target department, semester, and subject code, then click <strong>"FETCH DATA"</strong> to retrieve students and enter paper marks.
+            Select target department, semester, and subject code, then click <strong>"FETCH DATA"</strong> to retrieve students and {chiefViewOnly ? "view their marks" : "enter paper marks"}.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          {isDataFetched && students.some((s) => s.hasMarks) && (
+          {!chiefViewOnly && isDataFetched && students.some((s) => s.hasMarks) && (
             <button
               onClick={handleCommitBatch}
               disabled={isCollegeLocked}
@@ -820,12 +829,14 @@ export const ResultsValidation: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-gray-500 mt-0.5">
-                Click on a student row to select, then click <strong>"ENTER MARK"</strong> (or <strong>"EDIT MARK"</strong> if marks exist) above. Use <strong>View</strong> to see saved marks.
+                {chiefViewOnly
+                  ? <>Use <strong>View</strong> on a row to see a student's saved marks.</>
+                  : <>Click on a student row to select, then click <strong>"ENTER MARK"</strong> (or <strong>"EDIT MARK"</strong> if marks exist) above. Use <strong>View</strong> to see saved marks.</>}
               </p>
             </div>
 
             {/* ENTER MARK Button: Prominently displayed when student is clicked */}
-            {selectedStudent && (
+            {selectedStudent && !chiefViewOnly && (
               <div className="animate-in fade-in duration-200">
                 <button
                   type="button"

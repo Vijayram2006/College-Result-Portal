@@ -17,7 +17,8 @@ import {
 } from "lucide-react";
 import { COLLEGES, CollegeKey, setSuperAdminCollegeView, getActiveCollegeKey } from "../../utils/rbac";
 import { updateSystemConfig, SystemConfig } from "../../utils/systemConfig";
-import { superAdminApi, apiErrorMessage } from "../../services/api";
+import { superAdminApi, apiErrorMessage, CollegeOverview } from "../../services/api";
+import { CollegeDetailWindow } from "./CollegeDetailWindow";
 
 interface MultiCollegeOverviewTabProps {
   systemConfig: SystemConfig;
@@ -38,6 +39,8 @@ export const MultiCollegeOverviewTab: React.FC<MultiCollegeOverviewTabProps> = (
     pharmacy: empty,
   });
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [overviews, setOverviews] = useState<Partial<Record<CollegeKey, CollegeOverview>>>({});
+  const [openCollege, setOpenCollege] = useState<CollegeKey | null>(null);
 
   // Live figures for every college from the result server
   const loadCollegeStats = () => {
@@ -45,10 +48,13 @@ export const MultiCollegeOverviewTab: React.FC<MultiCollegeOverviewTabProps> = (
       .overview()
       .then((colleges) => {
         const next = { engineering: empty, nursing: empty, pharmacy: empty } as Record<CollegeKey, typeof empty>;
+        const full: Partial<Record<CollegeKey, CollegeOverview>> = {};
         colleges.forEach((c) => {
+          full[c.key] = c;
           next[c.key] = { depts: c.departments, students: c.students, batches: c.publishedBatches, results: c.publishedRecords };
         });
         setStats(next);
+        setOverviews(full);
         setStatsError(null);
       })
       .catch((err) => setStatsError(apiErrorMessage(err, "Could not load the college figures.")));
@@ -139,7 +145,17 @@ export const MultiCollegeOverviewTab: React.FC<MultiCollegeOverviewTabProps> = (
           return (
             <div
               key={key}
-              className={`rounded-3xl border transition-all duration-200 bg-white shadow-md flex flex-col justify-between overflow-hidden relative ${
+              role="button"
+              tabIndex={0}
+              title={`Open ${col.shortName} College details`}
+              onClick={() => setOpenCollege(key)}
+              onKeyDown={(e) => {
+                if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                  e.preventDefault();
+                  setOpenCollege(key);
+                }
+              }}
+              className={`rounded-3xl border transition-all duration-200 bg-white shadow-md flex flex-col justify-between overflow-hidden relative cursor-pointer hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0B192C] ${
                 isCurrentView
                   ? "border-[#D4A72C] ring-2 ring-[#D4A72C]/40"
                   : "border-slate-200 hover:border-slate-300"
@@ -192,10 +208,17 @@ export const MultiCollegeOverviewTab: React.FC<MultiCollegeOverviewTabProps> = (
                     <span className="text-base font-extrabold text-[#0B192C]">{st.results} Records</span>
                   </div>
                 </div>
+                <div className="mt-3 text-[11px] font-bold text-[#B08014] flex items-center gap-1">
+                  <ExternalLink size={12} /> Click to open departments & full details
+                </div>
               </div>
 
               {/* Status and Action Buttons */}
-              <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
+              <div
+                className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
                 <button
                   type="button"
                   onClick={() => handleToggleCollegeLock(key)}
@@ -227,6 +250,14 @@ export const MultiCollegeOverviewTab: React.FC<MultiCollegeOverviewTabProps> = (
           );
         })}
       </div>
+
+      {openCollege && (
+        <CollegeDetailWindow
+          college={openCollege}
+          overview={overviews[openCollege]}
+          onClose={() => setOpenCollege(null)}
+        />
+      )}
 
       {/* Quick Action Navigation Strip */}
       <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">

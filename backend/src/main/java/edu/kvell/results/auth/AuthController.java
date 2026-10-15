@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,6 +36,17 @@ public class AuthController {
     @GetMapping("/me")
     AuthService.UserView me() {
         return auth.me(CurrentUser.get());
+    }
+
+    @GetMapping("/profile")
+    AuthService.ProfileView profile() {
+        return auth.profile(CurrentUser.get());
+    }
+
+    /** Staff edit their own name and contact details. */
+    @PutMapping("/profile")
+    AuthService.ProfileView updateProfile(@RequestBody AuthService.ProfileUpdate request, HttpServletRequest http) {
+        return auth.updateProfile(CurrentUser.get(), request, http.getRemoteAddr());
     }
 
     /** Staff choose their own password (required at first sign-in for accounts created with a shared one). */

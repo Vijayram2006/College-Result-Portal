@@ -132,7 +132,7 @@ export const sortStudentRecords = (
   });
 };
 
-import { getScopedKey, getActiveCollege, getActiveCollegeKey, isEngineeringCollege } from "../utils/rbac";
+import { getScopedKey, getActiveCollege, getActiveCollegeKey, isEngineeringCollege, isSuperAdmin } from "../utils/rbac";
 
 // Department-scoped student storage helpers
 export const getDeptUploadedStudents = (dept: string): any[] => {
@@ -280,6 +280,8 @@ export const ResultsUpload: React.FC = () => {
   }, []);
 
   const activeCollegeKey = getActiveCollegeKey();
+  // The Chief COE only views student data; the college's COE uploads, adds and deletes (the server enforces this too)
+  const viewOnly = isSuperAdmin();
   const isCollegeLocked =
     systemConfig.systemMode === "EMERGENCY_LOCK" ||
     systemConfig.institutionalLocks?.[activeCollegeKey]?.locked === true ||
@@ -816,6 +818,13 @@ export const ResultsUpload: React.FC = () => {
         </div>
       )}
 
+      {viewOnly && (
+        <div className="p-4 rounded-2xl bg-sky-50 border border-sky-200 text-sky-900 text-xs font-semibold flex items-center gap-2">
+          <Lock size={15} className="shrink-0" />
+          View only: the Chief COE can see student data here. Uploading, adding and deleting students is done by the college's Controller of Examinations.
+        </div>
+      )}
+
       {/* Instructions Header */}
       <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
@@ -826,10 +835,13 @@ export const ResultsUpload: React.FC = () => {
             Student Data
           </h2>
           <p className="text-xs text-white/70 mt-1 max-w-xl">
-            Select target department, study year, and semester. Upload Excel spreadsheets or use the <strong>Add Student</strong> button. Older records are preserved and merged, with regular students sorted first and lateral entries appended at the end.
+            {viewOnly
+              ? "Select a department, study year and semester to view the students saved for it."
+              : <>Select target department, study year, and semester. Upload Excel spreadsheets or use the <strong>Add Student</strong> button. Older records are preserved and merged, with regular students sorted first and lateral entries appended at the end.</>}
           </p>
         </div>
 
+        {!viewOnly && (
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <button
             type="button"
@@ -863,6 +875,7 @@ export const ResultsUpload: React.FC = () => {
             <span>Sample Excel Template</span>
           </button>
         </div>
+        )}
       </div>
 
       {/* Real-time Feedback Banner */}
@@ -1009,6 +1022,7 @@ export const ResultsUpload: React.FC = () => {
             )}
           </div>
 
+          {!viewOnly && (
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -1040,10 +1054,12 @@ export const ResultsUpload: React.FC = () => {
               <span>Delete Target Year Data{studyYear ? ` (${studyYear})` : ""}</span>
             </button>
           </div>
+          )}
         </div>
       </div>
 
-      {/* Drag & Drop Upload Container */}
+      {/* Drag & Drop Upload Container (not for the view-only Chief COE) */}
+      {!viewOnly && (
       <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-sm p-6 sm:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5E1D8] pb-3">
           <div>
@@ -1121,6 +1137,7 @@ export const ResultsUpload: React.FC = () => {
           </button>
         </div>
       </div>
+      )}
 
       {/* Step 3: Interactive Student Registry & Order Management */}
       {parsedData.length > 0 && (
@@ -1176,6 +1193,7 @@ export const ResultsUpload: React.FC = () => {
                 </button>
               </div>
 
+              {!viewOnly && (<>
               <button
                 type="button"
                 onClick={() => {
@@ -1198,6 +1216,7 @@ export const ResultsUpload: React.FC = () => {
                   <Trash2 size={13} /> Clear Sheet
                 </button>
               )}
+              </>)}
             </div>
           </div>
 
@@ -1232,7 +1251,7 @@ export const ResultsUpload: React.FC = () => {
                     <th className="p-3">Department</th>
                     <th className="p-3">Year</th>
                     <th className="p-3 text-center">Admission Category</th>
-                    <th className="p-3 text-right w-20">Action</th>
+                    {!viewOnly && <th className="p-3 text-right w-20">Action</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E1D8] bg-white">
@@ -1281,6 +1300,7 @@ export const ResultsUpload: React.FC = () => {
                             </span>
                           )}
                         </td>
+                        {!viewOnly && (
                         <td className="p-3 text-right">
                           <button
                             type="button"
@@ -1296,6 +1316,7 @@ export const ResultsUpload: React.FC = () => {
                             <Trash2 size={14} />
                           </button>
                         </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -1305,6 +1326,7 @@ export const ResultsUpload: React.FC = () => {
           </div>
 
           {/* Bottom Actions Bar */}
+          {!viewOnly && (
           <div className="pt-3 border-t border-[#E5E1D8] flex flex-col sm:flex-row items-center justify-between gap-4">
             <button
               type="button"
@@ -1340,6 +1362,7 @@ export const ResultsUpload: React.FC = () => {
               {isCollegeLocked ? <Lock size={16} className="text-red-400" /> : <ArrowRight size={16} className="text-[#D4A72C]" />}
             </button>
           </div>
+          )}
         </div>
       )}
 

@@ -86,6 +86,25 @@ public class MarkService {
                 .list();
     }
 
+    /** Every entered mark of one department (HOD analytics); dates of birth are left out, as they are login secrets. */
+    public List<StudentMark> allEnteredForDepartment(String deptKey) {
+        return db.sql("""
+                        SELECT s.reg_no, s.name, CAST(NULL AS DATE) AS dob, s.category, m.assessment_type, m.part_a, m.part_bc,
+                               m.part_a_total, m.part_bc_total, m.grand_total, m.grade, m.passed,
+                               m.examiner_name, m.examiner_designation,
+                               m.dept_key, d.name AS dept_name, m.semester, m.subject_code, m.subject_title
+                        FROM marks m
+                        JOIN students s ON s.reg_no = m.reg_no
+                        JOIN departments d ON d.dept_key = m.dept_key
+                        WHERE m.dept_key = ?
+                        ORDER BY m.subject_code, s.reg_no
+                        """)
+                .param(deptKey)
+                .query((rs, n) -> toMark(rs, rs.getString("dept_key"), rs.getString("dept_name"),
+                        rs.getInt("semester"), rs.getString("subject_code"), rs.getString("subject_title")))
+                .list();
+    }
+
     /** Every student of the department and semester, with their marks for the subject and assessment if entered. */
     public List<StudentMark> roster(String dept, String semester, String subjectCode, String assessmentType) {
         String deptKey = departments.key(dept);
