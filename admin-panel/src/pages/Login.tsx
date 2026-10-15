@@ -200,7 +200,7 @@ export const Login: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      setUsername("SATHISH");
+                      setUsername("COE");
                       setPassword("");
                     }}
                     className="w-full px-3.5 py-3 rounded-2xl bg-gradient-to-r from-amber-500/10 via-[#D4A72C]/20 to-amber-500/10 hover:from-amber-500/20 hover:to-amber-500/20 text-[#0B192C] border-2 border-[#D4A72C] font-bold text-xs transition flex items-center justify-between shadow-md group relative overflow-hidden"
@@ -216,7 +216,7 @@ export const Login: React.FC = () => {
                             Chief COE
                           </span>
                         </span>
-                        <span className="block text-[10px] font-mono text-[#8C6D1F]">User ID: SATHISH</span>
+                        <span className="block text-[10px] font-mono text-[#8C6D1F]">User ID: COE</span>
                       </span>
                     </span>
                     <span className="text-[10px] bg-[#D4A72C] text-[#0B192C] font-black px-2.5 py-1 rounded-full shadow-sm">

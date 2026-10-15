@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Creates the staff logins: the Super Admin (SATHISH, overall university COE), one Controller of Examinations per
+ * Creates the staff logins: the Super Admin (COE, overall university Controller of Examinations), one Controller of Examinations per
  * college (ADMIN for Engineering, COE_NURSING, COE_PHARMACY), and per department one HOD (HODCSE, ...) and one
  * faculty login (FACCSE, ...). Students, subjects and marks are entered through the portal.
  */
@@ -55,7 +55,7 @@ public class DemoDataSeeder implements ApplicationRunner {
     @Transactional
     public void run(ApplicationArguments args) {
         if (!enabled) return;
-        createSuperAdmin("SATHISH", "Dr. Sathish", superAdminPassword);
+        createSuperAdmin("COE", "Dr. Sathish", superAdminPassword);
         createCoe("ADMIN", "Dr. Controller of Examinations (Engineering)", "engineering", adminPassword);
         createCoe("COE_NURSING", "Dr. Controller of Examinations (Nursing)", "nursing", nursingCoePassword);
         createCoe("COE_PHARMACY", "Dr. Controller of Examinations (Pharmacy)", "pharmacy", pharmacyCoePassword);
