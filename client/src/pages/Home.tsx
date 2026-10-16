@@ -598,55 +598,31 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
 
   return (
     <div className="space-y-6">
-      {/* Top Banner Card matching Image 2 */}
-      <div className="relative overflow-hidden rounded-3xl bg-linear-to-r from-[#0B192C] via-[#0F223D] to-[#132A4A] p-6 sm:p-8 text-white border border-[#D4A72C]/30 shadow-xl">
-        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-          <div className="flex items-center gap-4 sm:gap-6">
-            <img
-              src={currentCollege.logoUrl || "/kvell-logo.png"}
-              alt={currentCollege.collegeName}
-              className="h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-white p-1 border-2 border-[#D4A72C] object-contain shadow-lg shrink-0"
-            />
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-md bg-[#D4A72C]/20 border border-[#D4A72C]/40 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-[#D4A72C]">
-                <span>OFFICE OF ACADEMIC AFFAIRS · FACULTY PORTAL</span>
-              </div>
-              <h1 className="mt-2 text-xl sm:text-2xl font-black text-white tracking-tight">
-                {currentCollege.collegeName}
-              </h1>
-              <p className="mt-1 text-xs sm:text-sm text-slate-300 font-semibold max-w-2xl">
-                Academic Course Administration, Continuous Internal Assessment &amp; Marks Portal
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-            <button
-              onClick={() => onNavigate("marks")}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-[#D4A72C] hover:bg-[#b08014] text-[#0B192C] px-5 py-3 text-xs font-black shadow-lg transition cursor-pointer"
-            >
-              <PenLine size={16} strokeWidth={2.5} />
-              <span>Enter Internal Marks</span>
-            </button>
-            <button
-              onClick={() => {
-                if (totalStudents > 0) setShowRosterModal(true);
-                else onNavigate("marks");
-              }}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 px-5 py-3 text-xs font-bold transition cursor-pointer"
-            >
-              <Users size={16} />
-              <span>Student Roster ({totalStudents})</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Live University Metric Directory Header */}
-      <div className="flex items-center justify-between pt-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
         <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-[#B08014]">
           <Sparkles size={14} className="text-[#D4A72C]" />
           <span>LIVE UNIVERSITY METRIC DIRECTORY · CLICK ANY CARD TO INSPECT &amp; MANAGE</span>
+        </div>
+        {/* The dashboard's actions (the navy college card above them is now the portal's top bar) */}
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={() => onNavigate("marks")}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-[#D4A72C] hover:bg-[#b08014] text-[#0B192C] px-5 py-2.5 text-xs font-black shadow-md transition cursor-pointer"
+          >
+            <PenLine size={16} strokeWidth={2.5} />
+            <span>Enter Internal Marks</span>
+          </button>
+          <button
+            onClick={() => {
+              if (totalStudents > 0) setShowRosterModal(true);
+              else onNavigate("marks");
+            }}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-white px-5 py-2.5 text-xs font-bold shadow-md transition cursor-pointer"
+          >
+            <Users size={16} />
+            <span>Student Roster ({totalStudents})</span>
+          </button>
         </div>
       </div>
 
@@ -3420,7 +3396,7 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className={cn("flex shrink-0 items-center justify-between px-5 box-border", role === "Faculty" ? "h-[6.75rem] border-b-4 border-[#D4A72C]" : "h-[78px] border-b border-white/10")}>
+        <div className={cn("flex shrink-0 items-center justify-between px-5 box-border", role === "Faculty" ? "h-[5.5rem] lg:h-[7.5rem] border-b-4 border-[#D4A72C]" : "h-[78px] border-b border-white/10")}>
           <div className="flex items-center gap-3">
             <img
               src="/kvell-logo.png"
@@ -3542,7 +3518,6 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
           <FacultyBanner
             collegeName={facultyCollege?.collegeName ?? authApi.currentUser()?.collegeName ?? "KVELL University"}
             logoUrl={facultyCollege?.logoUrl || "/kvell-logo.png"}
-            pageTitle={activeNav?.label ?? "Dashboard"}
             userName={authApi.currentUser()?.name ?? "Faculty"}
             username={authApi.currentUser()?.username ?? ""}
             onOpenMenu={() => setSidebarOpen(true)}
