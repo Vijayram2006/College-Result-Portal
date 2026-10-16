@@ -14,10 +14,11 @@ permissions: {}
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - name: Call the health check
+        # A sleeping server answers with errors while it starts (1-2 minutes), so keep trying for about 5 minutes
         run: |
           curl --fail --silent --show-error --max-time 90 \
-               --retry 5 --retry-delay 15 --retry-all-errors \
+               --retry 15 --retry-delay 20 --retry-max-time 300 --retry-all-errors \
                https://kvell-result-api.onrender.com/healthz
