@@ -1,4 +1,5 @@
 import axios from "axios";
+import { wakeServer } from "../components/ServerWake";
 import type { AdminRole, CollegeKey } from "../utils/rbac";
 
 // Environment-configured API URL connecting to Spring Boot backend
@@ -50,13 +51,26 @@ apiClient.interceptors.response.use(
         window.location.assign("/admin/login");
       }
     }
-    return Promise.reject(error);
+    return retryAfterWake(error);
   }
 );
 
+// The hosted server may be asleep (free plan): a request that got no answer at all waits for the wake-up and is
+// sent once more. Only reads and sign-ins are repeated, so a save is never applied twice.
+async function retryAfterWake(error: any) {
+  const config = error?.config;
+  if (error?.response || !config || config.__wakeRetried) return Promise.reject(error);
+  const method = String(config.method || "get").toLowerCase();
+  const repeatable = method === "get" || String(config.url || "").includes("/auth/login");
+  const awake = await wakeServer();
+  if (!awake || !repeatable) return Promise.reject(error);
+  config.__wakeRetried = true;
+  return apiClient.request(config);
+}
+
 /** Human-readable message from an API error ({ error: "..." } bodies), for alerts and banners. */
 export function apiErrorMessage(err: any, fallback = "Request failed. Please try again."): string {
-  if (!err?.response) return "Cannot reach the result server. Check that the backend is running.";
+  if (!err?.response) return "Cannot reach the result server. It may still be starting; please try again in a minute.";
   return err.response.data?.error || fallback;
 }
 

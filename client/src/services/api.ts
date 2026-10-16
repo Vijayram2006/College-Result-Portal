@@ -1,5 +1,6 @@
 import type { PublishedBatch } from "../utils/publishedResults";
 import axios from "axios";
+import { wakeServer } from "../components/ServerWake";
 import type { ResultBatchRecord, StudentMarkRecord, StudentRecord, SubjectRecord } from "../components/hodAnalytics/types";
 
 // Target Spring Boot REST API Backend URL (Configurable via VITE_API_BASE_URL)
@@ -32,13 +33,26 @@ apiClient.interceptors.response.use(
     if (error?.response?.status === 403 && error.response.data?.passwordChangeRequired) {
       window.dispatchEvent(new Event("kvell:password-change-required"));
     }
-    return Promise.reject(error);
+    return retryAfterWake(error);
   }
 );
 
+// The hosted server may be asleep (free plan): a request that got no answer at all waits for the wake-up and is
+// sent once more. Only reads and sign-ins are repeated, so a save is never applied twice.
+async function retryAfterWake(error: any) {
+  const config = error?.config;
+  if (error?.response || !config || config.__wakeRetried) return Promise.reject(error);
+  const method = String(config.method || "get").toLowerCase();
+  const repeatable = method === "get" || String(config.url || "").includes("/auth/login");
+  const awake = await wakeServer();
+  if (!awake || !repeatable) return Promise.reject(error);
+  config.__wakeRetried = true;
+  return apiClient.request(config);
+}
+
 /** Human-readable message from an API error ({ error: "..." } bodies). */
 export function apiErrorMessage(err: any, fallback = "Request failed. Please try again."): string {
-  if (!err?.response) return "Cannot reach the result server. Please try again shortly.";
+  if (!err?.response) return "Cannot reach the result server. It may still be starting; please try again in a minute.";
   return err.response.data?.error || fallback;
 }
 

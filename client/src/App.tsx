@@ -1,6 +1,7 @@
 import Home from "./pages/Home";
 import { PasswordChangeGate } from "./components/PasswordChange";
 import { ProfileEditDialog } from "./components/ProfileEdit";
+import { ServerWakeBanner } from "./components/ServerWake";
 
 export default function App() {
   return (
@@ -8,6 +9,7 @@ export default function App() {
       <Home />
       <PasswordChangeGate />
       <ProfileEditDialog />
+      <ServerWakeBanner />
     </>
   );
 }

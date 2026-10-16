@@ -48,8 +48,8 @@ const formatDob = (rawDob: any): string => {
     }
   }
   const str = String(rawDob).trim();
-  // Check if DD/MM/YYYY or DD-MM-YYYY format
-  const ddmmyyyyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  // Check if DD/MM/YYYY, DD-MM-YYYY or DD.MM.YYYY format
+  const ddmmyyyyMatch = str.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
   if (ddmmyyyyMatch) {
     const day = ddmmyyyyMatch[1].padStart(2, "0");
     const month = ddmmyyyyMatch[2].padStart(2, "0");
@@ -58,6 +58,40 @@ const formatDob = (rawDob: any): string => {
   }
   return str;
 };
+
+/*
+ * College sheets often start with title rows (college name, place, "First Year B.PHARM – I Semester", "Students Name
+ * List") above the real header row, and name the columns their own way ("Registration No", "Regular/Lateral Entry").
+ * The header row is found by looking for a register-number column and a name column in the first rows.
+ */
+const HEADER_ALIASES: Record<"reg" | "name" | "dob" | "category", string[]> = {
+  reg: ["registernumber", "registerno", "regno", "regnumber", "registrationnumber", "registrationno", "register", "rollno", "rollnumber"],
+  name: ["name", "studentname", "nameofthestudent", "studentsname", "candidatename", "candidate"],
+  dob: ["dob", "dateofbirth", "birthdate"],
+  category: ["category", "admissiontype", "regularlateralentry", "regularlateral", "entrytype", "entry", "type", "cat"],
+};
+const headerKey = (cell: any) => String(cell ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+type SheetRow = { sheetRow: number; reg: any; name: any; dob: any; category: any };
+
+/** The student rows of a sheet: finds the header row, maps its columns and skips blank rows. */
+function readStudentRows(ws: any): SheetRow[] {
+  const grid: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", blankrows: true });
+  const firstRow = ws["!ref"] ? XLSX.utils.decode_range(ws["!ref"]).s.r : 0;
+  const columnOf = (row: any[], field: keyof typeof HEADER_ALIASES) =>
+    row.findIndex((cell) => HEADER_ALIASES[field].includes(headerKey(cell)));
+  let headerIdx = grid.slice(0, 20).findIndex((row) => columnOf(row, "reg") >= 0 && columnOf(row, "name") >= 0);
+  if (headerIdx < 0) headerIdx = 0; // no recognisable header: the server reports the missing columns per row
+  const header = grid[headerIdx] || [];
+  const col = { reg: columnOf(header, "reg"), name: columnOf(header, "name"), dob: columnOf(header, "dob"), category: columnOf(header, "category") };
+  const at = (row: any[], i: number) => (i >= 0 ? row[i] : "");
+  return grid
+    .map((row, i) => ({ row, sheetRow: firstRow + i + 1 }))
+    .slice(headerIdx + 1)
+    // Rows with neither a register number nor a name are blank lines or notes under the list
+    .filter(({ row }) => String(at(row, col.reg)).trim() !== "" || String(at(row, col.name)).trim() !== "")
+    .map(({ row, sheetRow }) => ({ sheetRow, reg: at(row, col.reg), name: at(row, col.name), dob: at(row, col.dob), category: at(row, col.category) }));
+}
 
 export type StudentCategory = "regular" | "lateral";
 
@@ -436,52 +470,15 @@ export const ResultsUpload: React.FC = () => {
         const wb = XLSX.read(bstr, { type: "binary", cellDates: true, raw: isCsv });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
-        const rawJson: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+        // Title rows above the header are skipped; columns are matched by name (see readStudentRows)
+        const sheetRows = readStudentRows(ws);
 
         // Normalize data ensuring Register Number, Name, DOB, Dept, Category, Year are extracted
-        const normalized = rawJson.map((r, idx) => {
-          const rawReg =
-            r["Register Number"] ??
-            r["REGISTER NUMBER"] ??
-            r["Register No"] ??
-            r["REGISTER NO"] ??
-            r["Reg No"] ??
-            r["regNo"] ??
-            r["REG_NO"] ??
-            r["RegNo"] ??
-            r["RegisterNo"] ??
-            r["Register"] ??
-            "";
-
-          const rawName =
-            r["Name"] ??
-            r["NAME"] ??
-            r["Student Name"] ??
-            r["STUDENT NAME"] ??
-            r["studentName"] ??
-            r["Candidate Name"] ??
-            r["Candidate"] ??
-            "";
-
-          const rawDob =
-            r["DOB"] ??
-            r["dob"] ??
-            r["Date of Birth"] ??
-            r["DATE OF BIRTH"] ??
-            r["DateOfBirth"] ??
-            r["date_of_birth"] ??
-            r["Birth Date"] ??
-            "";
-
-          const rawCat =
-            r["Category"] ??
-            r["CATEGORY"] ??
-            r["category"] ??
-            r["Admission Type"] ??
-            r["ADMISSION TYPE"] ??
-            r["Type"] ??
-            r["Cat"] ??
-            "regular";
+        const normalized = sheetRows.map((r) => {
+          const rawReg = r.reg ?? "";
+          const rawName = r.name ?? "";
+          const rawDob = r.dob ?? "";
+          const rawCat = r.category === "" || r.category == null ? "regular" : r.category;
 
           const formattedDob = formatDob(rawDob);
           // Unknown categories are kept as typed so the server reports them instead of guessing "regular"
@@ -495,7 +492,6 @@ export const ResultsUpload: React.FC = () => {
           const cleanReg = String(rawReg).trim().toUpperCase();
 
           return {
-            ...r,
             "Register Number": cleanReg,
             "Name": String(rawName).trim(),
             "DOB": formattedDob,
@@ -508,7 +504,7 @@ export const ResultsUpload: React.FC = () => {
             dept: deptKey.toUpperCase(),
             category: cleanCategory,
             year: studyYear,
-            sheetRow: idx + 2, // spreadsheet row (header is row 1), used in error messages
+            sheetRow: r.sheetRow, // the row number in the spreadsheet, used in error messages
           };
         });
 
