@@ -14,9 +14,24 @@ import {
   Unlock,
   AlertCircle,
   Building2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { OfficerUser } from "./types";
 import { superAdminApi, apiErrorMessage } from "../../services/api";
+
+/** An eye button inside a password box that shows or hides what was typed. */
+const RevealButton: React.FC<{ shown: boolean; onToggle: () => void }> = ({ shown, onToggle }) => (
+  <button
+    type="button"
+    onClick={onToggle}
+    aria-label={shown ? "Hide password" : "Show password"}
+    title={shown ? "Hide password" : "Show password"}
+    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-[#0B192C]"
+  >
+    {shown ? <EyeOff size={15} /> : <Eye size={15} />}
+  </button>
+);
 
 /** "College COE" or "Deputy COE" for a chosen college; "All colleges" makes a Super Admin. */
 type OfficerKind = "COE" | "DEPUTY_COE";
@@ -37,6 +52,8 @@ export const UserProvisioningTab: React.FC = () => {
   });
   const [newKind, setNewKind] = useState<OfficerKind>("COE");
   const [startPassword, setStartPassword] = useState("");
+  const [showStartPassword, setShowStartPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resetModalUser, setResetModalUser] = useState<OfficerUser | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -359,15 +376,19 @@ export const UserProvisioningTab: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-[10px] font-extrabold uppercase text-slate-500 mb-1">Starting Password</label>
-                  <input
-                    type="password"
-                    required
-                    minLength={10}
-                    placeholder="10+ letters and digits"
-                    value={startPassword}
-                    onChange={(e) => setStartPassword(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-[#0B192C] focus:outline-none focus:border-[#0B192C]"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showStartPassword ? "text" : "password"}
+                      required
+                      minLength={10}
+                      aria-label="Starting password"
+                      placeholder="10+ letters and digits"
+                      value={startPassword}
+                      onChange={(e) => setStartPassword(e.target.value)}
+                      className="w-full p-2.5 pr-10 rounded-xl border border-slate-200 text-xs text-[#0B192C] focus:outline-none focus:border-[#0B192C]"
+                    />
+                    <RevealButton shown={showStartPassword} onToggle={() => setShowStartPassword((v) => !v)} />
+                  </div>
                 </div>
               </div>
               <p className="text-[10px] text-slate-500 -mt-1">The officer must replace the starting password at first sign-in.</p>
@@ -428,14 +449,18 @@ export const UserProvisioningTab: React.FC = () => {
                 <label className="block text-[10px] font-extrabold uppercase text-slate-500 mb-1">
                   New Password
                 </label>
-                <input
-                  type="password"
-                  required
-                  placeholder="10+ characters, letters and digits"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs text-[#0B192C] focus:outline-none focus:border-[#0B192C]"
-                />
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    required
+                    aria-label="New password"
+                    placeholder="10+ characters, letters and digits"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full p-2.5 pr-10 rounded-xl border border-slate-200 text-xs text-[#0B192C] focus:outline-none focus:border-[#0B192C]"
+                  />
+                  <RevealButton shown={showNewPassword} onToggle={() => setShowNewPassword((v) => !v)} />
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">

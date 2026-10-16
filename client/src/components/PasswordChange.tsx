@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { KeyRound, LogOut, ShieldCheck, X } from "lucide-react";
+import { Eye, EyeOff, KeyRound, LogOut, ShieldCheck, X } from "lucide-react";
 import { apiErrorMessage, authApi } from "../services/api";
 
 /** Fired when the server says the signed-in account must choose its own password first. */
@@ -21,6 +21,24 @@ function readChangedNotice(): boolean {
 
 const inputClass =
   "w-full h-11 px-3.5 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-[#172033] focus:border-[#0B192C] focus:ring-1 focus:ring-[#0B192C] focus:outline-none";
+
+/** A password box with an eye button to show or hide what was typed. */
+function PasswordField({ value, onChange, autoComplete, label }: {
+  value: string; onChange: (v: string) => void; autoComplete: string; label: string;
+}) {
+  const [shown, setShown] = useState(false);
+  return (
+    <div className="relative">
+      <input type={shown ? "text" : "password"} required autoComplete={autoComplete} aria-label={label} value={value}
+        onChange={(e) => onChange(e.target.value)} className={`${inputClass} pr-11`} />
+      <button type="button" onClick={() => setShown((s) => !s)} aria-label={shown ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+        title={shown ? "Hide password" : "Show password"}
+        className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-[#0B192C]">
+        {shown ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
+  );
+}
 
 /**
  * Staff password change. Opens by itself (and cannot be dismissed) while the account still has its shared starting
@@ -124,19 +142,19 @@ export function PasswordChangeGate() {
             </button>
           )}
         </div>
-        <label className="block space-y-1">
+        <div className="block space-y-1">
           <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Current password</span>
-          <input type="password" required autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} className={inputClass} />
-        </label>
-        <label className="block space-y-1">
+          <PasswordField label="Current password" autoComplete="current-password" value={current} onChange={setCurrent} />
+        </div>
+        <div className="block space-y-1">
           <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">New password</span>
-          <input type="password" required autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} className={inputClass} />
+          <PasswordField label="New password" autoComplete="new-password" value={next} onChange={setNext} />
           <span className="block text-[11px] text-slate-500">At least 10 characters, with letters and digits, not containing your username.</span>
-        </label>
-        <label className="block space-y-1">
+        </div>
+        <div className="block space-y-1">
           <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Confirm new password</span>
-          <input type="password" required autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className={inputClass} />
-        </label>
+          <PasswordField label="Confirm new password" autoComplete="new-password" value={confirm} onChange={setConfirm} />
+        </div>
         {error && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">{error}</p>}
         <div className="flex gap-2 pt-1">
           <button type="submit" disabled={saving} className="flex-1 h-11 rounded-xl bg-[#0B192C] text-white text-sm font-extrabold flex items-center justify-center gap-2 disabled:opacity-60">

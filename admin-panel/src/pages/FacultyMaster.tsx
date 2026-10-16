@@ -44,18 +44,52 @@ const toForm = (d: FacultyDetail): FacultyInput => ({
   qualifications: d.qualifications, employment: d.employment, courses: d.courses,
 });
 
-/** Same rule as the server: each row counts from its from date to its to date, both inclusive, in whole months. */
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+const todayIso = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+const nextDay = (iso: string) => {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + 1);
+  return d;
+};
+
+/** Whole months from one date to another, both inclusive (same rule as the server). */
+function monthsBetween(fromIso: string, toIso: string): number {
+  if (!ISO.test(fromIso) || !ISO.test(toIso) || toIso < fromIso) return 0;
+  const from = new Date(fromIso + "T00:00:00");
+  const end = nextDay(toIso);
+  let m = (end.getFullYear() - from.getFullYear()) * 12 + (end.getMonth() - from.getMonth());
+  if (end.getDate() < from.getDate()) m -= 1;
+  return Math.max(0, m);
+}
+
+/** A blank to date means the faculty member still works there: it counts until today. */
+const rowEnd = (r: FacultyEmployment) => (r.to ? r.to : todayIso());
+
+/** Each row from its from date to its to date (today when blank), both inclusive, in whole months. */
 function experienceMonths(rows: FacultyEmployment[]): number {
+  return rows.reduce((sum, r) => sum + monthsBetween(r.from, rowEnd(r)), 0);
+}
+
+/** Every employment period plus service here (joining to today), merged so an overlap is counted once. */
+function overallMonths(rows: FacultyEmployment[], joinedServiceOn: string): number {
+  const today = todayIso();
+  const spans = rows.filter((r) => ISO.test(r.from) && r.from <= rowEnd(r)).map((r) => [r.from, rowEnd(r)]);
+  if (ISO.test(joinedServiceOn) && joinedServiceOn <= today) spans.push([joinedServiceOn, today]);
+  spans.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
   let months = 0;
-  for (const r of rows) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(r.from) || !/^\d{4}-\d{2}-\d{2}$/.test(r.to) || r.to < r.from) continue;
-    const from = new Date(r.from + "T00:00:00");
-    const end = new Date(r.to + "T00:00:00");
-    end.setDate(end.getDate() + 1);
-    let m = (end.getFullYear() - from.getFullYear()) * 12 + (end.getMonth() - from.getMonth());
-    if (end.getDate() < from.getDate()) m -= 1;
-    months += Math.max(0, m);
+  let cur: string[] | null = null;
+  for (const s of spans) {
+    if (cur && new Date(s[0] + "T00:00:00") <= nextDay(cur[1])) {
+      if (s[1] > cur[1]) cur[1] = s[1];
+      continue;
+    }
+    if (cur) months += monthsBetween(cur[0], cur[1]);
+    cur = [...s];
   }
+  if (cur) months += monthsBetween(cur[0], cur[1]);
   return months;
 }
 const formatExperience = (months: number) => `${Math.floor(months / 12)} yr ${months % 12} mo`;
@@ -517,10 +551,15 @@ const FacultyEditor: React.FC<EditorProps> = ({ id, readOnly, departments, onEdi
                 <input className={input} required maxLength={80} placeholder="e.g. Assistant Professor" value={form.designation} onChange={(e) => set("designation", e.target.value)} />
               </Field>
               <Field label="Date of Joining Service" required>
-                <input type="date" className={input} required value={form.joinedServiceOn} onChange={(e) => set("joinedServiceOn", e.target.value)} />
+                <input type="date" className={input} required max={todayIso()} value={form.joinedServiceOn} onChange={(e) => set("joinedServiceOn", e.target.value)} />
+                <span className="block text-[11px] font-bold text-[#0B192C]" data-testid="exp-this-college">
+                  {ISO.test(form.joinedServiceOn) && form.joinedServiceOn <= todayIso()
+                    ? `Experience in this college: ${formatExperience(monthsBetween(form.joinedServiceOn, todayIso()))} (till today)`
+                    : "Experience is counted from this date to today"}
+                </span>
               </Field>
               <Field label="Date of Joining Present Post" required>
-                <input type="date" className={input} required value={form.joinedPostOn} onChange={(e) => set("joinedPostOn", e.target.value)} />
+                <input type="date" className={input} required max={todayIso()} value={form.joinedPostOn} onChange={(e) => set("joinedPostOn", e.target.value)} />
               </Field>
               <Field label="Aadhaar Number">
                 <input className={input} inputMode="numeric" maxLength={readOnly ? 20 : 14} placeholder="12 digits" value={form.aadhaar}
@@ -623,7 +662,7 @@ const FacultyEditor: React.FC<EditorProps> = ({ id, readOnly, departments, onEdi
                         <th className="text-left px-2 py-2">{s.key === "INDUSTRIAL" ? "Company" : "College"}</th>
                         <th className="text-left px-2 py-2">Location</th>
                         <th className="text-left px-2 py-2 w-36">From</th>
-                        <th className="text-left px-2 py-2 w-36">To</th>
+                        <th className="text-left px-2 py-2 w-36">To <span className="normal-case font-semibold">(blank = till date)</span></th>
                         {!readOnly && <th className="w-10" />}
                       </tr>
                     </thead>
@@ -633,8 +672,11 @@ const FacultyEditor: React.FC<EditorProps> = ({ id, readOnly, departments, onEdi
                           <td className="px-2 py-1.5"><input className={cell} required maxLength={80} value={r.designation} onChange={(e) => updateRow<FacultyEmployment>("employment", i, { designation: e.target.value })} /></td>
                           <td className="px-2 py-1.5"><input className={cell} required maxLength={150} value={r.organisation} onChange={(e) => updateRow<FacultyEmployment>("employment", i, { organisation: e.target.value })} /></td>
                           <td className="px-2 py-1.5"><input className={cell} required maxLength={100} value={r.location} onChange={(e) => updateRow<FacultyEmployment>("employment", i, { location: e.target.value })} /></td>
-                          <td className="px-2 py-1.5"><input type="date" className={cell} required value={r.from} onChange={(e) => updateRow<FacultyEmployment>("employment", i, { from: e.target.value })} /></td>
-                          <td className="px-2 py-1.5"><input type="date" className={cell} required value={r.to} min={r.from || undefined} onChange={(e) => updateRow<FacultyEmployment>("employment", i, { to: e.target.value })} /></td>
+                          <td className="px-2 py-1.5"><input type="date" className={cell} required max={todayIso()} value={r.from} onChange={(e) => updateRow<FacultyEmployment>("employment", i, { from: e.target.value })} /></td>
+                          <td className="px-2 py-1.5">
+                            <input type="date" className={cell} aria-label="To date (blank = till date)" value={r.to} min={r.from || undefined} max={todayIso()} onChange={(e) => updateRow<FacultyEmployment>("employment", i, { to: e.target.value })} />
+                            {!r.to && <span className="block px-2 text-[10px] font-bold text-emerald-700">Till date</span>}
+                          </td>
                           {!readOnly && (
                             <td className="px-2 py-1.5"><button type="button" onClick={() => removeRow("employment", i)} aria-label="Delete employment row" className="p-1.5 rounded-lg text-red-700 hover:bg-red-50"><Trash2 size={13} /></button></td>
                           )}
@@ -655,8 +697,14 @@ const FacultyEditor: React.FC<EditorProps> = ({ id, readOnly, departments, onEdi
               </div>
             );
           })}
-          <div className="text-xs font-black text-[#0B192C] text-right">
-            Overall experience: {formatExperience(experienceMonths(form.employment))}
+          <div className="text-xs font-black text-[#0B192C] text-right space-y-1">
+            <p data-testid="exp-joined">
+              Experience in this college (joined {ISO.test(form.joinedServiceOn) ? form.joinedServiceOn.split("-").reverse().join("-") : "—"} to today): {formatExperience(monthsBetween(form.joinedServiceOn, todayIso()))}
+            </p>
+            <p data-testid="exp-overall">
+              Overall experience: {formatExperience(overallMonths(form.employment, form.joinedServiceOn))}
+            </p>
+            <p className="text-[10px] font-semibold text-gray-500">Periods that overlap are counted once.</p>
           </div>
         </div>
 

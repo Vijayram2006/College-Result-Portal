@@ -10,6 +10,7 @@ import * as XLSX from "xlsx";
 import { downloadWorkbook } from "../utils/downloadWorkbook";
 import { FacultyMarkEntry } from "../components/FacultyMarkEntry";
 import { NotificationBell } from "../components/NotificationBell";
+import { FacultyBanner } from "../components/FacultyBanner";
 import { PublishedResultsDownload } from "../components/PublishedResultsDownload";
 import { useSystemConfig, isStudentPortalClosed, isRevaluationOpen } from "../utils/systemConfig";
 import type { PublishedBatch } from "../utils/publishedResults";
@@ -3415,11 +3416,11 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-[260px] flex-col bg-[#0B192C] text-white transition-transform duration-200 ease-out lg:static lg:translate-x-0 border-r border-[#D4A72C]/20 shadow-2xl",
+          "fixed inset-y-0 left-0 z-40 flex w-[260px] shrink-0 flex-col bg-[#0B192C] text-white transition-transform duration-200 ease-out lg:sticky lg:top-0 lg:h-screen lg:self-start lg:translate-x-0 border-r border-[#D4A72C]/20 shadow-2xl",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex h-[78px] items-center justify-between border-b border-white/10 px-5">
+        <div className={cn("flex shrink-0 items-center justify-between px-5 box-border", role === "Faculty" ? "h-[6.75rem] border-b-4 border-[#D4A72C]" : "h-[78px] border-b border-white/10")}>
           <div className="flex items-center gap-3">
             <img
               src="/kvell-logo.png"
@@ -3536,7 +3537,18 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* TOP NAVBAR HEADER */}
+        {/* TOP NAVBAR HEADER: faculty get the COE portal's college banner */}
+        {role === "Faculty" ? (
+          <FacultyBanner
+            collegeName={facultyCollege?.collegeName ?? authApi.currentUser()?.collegeName ?? "KVELL University"}
+            logoUrl={facultyCollege?.logoUrl || "/kvell-logo.png"}
+            pageTitle={activeNav?.label ?? "Dashboard"}
+            userName={authApi.currentUser()?.name ?? "Faculty"}
+            username={authApi.currentUser()?.username ?? ""}
+            onOpenMenu={() => setSidebarOpen(true)}
+            onBack={activePage !== "dashboard" ? () => navigate("dashboard") : undefined}
+          />
+        ) : (
         <header className="sticky top-0 z-20 flex h-[78px] items-center justify-between border-b border-[#E5E1D8] bg-white/90 backdrop-blur-md px-4 sm:px-6 lg:px-8 shadow-sm">
           <div className="flex min-w-0 items-center gap-3">
             {activePage !== "dashboard" && (
@@ -3573,20 +3585,18 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
-            {role !== "Faculty" && (
-              <div className="relative hidden md:block">
-                <Search
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                  size={15}
-                />
-                <input
-                  value={globalSearch}
-                  onChange={(event) => setGlobalSearch(event.target.value)}
-                  placeholder="Search portal..."
-                  className="h-10 w-52 rounded-2xl border border-slate-200 bg-[#F8F5EE] pl-9 pr-3.5 text-xs font-semibold text-[#172033] placeholder:text-slate-400 focus:border-[#0B192C] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0B192C] transition lg:w-64 shadow-sm"
-                />
-              </div>
-            )}
+            <div className="relative hidden md:block">
+              <Search
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                size={15}
+              />
+              <input
+                value={globalSearch}
+                onChange={(event) => setGlobalSearch(event.target.value)}
+                placeholder="Search portal..."
+                className="h-10 w-52 rounded-2xl border border-slate-200 bg-[#F8F5EE] pl-9 pr-3.5 text-xs font-semibold text-[#172033] placeholder:text-slate-400 focus:border-[#0B192C] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0B192C] transition lg:w-64 shadow-sm"
+              />
+            </div>
 
             <button
               onClick={() => setToast("Help center is coming soon")}
@@ -3616,6 +3626,7 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
             </div>
           </div>
         </header>
+        )}
 
         <main className="flex-1">
           <div className="mx-auto w-full max-w-[1440px] px-4 py-7 sm:px-6 lg:px-8">

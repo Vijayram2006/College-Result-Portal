@@ -54,7 +54,7 @@ public class FacultyMasterController {
     public record Qualification(String qualification, String discipline, String completedOn) {
     }
 
-    /** section: ENGINEERING (teaching), INDUSTRIAL or POLYTECHNIC. Dates are yyyy-MM-dd. */
+    /** section: ENGINEERING (teaching), INDUSTRIAL or POLYTECHNIC. Dates are yyyy-MM-dd; a blank to date means till date. */
     public record Employment(String section, String designation, String organisation, String location, String from,
                              String to) {
     }
@@ -70,7 +70,7 @@ public class FacultyMasterController {
                                List<CourseOffered> courses) {
     }
 
-    /** Total experience per employment section. */
+    /** Total experience per employment section, then THIS_COLLEGE (joining service to today) and TOTAL. */
     public record Experience(String section, int years, int months) {
     }
 
@@ -122,8 +122,8 @@ public class FacultyMasterController {
                         """)
                 .param("college", departments.college()).param("dept", deptKey)
                 .query((rs, n) -> {
-                    List<Experience> exp = experience(employmentRows(rs.getString("employment")));
-                    int months = exp.stream().mapToInt(e -> e.years() * 12 + e.months()).sum();
+                    LocalDate joined = rs.getObject("joined_service_on", LocalDate.class);
+                    int months = overallMonths(employmentRows(rs.getString("employment")), joined, LocalDate.now());
                     return new FacultySummary(rs.getLong("id"), rs.getString("title"), rs.getString("name"),
                             rs.getString("dept_key"), rs.getString("dept_name"), rs.getString("designation"),
                             rs.getString("gender"), rs.getString("mobile"), rs.getString("email"),
@@ -379,13 +379,14 @@ public class FacultyMasterController {
             String org = text(e.organisation(), "College or company", 2, 150, true);
             String loc = text(e.location(), "Location", 2, 100, true);
             LocalDate from = date(e.from(), "From date", true);
-            LocalDate to = date(e.to(), "To date", true);
-            if (to.isBefore(from)) throw ApiException.badRequest("To date is before from date at " + org);
-            if (to.isAfter(today)) throw ApiException.badRequest("To date cannot be in the future at " + org);
+            LocalDate to = date(e.to(), "To date", false);
+            if (from.isAfter(today)) throw ApiException.badRequest("From date cannot be in the future at " + org);
+            if (to != null && to.isBefore(from)) throw ApiException.badRequest("To date is before from date at " + org);
+            if (to != null && to.isAfter(today)) throw ApiException.badRequest("To date cannot be in the future at " + org);
             if (from.isBefore(c.dob.plusYears(18))) {
                 throw ApiException.badRequest("Employment at " + org + " starts before the age of 18");
             }
-            c.employment.add(new Employment(section, des, org, loc, from.toString(), to.toString()));
+            c.employment.add(new Employment(section, des, org, loc, from.toString(), to == null ? "" : to.toString()));
         }
 
         c.courses = new ArrayList<>();
@@ -493,7 +494,8 @@ public class FacultyMasterController {
                 json.readValue(rs.getString("qualifications"), new TypeReference<List<Qualification>>() { }),
                 employment,
                 json.readValue(rs.getString("courses"), new TypeReference<List<CourseOffered>>() { }),
-                experience(employment), rs.getBoolean("has_photo"), rs.getBoolean("has_signature"),
+                experience(employment, rs.getObject("joined_service_on", LocalDate.class), LocalDate.now()),
+                rs.getBoolean("has_photo"), rs.getBoolean("has_signature"),
                 rs.getString("created_by"), rs.getString("updated_by"),
                 Semesters.display(rs.getObject("updated_at", OffsetDateTime.class)));
     }
@@ -502,19 +504,58 @@ public class FacultyMasterController {
         return json.readValue(raw, new TypeReference<List<Employment>>() { });
     }
 
-    /** Years and months per section; each row counts from its from date to its to date, both inclusive. */
-    static List<Experience> experience(List<Employment> rows) {
+    /**
+     * Years and months per section; each row counts from its from date to its to date (today when left blank), both
+     * inclusive. THIS_COLLEGE runs from joining service to today; TOTAL is every period together, overlaps counted once.
+     */
+    static List<Experience> experience(List<Employment> rows, LocalDate joinedService, LocalDate today) {
         List<Experience> out = new ArrayList<>();
         for (String section : SECTIONS) {
             int months = 0;
             for (Employment e : rows) {
-                if (!section.equals(e.section())) continue;
-                Period p = Period.between(LocalDate.parse(e.from()), LocalDate.parse(e.to()).plusDays(1));
-                months += p.getYears() * 12 + p.getMonths();
+                if (section.equals(e.section())) months += months(LocalDate.parse(e.from()), endOf(e, today));
             }
-            out.add(new Experience(section, months / 12, months % 12));
+            out.add(experience(section, months));
         }
+        out.add(experience("THIS_COLLEGE", months(joinedService, today)));
+        out.add(experience("TOTAL", overallMonths(rows, joinedService, today)));
         return out;
+    }
+
+    /** All employment periods plus service here (joining to today), merged so an overlap is counted once. */
+    static int overallMonths(List<Employment> rows, LocalDate joinedService, LocalDate today) {
+        List<LocalDate[]> spans = new ArrayList<>();
+        for (Employment e : rows) spans.add(new LocalDate[] {LocalDate.parse(e.from()), endOf(e, today)});
+        if (joinedService != null && !joinedService.isAfter(today)) spans.add(new LocalDate[] {joinedService, today});
+        spans.sort((a, b) -> a[0].compareTo(b[0]));
+        int months = 0;
+        LocalDate start = null, end = null;
+        for (LocalDate[] s : spans) {
+            if (start != null && !s[0].isAfter(end.plusDays(1))) {
+                if (s[1].isAfter(end)) end = s[1];
+                continue;
+            }
+            if (start != null) months += months(start, end);
+            start = s[0];
+            end = s[1];
+        }
+        if (start != null) months += months(start, end);
+        return months;
+    }
+
+    private static LocalDate endOf(Employment e, LocalDate today) {
+        return e.to() == null || e.to().isBlank() ? today : LocalDate.parse(e.to());
+    }
+
+    /** Whole months from one date to another, both inclusive. */
+    private static int months(LocalDate from, LocalDate to) {
+        if (from == null || to.isBefore(from)) return 0;
+        Period p = Period.between(from, to.plusDays(1));
+        return p.getYears() * 12 + p.getMonths();
+    }
+
+    private static Experience experience(String section, int months) {
+        return new Experience(section, months / 12, months % 12);
     }
 
     /** Verhoeff check digit, as used by Aadhaar numbers. */

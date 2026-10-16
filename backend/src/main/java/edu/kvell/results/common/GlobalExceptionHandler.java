@@ -61,6 +61,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(Map.of("error", "Malformed request body"));
     }
 
+    /** A path or query value of the wrong type, e.g. text where a record number belongs ("/faculty-master/abc"). */
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    ResponseEntity<Map<String, String>> handleTypeMismatch(
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.badRequest().body(Map.of("error", "Invalid " + ex.getName()));
+    }
+
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     ResponseEntity<Map<String, String>> handleMethod(HttpRequestMethodNotSupportedException ex) {
         return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(Map.of("error", "Method not allowed"));
