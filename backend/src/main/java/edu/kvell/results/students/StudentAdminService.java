@@ -62,6 +62,9 @@ public class StudentAdminService {
     @org.springframework.beans.factory.annotation.Autowired
     private NotificationService notifications;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private edu.kvell.results.common.ResultsCache cache;
+
     public List<StudentView> list(String dept, String semester) {
         return list(dept, semester, null, null);
     }
@@ -96,6 +99,7 @@ public class StudentAdminService {
     @Transactional
     public SaveResult save(SaveRequest request, CurrentUser user, String ip) {
         if (request == null || request.students() == null || request.students().isEmpty()) {
+        cache.clear();
             throw ApiException.badRequest("Add at least one student");
         }
         if (request.students().size() > MAX_ROWS) {
@@ -221,6 +225,7 @@ public class StudentAdminService {
 
     @Transactional
     public void delete(String regNo, CurrentUser user, String ip) {
+        cache.clear();
         String reg = regNo.trim().toUpperCase(Locale.ROOT);
         int deleted = db.sql("DELETE FROM students WHERE reg_no = ? AND " + departments.inCollege("dept_key"))
                 .param(reg).update();
@@ -236,6 +241,7 @@ public class StudentAdminService {
     @Transactional
     public int deleteGroup(String dept, String year, String semester, String academicYear, CurrentUser user,
                            String ip) {
+        cache.clear();
         String deptKey = departments.key(dept);
         int sem = Semesters.parse(semester);
         String yearLabel = required(year, "Year", 20);

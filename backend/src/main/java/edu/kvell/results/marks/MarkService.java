@@ -41,7 +41,7 @@ public class MarkService {
 
     public record MarkRequest(String deptKey, String semester, String subjectCode, String regNo,
                               String assessmentType, List<Double> partA, Map<String, Question> partBC,
-                              String examinerName, String examinerDesignation) {
+                              String examinerName, String examinerDesignation, Integer expectedVersion) {
     }
 
     /** One row of the Mark Entry roster; matches the admin panel's StudentMarkData. */
@@ -50,7 +50,7 @@ public class MarkService {
                               String resultStatus, List<Double> partA, Map<String, Question> partBC,
                               String assessmentType, String deptKey, String deptName, String semester,
                               String subjectCode, String subjectTitle, String examinerName,
-                              String examinerDesignation) {
+                              String examinerDesignation, int version) {
     }
 
     private static final Set<String> ASSESSMENTS = Set.of("IAT-1", "IAT-2", "End Semester");
@@ -73,7 +73,7 @@ public class MarkService {
         return db.sql("""
                         SELECT s.reg_no, s.name, s.dob, s.category, m.assessment_type, m.part_a, m.part_bc,
                                m.part_a_total, m.part_bc_total, m.grand_total, m.grade, m.passed,
-                               m.examiner_name, m.examiner_designation,
+                               m.examiner_name, m.examiner_designation, m.version,
                                m.dept_key, d.name AS dept_name, m.semester, m.subject_code, m.subject_title
                         FROM marks m
                         JOIN students s ON s.reg_no = m.reg_no
@@ -91,7 +91,7 @@ public class MarkService {
         return db.sql("""
                         SELECT s.reg_no, s.name, CAST(NULL AS DATE) AS dob, s.category, m.assessment_type, m.part_a, m.part_bc,
                                m.part_a_total, m.part_bc_total, m.grand_total, m.grade, m.passed,
-                               m.examiner_name, m.examiner_designation,
+                               m.examiner_name, m.examiner_designation, m.version,
                                m.dept_key, d.name AS dept_name, m.semester, m.subject_code, m.subject_title
                         FROM marks m
                         JOIN students s ON s.reg_no = m.reg_no
@@ -116,7 +116,7 @@ public class MarkService {
         return db.sql("""
                         SELECT s.reg_no, s.name, s.dob, s.category, m.assessment_type, m.part_a, m.part_bc,
                                m.part_a_total, m.part_bc_total, m.grand_total, m.grade, m.passed,
-                               m.examiner_name, m.examiner_designation
+                               m.examiner_name, m.examiner_designation, m.version
                         FROM students s
                         LEFT JOIN marks m ON m.reg_no = s.reg_no AND m.dept_key = s.dept_key
                                          AND m.semester = s.semester AND m.subject_code = :code
@@ -161,6 +161,19 @@ public class MarkService {
             checkPartLocks(deptKey, sem, code, regNo, assessment, partA, partBC);
         }
 
+        // Optimistic locking: refuse to overwrite an entry someone else saved after this form was loaded
+        Map<String, Object> before = db.sql("""
+                        SELECT version, grand_total, grade, part_a_total, part_bc_total FROM marks
+                        WHERE dept_key = ? AND semester = ? AND subject_code = ? AND reg_no = ? AND assessment_type = ?
+                        FOR UPDATE
+                        """)
+                .params(deptKey, sem, code, regNo, assessment).query().listOfRows().stream().findFirst().orElse(null);
+        int currentVersion = before == null ? 0 : ((Number) before.get("version")).intValue();
+        if (req.expectedVersion() != null && req.expectedVersion() != currentVersion) {
+            throw ApiException.conflict("These marks were changed by someone else after you opened them. "
+                    + "Reload the student's marks and enter them again.");
+        }
+
         db.sql("""
                         INSERT INTO marks (dept_key, semester, subject_code, subject_title, reg_no, assessment_type,
                                            part_a, part_bc, part_a_total, part_bc_total, grand_total, grade, passed,
@@ -173,7 +186,7 @@ public class MarkService {
                             grand_total = EXCLUDED.grand_total, grade = EXCLUDED.grade, passed = EXCLUDED.passed,
                             examiner_name = EXCLUDED.examiner_name,
                             examiner_designation = EXCLUDED.examiner_designation,
-                            entered_by = EXCLUDED.entered_by, entered_at = now()
+                            entered_by = EXCLUDED.entered_by, entered_at = now(), version = marks.version + 1
                         """)
                 .params(deptKey, sem, code, title, regNo, assessment, pgArray(partA), pgArray(partBC),
                         BigDecimal.valueOf(partATotal), BigDecimal.valueOf(partBCTotal), grade.total(),
@@ -182,7 +195,11 @@ public class MarkService {
         audit.record(user.username(), user.name(), "ENTERED_STUDENT_MARKS", regNo + " (" + studentName + ")",
                 "Entered " + assessment + " marks in " + code + " " + title + ": total " + grade.total()
                         + "/100, grade " + grade.letter() + " (" + (grade.passed() ? "PASS" : "FAIL")
-                        + "). Evaluated by " + examiner + " (" + designation + ").", ip);
+                        + "). Evaluated by " + examiner + " (" + designation + ").", ip,
+                before == null ? null : "Part A " + before.get("part_a_total") + ", Part B+C " + before.get("part_bc_total")
+                        + ", total " + before.get("grand_total") + ", grade " + before.get("grade"),
+                "Part A " + BigDecimal.valueOf(partATotal) + ", Part B+C " + BigDecimal.valueOf(partBCTotal)
+                        + ", total " + grade.total() + ", grade " + grade.letter());
         return roster(deptKey, Semesters.label(sem), code, assessment).stream().filter(m -> m.regNo().equals(regNo))
                 .findFirst().orElseThrow();
     }
@@ -275,7 +292,7 @@ public class MarkService {
         if (assessment == null) {
             return new StudentMark(regNo, rs.getString("name"), dob, rs.getString("category"), false, 0, 0, 0, "—",
                     "FAIL", zeros(PART_A_QUESTIONS), emptyBC(), null, deptKey, deptName, Semesters.label(sem), code,
-                    title, null, null);
+                    title, null, null, 0);
         }
         List<Double> partA = toList(rs.getArray("part_a"));
         List<Double> flat = toList(rs.getArray("part_bc"));
@@ -290,7 +307,7 @@ public class MarkService {
                 rs.getBigDecimal("part_a_total").doubleValue(), rs.getBigDecimal("part_bc_total").doubleValue(),
                 rs.getInt("grand_total"), rs.getString("grade"), rs.getBoolean("passed") ? "PASS" : "FAIL", partA,
                 partBC, assessment, deptKey, deptName, Semesters.label(sem), code, title,
-                rs.getString("examiner_name"), rs.getString("examiner_designation"));
+                rs.getString("examiner_name"), rs.getString("examiner_designation"), rs.getInt("version"));
     }
 
     /**

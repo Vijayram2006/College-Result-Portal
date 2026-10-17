@@ -27,9 +27,12 @@ public class PublicController {
     private final JdbcClient db;
     private final GovernanceService governance;
 
-    public PublicController(JdbcClient db, GovernanceService governance) {
+    private final edu.kvell.results.common.ResultsCache cache;
+
+    public PublicController(JdbcClient db, GovernanceService governance, edu.kvell.results.common.ResultsCache cache) {
         this.db = db;
         this.governance = governance;
+        this.cache = cache;
     }
 
     /**
@@ -43,6 +46,10 @@ public class PublicController {
 
     @GetMapping("/summary")
     Summary summary() {
+        return cache.get("public-summary", this::loadSummary);
+    }
+
+    private Summary loadSummary() {
         OffsetDateTime last = db.sql("SELECT max(published_at) FROM result_batches WHERE status = 'PUBLISHED'")
                 .query(OffsetDateTime.class).optional().orElse(null);
         Map<String, Object> pass = db.sql("""

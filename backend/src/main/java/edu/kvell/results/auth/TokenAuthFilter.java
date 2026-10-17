@@ -23,6 +23,8 @@ public class TokenAuthFilter extends OncePerRequestFilter {
 
     private static final Set<String> ALLOWED_BEFORE_PASSWORD_CHANGE =
             Set.of("/api/auth/change-password", "/api/auth/me", "/api/auth/logout");
+    private static final Set<String> ALLOWED_BEFORE_MFA_SETUP =
+            Set.of("/api/auth/mfa/setup", "/api/auth/mfa/enable", "/api/auth/me", "/api/auth/logout");
 
     private final AuthService auth;
 
@@ -46,12 +48,22 @@ public class TokenAuthFilter extends OncePerRequestFilter {
                             + "\"passwordChangeRequired\":true}");
                     return;
                 }
+                if (!user.get().mustChangePassword() && user.get().mfaSetupRequired()
+                        && !"OPTIONS".equals(request.getMethod())
+                        && !ALLOWED_BEFORE_MFA_SETUP.contains(request.getRequestURI())) {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\":\"Set up two-step sign-in before continuing\","
+                            + "\"mfaSetupRequired\":true}");
+                    return;
+                }
                 CurrentUser current = user.get();
                 List<SimpleGrantedAuthority> roles = List.of(new SimpleGrantedAuthority("ROLE_" + current.role().name()));
                 if (current.role() == CurrentUser.Role.SUPER_ADMIN) {
                     // The Super Admin works in the college it is inspecting, with every COE right there
                     current = new CurrentUser(current.id(), current.username(), current.name(), current.role(),
-                            null, null, inspectedCollege(request, current.collegeKey()), current.mustChangePassword());
+                            null, null, inspectedCollege(request, current.collegeKey()), current.mustChangePassword(),
+                            current.mfaSetupRequired());
                     roles = List.of(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"), new SimpleGrantedAuthority("ROLE_ADMIN"));
                 }
                 var authentication = new UsernamePasswordAuthenticationToken(current, null, roles);

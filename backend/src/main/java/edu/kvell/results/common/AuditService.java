@@ -3,6 +3,7 @@ package edu.kvell.results.common;
 import java.time.OffsetDateTime;
 import java.util.List;
 import edu.kvell.results.auth.CurrentUser;
+import org.slf4j.MDC;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
@@ -11,7 +12,8 @@ public class AuditService {
 
     /** Matches the admin panel's AuditLogRecord. */
     public record AuditLogRecord(String id, String adminId, String adminName, String action, String target,
-                                 String timestamp, String ipAddress, String description) {
+                                 String timestamp, String ipAddress, String description, String oldValue,
+                                 String newValue) {
     }
 
     private final JdbcClient db;
@@ -21,25 +23,42 @@ public class AuditService {
     }
 
     public void record(String actor, String actorName, String action, String target, String description, String ip) {
+        record(actor, actorName, action, target, description, ip, null, null);
+    }
+
+    /**
+     * One audit entry. oldValue / newValue hold what a change replaced and what it wrote (for mark edits, corrections
+     * and deletions). The table is append-only: the database refuses updates and deletes.
+     */
+    public void record(String actor, String actorName, String action, String target, String description, String ip,
+                       String oldValue, String newValue) {
         db.sql("""
                         INSERT INTO audit_logs (actor, actor_name, action, target, description, ip_address,
-                                                college_key)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                                                college_key, old_value, new_value, request_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """)
-                .params(actor, actorName, action, truncate(target, 200), description, ip, college(actor))
+                .params(actor, actorName, action, truncate(target, 200), description, ip, college(actor),
+                        oldValue, newValue, MDC.get("requestId"))
                 .update();
     }
 
     public List<AuditLogRecord> latest(int limit) {
+        return latest(limit, 0);
+    }
+
+    /** One page of the college's audit log, newest first. */
+    public List<AuditLogRecord> latest(int limit, int offset) {
         return db.sql("""
-                        SELECT id, actor, actor_name, action, target, description, ip_address, created_at
-                        FROM audit_logs WHERE college_key = ? ORDER BY created_at DESC, id DESC LIMIT ?
+                        SELECT id, actor, actor_name, action, target, description, ip_address, created_at,
+                               old_value, new_value
+                        FROM audit_logs WHERE college_key = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?
                         """)
-                .params(CurrentUser.get().collegeKey(), limit)
+                .params(CurrentUser.get().collegeKey(), limit, offset)
                 .query((rs, n) -> new AuditLogRecord("LOG-" + rs.getLong("id"), rs.getString("actor"),
                         rs.getString("actor_name"), rs.getString("action"), rs.getString("target"),
                         Semesters.display(rs.getObject("created_at", OffsetDateTime.class)),
-                        rs.getString("ip_address"), rs.getString("description")))
+                        rs.getString("ip_address"), rs.getString("description"), rs.getString("old_value"),
+                        rs.getString("new_value")))
                 .list();
     }
 

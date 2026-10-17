@@ -29,14 +29,27 @@ import org.springframework.stereotype.Service;
 @Service
 public class AuthService {
 
-    public record LoginRequest(String username, String password, String role) {
+    /** otp: the authenticator-app code (or a recovery code) for COEs; captcha*: the picture challenge, when asked. */
+    public record LoginRequest(String username, String password, String role, String otp, String captchaId,
+                               String captchaAnswer) {
+    }
+
+    public record MfaSetup(String secret, String otpauthUri) {
+    }
+
+    public record MfaEnableRequest(String code) {
+    }
+
+    public record MfaEnabled(List<String> recoveryCodes) {
     }
 
     /** role is COE_ENGINEERING / COE_NURSING / COE_PHARMACY for a Controller of Examinations. */
     /** mustChangePassword: the account still has its starting password and must choose a new one first. */
+    /** mfaSetupRequired: a COE account that must set up two-step sign-in before using the panel. */
     public record UserView(long id, String username, String name, String role,
                            String departmentKey, String departmentName, String regNo,
-                           String collegeKey, String collegeName, boolean mustChangePassword) {
+                           String collegeKey, String collegeName, boolean mustChangePassword,
+                           boolean mfaEnabled, boolean mfaSetupRequired) {
     }
 
     public record LoginResponse(String token, String role, UserView user) {
@@ -59,7 +72,8 @@ public class AuthService {
 
     private record UserRow(long id, String username, String passwordHash, String role, String displayName,
                            String deptKey, String deptName, String regNo, LocalDate dob, boolean enabled,
-                           String collegeKey, boolean mustChangePassword) {
+                           String collegeKey, boolean mustChangePassword, boolean totpEnabled, String totpSecret,
+                           Long totpLastStep) {
     }
 
     private static final int MIN_PASSWORD_LENGTH = 10;
@@ -84,18 +98,30 @@ public class AuthService {
     private final LoginRateLimiter rateLimiter;
     private final AuditService audit;
     private final GovernanceService governance;
+    private final CaptchaService captcha;
     private final long tokenHours;
+    private final long adminIdleMinutes;
+    private final long idleMinutes;
+    private final boolean mfaRequired;
     /** Compared against when the username does not exist, so timing does not reveal valid usernames. */
     private final String dummyHash;
 
     public AuthService(JdbcClient db, PasswordEncoder encoder, LoginRateLimiter rateLimiter, AuditService audit,
-                       GovernanceService governance, @Value("${app.auth.token-hours}") long tokenHours) {
+                       GovernanceService governance, CaptchaService captcha,
+                       @Value("${app.auth.token-hours}") long tokenHours,
+                       @Value("${app.auth.admin-idle-minutes:30}") long adminIdleMinutes,
+                       @Value("${app.auth.idle-minutes:120}") long idleMinutes,
+                       @Value("${app.auth.mfa-required:true}") boolean mfaRequired) {
         this.db = db;
         this.encoder = encoder;
         this.rateLimiter = rateLimiter;
         this.audit = audit;
         this.governance = governance;
+        this.captcha = captcha;
         this.tokenHours = tokenHours;
+        this.adminIdleMinutes = adminIdleMinutes;
+        this.idleMinutes = idleMinutes;
+        this.mfaRequired = mfaRequired;
         this.dummyHash = encoder.encode("not-a-real-password");
     }
 
@@ -113,6 +139,13 @@ public class AuthService {
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
                     "Too many failed attempts. Try again in " + blocked + " minute" + (blocked == 1 ? "" : "s") + ".");
         }
+        // After failed attempts, a picture challenge must be solved first (it is used up by this attempt)
+        if (rateLimiter.needsCaptcha(ip, username) && !captcha.verify(request.captchaId(), request.captchaAnswer())) {
+            boolean tried = request.captchaId() != null && !request.captchaId().isBlank();
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    tried ? "The characters did not match. Try the new picture." : "Type the characters shown in the picture.",
+                    java.util.Map.of("captchaRequired", true, "captcha", captcha.create()));
+        }
 
         Optional<UserRow> found = findUser(username);
         boolean credentialOk = portal == Role.STUDENT
@@ -124,6 +157,19 @@ public class AuthService {
         }
 
         UserRow user = found.get();
+        // Controllers of Examinations confirm with a code from their authenticator app (or a recovery code)
+        if (portal == Role.ADMIN && user.enabled() && user.totpEnabled()) {
+            String otp = request.otp() == null ? "" : request.otp().trim();
+            if (otp.isEmpty()) {
+                throw new ApiException(HttpStatus.UNAUTHORIZED, "Enter the 6-digit code from your authenticator app.",
+                        java.util.Map.of("otpRequired", true));
+            }
+            if (!acceptOtp(user, otp, ip)) {
+                rateLimiter.recordFailure(ip, username);
+                throw new ApiException(HttpStatus.UNAUTHORIZED, "The code is not correct or has already been used.",
+                        java.util.Map.of("otpRequired", true));
+            }
+        }
         rateLimiter.recordSuccess(ip, username);
         // Only told once the password is right, so this never reveals which accounts exist
         if (!user.enabled()) {
@@ -137,7 +183,7 @@ public class AuthService {
         db.sql("DELETE FROM auth_tokens WHERE expires_at < now()").update();
 
         String token = newToken();
-        db.sql("INSERT INTO auth_tokens (token_hash, user_id, expires_at) VALUES (?, ?, ?)")
+        db.sql("INSERT INTO auth_tokens (token_hash, user_id, expires_at, last_used_at) VALUES (?, ?, ?, now())")
                 .params(sha256(token), user.id(), Timestamp.from(Instant.now().plus(tokenHours, ChronoUnit.HOURS)))
                 .update();
 
@@ -149,21 +195,107 @@ public class AuthService {
         return new LoginResponse(token, view.role(), view);
     }
 
-    /** Resolves a bearer token to its user, if the token is valid and unexpired. */
+    private record Found(CurrentUser user, boolean stale) {
+    }
+
+    /**
+     * Resolves a bearer token to its user, if the token is valid, unexpired and was used recently: a COE session ends
+     * after app.auth.admin-idle-minutes without activity, every other session after app.auth.idle-minutes.
+     */
     public Optional<CurrentUser> authenticate(String token) {
-        return db.sql("""
+        String hash = sha256(token);
+        Optional<Found> found = db.sql("""
                         SELECT u.id, u.username, u.display_name, u.role, u.dept_key, u.reg_no,
-                               coalesce(u.college_key, d.college_key) AS college_key, u.must_change_password
+                               coalesce(u.college_key, d.college_key) AS college_key, u.must_change_password,
+                               u.totp_enabled, t.last_used_at < now() - interval '60 seconds' AS stale
                         FROM auth_tokens t JOIN users u ON u.id = t.user_id
                         LEFT JOIN departments d ON d.dept_key = u.dept_key
-                        WHERE t.token_hash = ? AND t.expires_at > now() AND u.enabled
+                        WHERE t.token_hash = :hash AND t.expires_at > now() AND u.enabled
+                          AND t.last_used_at > now() - make_interval(mins => CASE WHEN u.role IN ('ADMIN', 'SUPER_ADMIN')
+                                                                      THEN :adminIdle ELSE :idle END)
                         """)
-                .param(sha256(token))
-                .query((rs, n) -> new CurrentUser(rs.getLong("id"), rs.getString("username"),
-                        rs.getString("display_name"), Role.valueOf(rs.getString("role")),
-                        rs.getString("dept_key"), rs.getString("reg_no"), rs.getString("college_key"),
-                        rs.getBoolean("must_change_password")))
+                .param("hash", hash).param("adminIdle", (int) adminIdleMinutes).param("idle", (int) idleMinutes)
+                .query((rs, n) -> {
+                    Role role = Role.valueOf(rs.getString("role"));
+                    boolean setup = mfaRequired && isOfficer(role) && !rs.getBoolean("totp_enabled");
+                    return new Found(new CurrentUser(rs.getLong("id"), rs.getString("username"),
+                            rs.getString("display_name"), role, rs.getString("dept_key"), rs.getString("reg_no"),
+                            rs.getString("college_key"), rs.getBoolean("must_change_password"), setup),
+                            rs.getBoolean("stale"));
+                })
                 .optional();
+        // Last use is written at most once a minute, not on every request
+        found.filter(Found::stale).ifPresent(f ->
+                db.sql("UPDATE auth_tokens SET last_used_at = now() WHERE token_hash = ?").param(hash).update());
+        return found.map(Found::user);
+    }
+
+    private static boolean isOfficer(Role role) {
+        return role == Role.ADMIN || role == Role.SUPER_ADMIN;
+    }
+
+    /** A current authenticator code (never one already used) or an unused recovery code. */
+    private boolean acceptOtp(UserRow user, String otp, String ip) {
+        long step = Totp.matchingStep(user.totpSecret(), otp, Instant.now().getEpochSecond());
+        if (step >= 0) {
+            if (user.totpLastStep() != null && step <= user.totpLastStep()) return false;
+            return db.sql("UPDATE users SET totp_last_step = ? WHERE id = ? AND (totp_last_step IS NULL OR totp_last_step < ?)")
+                    .params(step, user.id(), step).update() == 1;
+        }
+        String hash = sha256(otp.replaceAll("[\\s-]", "").toUpperCase(Locale.ROOT));
+        int used = db.sql("""
+                        UPDATE users SET totp_recovery = array_remove(totp_recovery, ?)
+                        WHERE id = ? AND ? = ANY(totp_recovery)
+                        """)
+                .params(hash, user.id(), hash).update();
+        if (used == 1) {
+            audit.record(user.username(), user.displayName(), "USED_MFA_RECOVERY_CODE", user.username(),
+                    "Signed in with a two-step recovery code.", ip);
+            return true;
+        }
+        return false;
+    }
+
+    /** Starts two-step sign-in set-up: a new secret for the authenticator app (not active until confirmed). */
+    public MfaSetup mfaSetup(CurrentUser current) {
+        if (!isOfficer(current.role())) throw new ApiException(HttpStatus.FORBIDDEN, "Two-step sign-in is for COE accounts");
+        UserRow user = findUser(current.username())
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Session expired"));
+        if (user.totpEnabled()) throw ApiException.conflict("Two-step sign-in is already set up for this account.");
+        String secret = Totp.newSecret();
+        db.sql("UPDATE users SET totp_secret = ? WHERE id = ?").params(secret, user.id()).update();
+        return new MfaSetup(secret, Totp.uri("KVELL Result Portal", user.username(), secret));
+    }
+
+    /** Confirms set-up with a first code from the app; returns eight one-time recovery codes (shown once). */
+    public MfaEnabled mfaEnable(CurrentUser current, MfaEnableRequest request, String ip) {
+        if (!isOfficer(current.role())) throw new ApiException(HttpStatus.FORBIDDEN, "Two-step sign-in is for COE accounts");
+        UserRow user = findUser(current.username())
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Session expired"));
+        if (user.totpEnabled()) throw ApiException.conflict("Two-step sign-in is already set up for this account.");
+        if (user.totpSecret() == null) throw ApiException.badRequest("Start the set-up first.");
+        long step = Totp.matchingStep(user.totpSecret(), request == null ? null : request.code(),
+                Instant.now().getEpochSecond());
+        if (step < 0) throw ApiException.badRequest("The code is not correct. Check the time on your phone and try again.");
+        List<String> codes = new java.util.ArrayList<>();
+        List<String> hashes = new java.util.ArrayList<>();
+        for (int i = 0; i < 8; i++) {
+            String code = recoveryCode();
+            codes.add(code.substring(0, 5) + "-" + code.substring(5));
+            hashes.add(sha256(code));
+        }
+        db.sql("UPDATE users SET totp_enabled = TRUE, totp_last_step = ?, totp_recovery = CAST(? AS TEXT[]) WHERE id = ?")
+                .params(step, "{" + String.join(",", hashes) + "}", user.id()).update();
+        audit.record(user.username(), user.displayName(), "ENABLED_MFA", user.username(),
+                "Set up two-step sign-in with an authenticator app.", ip);
+        return new MfaEnabled(codes);
+    }
+
+    private static String recoveryCode() {
+        String alphabet = "ABCDEFGHJKMNPQRTUVWXYZ2346789";
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < 10; i++) b.append(alphabet.charAt(RANDOM.nextInt(alphabet.length())));
+        return b.toString();
     }
 
     public void logout(String token) {
@@ -273,7 +405,7 @@ public class AuthService {
     }
 
     public UserView me(CurrentUser current) {
-        return findUser(current.username()).map(AuthService::view)
+        return findUser(current.username()).map(this::view)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Session expired"));
     }
 
@@ -281,7 +413,8 @@ public class AuthService {
         return db.sql("""
                         SELECT u.id, u.username, u.password_hash, u.role, u.display_name, u.dept_key,
                                d.name AS dept_name, u.reg_no, s.dob, u.enabled,
-                               coalesce(u.college_key, d.college_key) AS college_key, u.must_change_password
+                               coalesce(u.college_key, d.college_key) AS college_key, u.must_change_password,
+                               u.totp_enabled, u.totp_secret, u.totp_last_step
                         FROM users u
                         LEFT JOIN departments d ON d.dept_key = u.dept_key
                         LEFT JOIN students s ON s.reg_no = u.reg_no
@@ -292,19 +425,24 @@ public class AuthService {
                         rs.getString("password_hash"), rs.getString("role"), rs.getString("display_name"),
                         rs.getString("dept_key"), rs.getString("dept_name"), rs.getString("reg_no"),
                         rs.getObject("dob", LocalDate.class), rs.getBoolean("enabled"),
-                        rs.getString("college_key"), rs.getBoolean("must_change_password")))
+                        rs.getString("college_key"), rs.getBoolean("must_change_password"),
+                        rs.getBoolean("totp_enabled"), rs.getString("totp_secret"),
+                        rs.getObject("totp_last_step", Long.class)))
                 .optional();
     }
 
-    private static UserView view(UserRow u) {
+    private UserView view(UserRow u) {
         String college = u.collegeKey() == null ? "engineering" : u.collegeKey();
         if ("SUPER_ADMIN".equals(u.role())) {
             return new UserView(u.id(), u.username(), u.displayName(), "SUPER_ADMIN", null, null, null, college,
-                    "Karpaga Vinayaga Educational Group (Central University)", u.mustChangePassword());
+                    "Karpaga Vinayaga Educational Group (Central University)", u.mustChangePassword(), u.totpEnabled(),
+                    mfaRequired && !u.totpEnabled());
         }
         String role = "ADMIN".equals(u.role()) ? "COE_" + college.toUpperCase(Locale.ROOT) : u.role();
+        boolean officer = "ADMIN".equals(u.role());
         return new UserView(u.id(), u.username(), u.displayName(), role, u.deptKey(), u.deptName(), u.regNo(),
-                college, COLLEGE_NAMES.getOrDefault(college, college), u.mustChangePassword());
+                college, COLLEGE_NAMES.getOrDefault(college, college), u.mustChangePassword(), u.totpEnabled(),
+                officer && mfaRequired && !u.totpEnabled());
     }
 
     /** Students sign in with their date of birth instead of a password. */

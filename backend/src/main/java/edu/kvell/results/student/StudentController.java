@@ -13,16 +13,20 @@ public class StudentController {
     private final StudentResultService results;
     private final GovernanceService governance;
 
-    public StudentController(StudentResultService results, GovernanceService governance) {
+    private final edu.kvell.results.common.ResultsCache cache;
+
+    public StudentController(StudentResultService results, GovernanceService governance,
+                             edu.kvell.results.common.ResultsCache cache) {
         this.results = results;
         this.governance = governance;
+        this.cache = cache;
     }
 
     /** The register number comes from the session, never from the request, so students only see their own results. */
     @GetMapping("/me/results")
     StudentResultService.StudentResults myResults() {
         CurrentUser me = CurrentUser.get();
-        StudentResultService.StudentResults mine = results.resultsFor(me.regNo());
+        StudentResultService.StudentResults mine = cache.get("results:" + me.regNo(), () -> results.resultsFor(me.regNo()));
         // Results the Super Admin is withholding never leave the server
         return governance.resultsWithheld(me.collegeKey()) ? mine.withheldCopy() : mine;
     }

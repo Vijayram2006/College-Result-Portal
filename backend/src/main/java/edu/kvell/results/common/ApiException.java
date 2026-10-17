@@ -6,14 +6,25 @@ import org.springframework.http.HttpStatus;
 public class ApiException extends RuntimeException {
 
     private final HttpStatus status;
+    /** Extra fields for the client (e.g. otpRequired, captchaRequired), added next to "error". */
+    private final java.util.Map<String, Object> details;
 
     public ApiException(HttpStatus status, String message) {
+        this(status, message, java.util.Map.of());
+    }
+
+    public ApiException(HttpStatus status, String message, java.util.Map<String, Object> details) {
         super(message);
         this.status = status;
+        this.details = details;
     }
 
     public HttpStatus getStatus() {
         return status;
+    }
+
+    public java.util.Map<String, Object> getDetails() {
+        return details;
     }
 
     public static ApiException notFound(String message) {

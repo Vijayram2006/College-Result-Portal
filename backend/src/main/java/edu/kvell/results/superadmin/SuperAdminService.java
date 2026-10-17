@@ -30,7 +30,8 @@ public class SuperAdminService {
 
     /** Matches the admin panel's OfficerUser. role: SUPER_ADMIN, COE_ENGINEERING / NURSING / PHARMACY, DEPUTY_COE. */
     public record Officer(String id, String name, String username, String email, String role, String collegeKey,
-                          String status, String lastLogin, String departmentScope, boolean mustChangePassword) {
+                          String status, String lastLogin, String departmentScope, boolean mustChangePassword,
+                          boolean mfaEnabled) {
     }
 
     public record CreateOfficer(String name, String username, String email, String role, String collegeKey,
@@ -101,7 +102,7 @@ public class SuperAdminService {
     public List<Officer> officers() {
         return db.sql("""
                         SELECT id, username, display_name, email, role, college_key, officer_title, enabled,
-                               last_login_at, must_change_password
+                               last_login_at, must_change_password, totp_enabled
                         FROM users WHERE role IN ('SUPER_ADMIN', 'ADMIN')
                         ORDER BY (role = 'SUPER_ADMIN') DESC, college_key, (officer_title IS NOT NULL), username
                         """)
@@ -119,9 +120,33 @@ public class SuperAdminService {
                             last == null ? "Never" : Semesters.display(last),
                             "SUPER_ADMIN".equals(role) ? "Central University - all colleges"
                                     : COLLEGE_NAMES.getOrDefault(college, college),
-                            rs.getBoolean("must_change_password"));
+                            rs.getBoolean("must_change_password"), rs.getBoolean("totp_enabled"));
                 })
                 .list();
+    }
+
+    /**
+     * Clears an officer's two-step sign-in (a lost phone): they set it up again at their next sign-in, and every
+     * session of theirs ends. The Chief COE cannot reset their own here, so one account can never clear its own
+     * second factor.
+     */
+    @Transactional
+    public Officer resetMfa(long id, CurrentUser by, String ip) {
+        Map<String, Object> target = officer(id);
+        String username = (String) target.get("username");
+        if (((Number) target.get("id")).longValue() == by.id()) {
+            throw ApiException.badRequest("Another Chief COE or the system administrator must reset your own two-step sign-in");
+        }
+        db.sql("""
+                        UPDATE users SET totp_enabled = FALSE, totp_secret = NULL, totp_last_step = NULL,
+                                         totp_recovery = NULL WHERE id = ?
+                        """)
+                .param(id).update();
+        db.sql("DELETE FROM auth_tokens WHERE user_id = ?").param(id).update();
+        audit.record(by.username(), by.name(), "RESET_OFFICER_MFA", username,
+                "Cleared two-step sign-in for " + username + "; they must set it up again at next sign-in.", ip,
+                "two-step sign-in on", "two-step sign-in cleared");
+        return officers().stream().filter(o -> o.id().equals(String.valueOf(id))).findFirst().orElseThrow();
     }
 
     @Transactional

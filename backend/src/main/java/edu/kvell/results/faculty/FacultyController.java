@@ -132,7 +132,8 @@ public class FacultyController {
     MarkService.StudentMark save(@RequestBody MarkService.MarkRequest r, HttpServletRequest http) {
         CurrentUser user = CurrentUser.get();
         MarkService.MarkRequest own = new MarkService.MarkRequest(user.deptKey(), r.semester(), r.subjectCode(),
-                r.regNo(), r.assessmentType(), r.partA(), r.partBC(), r.examinerName(), r.examinerDesignation());
+                r.regNo(), r.assessmentType(), r.partA(), r.partBC(), r.examinerName(), r.examinerDesignation(),
+                r.expectedVersion());
         return marks.save(own, user, http.getRemoteAddr());
     }
 

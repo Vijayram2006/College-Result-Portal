@@ -45,7 +45,14 @@ public class AdminController {
         return results.publishDepartment(request, CurrentUser.get(), http.getRemoteAddr());
     }
 
-    /** Hides every subject of a department and semester again; marks are kept. */
+    /** Withdraws every published subject of a department and semester (with a reason); marks are kept. */
+    @PostMapping("/publish/withdraw")
+    Map<String, Integer> withdrawDepartment(@RequestBody ResultBatchService.PublishRequest request,
+                                            HttpServletRequest http) {
+        return Map.of("withdrawn", results.unpublishDepartment(request, CurrentUser.get(), http.getRemoteAddr()));
+    }
+
+    /** Older name of /publish/withdraw, kept for the deprecation period. */
     @PostMapping("/publish/unpublish")
     Map<String, Integer> unpublishDepartment(@RequestBody ResultBatchService.PublishRequest request,
                                              HttpServletRequest http) {

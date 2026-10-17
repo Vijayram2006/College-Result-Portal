@@ -18,8 +18,10 @@ public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ApiException.class)
-    ResponseEntity<Map<String, String>> handleApi(ApiException ex) {
-        return ResponseEntity.status(ex.getStatus()).body(Map.of("error", ex.getMessage()));
+    ResponseEntity<Map<String, Object>> handleApi(ApiException ex) {
+        Map<String, Object> body = new java.util.LinkedHashMap<>(ex.getDetails());
+        body.put("error", ex.getMessage());
+        return ResponseEntity.status(ex.getStatus()).body(body);
     }
 
     @ExceptionHandler(RowErrorsException.class)

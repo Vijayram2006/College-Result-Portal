@@ -47,7 +47,7 @@ public class ResultBatchService {
 
     /** Publish (or unpublish) every subject of one department and semester together. */
     public record PublishRequest(String deptKey, String semester, String academicYear, String examMonthYear,
-                                 String assessmentType) {
+                                 String assessmentType, String reason) {
     }
 
     public record PublishSummary(String deptKey, String departmentName, String semester, int subjects, int students,
@@ -101,6 +101,9 @@ public class ResultBatchService {
     private final MarkService marks;
     private final AuditService audit;
     private final NotificationService notifications;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private edu.kvell.results.common.ResultsCache cache;
 
     public ResultBatchService(JdbcClient db, Departments departments, MarkService marks, AuditService audit,
                               NotificationService notifications) {
@@ -189,6 +192,7 @@ public class ResultBatchService {
      */
     @Transactional
     public PublishSummary publishDepartment(PublishRequest req, CurrentUser user, String ip) {
+        cache.clear();
         if (req == null) throw ApiException.badRequest("Department and semester are required");
         String deptKey = departments.key(req.deptKey());
         int sem = Semesters.parse(req.semester());
@@ -240,22 +244,38 @@ public class ResultBatchService {
                 batchIds, assessment);
     }
 
-    /** Hides every subject of a department and semester from students and the HOD; the marks are kept. */
+    /**
+     * Withdraws every published subject of a department and semester: students and the HOD no longer see them, the
+     * marks are kept, and the batches stay WITHDRAWN (with who, when and why) until they are published again.
+     */
     @Transactional
     public int unpublishDepartment(PublishRequest req, CurrentUser user, String ip) {
+        cache.clear();
         if (req == null) throw ApiException.badRequest("Department and semester are required");
         String deptKey = departments.key(req.deptKey());
         int sem = Semesters.parse(req.semester());
         String assessment = MarkService.assessment(req.assessmentType());
+        String reason = req.reason() == null ? "" : req.reason().trim();
+        if (reason.length() < 5 || reason.length() > 300) {
+            throw ApiException.badRequest("Give the reason for withdrawing the results (5 to 300 characters)");
+        }
+        List<String> codes = db.sql("""
+                        SELECT subject_code FROM result_batches
+                        WHERE dept_key = ? AND semester = ? AND assessment_type = ? AND status = 'PUBLISHED'
+                        ORDER BY subject_code
+                        """)
+                .params(deptKey, sem, assessment).query(String.class).list();
         int hidden = db.sql("""
-                        UPDATE result_batches SET status = 'VALIDATED', published_by = NULL, published_at = NULL
+                        UPDATE result_batches SET status = 'WITHDRAWN', withdrawn_by = ?, withdrawn_at = now(),
+                                                  withdraw_reason = ?
                         WHERE dept_key = ? AND semester = ? AND assessment_type = ? AND status = 'PUBLISHED'
                         """)
-                .params(deptKey, sem, assessment).update();
+                .params(user.name() + " (" + user.username() + ")", reason, deptKey, sem, assessment).update();
         if (hidden == 0) throw ApiException.conflict("Nothing is published for this department, semester and assessment.");
-        audit.record(user.username(), user.name(), "UNPUBLISHED_DEPARTMENT_RESULTS",
+        audit.record(user.username(), user.name(), "WITHDREW_DEPARTMENT_RESULTS",
                 deptKey.toUpperCase(Locale.ROOT) + " " + Semesters.label(sem) + " " + assessment,
-                "Withdrew " + hidden + " subjects from the student and HOD portals.", ip);
+                "Withdrew " + hidden + " subjects from the student and HOD portals. Reason: " + reason, ip,
+                "PUBLISHED: " + String.join(", ", codes), "WITHDRAWN: " + reason);
         notifications.notify(Audience.STUDENT, deptKey, sem, Semesters.label(sem) + " " + assessment + " results withdrawn",
                 "Your " + Semesters.label(sem) + " " + assessment + " results were withdrawn for review. They will be published again.",
                 null);
@@ -323,12 +343,13 @@ public class ResultBatchService {
     public PublishSummary publishBatch(String id, CurrentUser user, String ip) {
         BatchRow batch = row(id);
         return publishDepartment(new PublishRequest(batch.deptKey(), Semesters.label(batch.semester()),
-                batch.academicYear(), batch.examMonthYear(), batch.assessmentType()), user, ip);
+                batch.academicYear(), batch.examMonthYear(), batch.assessmentType(), null), user, ip);
     }
 
     /** Deletes an unpublished batch. A published one must be withdrawn with the whole department first. */
     @Transactional
     public void delete(String id, CurrentUser user, String ip) {
+        cache.clear();
         BatchRow batch = row(id);
         if ("PUBLISHED".equals(batch.status())) {
             throw ApiException.conflict("Unpublish this department's results first; a published subject cannot be deleted on its own.");
@@ -341,6 +362,7 @@ public class ResultBatchService {
     /** "Delete Target Semester": every batch of one department and semester. */
     @Transactional
     public int deleteForSemester(String dept, String semester, String subject, CurrentUser user, String ip) {
+        cache.clear();
         String deptKey = departments.key(dept);
         int sem = Semesters.parse(semester);
         String code = subject == null || subject.isBlank() ? null : subject.trim().toUpperCase(Locale.ROOT);
@@ -364,6 +386,7 @@ public class ResultBatchService {
 
     @Transactional
     public int deleteAll(CurrentUser user, String ip) {
+        cache.clear();
         int deleted = db.sql("DELETE FROM result_batches WHERE status <> 'PUBLISHED' AND "
                 + departments.inCollege("dept_key")).update();
         audit.record(user.username(), user.name(), "CLEARED_ALL_RESULTS", "All result batches",
@@ -513,6 +536,7 @@ public class ResultBatchService {
                     String state;
                     if (batchId == null) state = marks == 0 ? "NO_MARKS" : "NOT_FORWARDED";
                     else if (lastMark != null && committed != null && lastMark.isAfter(committed)) state = "OUT_OF_DATE";
+                    else if ("WITHDRAWN".equals(status)) state = "WITHDRAWN";
                     else state = "PUBLISHED".equals(status) ? "PUBLISHED" : "FORWARDED";
                     int records = rs.getInt("records");
                     return new PublishRow(rs.getString("code"), rs.getString("title"), rs.getInt("students"), marks,

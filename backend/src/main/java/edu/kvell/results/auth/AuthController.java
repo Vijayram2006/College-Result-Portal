@@ -33,6 +33,18 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Two-step sign-in set-up for COE accounts: a new secret and the QR-code link for the authenticator app. */
+    @PostMapping("/mfa/setup")
+    AuthService.MfaSetup mfaSetup() {
+        return auth.mfaSetup(CurrentUser.get());
+    }
+
+    /** Confirms set-up with the first code; answers with one-time recovery codes. */
+    @PostMapping("/mfa/enable")
+    AuthService.MfaEnabled mfaEnable(@RequestBody AuthService.MfaEnableRequest request, HttpServletRequest http) {
+        return auth.mfaEnable(CurrentUser.get(), request, http.getRemoteAddr());
+    }
+
     @GetMapping("/me")
     AuthService.UserView me() {
         return auth.me(CurrentUser.get());

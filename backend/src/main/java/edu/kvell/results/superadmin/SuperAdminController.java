@@ -64,6 +64,11 @@ public class SuperAdminController {
         return service.setStatus(id, request, CurrentUser.get(), http.getRemoteAddr());
     }
 
+    @PostMapping("/officers/{id}/reset-mfa")
+    SuperAdminService.Officer resetMfa(@PathVariable long id, HttpServletRequest http) {
+        return service.resetMfa(id, CurrentUser.get(), http.getRemoteAddr());
+    }
+
     @PostMapping("/officers/{id}/reset-password")
     SuperAdminService.Officer resetPassword(@PathVariable long id,
                                            @RequestBody SuperAdminService.PasswordReset request,

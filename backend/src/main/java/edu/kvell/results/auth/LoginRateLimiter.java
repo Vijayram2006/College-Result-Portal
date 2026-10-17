@@ -52,6 +52,25 @@ public class LoginRateLimiter {
         return Math.max(account, Math.max(user, address));
     }
 
+    /**
+     * True once there were recent failed sign-ins for this account from this address (2), for this account from
+     * anywhere (3) or from this address for any account (4): the next attempt must solve a CAPTCHA.
+     */
+    public boolean needsCaptcha(String ip, String username) {
+        Instant now = clock.instant();
+        return count(accountKey(ip, username), now) >= 2 || count(userKey(username), now) >= 3
+                || count(ipKey(ip), now) >= 4;
+    }
+
+    private int count(String key, Instant now) {
+        Deque<Instant> queue = failures.get(key);
+        if (queue == null) return 0;
+        synchronized (queue) {
+            prune(queue, now);
+            return queue.size();
+        }
+    }
+
     public void recordFailure(String ip, String username) {
         Instant now = clock.instant();
         if (failures.size() > SWEEP_THRESHOLD) sweep(now);
