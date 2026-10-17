@@ -26,8 +26,10 @@ public class StudentAdminController {
 
     @GetMapping
     List<StudentAdminService.StudentView> list(@RequestParam(required = false) String dept,
-                                               @RequestParam(required = false) String semester) {
-        return students.list(dept, semester);
+                                               @RequestParam(required = false) String semester,
+                                               @RequestParam(required = false) String year,
+                                               @RequestParam(required = false) String academicYear) {
+        return students.list(dept, semester, year, academicYear);
     }
 
     /** Adds new students and updates existing ones (matched by Register Number). */
@@ -45,7 +47,9 @@ public class StudentAdminController {
 
     @DeleteMapping
     Map<String, Integer> deleteGroup(@RequestParam String dept, @RequestParam String year,
-                                     @RequestParam String semester, HttpServletRequest http) {
-        return Map.of("deleted", students.deleteGroup(dept, year, semester, CurrentUser.get(), http.getRemoteAddr()));
+                                     @RequestParam String semester,
+                                     @RequestParam(required = false) String academicYear, HttpServletRequest http) {
+        return Map.of("deleted", students.deleteGroup(dept, year, semester, academicYear, CurrentUser.get(),
+                http.getRemoteAddr()));
     }
 }

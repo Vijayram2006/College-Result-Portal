@@ -63,18 +63,27 @@ public class StudentAdminService {
     private NotificationService notifications;
 
     public List<StudentView> list(String dept, String semester) {
+        return list(dept, semester, null, null);
+    }
+
+    /** Students of the college, narrowed by any of department, semester, study year and academic year. */
+    public List<StudentView> list(String dept, String semester, String year, String academicYear) {
         String deptKey = dept == null || dept.isBlank() ? null : departments.key(dept);
         Integer sem = semester == null || semester.isBlank() ? null : Semesters.parse(semester);
+        String yearLabel = year == null || year.isBlank() ? null : year.trim();
+        String acYear = academicYear == null || academicYear.isBlank() ? null : academicYear.trim();
         return db.sql("""
                         SELECT s.reg_no, s.name, s.dob, s.dept_key, d.name AS dept_name, s.category, s.year_label,
                                s.semester, s.academic_year
                         FROM students s JOIN departments d ON d.dept_key = s.dept_key
                         WHERE (CAST(:dept AS VARCHAR) IS NULL OR s.dept_key = :dept)
                           AND (CAST(:sem AS SMALLINT) IS NULL OR s.semester = :sem)
+                          AND (CAST(:year AS VARCHAR) IS NULL OR s.year_label = :year)
+                          AND (CAST(:acYear AS VARCHAR) IS NULL OR s.academic_year = :acYear)
                           AND """ + departments.inCollege("s.dept_key") + """
                         ORDER BY (s.category = 'lateral'), s.reg_no
                         """)
-                .param("dept", deptKey).param("sem", sem)
+                .param("dept", deptKey).param("sem", sem).param("year", yearLabel).param("acYear", acYear)
                 .query((rs, n) -> new StudentView(rs.getString("reg_no"), rs.getString("name"),
                         dobText(rs.getObject("dob", LocalDate.class)),
                         rs.getString("dept_key").toUpperCase(Locale.ROOT), rs.getString("dept_key"),
@@ -220,16 +229,25 @@ public class StudentAdminService {
                 "Deleted a student with their marks and results.", ip);
     }
 
-    /** "Delete Target Year Data": every student of one department, year and semester, with their marks. */
+    /**
+     * "Delete Target Year Data": every student of one department, year and semester (and academic year, when given),
+     * with their marks.
+     */
     @Transactional
-    public int deleteGroup(String dept, String year, String semester, CurrentUser user, String ip) {
+    public int deleteGroup(String dept, String year, String semester, String academicYear, CurrentUser user,
+                           String ip) {
         String deptKey = departments.key(dept);
         int sem = Semesters.parse(semester);
         String yearLabel = required(year, "Year", 20);
-        int deleted = db.sql("DELETE FROM students WHERE dept_key = ? AND year_label = ? AND semester = ?")
-                .params(deptKey, yearLabel, sem).update();
+        String acYear = academicYear == null || academicYear.isBlank() ? null : academicYear.trim();
+        int deleted = db.sql("""
+                        DELETE FROM students WHERE dept_key = ? AND year_label = ? AND semester = ?
+                          AND (CAST(? AS VARCHAR) IS NULL OR academic_year = ?)
+                        """)
+                .params(deptKey, yearLabel, sem, acYear, acYear).update();
         audit.record(user.username(), user.name(), "DELETED_TARGET_YEAR_DATA",
-                deptKey.toUpperCase(Locale.ROOT) + " - " + yearLabel + " (" + Semesters.label(sem) + ")",
+                deptKey.toUpperCase(Locale.ROOT) + " - " + yearLabel + " (" + Semesters.label(sem) + ")"
+                        + (acYear == null ? "" : " " + acYear),
                 "Deleted " + deleted + " students with their marks and results.", ip);
         return deleted;
     }

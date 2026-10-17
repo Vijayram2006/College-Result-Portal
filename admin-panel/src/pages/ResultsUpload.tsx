@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { SEMESTER_OPTIONS } from "../utils/semesters";
 import { useLocation } from "wouter";
 import {
@@ -112,6 +112,12 @@ export interface StudentRecordItem {
 }
 
 // Available Year of Study Options
+/** The two semesters of a study year ("1st Year" -> Semester I and II); every semester when no year is chosen. */
+export const semestersOfYear = (year: string): string[] => {
+  const i = yearOptions.findIndex((y) => y.value === year);
+  return i < 0 ? SEMESTER_OPTIONS : SEMESTER_OPTIONS.slice(i * 2, i * 2 + 2);
+};
+
 export const yearOptions = [
   { value: "1st Year", label: "1st Year (I Year)", defaultSem: "Semester I" },
   { value: "2nd Year", label: "2nd Year (II Year)", defaultSem: "Semester III" },
@@ -339,14 +345,27 @@ export const ResultsUpload: React.FC = () => {
       window.removeEventListener("storage", loadDepts);
     };
   }, []);
-  // Load the saved class list for the selected department & semester from the server
-  const loadSavedStudents = async (dept: string, sem: string) => {
-    if (!dept || !sem) {
-      setParsedData([]); // nothing chosen yet
+  // All four choices name one class; nothing is listed or uploaded until every one is made
+  const targetMissing = [
+    !deptKey && "department",
+    !studyYear && "year of study",
+    !semester && "semester",
+    !academicYear && "academic year",
+  ].filter(Boolean) as string[];
+  const targetReady = targetMissing.length === 0;
+
+  // Only the newest request may fill the list (an older, slower answer must not overwrite it)
+  const loadRequest = useRef(0);
+  // Load the saved class list for the chosen department, study year, semester and academic year from the server
+  const loadSavedStudents = async (dept: string, year: string, sem: string, acYear: string) => {
+    const request = ++loadRequest.current;
+    if (!dept || !year || !sem || !acYear) {
+      setParsedData([]); // nothing (or not everything) chosen yet
       return;
     }
     try {
-      const saved = await studentsApi.list(dept, sem);
+      const saved = await studentsApi.list(dept, sem, year, acYear);
+      if (request !== loadRequest.current) return;
       const records = saved.map((st) => ({
         "Register Number": st.regNo,
         "Name": st.studentName,
@@ -364,23 +383,56 @@ export const ResultsUpload: React.FC = () => {
       }));
       setParsedData(sortStudentRecords(records, sortMode));
     } catch (err) {
+      if (request !== loadRequest.current) return;
+      setParsedData([]);
       setFeedback({ type: "error", message: apiErrorMessage(err, "Could not load saved student data.") });
     }
   };
+  const reloadSaved = () => loadSavedStudents(deptKey, studyYear, semester, academicYear);
 
   useEffect(() => {
-    loadSavedStudents(deptKey, semester);
-  }, [deptKey, semester]);
+    setSelectedFile(null);
+    loadSavedStudents(deptKey, studyYear, semester, academicYear);
+  }, [deptKey, studyYear, semester, academicYear]);
 
   useEffect(() => {
     setParsedData((rows) => sortStudentRecords(rows, sortMode));
   }, [sortMode]);
 
-  // Reloads the saved list from the server (saved students are never deleted from here)
-  const handleClearSheet = () => {
-    setSelectedFile(null);
-    loadSavedStudents(deptKey, semester);
-    setFeedback({ type: "info", message: `Unsaved rows cleared; showing the saved ${deptKey.toUpperCase()} students.` });
+  const targetLabel = `${deptKey.toUpperCase()} • ${studyYear} • ${semester} • ${academicYear}`;
+
+  // Clears the loaded list. Rows not yet saved are just dropped; saved students are deleted on the server (with their
+  // marks) after a confirmation, so they do not come back when the page reloads.
+  const handleClearLoaded = async () => {
+    if (isCollegeLocked) {
+      alert("Institutional Freeze Active: Clearing records is restricted by the Controller of Examinations.");
+      return;
+    }
+    const savedCount = parsedData.filter((r) => r.saved).length;
+    if (savedCount === 0) {
+      setParsedData([]);
+      setSelectedFile(null);
+      setFeedback({ type: "info", message: "The unsaved rows were cleared." });
+      return;
+    }
+    if (
+      !window.confirm(
+        `Delete all ${savedCount} saved students of ${targetLabel}?\n\nTheir marks and results are deleted too. This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      const deleted = await studentsApi.removeGroup(deptKey, studyYear, semester, academicYear);
+      setSelectedFile(null);
+      await reloadSaved();
+      setFeedback({ type: "success", message: `Cleared ${targetLabel}: ${deleted} saved students deleted.` });
+    } catch (err) {
+      setFeedback({ type: "error", message: apiErrorMessage(err, "The students could not be deleted.") });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleDeptChange = (newDept: string) => {
@@ -389,18 +441,24 @@ export const ResultsUpload: React.FC = () => {
     setSelectedFile(null);
   };
 
-  // Change Year (the semester is chosen separately)
+  // Change Year; a chosen semester that is not part of the new year is cleared
   const handleYearChange = (newYear: string) => {
     setStudyYear(newYear);
+    if (semester && !semestersOfYear(newYear).includes(semester)) setSemester("");
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // so choosing the same file again (after fixing it) is picked up
     if (isCollegeLocked) {
       alert("Institutional Freeze Active: Uploading student data is restricted by the Controller of Examinations (Dr. Sathish).");
       return;
     }
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+    if (!targetReady) {
+      setFeedback({ type: "error", message: `Choose the ${targetMissing.join(", ")} first, then upload the file.` });
+      return;
+    }
+    if (file) {
       setSelectedFile(file);
       parseFile(file);
     }
@@ -536,7 +594,7 @@ export const ResultsUpload: React.FC = () => {
         // Save the sheet immediately so Mark Entry sees these students right away
         saveStudentRows(normalized, deptKey, studyYear).then(async (result) => {
           if (!result) return; // row errors are shown; the rows stay listed (unsaved) for review
-          await loadSavedStudents(deptKey, semester);
+          await reloadSaved();
           setFeedback({
             type: "success",
             message: `Saved ${result.total} students from "${file.name}" (${result.created} new, ${result.updated} updated) for ${deptKey.toUpperCase()} • ${studyYear} (${semester}). ${loginNote(result.withoutDob, result.total)}`,
@@ -589,8 +647,8 @@ export const ResultsUpload: React.FC = () => {
 
     const result = await saveStudentRows([newRecord], addDept, addStudentYear);
     if (!result) return; // errors are shown; the form stays open for correction
-    if (addDept === deptKey) {
-      await loadSavedStudents(deptKey, semester);
+    if (addDept === deptKey && addStudentYear === studyYear) {
+      await reloadSaved();
     }
 
     // Reset Form
@@ -739,16 +797,13 @@ export const ResultsUpload: React.FC = () => {
       setFeedback({ type: "error", message: "Choose the department, year and semester first." });
       return;
     }
-    const confirmText = `Are you sure you want to delete student data for "${studyYear}" under ${deptKey.toUpperCase()} - ${semester}?\n\nThis will remove student data matching this specific target year. This action cannot be undone.`;
+    const confirmText = `Are you sure you want to delete student data for "${studyYear}" under ${deptKey.toUpperCase()} - ${semester}${academicYear ? ` (${academicYear})` : " (every academic year)"}?\n\nThis will remove student data matching this specific target year, with their marks. This action cannot be undone.`;
     if (!window.confirm(confirmText)) return;
 
     setIsDeleting(true);
     try {
-      const deleted = await studentsApi.removeGroup(deptKey, studyYear, semester);
-      const remaining = parsedData.filter(
-        (s) => (s["Year"] || s.year) !== studyYear
-      );
-      setParsedData(remaining);
+      const deleted = await studentsApi.removeGroup(deptKey, studyYear, semester, academicYear || undefined);
+      await reloadSaved();
 
       addAuditLog({
         action: "DELETED_TARGET_YEAR_DATA",
@@ -971,7 +1026,7 @@ export const ResultsUpload: React.FC = () => {
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
             >
               <option value="">Choose semester</option>
-              {SEMESTER_OPTIONS.map((s) => (
+              {semestersOfYear(studyYear).map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
@@ -999,18 +1054,31 @@ export const ResultsUpload: React.FC = () => {
         <div className="pt-4 border-t border-[#E5E1D8] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-bold text-gray-500 uppercase">Active Target:</span>
-            <span className="px-2.5 py-1 rounded-lg bg-[#0B192C] text-white font-mono font-bold text-xs">
-              {deptKey.toUpperCase()}
-            </span>
-            <span className="px-2.5 py-1 rounded-lg bg-[#D4A72C]/20 text-[#0B192C] border border-[#D4A72C] font-bold text-xs">
-              {studyYear}
-            </span>
-            <span className="px-2.5 py-1 rounded-lg bg-[#F8F5EE] text-[#0B192C] border border-[#E5E1D8] font-bold text-xs">
-              {semester}
-            </span>
-            <span className="px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700 border border-gray-200 font-mono text-xs">
-              {academicYear}
-            </span>
+            {deptKey && (
+              <span className="px-2.5 py-1 rounded-lg bg-[#0B192C] text-white font-mono font-bold text-xs">
+                {deptKey.toUpperCase()}
+              </span>
+            )}
+            {studyYear && (
+              <span className="px-2.5 py-1 rounded-lg bg-[#D4A72C]/20 text-[#0B192C] border border-[#D4A72C] font-bold text-xs">
+                {studyYear}
+              </span>
+            )}
+            {semester && (
+              <span className="px-2.5 py-1 rounded-lg bg-[#F8F5EE] text-[#0B192C] border border-[#E5E1D8] font-bold text-xs">
+                {semester}
+              </span>
+            )}
+            {academicYear && (
+              <span className="px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700 border border-gray-200 font-mono text-xs">
+                {academicYear}
+              </span>
+            )}
+            {!targetReady && (
+              <span className="text-xs font-semibold text-amber-700" data-testid="target-missing">
+                Choose the {targetMissing.join(", ")}
+              </span>
+            )}
             {parsedData.length > 0 && (
               <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-xs">
                 {parsedData.length} Students Loaded
@@ -1098,6 +1166,7 @@ export const ResultsUpload: React.FC = () => {
             type="file"
             accept=".xlsx, .xls, .csv"
             disabled={isCollegeLocked}
+            aria-label="Student spreadsheet"
             onChange={handleFileChange}
             className={`absolute inset-0 w-full h-full opacity-0 z-10 ${
               isCollegeLocked ? "cursor-not-allowed" : "cursor-pointer"
@@ -1116,7 +1185,9 @@ export const ResultsUpload: React.FC = () => {
           <p className="text-xs text-gray-500 mt-1 max-w-lg">
             {isCollegeLocked
               ? "Institutional examination lock is actively enforced. Mark and student registry uploads are restricted."
-              : "Expected Columns: Register Number • Name • DOB • Category (Optional: Regular / Lateral)"}
+              : !targetReady
+                ? `Choose the ${targetMissing.join(", ")} above first.`
+                : "Expected Columns: Register Number • Name • DOB • Category (Optional: Regular / Lateral)"}
           </p>
 
           <button
@@ -1148,7 +1219,7 @@ export const ResultsUpload: React.FC = () => {
                 </h3>
               </div>
               <p className="text-xs text-gray-500 mt-0.5">
-                Target: {deptKey.toUpperCase()} • {studyYear} ({semester}) • Regular students sorted first, lateral entries appended at last.
+                Target: {targetLabel} • Regular students sorted first, lateral entries appended at last.
               </p>
             </div>
 
@@ -1205,9 +1276,10 @@ export const ResultsUpload: React.FC = () => {
               {parsedData.length > 0 && (
                 <button
                   type="button"
-                  onClick={handleClearSheet}
-                  className="px-3 py-1.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 font-bold text-xs transition flex items-center gap-1.5 shadow-sm"
-                  title="Clear all student rows currently in this sheet"
+                  onClick={handleClearLoaded}
+                  disabled={isDeleting || isCollegeLocked}
+                  className="px-3 py-1.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 font-bold text-xs transition flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                  title="Delete every student listed here (saved students are deleted on the server too)"
                 >
                   <Trash2 size={13} /> Clear Sheet
                 </button>
@@ -1326,17 +1398,8 @@ export const ResultsUpload: React.FC = () => {
           <div className="pt-3 border-t border-[#E5E1D8] flex flex-col sm:flex-row items-center justify-between gap-4">
             <button
               type="button"
-              disabled={isCollegeLocked}
-              onClick={() => {
-                if (isCollegeLocked) {
-                  alert("Institutional Freeze Active: Clearing records is restricted by the Controller of Examinations (Dr. Sathish).");
-                  return;
-                }
-                if (window.confirm(`Are you sure you want to clear loaded student records for ${deptKey.toUpperCase()}?`)) {
-                  setParsedData([]);
-                  setSelectedFile(null);
-                }
-              }}
+              disabled={isDeleting || isCollegeLocked}
+              onClick={handleClearLoaded}
               className={`text-xs font-bold ${
                 isCollegeLocked ? "text-gray-400 cursor-not-allowed" : "text-red-600 hover:underline"
               }`}

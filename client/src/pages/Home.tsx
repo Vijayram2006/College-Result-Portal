@@ -1334,7 +1334,8 @@ function HodPortalDashboard({
           </div>
 
           {/* Center Component Navigation Tabs & COE Admin Switcher */}
-          <div className="flex w-full sm:w-auto items-center gap-1.5 sm:gap-2 bg-[#F8F5EE] p-1.5 rounded-2xl border border-[#E5E1D8]">
+          {/* Phones: a 2 x 2 grid of tabs with the COE link below, so nothing runs off the screen */}
+          <div className="grid grid-cols-2 sm:flex w-full sm:w-auto items-center gap-1.5 sm:gap-2 bg-[#F8F5EE] p-1.5 rounded-2xl border border-[#E5E1D8]">
             <button
               onClick={() => setActiveTab("dashboard")}
               className={`flex-1 sm:flex-none justify-center whitespace-nowrap px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
@@ -1384,11 +1385,12 @@ function HodPortalDashboard({
               href={ADMIN_PANEL_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3.5 py-2 rounded-xl text-xs font-black text-[#0B192C] bg-[#D4A72C]/20 hover:bg-[#D4A72C]/40 border border-[#D4A72C]/50 transition flex items-center gap-1.5 shadow-sm"
+              className="col-span-2 justify-center px-3.5 py-2 rounded-xl text-xs font-black text-[#0B192C] bg-[#D4A72C]/20 hover:bg-[#D4A72C]/40 border border-[#D4A72C]/50 transition flex items-center gap-1.5 shadow-sm"
               title="Open Controller of Examinations Admin Panel"
             >
               <ExternalLink size={14} className="text-[#0B192C]" />
-              <span className="hidden md:inline">COE Portal</span>
+              {/* Shown on phones too (the link has a row of its own there); only small tablets keep the icon alone */}
+              <span className="sm:hidden md:inline">COE Portal</span>
             </a>
           </div>
 

@@ -553,8 +553,9 @@ export const facultyMasterApi = {
 };
 
 export const studentsApi = {
-  async list(dept?: string, semester?: string): Promise<StudentRecord[]> {
-    const res = await apiClient.get<StudentRecord[]>("/admin/students", { params: { dept, semester } });
+  /** year / academicYear narrow the list to one class (e.g. "1st Year", "2026 - 2027"). */
+  async list(dept?: string, semester?: string, year?: string, academicYear?: string): Promise<StudentRecord[]> {
+    const res = await apiClient.get<StudentRecord[]>("/admin/students", { params: { dept, semester, year, academicYear } });
     return res.data;
   },
 
@@ -575,8 +576,8 @@ export const studentsApi = {
     await apiClient.delete(`/admin/students/${encodeURIComponent(regNo)}`);
   },
 
-  async removeGroup(dept: string, year: string, semester: string): Promise<number> {
-    const res = await apiClient.delete<{ deleted: number }>("/admin/students", { params: { dept, year, semester } });
+  async removeGroup(dept: string, year: string, semester: string, academicYear?: string): Promise<number> {
+    const res = await apiClient.delete<{ deleted: number }>("/admin/students", { params: { dept, year, semester, academicYear } });
     return res.data.deleted;
   },
 };
