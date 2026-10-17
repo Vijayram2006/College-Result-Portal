@@ -677,6 +677,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
         partBC: partBCMarks as any,
         examinerName: examinerName.trim(),
         examinerDesignation: examinerDesignation.trim(),
+        expectedVersion: (selectedStudent as { version?: number }).version ?? 0,
       });
       const updated: StudentMarkData = { ...saved, dob: saved.dob || "" };
       setStudents((prev) => prev.map((s) => (s.regNo === updated.regNo ? updated : s)));

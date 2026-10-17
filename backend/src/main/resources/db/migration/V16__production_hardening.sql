@@ -51,6 +51,14 @@ ALTER TABLE marks ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
 --    too when they all fit.
 ALTER TABLE marks ADD CONSTRAINT marks_part_a_total_range CHECK (part_a_total BETWEEN 0 AND 20) NOT VALID;
 ALTER TABLE marks ADD CONSTRAINT marks_part_bc_total_range CHECK (part_bc_total BETWEEN 0 AND 100) NOT VALID;
+-- One value per Part A question (10) and per Part B + C subdivision (q11-16 x a/b x i-iii = 36). A row of another
+-- length once broke the Mark Entry roster; older such rows are padded to the right length first.
+UPDATE marks SET part_a = part_a || array_fill(0::numeric, ARRAY[10 - coalesce(array_length(part_a, 1), 0)])
+WHERE coalesce(array_length(part_a, 1), 0) < 10;
+UPDATE marks SET part_bc = part_bc || array_fill(0::numeric, ARRAY[36 - coalesce(array_length(part_bc, 1), 0)])
+WHERE coalesce(array_length(part_bc, 1), 0) < 36;
+ALTER TABLE marks ADD CONSTRAINT marks_array_lengths
+    CHECK (array_length(part_a, 1) = 10 AND array_length(part_bc, 1) = 36) NOT VALID;
 ALTER TABLE result_records ADD CONSTRAINT result_records_total_range CHECK (total BETWEEN 0 AND 100) NOT VALID;
 ALTER TABLE result_records ADD CONSTRAINT result_records_grade_points_range
     CHECK (grade_points BETWEEN 0 AND 10) NOT VALID;
@@ -61,7 +69,8 @@ DO $$
 DECLARE c RECORD;
 BEGIN
     FOR c IN SELECT conrelid::regclass AS tbl, conname FROM pg_constraint
-             WHERE conname IN ('marks_part_a_total_range', 'marks_part_bc_total_range', 'result_records_total_range',
+             WHERE conname IN ('marks_part_a_total_range', 'marks_part_bc_total_range', 'marks_array_lengths',
+                               'result_records_total_range',
                                'result_records_grade_points_range', 'result_records_parts_range') LOOP
         BEGIN
             EXECUTE format('ALTER TABLE %s VALIDATE CONSTRAINT %I', c.tbl, c.conname);

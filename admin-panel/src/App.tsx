@@ -1,29 +1,34 @@
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { Route, Switch, Redirect, useLocation } from "wouter";
 import { Sidebar } from "./components/Sidebar";
 import { Navbar, UNIVERSITY_BAR_HEIGHT } from "./components/Navbar";
 import { isSuperAdmin } from "./utils/rbac";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { PasswordChangeGate } from "./components/PasswordChange";
+import { MfaSetupGate } from "./components/MfaSetup";
+import { ErrorBoundary, installGlobalErrorReporting } from "./components/ErrorBoundary";
+import { NotFoundPage } from "./pages/NotFound";
+import { SiteFooter } from "./components/SiteFooter";
 
 import { Login } from "./pages/Login";
-import { Dashboard } from "./pages/Dashboard";
-import { ResultsPage } from "./pages/Results";
-import { ResultsUpload } from "./pages/ResultsUpload";
-import { ResultsValidation } from "./pages/ResultsValidation";
-import { ResultsPublished } from "./pages/ResultsPublished";
-import { ResultsPublish } from "./pages/ResultsPublish";
-import { AnswerScripts } from "./pages/AnswerScripts";
-import { AnalyticsPage } from "./pages/Analytics";
-import { AuditLogsPage } from "./pages/AuditLogs";
-import { ProfilePage } from "./pages/Profile";
-import { SubjectsPage } from "./pages/Subjects";
-import { DepartmentsPage, refreshDepartments } from "./pages/Departments";
-import { SuperAdminControlPage } from "./pages/SuperAdminControl";
+import { refreshDepartments } from "./pages/Departments";
 import { startSystemConfigSync } from "./utils/systemConfig";
-import { RevaluationRequestsPage } from "./pages/RevaluationRequests";
-import { FacultyMasterPage } from "./pages/FacultyMaster";
-import { InternalMarksPage } from "./pages/InternalMarks";
+const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
+const ResultsPage = lazy(() => import("./pages/Results").then((m) => ({ default: m.ResultsPage })));
+const ResultsUpload = lazy(() => import("./pages/ResultsUpload").then((m) => ({ default: m.ResultsUpload })));
+const ResultsValidation = lazy(() => import("./pages/ResultsValidation").then((m) => ({ default: m.ResultsValidation })));
+const ResultsPublished = lazy(() => import("./pages/ResultsPublished").then((m) => ({ default: m.ResultsPublished })));
+const ResultsPublish = lazy(() => import("./pages/ResultsPublish").then((m) => ({ default: m.ResultsPublish })));
+const AnswerScripts = lazy(() => import("./pages/AnswerScripts").then((m) => ({ default: m.AnswerScripts })));
+const AnalyticsPage = lazy(() => import("./pages/Analytics").then((m) => ({ default: m.AnalyticsPage })));
+const AuditLogsPage = lazy(() => import("./pages/AuditLogs").then((m) => ({ default: m.AuditLogsPage })));
+const ProfilePage = lazy(() => import("./pages/Profile").then((m) => ({ default: m.ProfilePage })));
+const SubjectsPage = lazy(() => import("./pages/Subjects").then((m) => ({ default: m.SubjectsPage })));
+const DepartmentsPage = lazy(() => import("./pages/Departments").then((m) => ({ default: m.DepartmentsPage })));
+const SuperAdminControlPage = lazy(() => import("./pages/SuperAdminControl").then((m) => ({ default: m.SuperAdminControlPage })));
+const RevaluationRequestsPage = lazy(() => import("./pages/RevaluationRequests").then((m) => ({ default: m.RevaluationRequestsPage })));
+const FacultyMasterPage = lazy(() => import("./pages/FacultyMaster").then((m) => ({ default: m.FacultyMasterPage })));
+const InternalMarksPage = lazy(() => import("./pages/InternalMarks").then((m) => ({ default: m.InternalMarksPage })));
 
 const pageTitles: Record<string, string> = {
   "/admin/super-admin": "Dashboard",
@@ -77,15 +82,25 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         <Navbar setMobileOpen={setMobileOpen} title={title} />
         {/* The Chief COE's university bar is fixed across the full width; keep the page below it */}
         {isSuperAdmin() && <div aria-hidden className="shrink-0" style={{ height: UNIVERSITY_BAR_HEIGHT }} />}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full min-w-0">{children}</main>
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full min-w-0">
+          <ErrorBoundary>
+            <Suspense fallback={<p className="text-sm text-slate-500" role="status">Loading…</p>}>{children}</Suspense>
+          </ErrorBoundary>
+        </main>
+        <SiteFooter />
       </div>
       <PasswordChangeGate />
+      <MfaSetupGate />
     </div>
   );
 };
 
+installGlobalErrorReporting();
+
 export const App: React.FC = () => {
   return (
+    <ErrorBoundary>
+    <Suspense fallback={<p className="p-6 text-sm text-slate-500" role="status">Loading…</p>}>
     <Switch>
       {/* Public Admin Login Route */}
       <Route path="/admin/login" component={Login} />
@@ -225,10 +240,17 @@ export const App: React.FC = () => {
         <Redirect to="/admin/dashboard" />
       </Route>
 
-      <Route>
+      <Route path="/admin">
         <Redirect to="/admin/dashboard" />
       </Route>
+
+      {/* Any other address: a real "not found" page instead of silently jumping elsewhere */}
+      <Route>
+        <NotFoundPage />
+      </Route>
     </Switch>
+    </Suspense>
+    </ErrorBoundary>
   );
 };
 

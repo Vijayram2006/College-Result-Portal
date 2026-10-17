@@ -16,6 +16,7 @@ import {
   Building2,
   Eye,
   EyeOff,
+  Smartphone,
 } from "lucide-react";
 import { OfficerUser } from "./types";
 import { superAdminApi, apiErrorMessage } from "../../services/api";
@@ -272,6 +273,27 @@ export const UserProvisioningTab: React.FC = () => {
                         >
                           <KeyRound size={14} />
                         </button>
+
+                        {user.mfaEnabled && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!window.confirm(`Reset two-step sign-in for ${user.username}?\n\nUse this when they lost their phone. They set it up again at their next sign-in, and their open sessions end.`)) return;
+                              try {
+                                await superAdminApi.resetMfa(user.id);
+                                showToast(`Two-step sign-in reset for ${user.username}`);
+                                loadOfficers();
+                              } catch (err) {
+                                alert(apiErrorMessage(err, "Two-step sign-in could not be reset."));
+                              }
+                            }}
+                            title="Reset two-step sign-in (lost phone)"
+                            aria-label={`Reset two-step sign-in for ${user.username}`}
+                            className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-amber-100 transition"
+                          >
+                            <Smartphone size={14} />
+                          </button>
+                        )}
 
                         {!isSuper && (
                           <button

@@ -35,6 +35,8 @@ export const AuditLogsPage: React.FC = () => {
       Action: log.action,
       Target: log.target,
       Description: log.description,
+      "Old value": log.oldValue || "",
+      "New value": log.newValue || "",
       "User ID": log.adminId,
       "User Name": log.adminName,
       "IP Address": log.ipAddress,
@@ -184,7 +186,15 @@ export const AuditLogsPage: React.FC = () => {
                     <td className="p-4">{getActionBadge(log.action)}</td>
                     <td className="p-4 font-bold text-gray-800">{log.target}</td>
                     <td className="p-4 text-gray-500 font-mono text-[11px]">{log.ipAddress}</td>
-                    <td className="p-4 text-gray-600 max-w-xs">{log.description}</td>
+                    <td className="p-4 text-gray-600 max-w-xs">
+                      {log.description}
+                      {(log.oldValue || log.newValue) && (
+                        <div className="mt-1 text-[10px] font-mono">
+                          {log.oldValue && <div className="text-red-700">Before: {log.oldValue}</div>}
+                          {log.newValue && <div className="text-emerald-700">After: {log.newValue}</div>}
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}

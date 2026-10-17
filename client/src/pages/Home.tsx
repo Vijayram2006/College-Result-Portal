@@ -1601,6 +1601,8 @@ function HodPortalDashboard({
       {/* Footer */}
       <footer className="bg-[#060D17] border-t border-white/10 text-slate-400 text-xs py-4 text-center font-medium">
         <p>© 2026 KVELL University. All Rights Reserved. Controller of Examinations Result Portal.</p>
+        <p className="mt-1 opacity-80">Results shown online are provisional; the marksheet issued by the Controller of Examinations is the official record. Support: Office of the Controller of Examinations.</p>
+        <p className="mt-1 space-x-3"><a className="underline" href="/privacy.html">Privacy policy</a><a className="underline" href="/terms.html">Terms of use</a><a className="underline" href="/status.html">System status</a></p>
       </footer>
     </div>
   );
@@ -3653,8 +3655,16 @@ function LoginPage({
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(() =>
+    sessionStorage.getItem("kvell_session_expired") ? "Your session ended. Please sign in again." : null
+  );
   const [submitting, setSubmitting] = useState(false);
+  // Picture challenge the server asks for after failed sign-ins (used up by each attempt)
+  const [captcha, setCaptcha] = useState<{ id: string; image: string } | null>(null);
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
+  useEffect(() => {
+    sessionStorage.removeItem("kvell_session_expired");
+  }, []);
 
   // Portal gateways set by the Super Admin, served by the result server (which also refuses a closed portal's sign-in)
   const systemConfig = useSystemConfig();
@@ -3679,28 +3689,35 @@ function LoginPage({
     try {
       if (selectedRole === "Student") {
         // Students sign in with Register Number + Date of Birth
-        const res = await authApi.login(regNumber.trim(), dob, "student");
+        const res = await authApi.login(regNumber.trim(), dob, "student", challenge());
         onAuthenticated("Student", { reg: res.user.username, name: res.user.name, semester: 1 });
       } else if (selectedRole === "Faculty") {
         // Faculty enter marks for their own department and forward them to the COE
-        const res = await authApi.login(username.trim(), password, "faculty");
+        const res = await authApi.login(username.trim(), password, "faculty", challenge());
         // The college comes from the account on the server, never from what was typed
         const college = res.user.collegeKey === "pharmacy" ? "Pharmacy" : res.user.collegeKey === "nursing" ? "Nursing" : "Engineering";
         localStorage.setItem("kvell_faculty_college", college);
         onAuthenticated("Faculty");
       } else {
-        const res = await authApi.login(username.trim(), password, "hod");
+        const res = await authApi.login(username.trim(), password, "hod", challenge());
         onAuthenticated("HOD", undefined, {
           name: res.user.name,
           department: (res.user.departmentName || "").toUpperCase(),
         });
       }
-    } catch (err) {
+    } catch (err: any) {
+      const data = err?.response?.data;
+      setCaptcha(data?.captchaRequired ? data.captcha : null);
+      setCaptchaAnswer("");
       setErrorMsg(apiErrorMessage(err, "Sign in failed. Please check your details."));
     } finally {
       setSubmitting(false);
     }
   };
+
+  function challenge() {
+    return captcha ? { captchaId: captcha.id, captchaAnswer } : {};
+  }
 
   const kvellSealLogo = "/kvell-logo.png";
 
@@ -3986,8 +4003,26 @@ function LoginPage({
                   </div>
                 )}
 
+                {captcha && (
+                  <div>
+                    <label htmlFor="portal-captcha" className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
+                      TYPE THE CHARACTERS IN THE PICTURE
+                    </label>
+                    <img src={captcha.image} alt="Security check: characters to type" className="h-[60px] rounded-xl border border-slate-200 mb-2" />
+                    <input
+                      id="portal-captcha"
+                      required
+                      autoComplete="off"
+                      maxLength={8}
+                      value={captchaAnswer}
+                      onChange={(e) => setCaptchaAnswer(e.target.value.toUpperCase())}
+                      className="w-full h-12 px-4 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 focus:bg-white text-sm font-bold tracking-widest focus:border-[#0B192C] focus:outline-none"
+                    />
+                  </div>
+                )}
+
                 {errorMsg && (
-                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-bold text-red-700 flex items-center gap-2 shadow-sm">
+                  <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-bold text-red-700 flex items-center gap-2 shadow-sm">
                     <AlertCircle size={15} className="shrink-0" />
                     <span>{errorMsg}</span>
                   </div>
@@ -4017,6 +4052,8 @@ function LoginPage({
       {/* Footer */}
       <footer className="bg-[#060D17] border-t border-white/10 text-slate-400 text-xs py-4 text-center font-medium">
         <p>© 2026 KVELL University. All Rights Reserved. Controller of Examinations Result Portal.</p>
+        <p className="mt-1 opacity-80">Results shown online are provisional; the marksheet issued by the Controller of Examinations is the official record. Support: Office of the Controller of Examinations.</p>
+        <p className="mt-1 space-x-3"><a className="underline" href="/privacy.html">Privacy policy</a><a className="underline" href="/terms.html">Terms of use</a><a className="underline" href="/status.html">System status</a></p>
       </footer>
     </div>
   );
@@ -5177,6 +5214,8 @@ function StudentDashboard({
       {/* Footer */}
       <footer className="bg-[#060D17] border-t border-white/10 text-slate-400 text-xs py-5 text-center font-medium">
         <p>© 2026 KVELL University. All Rights Reserved. Controller of Examinations Result Portal.</p>
+        <p className="mt-1 opacity-80">Results shown online are provisional; the marksheet issued by the Controller of Examinations is the official record. Support: Office of the Controller of Examinations.</p>
+        <p className="mt-1 space-x-3"><a className="underline" href="/privacy.html">Privacy policy</a><a className="underline" href="/terms.html">Terms of use</a><a className="underline" href="/status.html">System status</a></p>
       </footer>
     </div>
   );

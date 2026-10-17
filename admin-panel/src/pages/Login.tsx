@@ -14,7 +14,7 @@ import {
   CheckCircle2,
   Crown,
 } from "lucide-react";
-import { adminAuthApi, apiErrorMessage } from "../services/api";
+import { adminAuthApi, apiErrorMessage, type CaptchaChallenge } from "../services/api";
 import { refreshDepartments } from "./Departments";
 
 const kvellSealLogo = "/kvell-logo.png";
@@ -26,6 +26,11 @@ export const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Second step for COE accounts with two-step sign-in, and the picture challenge after failed attempts
+  const [otpStep, setOtpStep] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [captcha, setCaptcha] = useState<CaptchaChallenge | null>(null);
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -33,7 +38,11 @@ export const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      const res = await adminAuthApi.login(username, password);
+      const res = await adminAuthApi.login(username, password, {
+        otp: otpStep ? otp : undefined,
+        captchaId: captcha?.id,
+        captchaAnswer: captcha ? captchaAnswer : undefined,
+      });
       const allowedRoles = ["SUPER_ADMIN", "ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY"];
       if (allowedRoles.includes(res.role)) {
         await refreshDepartments().catch(() => undefined);
@@ -43,7 +52,17 @@ export const Login: React.FC = () => {
         adminAuthApi.logout();
       }
     } catch (err: any) {
-      setError(apiErrorMessage(err, "Invalid Credentials or Unauthorized Access."));
+      const data = err?.response?.data;
+      // Each challenge is used up by the attempt that sent it
+      setCaptcha(data?.captchaRequired ? data.captcha : null);
+      setCaptchaAnswer("");
+      if (data?.otpRequired) {
+        if (otpStep && otp) setError(apiErrorMessage(err, "The code is not correct."));
+        setOtpStep(true);
+        setOtp("");
+      } else {
+        setError(apiErrorMessage(err, "Invalid Credentials or Unauthorized Access."));
+      }
     } finally {
       setLoading(false);
     }
@@ -173,8 +192,47 @@ export const Login: React.FC = () => {
                   </div>
                 </div>
 
+                {otpStep && (
+                  <div>
+                    <label htmlFor="otp" className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
+                      AUTHENTICATOR CODE
+                    </label>
+                    <input
+                      id="otp"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      autoFocus
+                      required
+                      maxLength={12}
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.toUpperCase())}
+                      placeholder="6-digit code (or a recovery code)"
+                      className="w-full h-12 px-4 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 focus:bg-white text-sm font-bold tracking-widest text-[#172033] focus:border-[#0B192C] focus:ring-1 focus:ring-[#0B192C] focus:outline-none transition shadow-sm"
+                    />
+                    <p className="mt-1 text-[11px] text-slate-500">Open your authenticator app and type the code shown for KVELL Result Portal.</p>
+                  </div>
+                )}
+
+                {captcha && (
+                  <div>
+                    <label htmlFor="captcha" className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
+                      TYPE THE CHARACTERS IN THE PICTURE
+                    </label>
+                    <img src={captcha.image} alt="Security check: characters to type" className="h-[60px] rounded-xl border border-slate-200 mb-2" />
+                    <input
+                      id="captcha"
+                      required
+                      autoComplete="off"
+                      maxLength={8}
+                      value={captchaAnswer}
+                      onChange={(e) => setCaptchaAnswer(e.target.value.toUpperCase())}
+                      className="w-full h-12 px-4 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 focus:bg-white text-sm font-bold tracking-widest text-[#172033] focus:border-[#0B192C] focus:ring-1 focus:ring-[#0B192C] focus:outline-none transition shadow-sm"
+                    />
+                  </div>
+                )}
+
                 {error && (
-                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-bold text-red-700 flex items-center gap-2 shadow-sm">
+                  <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-bold text-red-700 flex items-center gap-2 shadow-sm">
                     <AlertCircle size={15} className="shrink-0" />
                     <span>{error}</span>
                   </div>

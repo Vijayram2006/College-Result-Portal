@@ -303,6 +303,8 @@ export const ResultsUpload: React.FC = () => {
     message: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  // A parsed spreadsheet waits here for the COE to check it and confirm; nothing is saved before that
+  const [pendingUpload, setPendingUpload] = useState<{ fileName: string; rows: any[] } | null>(null);
 
   // Real-time System Governance Configuration & Lock Enforcement
   const [systemConfig, setSystemConfig] = useState<SystemConfig>(getSystemConfig);
@@ -392,6 +394,7 @@ export const ResultsUpload: React.FC = () => {
 
   useEffect(() => {
     setSelectedFile(null);
+    setPendingUpload(null);
     loadSavedStudents(deptKey, studyYear, semester, academicYear);
   }, [deptKey, studyYear, semester, academicYear]);
 
@@ -400,6 +403,27 @@ export const ResultsUpload: React.FC = () => {
   }, [sortMode]);
 
   const targetLabel = `${deptKey.toUpperCase()} • ${studyYear} • ${semester} • ${academicYear}`;
+
+  // Confirms a previewed spreadsheet: every row is saved, or none (the errors are listed)
+  const confirmPendingUpload = async () => {
+    if (!pendingUpload) return;
+    const { fileName, rows } = pendingUpload;
+    const result = await saveStudentRows(rows, deptKey, studyYear);
+    if (!result) return; // row errors are shown; the preview stays for correction
+    setPendingUpload(null);
+    await reloadSaved();
+    setFeedback({
+      type: "success",
+      message: `Saved ${result.total} students from "${fileName}" (${result.created} new, ${result.updated} updated) for ${deptKey.toUpperCase()} • ${studyYear} (${semester}). ${loginNote(result.withoutDob, result.total)}`,
+    });
+  };
+
+  const cancelPendingUpload = async () => {
+    setPendingUpload(null);
+    setSelectedFile(null);
+    await reloadSaved();
+    setFeedback({ type: "info", message: "The spreadsheet was not saved." });
+  };
 
   // Clears the loaded list. Rows not yet saved are just dropped; saved students are deleted on the server (with their
   // marks) after a confirmation, so they do not come back when the page reloads.
@@ -591,14 +615,11 @@ export const ResultsUpload: React.FC = () => {
         const mergedSorted = sortStudentRecords(Array.from(recordMap.values()), sortMode);
         setParsedData(mergedSorted);
 
-        // Save the sheet immediately so Mark Entry sees these students right away
-        saveStudentRows(normalized, deptKey, studyYear).then(async (result) => {
-          if (!result) return; // row errors are shown; the rows stay listed (unsaved) for review
-          await reloadSaved();
-          setFeedback({
-            type: "success",
-            message: `Saved ${result.total} students from "${file.name}" (${result.created} new, ${result.updated} updated) for ${deptKey.toUpperCase()} • ${studyYear} (${semester}). ${loginNote(result.withoutDob, result.total)}`,
-          });
+        // Preview first: the COE checks the rows, then confirms (the save is all-or-nothing on the server)
+        setPendingUpload({ fileName: file.name, rows: normalized });
+        setFeedback({
+          type: "info",
+          message: `Preview of "${file.name}": ${normalized.length} rows for ${deptKey.toUpperCase()} • ${studyYear} (${semester}). Check them below, then press Save to add them. Nothing is saved yet.`,
         });
       } catch (err) {
         console.error("Error parsing Excel file", err);
@@ -1204,6 +1225,23 @@ export const ResultsUpload: React.FC = () => {
           </button>
         </div>
       </div>
+      )}
+
+      {pendingUpload && (
+        <div role="region" aria-label="Spreadsheet preview" className="p-5 rounded-2xl border-2 border-[#D4A72C] bg-[#FFF8E6] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="text-xs text-[#0B192C]">
+            <p className="font-black text-sm">Preview: {pendingUpload.rows.length} rows from "{pendingUpload.fileName}"</p>
+            <p className="mt-0.5">Check the list below. Press <b>Save</b> to add them to {targetLabel}; nothing is saved until then.</p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button type="button" onClick={cancelPendingUpload} className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-bold text-slate-700">
+              Cancel
+            </button>
+            <button type="button" onClick={confirmPendingUpload} disabled={isCollegeLocked} className="px-5 py-2.5 rounded-xl bg-[#0B192C] text-white text-xs font-extrabold disabled:opacity-50">
+              Save {pendingUpload.rows.length} students
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Step 3: Interactive Student Registry & Order Management */}

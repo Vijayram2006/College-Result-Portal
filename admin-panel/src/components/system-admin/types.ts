@@ -19,6 +19,7 @@ export interface OfficerUser {
   status: "ACTIVE" | "SUSPENDED";
   lastLogin: string;
   departmentScope?: string;
+  mfaEnabled?: boolean;
 }
 
 export interface CollegeMetrics {

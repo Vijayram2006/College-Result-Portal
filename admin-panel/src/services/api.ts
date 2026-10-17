@@ -2,8 +2,9 @@ import axios from "axios";
 import { wakeServer } from "../components/ServerWake";
 import type { AdminRole, CollegeKey } from "../utils/rbac";
 
-// Environment-configured API URL connecting to Spring Boot backend
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+// Environment-configured API URL connecting to Spring Boot backend; this panel speaks version 1 of the API
+export const API_ROOT = (import.meta.env.VITE_API_URL || "http://localhost:8080/api").replace(/\/+$/, "");
+const API_URL = `${API_ROOT}/v1`;
 
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -39,6 +40,10 @@ apiClient.interceptors.response.use(
     // An account that still has its shared starting password must choose its own first (PasswordChangeGate)
     if (error?.response?.status === 403 && error.response.data?.passwordChangeRequired) {
       window.dispatchEvent(new Event("kvell:password-change-required"));
+    }
+    // A COE account must set up two-step sign-in before using the panel (MfaSetupGate)
+    if (error?.response?.status === 403 && error.response.data?.mfaSetupRequired) {
+      window.dispatchEvent(new Event("kvell:mfa-setup-required"));
     }
     // A Super Admin lock refused this change: refresh the gateways so the page shows the lock
     if (error?.response?.status === 423) {
@@ -88,6 +93,23 @@ export interface AdminUser {
   departmentKey?: string;
   /** Still has the shared starting password: must choose a new one before using the panel. */
   mustChangePassword?: boolean;
+  /** Two-step sign-in (authenticator app) is set up. */
+  mfaEnabled?: boolean;
+  /** Must set up two-step sign-in before using the panel. */
+  mfaSetupRequired?: boolean;
+}
+
+/** Extra answers the sign-in may ask for: the authenticator code, or the picture challenge after failed attempts. */
+export interface LoginExtras {
+  otp?: string;
+  captchaId?: string;
+  captchaAnswer?: string;
+}
+
+/** The picture challenge the server sends back (data: URL) after failed sign-ins. */
+export interface CaptchaChallenge {
+  id: string;
+  image: string;
 }
 
 export interface AdminAuthResponse {
@@ -184,6 +206,8 @@ export interface StudentMarkRecord {
   subjectTitle?: string;
   examinerName?: string;
   examinerDesignation?: string;
+  /** Edit version: sent back as expectedVersion so a save over someone else's newer entry is refused. */
+  version?: number;
 }
 
 export interface ResultRecordItem {
@@ -245,7 +269,7 @@ export interface PublishRow {
    * NO_MARKS, NOT_FORWARDED (marks entered, faculty has not forwarded), FORWARDED (awaiting COE), PUBLISHED,
    * OUT_OF_DATE (marks changed after forwarding: faculty must forward again).
    */
-  state: "NO_MARKS" | "NOT_FORWARDED" | "FORWARDED" | "PUBLISHED" | "OUT_OF_DATE";
+  state: "NO_MARKS" | "NOT_FORWARDED" | "FORWARDED" | "PUBLISHED" | "OUT_OF_DATE" | "WITHDRAWN";
   forwardedBy: string | null;
   batchId: string | null;
   publishedAt: string | null;
@@ -283,16 +307,20 @@ export interface AuditLogRecord {
   timestamp: string;
   ipAddress: string;
   description: string;
+  /** What a change replaced and what it wrote (mark edits, corrections, withdrawals). */
+  oldValue?: string | null;
+  newValue?: string | null;
 }
 
 // REST API Methods for Admin Panel
 
 export const adminAuthApi = {
-  async login(username: string, password: string): Promise<AdminAuthResponse> {
+  async login(username: string, password: string, extras: LoginExtras = {}): Promise<AdminAuthResponse> {
     const response = await apiClient.post<AdminAuthResponse>("/auth/login", {
       username,
       password,
       role: "admin",
+      ...extras,
     });
     if (response.data.token) {
       localStorage.setItem("kvell_admin_token", response.data.token);
@@ -316,6 +344,21 @@ export const adminAuthApi = {
   getCurrentUser(): AdminUser | null {
     const raw = localStorage.getItem("kvell_admin_user");
     return raw ? JSON.parse(raw) : null;
+  },
+
+  /** Starts two-step sign-in set-up: the secret and the otpauth:// link for the QR code. */
+  async mfaSetup(): Promise<{ secret: string; otpauthUri: string }> {
+    return (await apiClient.post<{ secret: string; otpauthUri: string }>("/auth/mfa/setup")).data;
+  },
+
+  /** Confirms set-up with the first code; returns the one-time recovery codes. */
+  async mfaEnable(code: string): Promise<string[]> {
+    const res = await apiClient.post<{ recoveryCodes: string[] }>("/auth/mfa/enable", { code });
+    const stored = adminAuthApi.getCurrentUser();
+    if (stored) {
+      localStorage.setItem("kvell_admin_user", JSON.stringify({ ...stored, mfaEnabled: true, mfaSetupRequired: false }));
+    }
+    return res.data.recoveryCodes;
   },
 
   /** Replaces the password; other sessions of the account are signed out. */
@@ -673,6 +716,7 @@ export const marksApi = {
     partBC: Record<string, QuestionMarks>;
     examinerName: string;
     examinerDesignation: string;
+    expectedVersion?: number;
   }): Promise<StudentMarkRecord> {
     const res = await apiClient.put<StudentMarkRecord>("/admin/marks", payload);
     return res.data;
@@ -720,8 +764,9 @@ export const adminResultsApi = {
   },
 
   /** Hides every subject of a department and semester again; marks are kept. */
-  async unpublishDepartment(payload: { deptKey: string; semester: string; assessmentType: string }): Promise<void> {
-    await apiClient.post("/admin/publish/unpublish", payload);
+  /** Withdraws published results (students and the HOD stop seeing them); the reason is kept in the audit log. */
+  async unpublishDepartment(payload: { deptKey: string; semester: string; assessmentType: string; reason: string }): Promise<void> {
+    await apiClient.post("/admin/publish/withdraw", payload);
   },
 
   async deleteResultBatch(batchId: string): Promise<{ success: boolean }> {
@@ -792,6 +837,8 @@ export interface OfficerAccount {
   lastLogin: string;
   departmentScope: string;
   mustChangePassword: boolean;
+  /** Two-step sign-in is set up for this officer. */
+  mfaEnabled?: boolean;
 }
 
 export interface CollegeOverview {
@@ -842,6 +889,10 @@ export const superAdminApi = {
   },
   async resetPassword(id: string, password: string): Promise<OfficerAccount> {
     return (await apiClient.post<OfficerAccount>(`/super-admin/officers/${encodeURIComponent(id)}/reset-password`, { password })).data;
+  },
+  /** Clears an officer's two-step sign-in (lost phone); they set it up again at next sign-in. */
+  async resetMfa(id: string): Promise<OfficerAccount> {
+    return (await apiClient.post<OfficerAccount>(`/super-admin/officers/${encodeURIComponent(id)}/reset-mfa`)).data;
   },
   async overview(): Promise<CollegeOverview[]> {
     return (await apiClient.get<CollegeOverview[]>("/super-admin/overview")).data;

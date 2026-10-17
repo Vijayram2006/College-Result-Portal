@@ -15,6 +15,7 @@ const STATE_LABEL: Record<PublishRow["state"], { text: string; className: string
   FORWARDED: { text: "Forwarded - awaiting COE", className: "bg-sky-50 text-sky-800 border-sky-300" },
   PUBLISHED: { text: "Published", className: "bg-emerald-50 text-emerald-800 border-emerald-300" },
   OUT_OF_DATE: { text: "Marks changed - forward again", className: "bg-red-50 text-red-700 border-red-300" },
+  WITHDRAWN: { text: "Withdrawn - can be published again", className: "bg-purple-50 text-purple-800 border-purple-300" },
 };
 
 export const ResultsPublish: React.FC = () => {
@@ -105,19 +106,22 @@ export const ResultsPublish: React.FC = () => {
   };
 
   const unpublishAll = async () => {
-    if (
-      !window.confirm(
-        `Hide ALL ${ASSESSMENT} results for ${deptName} from students and the HOD?\n\nThe marks are kept. You can publish again at any time.`
-      )
-    )
+    const reason = window.prompt(
+      `Withdraw ALL ${ASSESSMENT} results for ${deptName} from students and the HOD?\n\nThe marks are kept and you can publish again. ` +
+        "Type the reason (it is recorded in the audit log), e.g. \"Wrong marks entered for CS26C02T\":"
+    );
+    if (reason === null) return;
+    if (reason.trim().length < 5) {
+      setMessage({ type: "error", text: "Give a reason of at least 5 characters to withdraw the results." });
       return;
+    }
     setBusy(true);
     try {
-      await adminResultsApi.unpublishDepartment({ deptKey, semester: SEMESTER, assessmentType: ASSESSMENT });
+      await adminResultsApi.unpublishDepartment({ deptKey, semester: SEMESTER, assessmentType: ASSESSMENT, reason: reason.trim() });
       window.dispatchEvent(new Event("kvell_marks_updated"));
-      setMessage({ type: "success", text: `${ASSESSMENT} results for ${deptName} are hidden from students and the HOD.` });
+      setMessage({ type: "success", text: `${ASSESSMENT} results for ${deptName} are withdrawn from students and the HOD.` });
     } catch (err) {
-      setMessage({ type: "error", text: apiErrorMessage(err, "Could not unpublish the results.") });
+      setMessage({ type: "error", text: apiErrorMessage(err, "Could not withdraw the results.") });
     } finally {
       setBusy(false);
       await load(false);
@@ -259,7 +263,7 @@ export const ResultsPublish: React.FC = () => {
                 disabled={busy}
                 className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-extrabold text-xs hover:bg-slate-50 transition flex items-center gap-2 disabled:opacity-40"
               >
-                <EyeOff size={14} /> Unpublish all
+                <EyeOff size={14} /> Withdraw results
               </button>
             )}
             <button

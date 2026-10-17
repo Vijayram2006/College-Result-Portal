@@ -9,7 +9,7 @@ import { Loader2 } from "lucide-react";
  * (Copy of admin-panel/src/components/ServerWake.tsx except for the API address; keep the two in step.)
  */
 
-const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
+const API = `${(import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api").replace(/\/+$/, "")}/v1`;
 const PING = `${API}/public/summary`;
 const SHOW_BANNER_AFTER_MS = 2500;
 const GIVE_UP_AFTER_MS = 180000;

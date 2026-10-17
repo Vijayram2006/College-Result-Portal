@@ -9,8 +9,8 @@ import { Loader2 } from "lucide-react";
  * (Copy of client/src/components/ServerWake.tsx except for the API address; keep the two in step.)
  */
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
-const PING = `${API}/public/summary`;
+const API = (import.meta.env.VITE_API_URL || "http://localhost:8080/api").replace(/\/+$/, "");
+const PING = `${API}/v1/public/summary`;
 const SHOW_BANNER_AFTER_MS = 2500;
 const GIVE_UP_AFTER_MS = 180000;
 const EVENT = "kvell:server-waking";

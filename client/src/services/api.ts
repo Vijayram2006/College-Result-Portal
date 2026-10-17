@@ -3,8 +3,9 @@ import axios from "axios";
 import { wakeServer } from "../components/ServerWake";
 import type { ResultBatchRecord, StudentMarkRecord, StudentRecord, SubjectRecord } from "../components/hodAnalytics/types";
 
-// Target Spring Boot REST API Backend URL (Configurable via VITE_API_BASE_URL)
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
+// Target Spring Boot REST API Backend URL (Configurable via VITE_API_BASE_URL); the portal speaks version 1
+export const API_ROOT = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api").replace(/\/+$/, "");
+const API_BASE_URL = `${API_ROOT}/v1`;
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -32,6 +33,14 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error?.response?.status === 403 && error.response.data?.passwordChangeRequired) {
       window.dispatchEvent(new Event("kvell:password-change-required"));
+    }
+    // An expired or signed-out session goes back to the sign-in page instead of leaving broken screens
+    const isLogin = String(error?.config?.url || "").includes("/auth/login");
+    if (error?.response?.status === 401 && !isLogin && localStorage.getItem("kvell_auth_token")) {
+      localStorage.removeItem("kvell_auth_token");
+      localStorage.removeItem("kvell_auth_user");
+      sessionStorage.setItem("kvell_session_expired", "1");
+      window.location.reload();
     }
     return retryAfterWake(error);
   }
@@ -221,8 +230,10 @@ export const authApi = {
   },
 
   /** Students sign in with Register Number + Date of Birth; HOD and Admin with username + password. */
-  async login(username: string, password: string, role: PortalRole): Promise<AuthResponseDTO> {
-    const response = await apiClient.post<AuthResponseDTO>("/auth/login", { username, password, role });
+  /** extras: the picture challenge, when the server asked for one after failed attempts. */
+  async login(username: string, password: string, role: PortalRole,
+              extras: { captchaId?: string; captchaAnswer?: string } = {}): Promise<AuthResponseDTO> {
+    const response = await apiClient.post<AuthResponseDTO>("/auth/login", { username, password, role, ...extras });
     if (response.data.token) {
       localStorage.setItem("kvell_auth_token", response.data.token);
       localStorage.setItem("kvell_auth_user", JSON.stringify(response.data.user));
@@ -391,6 +402,8 @@ export interface StudentMarkDTO {
   subjectTitle?: string;
   examinerName?: string;
   examinerDesignation?: string;
+  /** Edit version, sent back as expectedVersion. */
+  version?: number;
 }
 
 /** Forwarding / publication state of one subject (NOT_FORWARDED, FORWARDED, PUBLISHED, OUT_OF_DATE, NO_MARKS). */
@@ -452,6 +465,7 @@ export const facultyApi = {
     partBC: Record<string, QuestionMarks>;
     examinerName: string;
     examinerDesignation: string;
+    expectedVersion?: number;
   }): Promise<StudentMarkDTO> {
     return (await apiClient.put<StudentMarkDTO>("/faculty/marks", payload)).data;
   },

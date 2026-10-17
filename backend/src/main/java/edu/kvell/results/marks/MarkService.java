@@ -294,8 +294,10 @@ public class MarkService {
                     "FAIL", zeros(PART_A_QUESTIONS), emptyBC(), null, deptKey, deptName, Semesters.label(sem), code,
                     title, null, null, 0);
         }
-        List<Double> partA = toList(rs.getArray("part_a"));
-        List<Double> flat = toList(rs.getArray("part_bc"));
+        // A row saved with the wrong number of values (an older or outside writer) must not break the whole roster:
+        // missing values read as 0 and extra ones are ignored, so the COE can open the student and save it again.
+        List<Double> partA = fixedLength(toList(rs.getArray("part_a")), PART_A_QUESTIONS);
+        List<Double> flat = fixedLength(toList(rs.getArray("part_bc")), BC_VALUES);
         Map<String, Question> partBC = new LinkedHashMap<>();
         for (int q = FIRST_BC_QUESTION; q <= LAST_BC_QUESTION; q++) {
             int b = (q - FIRST_BC_QUESTION) * 6;
@@ -308,6 +310,13 @@ public class MarkService {
                 rs.getInt("grand_total"), rs.getString("grade"), rs.getBoolean("passed") ? "PASS" : "FAIL", partA,
                 partBC, assessment, deptKey, deptName, Semesters.label(sem), code, title,
                 rs.getString("examiner_name"), rs.getString("examiner_designation"), rs.getInt("version"));
+    }
+
+    /** The list padded with zeros, or cut, to exactly length values. */
+    static List<Double> fixedLength(List<Double> values, int length) {
+        List<Double> out = new java.util.ArrayList<>(length);
+        for (int i = 0; i < length; i++) out.add(i < values.size() && values.get(i) != null ? values.get(i) : 0.0);
+        return out;
     }
 
     /**

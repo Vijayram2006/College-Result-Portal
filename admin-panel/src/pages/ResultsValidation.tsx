@@ -145,6 +145,7 @@ interface StudentMarkData {
   subjectTitle?: string;
   examinerName?: string;
   examinerDesignation?: string;
+  version?: number;
 }
 
 export const ResultsValidation: React.FC = () => {
@@ -532,6 +533,7 @@ export const ResultsValidation: React.FC = () => {
         partBC: JSON.parse(JSON.stringify(partBCMarks)),
         examinerName: examinerName.trim(),
         examinerDesignation: examinerDesignation.trim(),
+        expectedVersion: selectedStudent.version ?? 0,
       });
     } catch (err) {
       setFeedback({ type: "error", message: apiErrorMessage(err, "Marks could not be saved.") });
