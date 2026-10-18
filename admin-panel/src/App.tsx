@@ -6,6 +6,7 @@ import { isSuperAdmin } from "./utils/rbac";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { PasswordChangeGate } from "./components/PasswordChange";
 import { MfaSetupGate } from "./components/MfaSetup";
+import { adminAuthApi } from "./services/api";
 import { ErrorBoundary, installGlobalErrorReporting } from "./components/ErrorBoundary";
 import { NotFoundPage } from "./pages/NotFound";
 import { SiteFooter } from "./components/SiteFooter";
@@ -54,6 +55,13 @@ interface AdminLayoutProps {
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
+  // Until a COE has set up two-step sign-in the server refuses the panel's data: show only the set-up screen
+  const me = adminAuthApi.getCurrentUser();
+  if (me?.mfaSetupRequired && !me.mustChangePassword) return <MfaSetupGate />;
+  return <AdminLayoutBody>{children}</AdminLayoutBody>;
+};
+
+const AdminLayoutBody: React.FC<AdminLayoutProps> = ({ children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [location] = useLocation();
 

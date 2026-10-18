@@ -41,7 +41,8 @@ public class TokenAuthFilter extends OncePerRequestFilter {
             Optional<CurrentUser> user = auth.authenticate(token);
             if (user.isPresent()) {
                 if (user.get().mustChangePassword() && !"OPTIONS".equals(request.getMethod())
-                        && !ALLOWED_BEFORE_PASSWORD_CHANGE.contains(request.getRequestURI())) {
+                        && !ALLOWED_BEFORE_PASSWORD_CHANGE.contains(request.getRequestURI())
+                        && !request.getRequestURI().startsWith("/api/public/")) {
                     response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                     response.setContentType("application/json");
                     response.getWriter().write("{\"error\":\"Choose a new password before continuing\","
@@ -50,7 +51,8 @@ public class TokenAuthFilter extends OncePerRequestFilter {
                 }
                 if (!user.get().mustChangePassword() && user.get().mfaSetupRequired()
                         && !"OPTIONS".equals(request.getMethod())
-                        && !ALLOWED_BEFORE_MFA_SETUP.contains(request.getRequestURI())) {
+                        && !ALLOWED_BEFORE_MFA_SETUP.contains(request.getRequestURI())
+                        && !request.getRequestURI().startsWith("/api/public/")) {
                     response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                     response.setContentType("application/json");
                     response.getWriter().write("{\"error\":\"Set up two-step sign-in before continuing\","

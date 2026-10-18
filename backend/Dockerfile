@@ -18,7 +18,6 @@ USER app
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=70 -XX:+UseSerialGC -Xss512k -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError -Duser.timezone=Asia/Kolkata"
 ENV TZ=Asia/Kolkata
 EXPOSE 8080
-# The platform restarts the container when this fails (Render uses its own /healthz check as well)
-HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
-    CMD wget -q -O /dev/null http://127.0.0.1:${PORT:-8080}/healthz || exit 1
+# Health: the platform calls /healthz (Render health check path); the slim JRE image has no curl/wget for a
+# Docker HEALTHCHECK.
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

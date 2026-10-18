@@ -45,7 +45,7 @@ export const Login: React.FC = () => {
       });
       const allowedRoles = ["SUPER_ADMIN", "ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY"];
       if (allowedRoles.includes(res.role)) {
-        await refreshDepartments().catch(() => undefined);
+        if (!res.user.mfaSetupRequired) await refreshDepartments().catch(() => undefined);
         navigate(res.role === "SUPER_ADMIN" ? "/admin/super-admin" : "/admin/dashboard");
       } else {
         setError("Access Denied: 403 Forbidden. Only accounts with Controller of Examination role can log in.");

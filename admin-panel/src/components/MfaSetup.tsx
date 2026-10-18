@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import QRCode from "qrcode";
 import { Copy, LogOut, ShieldCheck, Smartphone } from "lucide-react";
 import { adminAuthApi, apiErrorMessage } from "../services/api";
@@ -33,8 +33,11 @@ export function MfaSetupGate() {
     return () => window.removeEventListener(MFA_SETUP_REQUIRED, open);
   }, []);
 
+  // Started once per screen, even when React runs the effect twice
+  const started = useRef(false);
   useEffect(() => {
-    if (step !== "loading") return;
+    if (step !== "loading" || started.current) return;
+    started.current = true;
     adminAuthApi
       .mfaSetup()
       .then(async (s) => {

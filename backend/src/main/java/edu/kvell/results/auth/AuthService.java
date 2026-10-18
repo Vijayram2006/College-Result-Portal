@@ -262,7 +262,9 @@ public class AuthService {
         UserRow user = findUser(current.username())
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Session expired"));
         if (user.totpEnabled()) throw ApiException.conflict("Two-step sign-in is already set up for this account.");
-        String secret = Totp.newSecret();
+        // A set-up already started (not yet confirmed) keeps its secret, so opening the screen twice never leaves
+        // the app holding a secret the server has replaced
+        String secret = user.totpSecret() != null ? user.totpSecret() : Totp.newSecret();
         db.sql("UPDATE users SET totp_secret = ? WHERE id = ?").params(secret, user.id()).update();
         return new MfaSetup(secret, Totp.uri("KVELL Result Portal", user.username(), secret));
     }
