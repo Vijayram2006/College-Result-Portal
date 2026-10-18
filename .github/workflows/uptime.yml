@@ -1,0 +1,50 @@
+# Uptime monitor: every 10 minutes checks the API (with its database), the portal and the COE panel. When something
+# is down it opens a GitHub issue labelled "outage" (GitHub e-mails everyone watching the repository); when all is
+# well again it closes the issue. Also keeps the free Render service from sleeping. For phone/WhatsApp alerts, add
+# the same three URLs to UptimeRobot or cron-job.org (docs/RUNBOOK.md).
+name: Uptime monitor
+
+on:
+  schedule:
+    - cron: "3-59/10 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - name: Check the three sites
+        id: check
+        run: |
+          down=""
+          # A sleeping free server takes up to two minutes to answer: keep trying before calling it down
+          curl -sf --max-time 90 --retry 8 --retry-delay 15 --retry-all-errors \
+               https://kvell-result-api.onrender.com/readyz > ready.json || down="$down API/database;"
+          cat ready.json 2>/dev/null || true
+          curl -sf --max-time 30 --retry 3 -o /dev/null https://kvell-result-portal.vercel.app/ || down="$down portal;"
+          curl -sf --max-time 30 --retry 3 -o /dev/null https://kvell-coe-admin.vercel.app/admin/login || down="$down COE panel;"
+          echo "down=$down" >> "$GITHUB_OUTPUT"
+      - name: Open or close the outage issue
+        uses: actions/github-script@v7
+        env:
+          DOWN: ${{ steps.check.outputs.down }}
+        with:
+          script: |
+            const down = process.env.DOWN.trim();
+            const open = await github.rest.issues.listForRepo({ ...context.repo, state: "open", labels: "outage" });
+            const now = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+            if (down && open.data.length === 0) {
+              await github.rest.issues.create({ ...context.repo, title: `Outage: ${down}`, labels: ["outage"],
+                body: `Detected ${now} IST by the uptime monitor. Down: ${down}\n\nSee docs/RUNBOOK.md.` });
+            } else if (down) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: open.data[0].number, body: `Still down at ${now} IST: ${down}` });
+            } else {
+              for (const issue of open.data) {
+                await github.rest.issues.createComment({ ...context.repo, issue_number: issue.number, body: `Recovered at ${now} IST.` });
+                await github.rest.issues.update({ ...context.repo, issue_number: issue.number, state: "closed" });
+              }
+            }

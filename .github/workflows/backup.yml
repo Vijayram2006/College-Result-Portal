@@ -1,0 +1,55 @@
+# Nightly encrypted backup of the production database, stored off the database server as a workflow artifact
+# (kept 30 days). Restore: docs/DISASTER-RECOVERY.md. Needs two repository secrets:
+#   NEON_DATABASE_URL   postgresql://USER:PASSWORD@HOST/DB?sslmode=require   (a read-only user is enough)
+#   BACKUP_PASSPHRASE   a long random passphrase, also kept in the college's password manager
+# Without the passphrase the file cannot be read, so it is safe even though the repository is public.
+name: Nightly database backup
+
+on:
+  schedule:
+    - cron: "40 20 * * *" # 02:10 IST
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Secrets present?
+        id: ready
+        run: |
+          if [ -z "$NEON_DATABASE_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::warning::Backup secrets are not set; no backup taken (see backup.yml)."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Dump (PostgreSQL 18 client, matching the server)
+        if: steps.ready.outputs.ok == 'true'
+        run: |
+          docker run --rm -v "$PWD:/out" postgres:18 pg_dump -Fc --no-owner -f /out/db.dump "$NEON_DATABASE_URL"
+          ls -la db.dump
+      - name: Check the dump can be read (lists its contents)
+        if: steps.ready.outputs.ok == 'true'
+        run: docker run --rm -v "$PWD:/in" postgres:18 pg_restore --list /in/db.dump | grep -c "TABLE DATA"
+      - name: Encrypt (AES-256)
+        if: steps.ready.outputs.ok == 'true'
+        run: |
+          name="kvell-db-$(date -u +%Y%m%d-%H%M).dump.gpg"
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+              --symmetric --cipher-algo AES256 -o "$name" db.dump
+          rm db.dump
+          echo "NAME=$name" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        if: steps.ready.outputs.ok == 'true'
+        with:
+          name: ${{ env.NAME }}
+          path: ${{ env.NAME }}
+          retention-days: 30
+          if-no-files-found: error

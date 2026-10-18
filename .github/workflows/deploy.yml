@@ -1,0 +1,82 @@
+# Production deploys come only from the main branch, after CI passes. Backend: Render deploy hook. Frontends: the
+# Vercel CLI builds and uploads each app. Nothing runs until the repository secrets below exist (Settings > Secrets
+# and variables > Actions):
+#   RENDER_DEPLOY_HOOK_URL   Render service > Settings > Deploy Hook
+#   VERCEL_TOKEN             Vercel account > Settings > Tokens
+#   VERCEL_ORG_ID            from .vercel/project.json after `vercel link`
+#   VERCEL_PROJECT_ID_PORTAL, VERCEL_PROJECT_ID_ADMIN
+# Roll back: Render > Deploys > previous deploy > Rollback; Vercel > Deployments > previous > Promote (docs/RUNBOOK.md).
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 30
+    env:
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+    steps:
+      - name: Secrets present?
+        id: ready
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ] || [ -z "$VERCEL_TOKEN" ]; then
+            echo "Deploy secrets are not set; nothing deployed (see the comment at the top of deploy.yml)."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.ready.outputs.ok == 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Backend (Render) - back up the database first when a migration is included (docs/RUNBOOK.md)
+        if: steps.ready.outputs.ok == 'true'
+        run: |
+          curl -sf -X POST "$RENDER_DEPLOY_HOOK_URL" > /dev/null
+          echo "Render deploy started; waiting for the new version"
+          for i in $(seq 1 40); do sleep 15; curl -sf https://kvell-result-api.onrender.com/readyz && break; done
+      - uses: actions/setup-node@v4
+        if: steps.ready.outputs.ok == 'true'
+        with:
+          node-version: "22"
+      - name: Portal (Vercel)
+        if: steps.ready.outputs.ok == 'true'
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_PORTAL }}
+        run: |
+          npx -y vercel@latest pull --yes --environment=production --token "$VERCEL_TOKEN"
+          npx -y vercel@latest build --prod --token "$VERCEL_TOKEN"
+          npx -y vercel@latest deploy --prebuilt --prod --token "$VERCEL_TOKEN"
+      - name: COE panel (Vercel)
+        if: steps.ready.outputs.ok == 'true'
+        working-directory: admin-panel
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_ADMIN }}
+        run: |
+          npx -y vercel@latest pull --yes --environment=production --token "$VERCEL_TOKEN"
+          npx -y vercel@latest build --prod --token "$VERCEL_TOKEN"
+          npx -y vercel@latest deploy --prebuilt --prod --token "$VERCEL_TOKEN"
+      - name: Smoke test after deploy
+        if: steps.ready.outputs.ok == 'true'
+        run: |
+          curl -sf https://kvell-result-api.onrender.com/readyz
+          curl -sf -o /dev/null https://kvell-result-portal.vercel.app/
+          curl -sf -o /dev/null https://kvell-coe-admin.vercel.app/admin/login
+          curl -sfI https://kvell-coe-admin.vercel.app/admin/login | grep -i "content-security-policy"

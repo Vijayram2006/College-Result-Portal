@@ -1,0 +1,5569 @@
+{
+  "components": {
+    "schemas": {
+      "AcademicSession": {
+        "properties": {
+          "academicYear": {
+            "type": "string"
+          },
+          "semesterTerm": {
+            "type": "string"
+          },
+          "sessionStatus": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Address": {
+        "properties": {
+          "city": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "district": {
+            "type": "string"
+          },
+          "doorNo": {
+            "type": "string"
+          },
+          "pincode": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "street": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Analytics": {
+        "properties": {
+          "batches": {
+            "items": {
+              "$ref": "#/components/schemas/ResultBatch"
+            },
+            "type": "array"
+          },
+          "departmentCode": {
+            "type": "string"
+          },
+          "departmentKey": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "marks": {
+            "items": {
+              "$ref": "#/components/schemas/StudentMark"
+            },
+            "type": "array"
+          },
+          "students": {
+            "items": {
+              "$ref": "#/components/schemas/StudentView"
+            },
+            "type": "array"
+          },
+          "subjects": {
+            "items": {
+              "$ref": "#/components/schemas/SubjectItem"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "ApplyRequest": {
+        "properties": {
+          "assessmentType": {
+            "type": "string"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "subjectCodes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "AuditEntry": {
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "actorName": {
+            "type": "string"
+          },
+          "college": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "ipAddress": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "AuditLogRecord": {
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "adminId": {
+            "type": "string"
+          },
+          "adminName": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "ipAddress": {
+            "type": "string"
+          },
+          "newValue": {
+            "type": "string"
+          },
+          "oldValue": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Breakdown": {
+        "properties": {
+          "attendance": {
+            "format": "double",
+            "type": "number"
+          },
+          "attendancePercent": {
+            "format": "double",
+            "type": "number"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "cycle1": {
+            "$ref": "#/components/schemas/Cycle"
+          },
+          "cycle2": {
+            "$ref": "#/components/schemas/Cycle"
+          },
+          "cycles": {
+            "format": "double",
+            "type": "number"
+          },
+          "max": {
+            "format": "double",
+            "type": "number"
+          },
+          "total": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "ChangePasswordRequest": {
+        "properties": {
+          "currentPassword": {
+            "type": "string"
+          },
+          "newPassword": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ClientError": {
+        "properties": {
+          "app": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "stack": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "CollegeLock": {
+        "properties": {
+          "freezeSubmissions": {
+            "type": "boolean"
+          },
+          "locked": {
+            "type": "boolean"
+          },
+          "resultsLive": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "CollegeOverview": {
+        "properties": {
+          "awaitingPublish": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "coeName": {
+            "type": "string"
+          },
+          "departments": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "expectedScripts": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "key": {
+            "type": "string"
+          },
+          "lock": {
+            "$ref": "#/components/schemas/CollegeLock"
+          },
+          "marksEntered": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "passPercentage": {
+            "format": "double",
+            "type": "number"
+          },
+          "publishedBatches": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "publishedRecords": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "students": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "studentsWithoutDob": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "subjects": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "Component": {
+        "properties": {
+          "max": {
+            "format": "double",
+            "type": "number"
+          },
+          "weight": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "Config": {
+        "properties": {
+          "activity": {
+            "$ref": "#/components/schemas/Component"
+          },
+          "assignment": {
+            "$ref": "#/components/schemas/Component"
+          },
+          "attendanceSlabs": {
+            "items": {
+              "$ref": "#/components/schemas/Slab"
+            },
+            "type": "array"
+          },
+          "attendanceWeight": {
+            "format": "double",
+            "type": "number"
+          },
+          "cycleCombine": {
+            "type": "string"
+          },
+          "hoursPerSubject": {
+            "format": "double",
+            "type": "number"
+          },
+          "iatWeight": {
+            "format": "double",
+            "type": "number"
+          },
+          "quiz": {
+            "$ref": "#/components/schemas/Component"
+          },
+          "rounding": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "CourseOffered": {
+        "properties": {
+          "branch": {
+            "type": "string"
+          },
+          "course": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "timesOffered": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "CreateOfficer": {
+        "properties": {
+          "collegeKey": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Cycle": {
+        "properties": {
+          "activity": {
+            "format": "double",
+            "type": "number"
+          },
+          "assignment": {
+            "format": "double",
+            "type": "number"
+          },
+          "iat": {
+            "format": "double",
+            "type": "number"
+          },
+          "max": {
+            "format": "double",
+            "type": "number"
+          },
+          "quiz": {
+            "format": "double",
+            "type": "number"
+          },
+          "total": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "DashboardStats": {
+        "properties": {
+          "departments": {
+            "items": {
+              "$ref": "#/components/schemas/DepartmentRow"
+            },
+            "type": "array"
+          },
+          "marksEntered": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "overallPassPercentage": {
+            "format": "double",
+            "type": "number"
+          },
+          "pendingResults": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "publishedResults": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "recentUploads": {
+            "items": {
+              "$ref": "#/components/schemas/RecentUpload"
+            },
+            "type": "array"
+          },
+          "studentsWithoutDob": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalCourses": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalDepartments": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalFaculty": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalStudents": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "DepartmentInput": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "headName": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DepartmentRow": {
+        "properties": {
+          "deptKey": {
+            "type": "string"
+          },
+          "marksEntered": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "passPercentage": {
+            "format": "double",
+            "type": "number"
+          },
+          "publishedBatches": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "students": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "studentsWithoutDob": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "subjects": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "DepartmentView": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "facultyLogin": {
+            "type": "string"
+          },
+          "headName": {
+            "type": "string"
+          },
+          "hodLogin": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "totalStudents": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "Employment": {
+        "properties": {
+          "designation": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "organisation": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Experience": {
+        "properties": {
+          "months": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "section": {
+            "type": "string"
+          },
+          "years": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FacultyDetail": {
+        "properties": {
+          "aadhaar": {
+            "type": "string"
+          },
+          "commAddress": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "courses": {
+            "items": {
+              "$ref": "#/components/schemas/CourseOffered"
+            },
+            "type": "array"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "deptName": {
+            "type": "string"
+          },
+          "designation": {
+            "type": "string"
+          },
+          "dob": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "employment": {
+            "items": {
+              "$ref": "#/components/schemas/Employment"
+            },
+            "type": "array"
+          },
+          "experience": {
+            "items": {
+              "$ref": "#/components/schemas/Experience"
+            },
+            "type": "array"
+          },
+          "gender": {
+            "type": "string"
+          },
+          "hasPhoto": {
+            "type": "boolean"
+          },
+          "hasSignature": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "joinedPostOn": {
+            "type": "string"
+          },
+          "joinedServiceOn": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permAddress": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "qualifications": {
+            "items": {
+              "$ref": "#/components/schemas/Qualification"
+            },
+            "type": "array"
+          },
+          "relationName": {
+            "type": "string"
+          },
+          "residentialPhone": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "updatedBy": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FacultyGateway": {
+        "properties": {
+          "allowExternalMarkEdit": {
+            "type": "boolean"
+          },
+          "allowInternalMarkEdit": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "lockNotice": {
+            "type": "string"
+          },
+          "submissionDeadline": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FacultyInput": {
+        "properties": {
+          "aadhaar": {
+            "type": "string"
+          },
+          "commAddress": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "courses": {
+            "items": {
+              "$ref": "#/components/schemas/CourseOffered"
+            },
+            "type": "array"
+          },
+          "dept": {
+            "type": "string"
+          },
+          "designation": {
+            "type": "string"
+          },
+          "dob": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "employment": {
+            "items": {
+              "$ref": "#/components/schemas/Employment"
+            },
+            "type": "array"
+          },
+          "gender": {
+            "type": "string"
+          },
+          "joinedPostOn": {
+            "type": "string"
+          },
+          "joinedServiceOn": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permAddress": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "qualifications": {
+            "items": {
+              "$ref": "#/components/schemas/Qualification"
+            },
+            "type": "array"
+          },
+          "relationName": {
+            "type": "string"
+          },
+          "residentialPhone": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FacultySummary": {
+        "properties": {
+          "deptKey": {
+            "type": "string"
+          },
+          "deptName": {
+            "type": "string"
+          },
+          "designation": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "gender": {
+            "type": "string"
+          },
+          "hasPhoto": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "joinedServiceOn": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "totalExperience": {
+            "$ref": "#/components/schemas/Experience"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ForwardRequest": {
+        "properties": {
+          "academicYear": {
+            "type": "string"
+          },
+          "assessmentType": {
+            "type": "string"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "subjectCode": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Gateways": {
+        "properties": {
+          "facultyMarkEntry": {
+            "$ref": "#/components/schemas/FacultyGateway"
+          },
+          "revaluationWindow": {
+            "$ref": "#/components/schemas/RevaluationGateway"
+          },
+          "studentResultPortal": {
+            "$ref": "#/components/schemas/StudentGateway"
+          }
+        },
+        "type": "object"
+      },
+      "GradingRegulations": {
+        "properties": {
+          "engineering": {
+            "$ref": "#/components/schemas/Regulation"
+          },
+          "moderation": {
+            "$ref": "#/components/schemas/Moderation"
+          },
+          "nursing": {
+            "$ref": "#/components/schemas/Regulation"
+          },
+          "pharmacy": {
+            "$ref": "#/components/schemas/Regulation"
+          }
+        },
+        "type": "object"
+      },
+      "HistoryItem": {
+        "properties": {
+          "changedAt": {
+            "type": "string"
+          },
+          "changedBy": {
+            "type": "string"
+          },
+          "component": {
+            "type": "string"
+          },
+          "newValue": {
+            "format": "double",
+            "type": "number"
+          },
+          "oldValue": {
+            "format": "double",
+            "type": "number"
+          },
+          "regNo": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Inbox": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Item"
+            },
+            "type": "array"
+          },
+          "unread": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "Item": {
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "link": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "JsonNode": {
+        "properties": {
+          "array": {
+            "type": "boolean"
+          },
+          "bigDecimal": {
+            "type": "boolean"
+          },
+          "bigInteger": {
+            "type": "boolean"
+          },
+          "binary": {
+            "type": "boolean"
+          },
+          "boolean": {
+            "type": "boolean"
+          },
+          "container": {
+            "type": "boolean"
+          },
+          "double": {
+            "type": "boolean"
+          },
+          "embeddedValue": {
+            "type": "boolean"
+          },
+          "empty": {
+            "type": "boolean"
+          },
+          "float": {
+            "type": "boolean"
+          },
+          "floatingPointNumber": {
+            "type": "boolean"
+          },
+          "int": {
+            "type": "boolean"
+          },
+          "integralNumber": {
+            "type": "boolean"
+          },
+          "long": {
+            "type": "boolean"
+          },
+          "missingNode": {
+            "type": "boolean"
+          },
+          "nodeType": {
+            "enum": [
+              "ARRAY",
+              "BINARY",
+              "BOOLEAN",
+              "MISSING",
+              "NULL",
+              "NUMBER",
+              "OBJECT",
+              "POJO",
+              "STRING"
+            ],
+            "type": "string"
+          },
+          "null": {
+            "type": "boolean"
+          },
+          "number": {
+            "type": "boolean"
+          },
+          "object": {
+            "type": "boolean"
+          },
+          "pojo": {
+            "type": "boolean"
+          },
+          "short": {
+            "type": "boolean"
+          },
+          "string": {
+            "type": "boolean"
+          },
+          "textual": {
+            "deprecated": true,
+            "type": "boolean"
+          },
+          "valueNode": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "LoginRequest": {
+        "properties": {
+          "captchaAnswer": {
+            "type": "string"
+          },
+          "captchaId": {
+            "type": "string"
+          },
+          "otp": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "LoginResponse": {
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserView"
+          }
+        },
+        "type": "object"
+      },
+      "MarkRequest": {
+        "properties": {
+          "assessmentType": {
+            "type": "string"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "examinerDesignation": {
+            "type": "string"
+          },
+          "examinerName": {
+            "type": "string"
+          },
+          "expectedVersion": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "partA": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "partBC": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Question"
+            },
+            "type": "object"
+          },
+          "regNo": {
+            "type": "string"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "subjectCode": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "MfaEnableRequest": {
+        "properties": {
+          "code": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "MfaEnabled": {
+        "properties": {
+          "recoveryCodes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "MfaSetup": {
+        "properties": {
+          "otpauthUri": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Moderation": {
+        "properties": {
+          "attendanceThreshold": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "enableCondonation": {
+            "type": "boolean"
+          },
+          "maxGraceMarks": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "Officer": {
+        "properties": {
+          "collegeKey": {
+            "type": "string"
+          },
+          "departmentScope": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "lastLogin": {
+            "type": "string"
+          },
+          "mfaEnabled": {
+            "type": "boolean"
+          },
+          "mustChangePassword": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Overview": {
+        "properties": {
+          "departmentKey": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "overallPassPercentage": {
+            "format": "double",
+            "type": "number"
+          },
+          "students": {
+            "items": {
+              "$ref": "#/components/schemas/StudentRow"
+            },
+            "type": "array"
+          },
+          "studentsWithResults": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "topFaculty": {
+            "items": {
+              "$ref": "#/components/schemas/TopFaculty"
+            },
+            "type": "array"
+          },
+          "yearPass": {
+            "items": {
+              "$ref": "#/components/schemas/YearPass"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "PasswordReset": {
+        "properties": {
+          "password": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Profile": {
+        "properties": {
+          "academicYear": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "currentSemester": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "currentSemesterLabel": {
+            "type": "string"
+          },
+          "departmentKey": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "regNo": {
+            "type": "string"
+          },
+          "year": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ProfileUpdate": {
+        "properties": {
+          "designation": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ProfileView": {
+        "properties": {
+          "collegeName": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "designation": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "lastLoginAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PublishRequest": {
+        "properties": {
+          "academicYear": {
+            "type": "string"
+          },
+          "assessmentType": {
+            "type": "string"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "examMonthYear": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "semester": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PublishRow": {
+        "properties": {
+          "batchId": {
+            "type": "string"
+          },
+          "forwardedBy": {
+            "type": "string"
+          },
+          "marksEntered": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "passPercentage": {
+            "format": "double",
+            "type": "number"
+          },
+          "publishedAt": {
+            "type": "string"
+          },
+          "publishedStudents": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "state": {
+            "type": "string"
+          },
+          "students": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "subjectCode": {
+            "type": "string"
+          },
+          "subjectTitle": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PublishSummary": {
+        "properties": {
+          "assessmentType": {
+            "type": "string"
+          },
+          "batchIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "passPercentage": {
+            "format": "double",
+            "type": "number"
+          },
+          "passedStudents": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "students": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "subjects": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "Qualification": {
+        "properties": {
+          "completedOn": {
+            "type": "string"
+          },
+          "discipline": {
+            "type": "string"
+          },
+          "qualification": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Question": {
+        "properties": {
+          "a": {
+            "$ref": "#/components/schemas/Subdivisions"
+          },
+          "b": {
+            "$ref": "#/components/schemas/Subdivisions"
+          }
+        },
+        "type": "object"
+      },
+      "RecentUpload": {
+        "properties": {
+          "batchId": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "department": {
+            "type": "string"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "students": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "RecordItem": {
+        "properties": {
+          "assessmentType": {
+            "type": "string"
+          },
+          "courseCode": {
+            "type": "string"
+          },
+          "courseTitle": {
+            "type": "string"
+          },
+          "credits": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "externalMarks": {
+            "type": "number"
+          },
+          "grade": {
+            "type": "string"
+          },
+          "gradePoints": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "internalMarks": {
+            "type": "number"
+          },
+          "regNo": {
+            "type": "string"
+          },
+          "resultStatus": {
+            "type": "string"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "studentName": {
+            "type": "string"
+          },
+          "totalMarks": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "RegisteredSubject": {
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "credits": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "faculty": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Regulation": {
+        "properties": {
+          "passMinExternal": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "passMinInternal": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "passMinTotal": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "regulation": {
+            "type": "string"
+          },
+          "scaleDescription": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Request": {
+        "properties": {
+          "assessmentType": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "feePerCourse": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "note": {
+            "type": "string"
+          },
+          "refId": {
+            "type": "string"
+          },
+          "regNo": {
+            "type": "string"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "studentName": {
+            "type": "string"
+          },
+          "subjectCodes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "totalFee": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "updatedBy": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ResultBatch": {
+        "properties": {
+          "academicYear": {
+            "type": "string"
+          },
+          "assessmentType": {
+            "type": "string"
+          },
+          "batchTitle": {
+            "type": "string"
+          },
+          "departmentKey": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "examMonthYear": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "passPercentage": {
+            "format": "double",
+            "type": "number"
+          },
+          "passedStudents": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "publicationStatus": {
+            "type": "string"
+          },
+          "publishedAt": {
+            "type": "string"
+          },
+          "publishedBy": {
+            "type": "string"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/RecordItem"
+            },
+            "type": "array"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "semesterNumber": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "subjectCode": {
+            "type": "string"
+          },
+          "subjectTitle": {
+            "type": "string"
+          },
+          "totalStudents": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "uploadDate": {
+            "type": "string"
+          },
+          "uploadedBy": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "RevaluationGateway": {
+        "properties": {
+          "deadline": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "feePerCourse": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "Roster": {
+        "properties": {
+          "deptKey": {
+            "type": "string"
+          },
+          "deptName": {
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/Row"
+            },
+            "type": "array"
+          },
+          "scheme": {
+            "$ref": "#/components/schemas/Scheme"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "subjectCode": {
+            "type": "string"
+          },
+          "subjectTitle": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Row": {
+        "properties": {
+          "breakdown": {
+            "$ref": "#/components/schemas/Breakdown"
+          },
+          "category": {
+            "type": "string"
+          },
+          "iat1": {
+            "format": "double",
+            "type": "number"
+          },
+          "iat2": {
+            "format": "double",
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "regNo": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "updatedBy": {
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "RowInput": {
+        "properties": {
+          "regNo": {
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "SaveRequest": {
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/RowInput"
+            },
+            "type": "array"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "subjectCode": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "SaveResult": {
+        "properties": {
+          "created": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "updated": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "withoutDob": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "Scheme": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/Config"
+          },
+          "confirmed": {
+            "type": "boolean"
+          },
+          "maxMarks": {
+            "format": "double",
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "updatedBy": {
+            "type": "string"
+          },
+          "visibleToStudents": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "SchemeInput": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/Config"
+          },
+          "confirmed": {
+            "type": "boolean"
+          },
+          "visibleToStudents": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "ScriptInfo": {
+        "properties": {
+          "assessmentType": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "regNo": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "subjectCode": {
+            "type": "string"
+          },
+          "uploadedAt": {
+            "type": "string"
+          },
+          "uploadedBy": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "SemesterResult": {
+        "properties": {
+          "academicYear": {
+            "type": "string"
+          },
+          "assessmentType": {
+            "type": "string"
+          },
+          "earnedCredits": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "examMonthYear": {
+            "type": "string"
+          },
+          "internalAssessment": {
+            "type": "boolean"
+          },
+          "maxMarks": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "result": {
+            "type": "string"
+          },
+          "semester": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "semesterLabel": {
+            "type": "string"
+          },
+          "sgpa": {
+            "type": "number"
+          },
+          "subjects": {
+            "items": {
+              "$ref": "#/components/schemas/Subject"
+            },
+            "type": "array"
+          },
+          "totalCredits": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalMarks": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "Slab": {
+        "properties": {
+          "marks": {
+            "format": "double",
+            "type": "number"
+          },
+          "minPercent": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "StatusChange": {
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "StatusRequest": {
+        "properties": {
+          "note": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "StorageStats": {
+        "properties": {
+          "configUpdatedAt": {
+            "type": "string"
+          },
+          "configUpdatedBy": {
+            "type": "string"
+          },
+          "databaseBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/TableStat"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "StudentGateway": {
+        "properties": {
+          "allowGradeDownload": {
+            "type": "boolean"
+          },
+          "announcement": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "withholdResults": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "StudentMark": {
+        "properties": {
+          "assessmentType": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "deptName": {
+            "type": "string"
+          },
+          "dob": {
+            "type": "string"
+          },
+          "examinerDesignation": {
+            "type": "string"
+          },
+          "examinerName": {
+            "type": "string"
+          },
+          "grade": {
+            "type": "string"
+          },
+          "grandTotal": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "hasMarks": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "partA": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "partATotal": {
+            "format": "double",
+            "type": "number"
+          },
+          "partBC": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Question"
+            },
+            "type": "object"
+          },
+          "partBCTotal": {
+            "format": "double",
+            "type": "number"
+          },
+          "regNo": {
+            "type": "string"
+          },
+          "resultStatus": {
+            "type": "string"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "subjectCode": {
+            "type": "string"
+          },
+          "subjectTitle": {
+            "type": "string"
+          },
+          "version": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "StudentResults": {
+        "properties": {
+          "arrears": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "cgpa": {
+            "type": "number"
+          },
+          "overallResult": {
+            "type": "string"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          },
+          "semesters": {
+            "items": {
+              "$ref": "#/components/schemas/SemesterResult"
+            },
+            "type": "array"
+          },
+          "withheld": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "StudentRow": {
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "dob": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "regNo": {
+            "type": "string"
+          },
+          "row": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "StudentSubject": {
+        "properties": {
+          "breakdown": {
+            "$ref": "#/components/schemas/Breakdown"
+          },
+          "iat1": {
+            "format": "double",
+            "type": "number"
+          },
+          "iat1Published": {
+            "type": "boolean"
+          },
+          "iat2": {
+            "format": "double",
+            "type": "number"
+          },
+          "iat2Published": {
+            "type": "boolean"
+          },
+          "subjectCode": {
+            "type": "string"
+          },
+          "subjectTitle": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "StudentView": {
+        "properties": {
+          "scheme": {
+            "$ref": "#/components/schemas/Scheme"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "subjects": {
+            "items": {
+              "$ref": "#/components/schemas/StudentSubject"
+            },
+            "type": "array"
+          },
+          "visible": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "Subdivisions": {
+        "properties": {
+          "i": {
+            "format": "double",
+            "type": "number"
+          },
+          "ii": {
+            "format": "double",
+            "type": "number"
+          },
+          "iii": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "Subject": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "credits": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "external": {
+            "type": "number"
+          },
+          "grade": {
+            "type": "string"
+          },
+          "gradePoints": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "internal": {
+            "type": "number"
+          },
+          "publishedAt": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "total": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "SubjectItem": {
+        "properties": {
+          "academicYear": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "credits": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "department": {
+            "type": "string"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "faculty": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "studentsEnrolled": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Summary": {
+        "properties": {
+          "lastPublishedAt": {
+            "type": "string"
+          },
+          "lastPublishedLabel": {
+            "type": "string"
+          },
+          "passPercentage": {
+            "format": "double",
+            "type": "number"
+          },
+          "studentsWithResults": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "SystemConfig": {
+        "properties": {
+          "academicSession": {
+            "$ref": "#/components/schemas/AcademicSession"
+          },
+          "gateways": {
+            "$ref": "#/components/schemas/Gateways"
+          },
+          "gradingRegulations": {
+            "$ref": "#/components/schemas/GradingRegulations"
+          },
+          "institutionalLocks": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CollegeLock"
+            },
+            "type": "object"
+          },
+          "lastUpdated": {
+            "type": "string"
+          },
+          "systemMode": {
+            "type": "string"
+          },
+          "updatedBy": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "TableStat": {
+        "properties": {
+          "bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "rows": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "table": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "TopFaculty": {
+        "properties": {
+          "designation": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "passPercentage": {
+            "format": "double",
+            "type": "number"
+          },
+          "rank": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "students": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "subjectCode": {
+            "type": "string"
+          },
+          "subjectTitle": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "UserView": {
+        "properties": {
+          "collegeKey": {
+            "type": "string"
+          },
+          "collegeName": {
+            "type": "string"
+          },
+          "departmentKey": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "mfaEnabled": {
+            "type": "boolean"
+          },
+          "mfaSetupRequired": {
+            "type": "boolean"
+          },
+          "mustChangePassword": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "regNo": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "YearPass": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "passPercentage": {
+            "format": "double",
+            "type": "number"
+          },
+          "students": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "OpenAPI definition",
+    "version": "v0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "health_1",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "health-controller"
+        ]
+      }
+    },
+    "/api/admin/answer-scripts": {
+      "delete": {
+        "operationId": "delete_2",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "regNo",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assessment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "answer-script-controller"
+        ]
+      },
+      "get": {
+        "operationId": "list_4",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assessment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ScriptInfo"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "answer-script-controller"
+        ]
+      },
+      "post": {
+        "operationId": "upload",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "regNo",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assessment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScriptInfo"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "answer-script-controller"
+        ]
+      }
+    },
+    "/api/admin/answer-scripts/file": {
+      "get": {
+        "operationId": "file",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "regNo",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assessment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "format": "byte",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "answer-script-controller"
+        ]
+      }
+    },
+    "/api/admin/audit-logs": {
+      "get": {
+        "operationId": "auditLogs",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AuditLogRecord"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admin-controller"
+        ]
+      }
+    },
+    "/api/admin/dashboard": {
+      "get": {
+        "operationId": "dashboard",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardStats"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admin-controller"
+        ]
+      }
+    },
+    "/api/admin/departments": {
+      "get": {
+        "operationId": "list_3",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DepartmentView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "department-controller"
+        ]
+      },
+      "post": {
+        "operationId": "create_2",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepartmentInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentView"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "department-controller"
+        ]
+      }
+    },
+    "/api/admin/departments/{key}": {
+      "delete": {
+        "operationId": "delete_1",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "department-controller"
+        ]
+      },
+      "put": {
+        "operationId": "update_1",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DepartmentInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepartmentView"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "department-controller"
+        ]
+      }
+    },
+    "/api/admin/faculty-master": {
+      "get": {
+        "operationId": "list_2",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FacultySummary"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "faculty-master-controller"
+        ]
+      },
+      "post": {
+        "operationId": "create_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FacultyInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FacultyDetail"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "faculty-master-controller"
+        ]
+      }
+    },
+    "/api/admin/faculty-master/{id}": {
+      "delete": {
+        "operationId": "delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "faculty-master-controller"
+        ]
+      },
+      "get": {
+        "operationId": "get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FacultyDetail"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "faculty-master-controller"
+        ]
+      },
+      "put": {
+        "operationId": "update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FacultyInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FacultyDetail"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "faculty-master-controller"
+        ]
+      }
+    },
+    "/api/admin/faculty-master/{id}/image": {
+      "delete": {
+        "operationId": "deleteImage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "faculty-master-controller"
+        ]
+      },
+      "get": {
+        "operationId": "image",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "format": "byte",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "faculty-master-controller"
+        ]
+      },
+      "post": {
+        "operationId": "uploadImage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "faculty-master-controller"
+        ]
+      }
+    },
+    "/api/admin/forward": {
+      "post": {
+        "operationId": "forward_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForwardRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultBatch"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admin-controller"
+        ]
+      }
+    },
+    "/api/admin/internal-marks": {
+      "get": {
+        "operationId": "adminRoster",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Roster"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "internal-mark-controller"
+        ]
+      }
+    },
+    "/api/admin/internal-marks/history": {
+      "get": {
+        "operationId": "adminHistory",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "regNo",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HistoryItem"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "internal-mark-controller"
+        ]
+      }
+    },
+    "/api/admin/internal-scheme": {
+      "get": {
+        "operationId": "scheme",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Scheme"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "internal-mark-controller"
+        ]
+      },
+      "put": {
+        "operationId": "saveScheme",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SchemeInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Scheme"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "internal-mark-controller"
+        ]
+      }
+    },
+    "/api/admin/marks": {
+      "get": {
+        "operationId": "roster_1",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assessment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StudentMark"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "mark-controller"
+        ]
+      },
+      "put": {
+        "operationId": "save_2",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentMark"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "mark-controller"
+        ]
+      }
+    },
+    "/api/admin/marks/all": {
+      "get": {
+        "operationId": "all",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StudentMark"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "mark-controller"
+        ]
+      }
+    },
+    "/api/admin/publish": {
+      "post": {
+        "operationId": "publishDepartment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishSummary"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admin-controller"
+        ]
+      }
+    },
+    "/api/admin/publish/status": {
+      "get": {
+        "operationId": "publishStatus",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assessment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PublishRow"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admin-controller"
+        ]
+      }
+    },
+    "/api/admin/publish/unpublish": {
+      "post": {
+        "operationId": "unpublishDepartment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "format": "int32",
+                    "type": "integer"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admin-controller"
+        ]
+      }
+    },
+    "/api/admin/publish/withdraw": {
+      "post": {
+        "operationId": "withdrawDepartment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "format": "int32",
+                    "type": "integer"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admin-controller"
+        ]
+      }
+    },
+    "/api/admin/results": {
+      "delete": {
+        "operationId": "deleteForSemester",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "format": "int32",
+                    "type": "integer"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admin-controller"
+        ]
+      },
+      "get": {
+        "operationId": "batches",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResultBatch"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admin-controller"
+        ]
+      }
+    },
+    "/api/admin/results/all": {
+      "delete": {
+        "operationId": "deleteAll_1",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "format": "int32",
+                    "type": "integer"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admin-controller"
+        ]
+      }
+    },
+    "/api/admin/results/{id}": {
+      "delete": {
+        "operationId": "delete_5",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admin-controller"
+        ]
+      }
+    },
+    "/api/admin/results/{id}/publish": {
+      "post": {
+        "operationId": "publishBatch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishSummary"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admin-controller"
+        ]
+      }
+    },
+    "/api/admin/revaluation": {
+      "get": {
+        "operationId": "inbox_1",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Request"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "revaluation-controller"
+        ]
+      }
+    },
+    "/api/admin/revaluation/{id}/status": {
+      "post": {
+        "operationId": "setStatus_2",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Request"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "revaluation-controller"
+        ]
+      }
+    },
+    "/api/admin/students": {
+      "delete": {
+        "operationId": "deleteGroup",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "academicYear",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "format": "int32",
+                    "type": "integer"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "student-admin-controller"
+        ]
+      },
+      "get": {
+        "operationId": "list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "semester",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "academicYear",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StudentView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "student-admin-controller"
+        ]
+      },
+      "put": {
+        "operationId": "save_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveResult"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "student-admin-controller"
+        ]
+      }
+    },
+    "/api/admin/students/{regNo}": {
+      "delete": {
+        "operationId": "delete_4",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "regNo",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "student-admin-controller"
+        ]
+      }
+    },
+    "/api/admin/subjects": {
+      "delete": {
+        "operationId": "deleteAll",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "format": "int32",
+                    "type": "integer"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "subject-controller"
+        ]
+      },
+      "get": {
+        "operationId": "list_1",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SubjectItem"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "subject-controller"
+        ]
+      },
+      "post": {
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubjectItem"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectItem"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "subject-controller"
+        ]
+      }
+    },
+    "/api/admin/subjects/finalize": {
+      "post": {
+        "operationId": "finalizeAll",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "format": "int32",
+                    "type": "integer"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "subject-controller"
+        ]
+      }
+    },
+    "/api/admin/subjects/{id}": {
+      "delete": {
+        "operationId": "delete_3",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "subject-controller"
+        ]
+      }
+    },
+    "/api/admin/subjects/{id}/status": {
+      "put": {
+        "operationId": "setStatus",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectItem"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "subject-controller"
+        ]
+      }
+    },
+    "/api/auth/change-password": {
+      "post": {
+        "operationId": "changePassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserView"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "auth-controller"
+        ]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "auth-controller"
+        ]
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "auth-controller"
+        ]
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "operationId": "me",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserView"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "auth-controller"
+        ]
+      }
+    },
+    "/api/auth/mfa/enable": {
+      "post": {
+        "operationId": "mfaEnable",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaEnableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaEnabled"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "auth-controller"
+        ]
+      }
+    },
+    "/api/auth/mfa/setup": {
+      "post": {
+        "operationId": "mfaSetup",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaSetup"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "auth-controller"
+        ]
+      }
+    },
+    "/api/auth/profile": {
+      "get": {
+        "operationId": "profile",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileView"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "auth-controller"
+        ]
+      },
+      "put": {
+        "operationId": "updateProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileView"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "auth-controller"
+        ]
+      }
+    },
+    "/api/faculty/answer-scripts/file": {
+      "get": {
+        "operationId": "answerScript",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "regNo",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assessment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "format": "byte",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "faculty-controller"
+        ]
+      }
+    },
+    "/api/faculty/forward": {
+      "post": {
+        "operationId": "forward",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForwardRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultBatch"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "faculty-controller"
+        ]
+      }
+    },
+    "/api/faculty/internal-marks": {
+      "get": {
+        "operationId": "facultyRoster",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Roster"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "internal-mark-controller"
+        ]
+      },
+      "put": {
+        "operationId": "facultySave",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Roster"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "internal-mark-controller"
+        ]
+      }
+    },
+    "/api/faculty/internal-marks/history": {
+      "get": {
+        "operationId": "facultyHistory",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "regNo",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HistoryItem"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "internal-mark-controller"
+        ]
+      }
+    },
+    "/api/faculty/marks": {
+      "get": {
+        "operationId": "roster",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assessment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StudentMark"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "faculty-controller"
+        ]
+      },
+      "put": {
+        "operationId": "save",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentMark"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "faculty-controller"
+        ]
+      }
+    },
+    "/api/faculty/overview": {
+      "get": {
+        "operationId": "overview_2",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Overview"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "faculty-controller"
+        ]
+      }
+    },
+    "/api/faculty/published-results": {
+      "get": {
+        "operationId": "publishedResults",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResultBatch"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "faculty-controller"
+        ]
+      }
+    },
+    "/api/faculty/status": {
+      "get": {
+        "operationId": "status",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assessment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PublishRow"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "faculty-controller"
+        ]
+      }
+    },
+    "/api/faculty/subjects": {
+      "get": {
+        "operationId": "subjects_1",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SubjectItem"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "faculty-controller"
+        ]
+      }
+    },
+    "/api/hod/analytics": {
+      "get": {
+        "operationId": "analytics",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Analytics"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "hod-controller"
+        ]
+      }
+    },
+    "/api/hod/internal-marks": {
+      "get": {
+        "operationId": "hodRoster",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Roster"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "internal-mark-controller"
+        ]
+      },
+      "put": {
+        "operationId": "hodSave",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Roster"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "internal-mark-controller"
+        ]
+      }
+    },
+    "/api/hod/internal-marks/history": {
+      "get": {
+        "operationId": "hodHistory",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "regNo",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HistoryItem"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "internal-mark-controller"
+        ]
+      }
+    },
+    "/api/hod/overview": {
+      "get": {
+        "operationId": "overview_1",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Overview"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "hod-controller"
+        ]
+      }
+    },
+    "/api/hod/subjects": {
+      "get": {
+        "operationId": "subjects",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SubjectItem"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "hod-controller"
+        ]
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "operationId": "inbox",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Inbox"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "notification-controller"
+        ]
+      }
+    },
+    "/api/notifications/read-all": {
+      "post": {
+        "operationId": "readAll",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "notification-controller"
+        ]
+      }
+    },
+    "/api/notifications/{id}/read": {
+      "post": {
+        "operationId": "read",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "notification-controller"
+        ]
+      }
+    },
+    "/api/public/client-errors": {
+      "post": {
+        "operationId": "clientError",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientError"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "health-controller"
+        ]
+      }
+    },
+    "/api/public/health": {
+      "get": {
+        "operationId": "ready",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "health-controller"
+        ]
+      }
+    },
+    "/api/public/summary": {
+      "get": {
+        "operationId": "summary",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Summary"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "public-controller"
+        ]
+      }
+    },
+    "/api/public/system-config": {
+      "get": {
+        "operationId": "systemConfig",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemConfig"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "public-controller"
+        ]
+      }
+    },
+    "/api/student/internal-marks": {
+      "get": {
+        "operationId": "mine_1",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentView"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "internal-mark-controller"
+        ]
+      }
+    },
+    "/api/student/internal-marks/history": {
+      "get": {
+        "operationId": "myHistory",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HistoryItem"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "internal-mark-controller"
+        ]
+      }
+    },
+    "/api/student/me/results": {
+      "get": {
+        "operationId": "myResults",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentResults"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "student-controller"
+        ]
+      }
+    },
+    "/api/student/me/subjects": {
+      "get": {
+        "operationId": "mySubjects",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RegisteredSubject"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "student-controller"
+        ]
+      }
+    },
+    "/api/student/revaluation": {
+      "get": {
+        "operationId": "mine",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Request"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "revaluation-controller"
+        ]
+      },
+      "post": {
+        "operationId": "apply",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Request"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "revaluation-controller"
+        ]
+      }
+    },
+    "/api/super-admin/audit": {
+      "get": {
+        "operationId": "audit",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AuditEntry"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "super-admin-controller"
+        ]
+      }
+    },
+    "/api/super-admin/config": {
+      "get": {
+        "operationId": "config",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemConfig"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "super-admin-controller"
+        ]
+      },
+      "put": {
+        "operationId": "updateConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemConfig"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "super-admin-controller"
+        ]
+      }
+    },
+    "/api/super-admin/config/reset": {
+      "post": {
+        "operationId": "resetConfig",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemConfig"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "super-admin-controller"
+        ]
+      }
+    },
+    "/api/super-admin/export": {
+      "get": {
+        "operationId": "export",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "super-admin-controller"
+        ]
+      }
+    },
+    "/api/super-admin/officers": {
+      "get": {
+        "operationId": "officers",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Officer"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "super-admin-controller"
+        ]
+      },
+      "post": {
+        "operationId": "createOfficer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOfficer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Officer"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "super-admin-controller"
+        ]
+      }
+    },
+    "/api/super-admin/officers/{id}/reset-mfa": {
+      "post": {
+        "operationId": "resetMfa",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Officer"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "super-admin-controller"
+        ]
+      }
+    },
+    "/api/super-admin/officers/{id}/reset-password": {
+      "post": {
+        "operationId": "resetPassword",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordReset"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Officer"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "super-admin-controller"
+        ]
+      }
+    },
+    "/api/super-admin/officers/{id}/status": {
+      "post": {
+        "operationId": "setStatus_1",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Officer"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "super-admin-controller"
+        ]
+      }
+    },
+    "/api/super-admin/overview": {
+      "get": {
+        "operationId": "overview",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CollegeOverview"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "super-admin-controller"
+        ]
+      }
+    },
+    "/api/super-admin/storage": {
+      "get": {
+        "operationId": "storage",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageStats"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "super-admin-controller"
+        ]
+      }
+    },
+    "/healthz": {
+      "get": {
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "health-controller"
+        ]
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "ready_1",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "health-controller"
+        ]
+      }
+    }
+  },
+  "servers": [
+    {
+      "description": "Hosted demo",
+      "url": "https://kvell-result-api.onrender.com"
+    }
+  ]
+}
