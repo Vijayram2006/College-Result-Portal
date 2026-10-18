@@ -182,9 +182,9 @@ export const ProfilePage: React.FC = () => {
           </h3>
           <div className="space-y-3 text-xs">
             <div className="p-3 bg-amber-50/50 border border-amber-100 rounded-xl flex items-center gap-3">
-              <Key className="text-[#C98A18] shrink-0" size={20} />
+              <Key className="text-[#8A6410] shrink-0" size={20} />
               <div>
-                <span className="font-bold text-[#C98A18] block">Signed-in Session Active</span>
+                <span className="font-bold text-[#8A6410] block">Signed-in Session Active</span>
                 <span className="text-gray-600 text-[11px] block">
                   Changing your password signs out your other sessions.
                 </span>

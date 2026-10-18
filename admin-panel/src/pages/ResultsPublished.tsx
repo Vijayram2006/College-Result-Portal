@@ -149,7 +149,7 @@ export const ResultsPublished: React.FC = () => {
                   <tr key={b.id} className="hover:bg-[#F8F5EE]/60 transition">
                     <td className="p-3.5">
                       <span className="font-bold text-[#0B192C] text-sm block">{b.batchTitle}</span>
-                      <span className="text-[10px] font-mono text-[#B08014] font-bold block">{b.departmentName}</span>
+                      <span className="text-[10px] font-mono text-[#8A6410] font-bold block">{b.departmentName}</span>
                     </td>
                     <td className="p-3.5">
                       <span className="font-semibold text-gray-800 block">{b.semester}</span>
@@ -238,7 +238,7 @@ export const ResultsPublished: React.FC = () => {
               </div>
               <div className="flex justify-between">
                 <span>Students Included:</span>
-                <span className="font-bold text-[#B08014]">{publishConfirmBatch.totalStudents} Candidates</span>
+                <span className="font-bold text-[#8A6410]">{publishConfirmBatch.totalStudents} Candidates</span>
               </div>
             </div>
 
@@ -275,7 +275,7 @@ export const ResultsPublished: React.FC = () => {
                 <h3 className="font-display font-bold text-lg text-[#0B192C]">
                   {selectedBatchModal.batchTitle}
                 </h3>
-                <span className="text-xs text-[#B08014] font-bold">
+                <span className="text-xs text-[#8A6410] font-bold">
                   {selectedBatchModal.departmentName} • {selectedBatchModal.semester}
                 </span>
               </div>

@@ -533,7 +533,7 @@ export const Students: React.FC = () => {
                       {s.year} • {s.section}
                     </td>
                     <td className="p-3.5 text-center font-bold text-[#0B192C]">{s.sgpa.toFixed(2)}</td>
-                    <td className="p-3.5 text-center font-bold text-[#B08014]">{s.cgpa.toFixed(2)}</td>
+                    <td className="p-3.5 text-center font-bold text-[#8A6410]">{s.cgpa.toFixed(2)}</td>
                     <td className="p-3.5 text-center">
                       <span
                         className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
@@ -609,7 +609,7 @@ export const Students: React.FC = () => {
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 border border-[#E5E1D8] shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex justify-between items-center border-b border-[#E5E1D8] pb-3">
               <div className="flex items-center gap-2">
-                <UserPlus size={18} className="text-[#B08014]" />
+                <UserPlus size={18} className="text-[#8A6410]" />
                 <h3 className="font-display font-bold text-lg text-[#0B192C]">
                   {editingRegNo ? "Edit Student Record" : "Add New Student Candidate"}
                 </h3>
@@ -808,7 +808,7 @@ export const Students: React.FC = () => {
             <div className="flex justify-between items-start border-b border-[#E5E1D8] pb-3">
               <div>
                 <h3 className="font-display font-bold text-lg text-[#0B192C]">{selectedStudent.name}</h3>
-                <span className="font-mono text-xs font-bold text-[#B08014]">{selectedStudent.regNo}</span>
+                <span className="font-mono text-xs font-bold text-[#8A6410]">{selectedStudent.regNo}</span>
               </div>
               <button onClick={() => setSelectedStudent(null)} className="text-gray-400 hover:text-gray-600">
                 ✕
@@ -832,7 +832,7 @@ export const Students: React.FC = () => {
               </div>
               <div className="bg-[#F8F5EE] p-3 rounded-xl border border-[#E5E1D8]">
                 <span className="text-[10px] text-gray-400 font-bold uppercase block">Cumulative CGPA</span>
-                <span className="font-bold text-[#B08014]">{selectedStudent.cgpa.toFixed(2)}</span>
+                <span className="font-bold text-[#8A6410]">{selectedStudent.cgpa.toFixed(2)}</span>
               </div>
             </div>
 

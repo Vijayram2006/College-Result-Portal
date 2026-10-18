@@ -814,7 +814,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
         </div>
         <div className="flex-1 space-y-0.5">
           <div className="flex items-center gap-2 font-bold">
-            <span className="uppercase tracking-wider text-[11px] text-[#B08014]">Institutional Role-Based Governance</span>
+            <span className="uppercase tracking-wider text-[11px] text-[#8A6410]">Institutional Role-Based Governance</span>
             <span className="text-gray-400">•</span>
             <span className="text-gray-600 font-medium text-[11px]">Port 3000 Faculty Evaluation Terminal</span>
           </div>
@@ -933,7 +933,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
               <button
                 type="button"
                 onClick={() => setIsCustomSubject(!isCustomSubject)}
-                className="text-[10px] text-[#B08014] font-bold hover:underline"
+                className="text-[10px] text-[#8A6410] font-bold hover:underline"
               >
                 {isCustomSubject ? "Pick from Catalog" : "+ Custom Code"}
               </button>
@@ -989,7 +989,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
             Selected: <strong className="text-[#0B192C]">{activeDept.name}</strong> •{" "}
             <strong className="text-[#0B192C]">{targetAssessment || "No assessment"}</strong> •{" "}
             <strong className="text-[#0B192C]">{semester}</strong> •{" "}
-            <strong className="text-[#B08014]">{effectiveSubjectCode} ({effectiveSubjectTitle})</strong>
+            <strong className="text-[#8A6410]">{effectiveSubjectCode} ({effectiveSubjectTitle})</strong>
           </div>
 
           <button
@@ -1008,7 +1008,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
       {!isDataFetched ? (
         <div className="bg-white rounded-3xl border border-dashed border-[#D4A72C]/60 p-12 text-center space-y-3">
           <div className="w-14 h-14 rounded-2xl bg-[#0B192C]/5 text-[#0B192C] flex items-center justify-center mx-auto">
-            <Database size={26} className="text-[#B08014]" />
+            <Database size={26} className="text-[#8A6410]" />
           </div>
           <h4 className="font-display font-bold text-lg text-[#0B192C]">
             Target Student List Awaiting Query
@@ -1260,7 +1260,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                     <span className="text-[10px] text-gray-400 font-bold uppercase block">Target Candidate</span>
                     <span className="font-bold text-[#0B192C] text-xs">{pendingStudent.name}</span>
                   </div>
-                  <span className="font-mono text-xs font-bold text-[#B08014] bg-white px-2 py-0.5 rounded border border-gray-200">
+                  <span className="font-mono text-xs font-bold text-[#8A6410] bg-white px-2 py-0.5 rounded border border-gray-200">
                     {pendingStudent.regNo}
                   </span>
                 </div>
@@ -1310,7 +1310,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                     View only
                   </span>
                 )}
-                <span className="text-xs font-mono font-bold text-[#B08014]">
+                <span className="text-xs font-mono font-bold text-[#8A6410]">
                   REG: {selectedStudent.regNo}
                 </span>
               </div>
@@ -1950,7 +1950,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                       setPendingStudent(selectedStudent);
                       setShowExaminerPrompt(true);
                     }}
-                    className="text-[10px] font-bold text-[#B08014] hover:underline mt-1 inline-block"
+                    className="text-[10px] font-bold text-[#8A6410] hover:underline mt-1 inline-block"
                   >
                     Change Examiner Details
                   </button>

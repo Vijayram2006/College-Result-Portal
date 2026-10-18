@@ -100,7 +100,7 @@ export const Dashboard: React.FC = () => {
       {/* FULLY FUNCTIONAL UNIVERSITY METRICS CARDS */}
       <div>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3 px-1">
-          <span className="text-xs font-black text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+          <span className="text-xs font-black text-gray-600 uppercase tracking-wider flex items-center gap-1.5">
             <Sparkles size={14} className="text-[#D4A72C]" />
             Live University Metric Directory · Click Any Card to Inspect & Manage
           </span>
@@ -141,10 +141,10 @@ export const Dashboard: React.FC = () => {
             </div>
 
             <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-              <span className="text-[11px] font-bold text-[#1D8A5A] flex items-center gap-1">
+              <span className="text-[11px] font-bold text-[#17744C] flex items-center gap-1">
                 <CheckCircle2 size={13} /> Active Enrolled
               </span>
-              <span className="text-[11px] font-extrabold text-[#0B192C] group-hover:text-[#B08014] flex items-center gap-0.5 transition">
+              <span className="text-[11px] font-extrabold text-[#0B192C] group-hover:text-[#8A6410] flex items-center gap-0.5 transition">
                 View Roster <ChevronRight size={13} />
               </span>
             </div>
@@ -170,10 +170,10 @@ export const Dashboard: React.FC = () => {
             </div>
 
             <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-              <span className="text-[11px] font-bold text-[#B08014] font-mono">
+              <span className="text-[11px] font-bold text-[#8A6410] font-mono">
                 {departments.length} Active Branches
               </span>
-              <span className="text-[11px] font-extrabold text-[#0B192C] group-hover:text-[#B08014] flex items-center gap-0.5 transition">
+              <span className="text-[11px] font-extrabold text-[#0B192C] group-hover:text-[#8A6410] flex items-center gap-0.5 transition">
                 Manage Depts <ChevronRight size={13} />
               </span>
             </div>
@@ -202,7 +202,7 @@ export const Dashboard: React.FC = () => {
               <span className="text-[11px] font-bold text-gray-500">
                 Assigned Dept Heads
               </span>
-              <span className="text-[11px] font-extrabold text-[#0B192C] group-hover:text-[#B08014] flex items-center gap-0.5 transition">
+              <span className="text-[11px] font-extrabold text-[#0B192C] group-hover:text-[#8A6410] flex items-center gap-0.5 transition">
                 View Faculty <ChevronRight size={13} />
               </span>
             </div>
@@ -231,7 +231,7 @@ export const Dashboard: React.FC = () => {
               <span className="text-[11px] font-bold text-gray-500">
                 Active Curriculum
               </span>
-              <span className="text-[11px] font-extrabold text-[#0B192C] group-hover:text-[#B08014] flex items-center gap-0.5 transition">
+              <span className="text-[11px] font-extrabold text-[#0B192C] group-hover:text-[#8A6410] flex items-center gap-0.5 transition">
                 Open Catalog <ChevronRight size={13} />
               </span>
             </div>
@@ -243,7 +243,7 @@ export const Dashboard: React.FC = () => {
       <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-sm p-6 sm:p-7 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E5E1D8] pb-4">
           <div>
-            <div className="flex items-center gap-2 text-xs font-black text-[#D4A72C] uppercase tracking-wider mb-1">
+            <div className="flex items-center gap-2 text-xs font-black text-[#8A6410] uppercase tracking-wider mb-1">
               <Building2 size={15} />
               University Academic Matrix & Branch Directory
             </div>
@@ -375,7 +375,7 @@ export const Dashboard: React.FC = () => {
               Draft / Validated
             </span>
           </div>
-          <span className="font-display font-black text-3xl text-[#C98A18]">
+          <span className="font-display font-black text-3xl text-[#8A6410]">
             {stats?.pendingResults || 0} Batches
           </span>
           <p className="text-xs text-gray-500 mt-2">
@@ -479,7 +479,7 @@ export const Dashboard: React.FC = () => {
           </div>
           <Link
             href="/admin/results/published"
-            className="text-xs font-bold text-[#0B192C] hover:text-[#B08014] transition flex items-center gap-1.5 self-start sm:self-auto"
+            className="text-xs font-bold text-[#0B192C] hover:text-[#8A6410] transition flex items-center gap-1.5 self-start sm:self-auto"
           >
             View All Batches <ArrowRight size={14} />
           </Link>

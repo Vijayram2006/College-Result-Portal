@@ -143,7 +143,7 @@ export const FacultyPage: React.FC = () => {
                     <td className="p-3.5 font-medium text-gray-700">{f.designation}</td>
                     <td className="p-3.5 text-gray-800">{f.deptName}</td>
                     <td className="p-3.5">
-                      <span className="font-mono font-bold text-[#B08014] mr-1.5">{f.subjectCode}</span>
+                      <span className="font-mono font-bold text-[#8A6410] mr-1.5">{f.subjectCode}</span>
                       <span className="text-gray-600 font-medium">{f.subjectName}</span>
                     </td>
                     <td className="p-3.5 text-center">

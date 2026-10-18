@@ -126,7 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
 
             {/* Results Management Section */}
             <div className="pt-3 pb-1">
-              <span className="text-[10px] font-extrabold text-white/40 uppercase tracking-widest px-3.5">
+              <span className="text-[10px] font-extrabold text-white/70 uppercase tracking-widest px-3.5">
                 Examination & Results
               </span>
             </div>
@@ -249,7 +249,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
             <>
             {/* Academic Structure Section */}
             <div className="pt-3 pb-1">
-              <span className="text-[10px] font-extrabold text-white/40 uppercase tracking-widest px-3.5">
+              <span className="text-[10px] font-extrabold text-white/70 uppercase tracking-widest px-3.5">
                 Academic Structure & Catalog
               </span>
             </div>
@@ -284,7 +284,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
 
             {/* Faculty master: entered by each college's COE; the Chief COE views it */}
             <div className="pt-3 pb-1">
-              <span className="text-[10px] font-extrabold text-white/40 uppercase tracking-widest px-3.5">
+              <span className="text-[10px] font-extrabold text-white/70 uppercase tracking-widest px-3.5">
                 Faculty Detail
               </span>
             </div>
@@ -304,7 +304,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
 
             {/* Analytics & Audit */}
             <div className="pt-3 pb-1">
-              <span className="text-[10px] font-extrabold text-white/40 uppercase tracking-widest px-3.5">
+              <span className="text-[10px] font-extrabold text-white/70 uppercase tracking-widest px-3.5">
                 Governance & Reports
               </span>
             </div>

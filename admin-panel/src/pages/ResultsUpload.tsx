@@ -931,7 +931,7 @@ export const ResultsUpload: React.FC = () => {
             className={`px-4 py-2.5 rounded-xl font-extrabold text-xs transition shadow-lg flex items-center justify-center gap-2 active:scale-95 ${
               isCollegeLocked
                 ? "bg-slate-700 text-gray-400 cursor-not-allowed border border-slate-600"
-                : "bg-emerald-500 hover:bg-emerald-600 text-white"
+                : "bg-emerald-700 hover:bg-emerald-800 text-white"
             }`}
           >
             {isCollegeLocked ? <Lock size={16} /> : <UserPlus size={16} />}
@@ -1002,7 +1002,7 @@ export const ResultsUpload: React.FC = () => {
             <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
               Department
             </label>
-            <select
+            <select aria-label="Department"
               value={deptKey}
               onChange={(e) => handleDeptChange(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
@@ -1020,9 +1020,9 @@ export const ResultsUpload: React.FC = () => {
           <div>
             <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5 flex items-center justify-between">
               <span>Year (Study Year)</span>
-              <span className="text-[10px] text-[#B08014] font-bold">1st to 4th Year</span>
+              <span className="text-[10px] text-[#8A6410] font-bold">1st to 4th Year</span>
             </label>
-            <select
+            <select aria-label="Year of study"
               value={studyYear}
               onChange={(e) => handleYearChange(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
@@ -1041,7 +1041,7 @@ export const ResultsUpload: React.FC = () => {
             <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
               Target Semester
             </label>
-            <select
+            <select aria-label="Target semester"
               value={semester}
               onChange={(e) => setSemester(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
@@ -1060,7 +1060,7 @@ export const ResultsUpload: React.FC = () => {
             <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
               Academic Year
             </label>
-            <select
+            <select aria-label="Academic year"
               value={academicYear}
               onChange={(e) => setAcademicYear(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
@@ -1541,7 +1541,7 @@ export const ResultsUpload: React.FC = () => {
                   <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
                     Department <span className="text-red-500">*</span>
                   </label>
-                  <select
+                  <select aria-label="Department"
                     value={addDept}
                     onChange={(e) => setAddDept(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
@@ -1559,7 +1559,7 @@ export const ResultsUpload: React.FC = () => {
                   <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
                     Study Year <span className="text-red-500">*</span>
                   </label>
-                  <select
+                  <select aria-label="Study year"
                     value={addStudentYear}
                     onChange={(e) => setAddStudentYear(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"

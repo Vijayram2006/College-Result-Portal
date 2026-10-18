@@ -72,7 +72,7 @@ export const NotificationBell: React.FC<{ onLink?: (link: string) => void }> = (
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-[#F8F5EE]">
             <span className="text-xs font-extrabold text-[#0B192C]">
               Notifications{" "}
-              <span className="ml-1 text-[10px] font-bold text-[#B08014] bg-[#D4A72C]/15 px-2 py-0.5 rounded-md">
+              <span className="ml-1 text-[10px] font-bold text-[#8A6410] bg-[#D4A72C]/15 px-2 py-0.5 rounded-md">
                 {inbox.unread} unread
               </span>
             </span>

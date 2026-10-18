@@ -112,7 +112,7 @@ export const Login: React.FC = () => {
                   ESTD. 2001
                 </span>
               </div>
-              <p className="text-[10px] sm:text-[11px] font-bold text-[#B08014] tracking-wider uppercase mt-0.5">
+              <p className="text-[10px] sm:text-[11px] font-bold text-[#8A6410] tracking-wider uppercase mt-0.5">
                 CONTROLLER OF EXAMINATIONS • EXAMINATION & RESULT ADMINISTRATION PORTAL
               </p>
             </div>
@@ -185,6 +185,7 @@ export const Login: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800 p-1"
                     >
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -250,7 +251,7 @@ export const Login: React.FC = () => {
 
               {/* Demo Quick Sign-in Helper with Multi-College RBAC */}
               <div className="mt-6 pt-5 border-t border-slate-200 text-center">
-                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2.5">
+                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-2.5">
                   SELECT YOUR COLLEGE (FILLS THE USER ID):
                 </span>
                 <div className="grid grid-cols-1 gap-2.5">

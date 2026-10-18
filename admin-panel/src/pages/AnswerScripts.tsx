@@ -292,7 +292,7 @@ export const AnswerScripts: React.FC = () => {
                               </div>
                             </div>
                           ) : (
-                            <button onClick={() => chooseFile(st.regNo, sub.code)} className="px-2.5 py-1.5 rounded-lg border border-dashed border-[#B08014] text-[#B08014] hover:bg-[#D4A72C]/10 text-[10px] font-extrabold inline-flex items-center gap-1">
+                            <button onClick={() => chooseFile(st.regNo, sub.code)} className="px-2.5 py-1.5 rounded-lg border border-dashed border-[#B08014] text-[#8A6410] hover:bg-[#D4A72C]/10 text-[10px] font-extrabold inline-flex items-center gap-1">
                               <Upload size={11} /> Upload PDF
                             </button>
                           )}

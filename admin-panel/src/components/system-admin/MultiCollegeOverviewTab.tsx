@@ -208,7 +208,7 @@ export const MultiCollegeOverviewTab: React.FC<MultiCollegeOverviewTabProps> = (
                     <span className="text-base font-extrabold text-[#0B192C]">{st.results} Records</span>
                   </div>
                 </div>
-                <div className="mt-3 text-[11px] font-bold text-[#B08014] flex items-center gap-1">
+                <div className="mt-3 text-[11px] font-bold text-[#8A6410] flex items-center gap-1">
                   <ExternalLink size={12} /> Click to open departments & full details
                 </div>
               </div>

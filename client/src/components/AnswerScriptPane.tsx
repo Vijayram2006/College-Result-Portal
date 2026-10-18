@@ -194,7 +194,7 @@ export const AnswerScriptPane: React.FC<{
                 ? "The COE uploads scripts on the Answer Scripts page. You can still enter marks."
                 : "Check that the result server is running."}
             </p>
-            <button type="button" onClick={() => setReload((n) => n + 1)} className="text-[11px] font-bold text-[#B08014] hover:underline">
+            <button type="button" onClick={() => setReload((n) => n + 1)} className="text-[11px] font-bold text-[#8A6410] hover:underline">
               Try again
             </button>
           </div>

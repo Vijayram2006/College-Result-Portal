@@ -600,7 +600,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
     <div className="space-y-6">
       {/* Live University Metric Directory Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-        <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-[#B08014]">
+        <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-[#8A6410]">
           <Sparkles size={14} className="text-[#D4A72C]" />
           <span>LIVE UNIVERSITY METRIC DIRECTORY · CLICK ANY CARD TO INSPECT &amp; MANAGE</span>
         </div>
@@ -641,7 +641,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
               <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
                 TOTAL STUDENTS
               </p>
-              <p className="mt-1 text-3xl font-black text-[#0B192C] group-hover:text-[#B08014] transition">
+              <p className="mt-1 text-3xl font-black text-[#0B192C] group-hover:text-[#8A6410] transition">
                 {totalStudents}
               </p>
             </div>
@@ -654,7 +654,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
               <CheckCircle2 size={13} />
               <span>Active Enrolled</span>
             </span>
-            <span className="font-extrabold text-[#0B192C] group-hover:text-[#B08014] group-hover:translate-x-0.5 transition flex items-center gap-0.5">
+            <span className="font-extrabold text-[#0B192C] group-hover:text-[#8A6410] group-hover:translate-x-0.5 transition flex items-center gap-0.5">
               <span>View Roster</span>
               <ChevronRight size={13} />
             </span>
@@ -674,7 +674,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
               <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
                 ASSIGNED COURSES
               </p>
-              <p className="mt-1 text-3xl font-black text-[#0B192C] group-hover:text-[#B08014] transition">
+              <p className="mt-1 text-3xl font-black text-[#0B192C] group-hover:text-[#8A6410] transition">
                 {totalCourses}
               </p>
             </div>
@@ -683,10 +683,10 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
             </div>
           </div>
           <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px]">
-            <span className="font-bold text-[#B08014]">
+            <span className="font-bold text-[#8A6410]">
               {totalCourses > 0 ? "Active Curriculum" : "0 Active Branches"}
             </span>
-            <span className="font-extrabold text-[#0B192C] group-hover:text-[#B08014] group-hover:translate-x-0.5 transition flex items-center gap-0.5">
+            <span className="font-extrabold text-[#0B192C] group-hover:text-[#8A6410] group-hover:translate-x-0.5 transition flex items-center gap-0.5">
               <span>Open Catalog</span>
               <ChevronRight size={13} />
             </span>
@@ -703,7 +703,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
               <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
                 MARKS PROGRESS
               </p>
-              <p className="mt-1 text-3xl font-black text-[#0B192C] group-hover:text-[#B08014] transition">
+              <p className="mt-1 text-3xl font-black text-[#0B192C] group-hover:text-[#8A6410] transition">
                 {marksProgress}%
               </p>
             </div>
@@ -715,7 +715,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
             <span className="font-bold text-blue-700">
               {totalScripts > 0 ? `${totalEvaluated} / ${totalScripts} scripts evaluated` : "No submissions yet"}
             </span>
-            <span className="font-extrabold text-[#0B192C] group-hover:text-[#B08014] group-hover:translate-x-0.5 transition flex items-center gap-0.5">
+            <span className="font-extrabold text-[#0B192C] group-hover:text-[#8A6410] group-hover:translate-x-0.5 transition flex items-center gap-0.5">
               <span>Enter Marks</span>
               <ChevronRight size={13} />
             </span>
@@ -735,7 +735,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
               <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
                 CLASS PASS RATE
               </p>
-              <p className="mt-1 text-3xl font-black text-[#0B192C] group-hover:text-[#B08014] transition">
+              <p className="mt-1 text-3xl font-black text-[#0B192C] group-hover:text-[#8A6410] transition">
                 {passRate}%
               </p>
             </div>
@@ -747,7 +747,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
             <span className="font-bold text-indigo-700">
               {totalCourses > 0 ? "Overall Cohort" : "No assessment data"}
             </span>
-            <span className="font-extrabold text-[#0B192C] group-hover:text-[#B08014] group-hover:translate-x-0.5 transition flex items-center gap-0.5">
+            <span className="font-extrabold text-[#0B192C] group-hover:text-[#8A6410] group-hover:translate-x-0.5 transition flex items-center gap-0.5">
               <span>Grade Analytics</span>
               <ChevronRight size={13} />
             </span>
@@ -761,7 +761,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
           <div>
             <div className="flex items-center gap-2">
               <Building2 size={18} className="text-[#D4A72C]" />
-              <span className="text-[11px] font-black uppercase tracking-wider text-[#B08014]">
+              <span className="text-[11px] font-black uppercase tracking-wider text-[#8A6410]">
                 UNIVERSITY ACADEMIC MATRIX &amp; BRANCH DIRECTORY
               </span>
             </div>
@@ -1004,7 +1004,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
                       <p className="text-[11px] text-slate-500 font-semibold">{crs.department} · {crs.section}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs font-black text-[#B08014]">{crs.enrolledStudents} Enrolled</p>
+                      <p className="text-xs font-black text-[#8A6410]">{crs.enrolledStudents} Enrolled</p>
                       <p className="text-[10px] text-emerald-700 font-bold">{crs.evaluatedStudents} Evaluated</p>
                     </div>
                   </div>
@@ -1144,7 +1144,7 @@ function StudentResultView({ students }: { students: HodOverviewDTO["students"] 
     <div className="bg-white rounded-[2.25rem] p-6 sm:p-9 shadow-sm border border-slate-200 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-          <span className="bg-[#D4A72C]/15 text-[#B08014] text-[10px] font-black uppercase tracking-wider px-3.5 py-1 rounded-full inline-block border border-[#D4A72C]/30">
+          <span className="bg-[#D4A72C]/15 text-[#8A6410] text-[10px] font-black uppercase tracking-wider px-3.5 py-1 rounded-full inline-block border border-[#D4A72C]/30">
             🎓 STUDENT RESULT COMPONENT
           </span>
           <h3 className="text-xl font-black text-[#0B192C] mt-1 tracking-tight">
@@ -1327,7 +1327,7 @@ function HodPortalDashboard({
                   ESTD. 2001
                 </span>
               </div>
-              <p className="text-[11px] sm:text-xs font-bold text-[#B08014] tracking-wider uppercase mt-0.5">
+              <p className="text-[11px] sm:text-xs font-bold text-[#8A6410] tracking-wider uppercase mt-0.5">
                 ENGINEERING AND EMERGING SCIENCES • RESULT & GRADE PORTAL
               </p>
             </div>
@@ -1398,7 +1398,7 @@ function HodPortalDashboard({
           <div className="flex w-full sm:w-auto sm:ml-auto items-center justify-end gap-3 sm:gap-4">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-extrabold text-[#0B192C]">{hodName}</p>
-              <p className="text-[11px] font-bold text-[#B08014] tracking-wider uppercase">HOD - {department}</p>
+              <p className="text-[11px] font-bold text-[#8A6410] tracking-wider uppercase">HOD - {department}</p>
             </div>
             <button
               onClick={() => window.dispatchEvent(new Event("kvell:open-profile-edit"))}
@@ -1418,7 +1418,7 @@ function HodPortalDashboard({
             </button>
             <button
               onClick={onLogout}
-              className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition whitespace-nowrap"
+              className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition whitespace-nowrap"
             >
               <LogOut size={14} />
               Sign Out
@@ -1476,7 +1476,7 @@ function HodPortalDashboard({
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
                   <div>
                     <h3 className="text-sm font-extrabold text-[#0B192C] flex items-center gap-2">
-                      <BarChart3 className="text-[#B08014]" size={16} />
+                      <BarChart3 className="text-[#8A6410]" size={16} />
                       Year-wise Pass Percentage Graph
                     </h3>
                     <p className="text-[11px] text-slate-500 font-medium mt-0.5">
@@ -1496,7 +1496,7 @@ function HodPortalDashboard({
 
                 {/* Threshold Interactive Toggles */}
                 <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-500 bg-white p-3 rounded-xl border border-slate-200">
-                  <span className="uppercase text-[10px] text-slate-400">
+                  <span className="uppercase text-[10px] text-slate-500">
                     {overviewError ??
                       (overview
                         ? `Overall ${overview.overallPassPercentage}% pass (${overview.studentsWithResults} students with results):`
@@ -2478,7 +2478,7 @@ function AdminPage({ onToast }: { onToast: (message: string) => void }) {
                   <button
                     type="button"
                     onClick={generatePassword}
-                    className="text-[11px] font-bold text-[#B08014] hover:underline"
+                    className="text-[11px] font-bold text-[#8A6410] hover:underline"
                   >
                     Generate Random Password
                   </button>
@@ -2726,7 +2726,7 @@ function AdminPage({ onToast }: { onToast: (message: string) => void }) {
                     >
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
-                          <span className="rounded-lg bg-[#D4A72C]/15 px-2 py-0.5 text-[11px] font-extrabold text-[#B08014] border border-[#D4A72C]/30 shadow-sm">
+                          <span className="rounded-lg bg-[#D4A72C]/15 px-2 py-0.5 text-[11px] font-extrabold text-[#8A6410] border border-[#D4A72C]/30 shadow-sm">
                             {user.openId}
                           </span>
                         </div>
@@ -2765,7 +2765,7 @@ function AdminPage({ onToast }: { onToast: (message: string) => void }) {
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-1.5">
-                          <span className="rounded-lg bg-[#D4A72C]/10 px-2.5 py-1 font-mono text-[11px] font-extrabold text-[#B08014] border border-[#D4A72C]/30">
+                          <span className="rounded-lg bg-[#D4A72C]/10 px-2.5 py-1 font-mono text-[11px] font-extrabold text-[#8A6410] border border-[#D4A72C]/30">
                             PBKDF2 Salted
                           </span>
                         </div>
@@ -2909,7 +2909,7 @@ function ElectivesComponent({ onToast }: { onToast: (msg: string) => void }) {
       <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-xl p-6 sm:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#E5E1D8] pb-5">
           <div>
-            <span className="text-[10px] font-black uppercase text-[#B08014] tracking-wider">
+            <span className="text-[10px] font-black uppercase text-[#8A6410] tracking-wider">
               {deptKey.toUpperCase()} · {semester}
             </span>
             <h3 className="font-extrabold text-2xl text-[#0B192C] mt-0.5">
@@ -2927,7 +2927,7 @@ function ElectivesComponent({ onToast }: { onToast: (msg: string) => void }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs bg-[#F8F5EE] p-5 rounded-2xl border border-[#E5E1D8]">
           <div className="flex items-center gap-3 text-slate-800 font-bold">
-            <Calendar size={18} className="text-[#B08014]" />
+            <Calendar size={18} className="text-[#8A6410]" />
             <div>
               <p className="text-[10px] text-slate-400 font-bold uppercase">Selection Opens</p>
               <p className="text-xs font-black text-[#0B192C]">01 Oct 2026, 09:00 AM</p>
@@ -2951,7 +2951,7 @@ function ElectivesComponent({ onToast }: { onToast: (msg: string) => void }) {
 
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h4 className="font-extrabold text-xs uppercase text-[#B08014] tracking-wider">
+            <h4 className="font-extrabold text-xs uppercase text-[#8A6410] tracking-wider">
               Offered Elective Courses ({electiveCourses.length})
             </h4>
           </div>
@@ -2963,7 +2963,7 @@ function ElectivesComponent({ onToast }: { onToast: (msg: string) => void }) {
                 className="p-5 rounded-2xl border border-[#E5E1D8] bg-white flex items-center justify-between hover:border-[#D4A72C] transition shadow-sm hover:shadow-md"
               >
                 <div>
-                  <span className="font-mono text-xs font-black text-[#B08014] bg-[#D4A72C]/10 px-2.5 py-0.5 rounded-md border border-[#D4A72C]/30 inline-block mb-1">
+                  <span className="font-mono text-xs font-black text-[#8A6410] bg-[#D4A72C]/10 px-2.5 py-0.5 rounded-md border border-[#D4A72C]/30 inline-block mb-1">
                     {c.code}
                   </span>
                   <span className="font-extrabold text-sm text-[#0B192C] block">
@@ -3189,7 +3189,7 @@ function ElectiveDemandComponent({ onToast }: { onToast: (msg: string) => void }
         </div>
         <div className="bg-white p-6 rounded-3xl border border-[#E5E1D8] shadow-md">
           <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Workflow Approval State</span>
-          <span className="font-black text-2xl text-[#B08014] mt-1 block">{status}</span>
+          <span className="font-black text-2xl text-[#8A6410] mt-1 block">{status}</span>
         </div>
       </div>
 
@@ -3220,7 +3220,7 @@ function ElectiveDemandComponent({ onToast }: { onToast: (msg: string) => void }
               {demandData.map((row) => (
                 <tr key={row.code} className="hover:bg-[#F8F5EE]/60 transition">
                   <td className="p-4 font-black text-[#0B192C]">#{row.rank}</td>
-                  <td className="p-4 font-mono font-extrabold text-[#B08014]">
+                  <td className="p-4 font-mono font-extrabold text-[#8A6410]">
                     <span className="bg-[#D4A72C]/15 px-2.5 py-1 rounded-md border border-[#D4A72C]/30">
                       {row.code}
                     </span>
@@ -3550,7 +3550,7 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
             </button>
 
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[11px] font-bold text-[#B08014] uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-[11px] font-bold text-[#8A6410] uppercase tracking-wider">
                 <span>Portal</span>
                 <ChevronRight size={12} />
                 <span className="truncate text-slate-600 font-semibold">
@@ -3597,7 +3597,7 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
                 <p className="text-xs font-extrabold text-[#0B192C]">
                   {facultyCollege ? authApi.currentUser()?.name ?? facultyCollege.shortName : meta.name}
                 </p>
-                <p className="text-[9px] font-bold text-[#B08014] uppercase tracking-wider">
+                <p className="text-[9px] font-bold text-[#8A6410] uppercase tracking-wider">
                   {facultyCollege ? `${facultyCollege.collegeName}` : meta.roleLabel}
                 </p>
               </div>
@@ -3760,7 +3760,7 @@ function LoginPage({
                   ESTD. 2001
                 </span>
               </div>
-              <p className="text-[10px] sm:text-[11px] font-bold text-[#B08014] tracking-wider uppercase mt-0.5">
+              <p className="text-[10px] sm:text-[11px] font-bold text-[#8A6410] tracking-wider uppercase mt-0.5">
                 ENGINEERING AND EMERGING SCIENCES • EXAMINATION & RESULT PORTAL
               </p>
             </div>
@@ -3872,9 +3872,9 @@ function LoginPage({
               {/* Public Announcement Banner from Super Admin Dr. Sathish */}
               {systemConfig?.gateways?.studentResultPortal?.announcement && (
                 <div className="mb-4 p-3 rounded-2xl bg-amber-50 border border-[#D4A72C]/40 text-[#0B192C] flex items-center gap-2.5 shadow-sm">
-                  <Sparkles size={16} className="text-[#B08014] shrink-0 animate-pulse" />
+                  <Sparkles size={16} className="text-[#8A6410] shrink-0 animate-pulse" />
                   <div className="text-left text-xs">
-                    <span className="font-extrabold uppercase text-[9px] text-[#B08014] block">Official COE Announcement</span>
+                    <span className="font-extrabold uppercase text-[9px] text-[#8A6410] block">Official COE Announcement</span>
                     <span className="font-bold text-slate-800">{systemConfig.gateways.studentResultPortal.announcement}</span>
                   </div>
                 </div>
@@ -3968,6 +3968,7 @@ function LoginPage({
                       <input
                         type="date"
                         required
+                        aria-label="Date of birth"
                         value={dob}
                         onChange={(e) => setDob(e.target.value)}
                         max={new Date().toISOString().slice(0, 10)}
@@ -4396,7 +4397,7 @@ function StudentDashboard({
                   ESTD. 2001
                 </span>
               </div>
-              <p className="text-[11px] sm:text-xs font-bold text-[#B08014] tracking-wider uppercase mt-0.5">
+              <p className="text-[11px] sm:text-xs font-bold text-[#8A6410] tracking-wider uppercase mt-0.5">
                 ENGINEERING AND EMERGING SCIENCES • STUDENT PORTAL
               </p>
             </div>
@@ -4463,7 +4464,7 @@ function StudentDashboard({
             </div>
             <button
               onClick={onLogout}
-              className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition whitespace-nowrap"
+              className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition whitespace-nowrap"
             >
               <LogOut size={14} />
               Sign Out
@@ -4516,7 +4517,7 @@ function StudentDashboard({
                     <p className="text-sm font-bold text-slate-500 mt-1">
                       Register No: <span className="font-mono text-[#0B192C]">{studentReg}</span>
                     </p>
-                    <p className="text-xs font-bold text-[#B08014] mt-1">
+                    <p className="text-xs font-bold text-[#8A6410] mt-1">
                       Undergraduate • {programLabel}
                     </p>
                   </div>

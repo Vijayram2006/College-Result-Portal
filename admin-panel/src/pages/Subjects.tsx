@@ -272,7 +272,7 @@ export const SubjectsPage: React.FC = () => {
             <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider block">
               Elective Subjects
             </span>
-            <span className="font-display font-black text-2xl text-[#B08014]">
+            <span className="font-display font-black text-2xl text-[#8A6410]">
               {electiveCount} Electives
             </span>
           </div>
@@ -381,7 +381,7 @@ export const SubjectsPage: React.FC = () => {
                   <td colSpan={8} className="p-12 text-center text-gray-500 font-semibold text-xs">
                     <div className="flex flex-col items-center justify-center gap-3 max-w-sm mx-auto">
                       <div className="w-14 h-14 rounded-2xl bg-[#0B192C]/5 text-[#0B192C] flex items-center justify-center border border-[#E5E1D8]">
-                        <BookOpen size={26} className="text-[#B08014]" />
+                        <BookOpen size={26} className="text-[#8A6410]" />
                       </div>
                       <div>
                         <h4 className="font-display font-extrabold text-[#0B192C] text-sm">
@@ -410,7 +410,7 @@ export const SubjectsPage: React.FC = () => {
                 filteredSubjects.map((sub) => (
                   <tr key={sub.id} className="hover:bg-[#F8F5EE]/60 transition">
                     <td className="p-4">
-                      <span className="font-mono text-xs font-black text-[#B08014] bg-[#D4A72C]/15 px-2.5 py-1 rounded-md border border-[#D4A72C]/30 shadow-sm">
+                      <span className="font-mono text-xs font-black text-[#8A6410] bg-[#D4A72C]/15 px-2.5 py-1 rounded-md border border-[#D4A72C]/30 shadow-sm">
                         {sub.code}
                       </span>
                     </td>
@@ -441,7 +441,7 @@ export const SubjectsPage: React.FC = () => {
                     <td className="p-4">
                       <span className="font-extrabold text-gray-800 block text-xs">
                         {sub.semester || "Semester I"}{" "}
-                        <span className="text-[#B08014] font-black">({sub.academicYear || "2026-27"})</span>
+                        <span className="text-[#8A6410] font-black">({sub.academicYear || "2026-27"})</span>
                       </span>
                       <span className="text-[10px] font-bold text-gray-400 block truncate max-w-[150px]">
                         {sub.department}

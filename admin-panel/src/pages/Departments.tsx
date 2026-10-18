@@ -338,7 +338,7 @@ export const DepartmentsPage: React.FC = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Active Students:</span>
-                    <span className="font-bold text-[#B08014]">{getDeptStudentCount(d.key, d.name)} Candidates</span>
+                    <span className="font-bold text-[#8A6410]">{getDeptStudentCount(d.key, d.name)} Candidates</span>
                   </div>
                 </div>
               </div>
@@ -364,7 +364,7 @@ export const DepartmentsPage: React.FC = () => {
                   className={`text-xs font-bold flex items-center gap-1 transition ${
                     isCollegeLocked
                       ? "text-gray-400 cursor-not-allowed opacity-60"
-                      : "text-[#0B192C] hover:text-[#B08014]"
+                      : "text-[#0B192C] hover:text-[#8A6410]"
                   }`}
                   title={isCollegeLocked ? "Locked by COE" : "Edit Details"}
                 >
@@ -382,7 +382,7 @@ export const DepartmentsPage: React.FC = () => {
           <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-[#E5E1D8] shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex justify-between items-center border-b border-[#E5E1D8] pb-3">
               <div className="flex items-center gap-2">
-                <Building2 size={18} className="text-[#B08014]" />
+                <Building2 size={18} className="text-[#8A6410]" />
                 <h3 className="font-display font-bold text-lg text-[#0B192C]">
                   {editingKey ? "Edit Department" : "Add New Department"}
                 </h3>

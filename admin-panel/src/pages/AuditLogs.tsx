@@ -69,7 +69,7 @@ export const AuditLogsPage: React.FC = () => {
         );
       case "VALIDATED_RESULT":
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-[#C98A18]/10 text-[#C98A18] border border-[#C98A18]/30">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-[#C98A18]/10 text-[#8A6410] border border-[#C98A18]/30">
             <CheckCircle2 size={12} /> VALIDATED_RESULT
           </span>
         );

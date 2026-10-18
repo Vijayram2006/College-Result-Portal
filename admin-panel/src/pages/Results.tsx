@@ -57,7 +57,7 @@ export const ResultsPage: React.FC = () => {
         );
       case "VALIDATED":
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-[#C98A18]/10 text-[#C98A18] border border-[#C98A18]/30">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-[#C98A18]/10 text-[#8A6410] border border-[#C98A18]/30">
             <CheckCircle2 size={12} /> VALIDATED
           </span>
         );
@@ -118,7 +118,7 @@ export const ResultsPage: React.FC = () => {
           <div className="w-10 h-10 rounded-xl bg-[#C98A18] text-white flex items-center justify-center mb-3">
             <CheckCircle2 size={20} />
           </div>
-          <h3 className="font-bold text-sm text-[#0B192C] group-hover:text-[#C98A18] transition flex items-center justify-between">
+          <h3 className="font-bold text-sm text-[#0B192C] group-hover:text-[#8A6410] transition flex items-center justify-between">
             2. Student Mark Entry Hub <ArrowRight size={16} />
           </h3>
           <p className="text-xs text-[#667085] mt-1">

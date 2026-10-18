@@ -62,7 +62,7 @@ export const ElectiveDemand: React.FC = () => {
         </div>
         <div className="bg-white p-5 rounded-2xl border border-[#E5E1D8] shadow-sm">
           <span className="text-[10px] font-extrabold text-gray-400 uppercase">Workflow Approval State</span>
-          <span className="font-display font-black text-2xl text-[#B08014] mt-1 block">{status}</span>
+          <span className="font-display font-black text-2xl text-[#8A6410] mt-1 block">{status}</span>
         </div>
       </div>
 
@@ -93,7 +93,7 @@ export const ElectiveDemand: React.FC = () => {
               {demandData.map((row) => (
                 <tr key={row.code} className="hover:bg-[#F8F5EE]/60 transition">
                   <td className="p-3 font-bold text-[#0B192C]">#{row.rank}</td>
-                  <td className="p-3 font-mono font-bold text-[#B08014]">{row.code}</td>
+                  <td className="p-3 font-mono font-bold text-[#8A6410]">{row.code}</td>
                   <td className="p-3 font-bold text-gray-900">{row.name}</td>
                   <td className="p-3 text-center font-black text-[#0B192C]">{row.students} Students</td>
                   <td className="p-3 text-center">

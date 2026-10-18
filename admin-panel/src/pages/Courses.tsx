@@ -138,7 +138,7 @@ export const CoursesPage: React.FC = () => {
                   <tr key={c.code} className="hover:bg-[#F8F5EE]/60 transition">
                     <td className="p-3.5 font-mono font-bold text-[#0B192C]">{c.code}</td>
                     <td className="p-3.5 font-bold text-gray-900">{c.title}</td>
-                    <td className="p-3.5 text-center font-bold text-[#B08014]">{c.credits} Credits</td>
+                    <td className="p-3.5 text-center font-bold text-[#8A6410]">{c.credits} Credits</td>
                     <td className="p-3.5 font-bold uppercase text-gray-700">{c.deptKey}</td>
                     <td className="p-3.5 text-gray-800">{c.semester}</td>
                     <td className="p-3.5 text-center">

@@ -693,7 +693,7 @@ export const ResultsValidation: React.FC = () => {
             <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
               Department
             </label>
-            <select
+            <select aria-label="Department"
               value={deptKey}
               onChange={(e) => handleDeptChange(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
@@ -711,7 +711,7 @@ export const ResultsValidation: React.FC = () => {
             <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
               Target Semester
             </label>
-            <select
+            <select aria-label="Target semester"
               value={semester}
               onChange={(e) => {
                 setSemester(e.target.value);
@@ -732,7 +732,7 @@ export const ResultsValidation: React.FC = () => {
             <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">
               Academic Year
             </label>
-            <select
+            <select aria-label="Academic year"
               value={academicYear}
               onChange={(e) => setAcademicYear(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
@@ -749,7 +749,7 @@ export const ResultsValidation: React.FC = () => {
               </label>
             </div>
 
-            <select
+            <select aria-label="Subject code"
               value={subjectCode}
               onChange={(e) => {
                 setSubjectCode(e.target.value);
@@ -767,7 +767,7 @@ export const ResultsValidation: React.FC = () => {
           </div>
           <div>
             <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">Assessment</label>
-            <select
+            <select aria-label="Assessment"
               value={targetAssessment}
               onChange={(e) => {
                 setTargetAssessment(e.target.value as any);
@@ -789,7 +789,7 @@ export const ResultsValidation: React.FC = () => {
             Selected: <strong className="text-[#0B192C]">{activeDept.name}</strong> •{" "}
             <strong className="text-[#0B192C]">{targetAssessment || "No assessment"}</strong> •{" "}
             <strong className="text-[#0B192C]">{semester}</strong> •{" "}
-            <strong className="text-[#B08014]">{effectiveSubjectCode} ({effectiveSubjectTitle})</strong>
+            <strong className="text-[#8A6410]">{effectiveSubjectCode} ({effectiveSubjectTitle})</strong>
           </div>
 
           <button
@@ -808,7 +808,7 @@ export const ResultsValidation: React.FC = () => {
       {!isDataFetched ? (
         <div className="bg-white rounded-3xl border border-dashed border-[#D4A72C]/60 p-12 text-center space-y-3">
           <div className="w-14 h-14 rounded-2xl bg-[#0B192C]/5 text-[#0B192C] flex items-center justify-center mx-auto">
-            <Database size={26} className="text-[#B08014]" />
+            <Database size={26} className="text-[#8A6410]" />
           </div>
           <h4 className="font-display font-bold text-lg text-[#0B192C]">
             Target Student List Awaiting Query
@@ -1039,7 +1039,7 @@ export const ResultsValidation: React.FC = () => {
                     <span className="text-[10px] text-gray-400 font-bold uppercase block">Target Candidate</span>
                     <span className="font-bold text-[#0B192C] text-xs">{pendingStudent.name}</span>
                   </div>
-                  <span className="font-mono text-xs font-bold text-[#B08014] bg-white px-2 py-0.5 rounded border border-gray-200">
+                  <span className="font-mono text-xs font-bold text-[#8A6410] bg-white px-2 py-0.5 rounded border border-gray-200">
                     {pendingStudent.regNo}
                   </span>
                 </div>
@@ -1089,7 +1089,7 @@ export const ResultsValidation: React.FC = () => {
                     View only
                   </span>
                 )}
-                <span className="text-xs font-mono font-bold text-[#B08014]">
+                <span className="text-xs font-mono font-bold text-[#8A6410]">
                   REG: {selectedStudent.regNo}
                 </span>
               </div>
@@ -1718,7 +1718,7 @@ export const ResultsValidation: React.FC = () => {
                       setPendingStudent(selectedStudent);
                       setShowExaminerPrompt(true);
                     }}
-                    className="text-[10px] font-bold text-[#B08014] hover:underline mt-1 inline-block"
+                    className="text-[10px] font-bold text-[#8A6410] hover:underline mt-1 inline-block"
                   >
                     Change Examiner Details
                   </button>

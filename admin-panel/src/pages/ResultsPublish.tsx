@@ -205,7 +205,7 @@ export const ResultsPublish: React.FC = () => {
           <div className="grid sm:grid-cols-3 gap-4 flex-1 max-w-3xl">
             <div>
               <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">Department</label>
-              <select
+              <select aria-label="Department"
                 value={deptKey}
                 onChange={(e) => {
                   setMessage(null);
@@ -223,7 +223,7 @@ export const ResultsPublish: React.FC = () => {
             </div>
             <div>
               <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">Semester</label>
-              <select
+              <select aria-label="Semester"
                 value={SEMESTER}
                 onChange={(e) => setSemester(e.target.value)}
                 className="w-full px-3 py-2 text-sm rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold"
@@ -238,7 +238,7 @@ export const ResultsPublish: React.FC = () => {
             </div>
             <div>
               <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1.5">Assessment</label>
-              <select
+              <select aria-label="Assessment"
                 value={ASSESSMENT}
                 onChange={(e) => setAssessment(e.target.value)}
                 className="w-full px-3 py-2 text-sm rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-bold"

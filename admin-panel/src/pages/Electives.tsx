@@ -44,7 +44,7 @@ export const Electives: React.FC = () => {
       <div className="bg-white rounded-2xl border border-[#E5E1D8] shadow-sm p-6 space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#E5E1D8] pb-4">
           <div>
-            <span className="text-[10px] font-extrabold uppercase text-[#B08014] tracking-wider">
+            <span className="text-[10px] font-extrabold uppercase text-[#8A6410] tracking-wider">
               {deptKey.toUpperCase()} · {semester}
             </span>
             <h3 className="font-display font-bold text-xl text-[#0B192C] mt-0.5">
@@ -82,7 +82,7 @@ export const Electives: React.FC = () => {
             {electiveCourses.map((c) => (
               <div key={c.code} className="p-4 rounded-xl border border-[#E5E1D8] bg-white flex items-center justify-between hover:border-[#D4A72C] transition">
                 <div>
-                  <span className="font-mono text-xs font-bold text-[#B08014] block">{c.code}</span>
+                  <span className="font-mono text-xs font-bold text-[#8A6410] block">{c.code}</span>
                   <span className="font-bold text-sm text-[#0B192C] block mt-0.5">{c.name}</span>
                 </div>
                 <span className="px-2.5 py-1 rounded bg-gray-100 font-bold text-[10px] text-gray-600">
