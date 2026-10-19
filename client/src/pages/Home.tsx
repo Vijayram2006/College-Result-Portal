@@ -4,6 +4,10 @@ import { aidsSem1Students } from "../data/aidsStudents";
 import { marksStudentsList, generalStudentsList, ensureDummyMarksLoaded, cseSem1Students, bmeSem1Students } from "../data/dummyMarksData";
 import * as XLSX from "xlsx";
 import { FacultyMarkEntry, clearFacultyPharmacyAndNursingData } from "../components/FacultyMarkEntry";
+import { AssociateDeanDashboard } from "../components/AssociateDeanDashboard";
+import { INITIAL_QUESTION_PAPERS, QuestionPaperReviewView, safeLoadQuestionPapers } from "../components/dean/QuestionPaperReviewView";
+import { FacultyQuestionPaperView } from "../components/FacultyQuestionPaperView";
+import { HodQuestionPaperScrutinyView } from "../components/HodQuestionPaperScrutinyView";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
@@ -22,6 +26,7 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
+  CheckSquare,
   ChevronDown,
   ChevronRight,
   CircleHelp,
@@ -48,6 +53,7 @@ import {
   PanelLeftClose,
   PenLine,
   Plus,
+  Printer,
   RefreshCw,
   RotateCcw,
   Search,
@@ -81,7 +87,7 @@ import {
   YAxis,
 } from "recharts";
 
-type Role = "Student" | "Faculty" | "HOD" | "Dean" | "Admin";
+type Role = "Student" | "Faculty" | "HOD" | "Associate Dean" | "Dean" | "Admin";
 type PageKey =
   | "dashboard"
   | "subjects"
@@ -98,7 +104,8 @@ type PageKey =
   | "electives"
   | "elective-demand"
   | "verification"
-  | "noticeboard";
+  | "noticeboard"
+  | "question-paper";
 
 interface NavItem {
   key: PageKey;
@@ -128,10 +135,16 @@ const roleMeta: Record<
     department: "Computer Science & Engineering",
   },
   HOD: {
-    name: "Dr. Raghav Iyer",
-    roleLabel: "Head of Department",
-    initials: "RI",
+    name: "Dr. Jayapradha",
+    roleLabel: "Head of Department (CSE)",
+    initials: "JP",
     department: "Computer Science & Engineering",
+  },
+  "Associate Dean": {
+    name: "Dr. Rajesh Kumar",
+    roleLabel: "Associate Dean (Academics & Evaluation)",
+    initials: "RK",
+    department: "Office of the Associate Dean",
   },
   Dean: {
     name: "Dr. Meera Krishnan",
@@ -157,17 +170,30 @@ const roleNav: Record<Role, NavItem[]> = {
   Faculty: [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { key: "marks", label: "Marks Entry", icon: PenLine },
+    { key: "question-paper", label: "Question Papers", icon: FileCheck },
   ],
   HOD: [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "question-paper", label: "Question Papers", icon: FileCheck },
     { key: "faculty", label: "Faculty", icon: GraduationCap },
     { key: "students", label: "Students", icon: UsersRound },
     { key: "performance", label: "Performance", icon: BarChart3 },
     { key: "at-risk", label: "At-Risk Students", icon: ShieldAlert },
     { key: "reports", label: "Reports", icon: FileText },
   ],
+  "Associate Dean": [
+    { key: "dashboard", label: "Executive Dashboard", icon: LayoutDashboard },
+    { key: "question-paper", label: "Question Paper Review", icon: CheckSquare },
+    { key: "dean-review", label: "Mark Scrutiny & Moderation", icon: FileBarChart },
+    { key: "departments", label: "Department Matrix", icon: Building2 },
+    { key: "performance", label: "Performance Audit", icon: BarChart3 },
+    { key: "at-risk", label: "At-Risk Interventions", icon: ShieldAlert },
+    { key: "trends", label: "Trends", icon: TrendingUp },
+    { key: "reports", label: "Reports", icon: FileText },
+  ],
   Dean: [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "question-paper", label: "Question Paper Review", icon: CheckSquare },
     { key: "departments", label: "Departments", icon: Building2 },
     { key: "dean-review", label: "Mark Review", icon: FileBarChart },
     { key: "performance", label: "Performance", icon: BarChart3 },
@@ -176,6 +202,7 @@ const roleNav: Record<Role, NavItem[]> = {
     { key: "reports", label: "Reports", icon: FileText },
   ],
   Admin: [
+    { key: "question-paper", label: "Question Papers Hub", icon: FileCheck },
     { key: "students", label: "Students Directory", icon: UsersRound },
     { key: "admin", label: "User Access & Add Student", icon: UserPlus },
     { key: "electives", label: "Create Elective Group", icon: BookOpen },
@@ -595,6 +622,13 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
               <span>Enter Internal Marks</span>
             </button>
             <button
+              onClick={() => onNavigate("question-paper")}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-white border border-[#D4A72C]/40 px-5 py-3 text-xs font-bold transition cursor-pointer shadow-md"
+            >
+              <FileCheck size={16} className="text-[#D4A72C]" />
+              <span>Question Papers (Stage 1 ➔ HOD)</span>
+            </button>
+            <button
               onClick={() => {
                 if (totalStudents > 0) setShowRosterModal(true);
                 else onNavigate("marks");
@@ -742,6 +776,41 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
               <ChevronRight size={13} />
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* Question Paper Quick Action Banner for Faculty (Stage 1 ➔ Stage 2 HOD Scrutiny) */}
+      <div
+        onClick={() => onNavigate("question-paper")}
+        className="group relative overflow-hidden rounded-2xl border border-amber-200 bg-linear-to-r from-amber-50/80 via-white to-amber-50/40 p-5 shadow-xs hover:border-[#D4A72C] hover:shadow-md transition-all cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4"
+      >
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0B192C] text-[#D4A72C] shrink-0 shadow-sm">
+            <FileCheck size={22} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] font-black uppercase bg-[#D4A72C] text-[#0B192C] px-2 py-0.5 rounded">
+                STAGE 1 ➔ STAGE 2
+              </span>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-900">
+                OFFICIAL QUESTION PAPER WORKFLOW
+              </span>
+            </div>
+            <h3 className="text-base font-black text-[#0B192C] mt-1">
+              Draft &amp; Submit Question Papers to HOD for DAC Scrutiny
+            </h3>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Prepare Part A (20M), Part B (65M with choices), Part C (15M) mapped to Bloom&apos;s Taxonomy (K1–K6) and Course Outcomes (CO1–CO5). Submit to Dr. Jayapradha (HOD) for scrutiny.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs font-black text-[#0B192C] group-hover:text-[#B08014] transition flex items-center gap-1 bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-xs">
+            <span>Open Question Papers</span>
+            <ChevronRight size={14} />
+          </span>
         </div>
       </div>
 
@@ -1300,6 +1369,16 @@ function StudentResultView() {
   );
 }
 
+function HodQuestionPapersView({
+  department,
+  hodName,
+}: {
+  department: string;
+  hodName: string;
+}) {
+  return <HodQuestionPaperScrutinyView department={department} hodName={hodName} />;
+}
+
 function HodPortalDashboard({
   onLogout,
   hodName = "JAYAPRADHA",
@@ -1310,7 +1389,30 @@ function HodPortalDashboard({
   department?: string;
 }) {
   const kvellSealLogo = "/kvell-logo.png";
-  const [activeTab, setActiveTab] = useState<"dashboard" | "studentResult">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "studentResult" | "questionPapers">("dashboard");
+  const [pendingFacultyQpCount, setPendingFacultyQpCount] = useState<number>(() => {
+    try {
+      const list = safeLoadQuestionPapers();
+      return list.filter((p: any) => p.status === "PENDING_HOD_REVIEW").length;
+    } catch {
+      return 1;
+    }
+  });
+
+  useEffect(() => {
+    const updateCount = () => {
+      try {
+        const list = safeLoadQuestionPapers();
+        setPendingFacultyQpCount(list.filter((p: any) => p.status === "PENDING_HOD_REVIEW").length);
+      } catch {}
+    };
+    window.addEventListener("kvell_qp_updated", updateCount);
+    window.addEventListener("storage", updateCount);
+    return () => {
+      window.removeEventListener("kvell_qp_updated", updateCount);
+      window.removeEventListener("storage", updateCount);
+    };
+  }, []);
 
   // Year-wise Bar Graph Data for 1st yr, 2nd yr, 3rd yr, 4th yr
   // Rule: < 40% -> RED (#EF4444), >= 40% -> GREEN (#22C55E)
@@ -1432,6 +1534,22 @@ function HodPortalDashboard({
               <Users size={15} className={activeTab === "studentResult" ? "text-[#D4A72C]" : "text-slate-500"} />
               Student Result
             </button>
+            <button
+              onClick={() => setActiveTab("questionPapers")}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
+                activeTab === "questionPapers"
+                  ? "bg-[#0B192C] text-white shadow-md"
+                  : "text-slate-600 hover:bg-white hover:text-slate-900"
+              }`}
+            >
+              <FileCheck size={15} className={activeTab === "questionPapers" ? "text-[#D4A72C]" : "text-slate-500"} />
+              Question Papers
+              {pendingFacultyQpCount > 0 && (
+                <span className="bg-amber-400 text-slate-950 font-black px-1.5 py-0.5 rounded-full text-[10px]">
+                  {pendingFacultyQpCount}
+                </span>
+              )}
+            </button>
             
             <a
               href="http://localhost:3002"
@@ -1491,7 +1609,44 @@ function HodPortalDashboard({
 
         {/* Tab 1: Main HOD Dashboard (Analytics & Pass Graph) */}
         {activeTab === "dashboard" ? (
-          <div className="bg-white rounded-[2.25rem] p-6 sm:p-9 shadow-sm border border-slate-200 space-y-8">
+          <div className="space-y-6">
+            {/* Stage 2 DAC Scrutiny Banner if Faculty submissions pending */}
+            {pendingFacultyQpCount > 0 && (
+              <div
+                onClick={() => setActiveTab("questionPapers")}
+                className="p-5 rounded-2xl bg-linear-to-r from-amber-500/15 via-amber-50 to-white border-2 border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer hover:border-amber-500 transition shadow-xs"
+              >
+                <div className="flex items-start sm:items-center gap-3.5">
+                  <div className="h-10 w-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-sm">
+                    <Clock size={20} className="animate-spin" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] font-black uppercase bg-amber-400 text-slate-950 px-2 py-0.5 rounded">
+                        STAGE 2 DAC ACTION REQUIRED
+                      </span>
+                      <span className="text-[11px] font-extrabold text-amber-900">
+                        {pendingFacultyQpCount} Faculty Paper(s) Awaiting Scrutiny
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-black text-[#0B192C] mt-0.5">
+                      Faculty Question Paper Submissions Awaiting HOD DAC Scrutiny
+                    </h3>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Department faculty members have submitted question papers. Review Bloom&apos;s distribution and DAC compliance before forwarding to the Associate Dean.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="px-4 py-2.5 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-white text-xs font-black transition flex items-center gap-2 shrink-0 shadow-sm"
+                >
+                  <span>Conduct DAC Scrutiny</span>
+                  <ArrowRight size={14} className="text-[#D4A72C]" />
+                </button>
+              </div>
+            )}
+            <div className="bg-white rounded-[2.25rem] p-6 sm:p-9 shadow-sm border border-slate-200 space-y-8">
             <div>
               <span className="bg-[#FFF4D6] text-[#8C2F00] text-[10px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full inline-block border border-[#F5D8B4]">
                 📊 RESULT ANALYTICS & FACULTY PERFORMANCE
@@ -1611,9 +1766,13 @@ function HodPortalDashboard({
               </div>
             </div>
           </div>
-        ) : (
+          </div>
+        ) : activeTab === "studentResult" ? (
           /* Tab 2: Separate Component "Student Result" Search Directory */
           <StudentResultView />
+        ) : (
+          /* Tab 3: Separate Component "Question Papers" Submitted to Associate Dean */
+          <HodQuestionPapersView department={department} hodName={hodName} />
         )}
       </main>
 
@@ -2105,7 +2264,7 @@ function PerformancePage({ role, onToast, studentReg, studentName, onReturn }: {
   const chartData = studentReg ? (["IA-1", "IA-2"] as const).map((period) => { const rows = marksRows.filter((row) => row.assessment === period); const score = rows.length ? Math.round(rows.reduce((sum, row) => sum + row.internal, 0) / rows.length) : 0; return { period, score, benchmark: 50 }; }) : facultyTrend.map((point, index) => ({ ...point, score: Math.max(40, point.score + seed + index), benchmark: Math.max(38, point.benchmark + index / 2) }));
   const submitFilters = () => { if (!subjectId) { onToast("Select a subject before loading performance"); return; } setApplied({ subjectId, semester, assessment, section }); onToast("Performance marks loaded from the selected parameters"); };
   const title = studentReg ? `${studentName ?? studentReg} · IA performance` : "Student performance";
-  return <div className="space-y-6"><PageIntro eyebrow={studentReg ? "Individual student performance" : role === "HOD" ? "Department analytics" : "Faculty workspace"} title={title} description={studentReg ? "Read-only IA-1 and IA-2 marks for this student, calculated from submitted assessment records." : "Select all parameters and submit to view read-only marks from the marks entry portal."} action={studentReg && onReturn ? <button onClick={onReturn} className="rounded-md border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Return to Students</button> : undefined} />{!studentReg && <Panel className="p-4"><div className="grid gap-3 md:grid-cols-5"><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Subject</label><select value={subjectId ?? ""} onChange={(event) => setSubjectId(Number(event.target.value) || undefined)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs"><option value="">Select subject</option>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.code} · {subject.name}</option>)}</select></div><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Semester</label><select value={semester} onChange={(event) => setSemester(event.target.value)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs"><option>VI</option><option>V</option><option>IV</option></select></div><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Assessment</label><select value={assessment} onChange={(event) => setAssessment(event.target.value as "IA-1" | "IA-2")} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs"><option value="IA-1">IA-1</option><option value="IA-2">IA-2</option></select></div><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Section</label><select value={section} onChange={(event) => setSection(event.target.value)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs">{(Array.from(new Set(subjects.map((subject) => subject.section))).length ? Array.from(new Set(subjects.map((subject) => subject.section))) : ["CSE A"]).map((item) => <option key={item}>{item}</option>)}</select></div><button onClick={submitFilters} className="h-10 self-end rounded-md bg-[#FC6226] px-4 text-xs font-semibold text-white hover:bg-[#E04F18]">Submit</button></div><p className="mt-3 text-[11px] text-slate-500">Students remain hidden until Submit. Marks are read-only and reflect the latest saved or submitted marks entry.</p></Panel>}{(applied || studentReg) && <><Panel className="p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><SectionHeading title={studentReg ? "IA marks by assessment" : `${selectedSubject?.name ?? "Subject"} · ${applied?.assessment}`} detail={studentReg ? "Read-only marks from submitted IA assessments" : `${applied?.semester} · ${applied?.section} · read-only marks`} /><select value={sortOrder} onChange={(event) => setSortOrder(event.target.value as "asc" | "desc")} className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700"><option value="desc">High to Low</option><option value="asc">Low to High</option></select></div><div className="mobile-table-scroll mt-4"><table className="w-full min-w-[680px] text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Assessment</th><th className="px-4 py-3">Student</th><th className="px-4 py-3">Section</th><th className="px-4 py-3">IA mark</th><th className="px-5 py-3 text-right">Mode</th></tr></thead><tbody className="divide-y divide-slate-100">{sortedRows.map((row, index) => <tr key={`${row.reg}-${row.assessment}-${index}`}><td className="px-5 py-3.5 text-xs font-semibold text-[#FC6226]">{row.assessment}</td><td className="px-4 py-3.5"><p className="text-xs font-semibold text-slate-800">{row.name}</p><p className="text-[11px] text-slate-400">{row.reg}</p></td><td className="px-4 py-3.5 text-xs text-slate-600">{row.section}</td><td className="px-4 py-3.5 text-xs font-bold text-[#FC6226]">{row.internal}</td><td className="px-5 py-3.5 text-right"><StatusBadge tone="neutral">Read only</StatusBadge></td></tr>)}</tbody></table></div>{sortedRows.length === 0 && <p className="py-8 text-center text-xs text-slate-500">No IA marks found for this student.</p>}</Panel><Panel className="p-5"><SectionHeading title={studentReg ? "Individual IA performance trend" : "Performance trend"} detail="Derived from submitted IA marks" /><div className="h-[250px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={chartData}><CartesianGrid stroke="#e2e8f0" vertical={false} strokeDasharray="3 3" /><XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} /><YAxis domain={[40, 95]} axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} tickFormatter={(v) => `${v}%`} /><ChartTooltip content={<ChartTooltipContent />} /><Line type="monotone" dataKey="score" name="Selected performance" stroke="#FC6226" strokeWidth={2.5} dot={{ r: 3 }} /><Line type="monotone" dataKey="benchmark" name="Benchmark" stroke="#94a3c2" strokeDasharray="4 4" /></LineChart></ResponsiveContainer></div></Panel></>}</div>;
+  return <div className="space-y-6"><PageIntro eyebrow={studentReg ? "Individual student performance" : role === "HOD" ? "Department analytics" : "Faculty workspace"} title={title} description={studentReg ? "Read-only IA-1 and IA-2 marks for this student, calculated from submitted assessment records." : "Select all parameters and submit to view read-only marks from the marks entry portal."} action={studentReg && onReturn ? <button onClick={onReturn} className="rounded-md border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Return to Students</button> : undefined} />{!studentReg && <Panel className="p-4"><div className="grid gap-3 md:grid-cols-5"><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Subject</label><select value={subjectId ?? ""} onChange={(event) => setSubjectId(Number(event.target.value) || undefined)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs"><option value="">Select subject</option>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.code} · {subject.name}</option>)}</select></div><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Semester</label><select value={semester} onChange={(event) => setSemester(event.target.value)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs"><option>VI</option><option>V</option><option>IV</option></select></div><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Assessment</label><select value={assessment} onChange={(event) => setAssessment(event.target.value as "IA-1" | "IA-2")} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs"><option value="IA-1">IA-1</option><option value="IA-2">IA-2</option></select></div><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Section</label><select value={section} onChange={(event) => setSection(event.target.value)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs">{(Array.from(new Set(subjects.map((subject) => subject.section))).length ? Array.from(new Set(subjects.map((subject) => subject.section))) : ["CSE A"]).map((item: any) => <option key={String(item)}>{String(item)}</option>)}</select></div><button onClick={submitFilters} className="h-10 self-end rounded-md bg-[#FC6226] px-4 text-xs font-semibold text-white hover:bg-[#E04F18]">Submit</button></div><p className="mt-3 text-[11px] text-slate-500">Students remain hidden until Submit. Marks are read-only and reflect the latest saved or submitted marks entry.</p></Panel>}{(applied || studentReg) && <><Panel className="p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><SectionHeading title={studentReg ? "IA marks by assessment" : `${selectedSubject?.name ?? "Subject"} · ${applied?.assessment}`} detail={studentReg ? "Read-only marks from submitted IA assessments" : `${applied?.semester} · ${applied?.section} · read-only marks`} /><select value={sortOrder} onChange={(event) => setSortOrder(event.target.value as "asc" | "desc")} className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700"><option value="desc">High to Low</option><option value="asc">Low to High</option></select></div><div className="mobile-table-scroll mt-4"><table className="w-full min-w-[680px] text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Assessment</th><th className="px-4 py-3">Student</th><th className="px-4 py-3">Section</th><th className="px-4 py-3">IA mark</th><th className="px-5 py-3 text-right">Mode</th></tr></thead><tbody className="divide-y divide-slate-100">{sortedRows.map((row, index) => <tr key={`${row.reg}-${row.assessment}-${index}`}><td className="px-5 py-3.5 text-xs font-semibold text-[#FC6226]">{row.assessment}</td><td className="px-4 py-3.5"><p className="text-xs font-semibold text-slate-800">{row.name}</p><p className="text-[11px] text-slate-400">{row.reg}</p></td><td className="px-4 py-3.5 text-xs text-slate-600">{row.section}</td><td className="px-4 py-3.5 text-xs font-bold text-[#FC6226]">{row.internal}</td><td className="px-5 py-3.5 text-right"><StatusBadge tone="neutral">Read only</StatusBadge></td></tr>)}</tbody></table></div>{sortedRows.length === 0 && <p className="py-8 text-center text-xs text-slate-500">No IA marks found for this student.</p>}</Panel><Panel className="p-5"><SectionHeading title={studentReg ? "Individual IA performance trend" : "Performance trend"} detail="Derived from submitted IA marks" /><div className="h-[250px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={chartData}><CartesianGrid stroke="#e2e8f0" vertical={false} strokeDasharray="3 3" /><XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} /><YAxis domain={[40, 95]} axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} tickFormatter={(v) => `${v}%`} /><ChartTooltip content={<ChartTooltipContent />} /><Line type="monotone" dataKey="score" name="Selected performance" stroke="#FC6226" strokeWidth={2.5} dot={{ r: 3 }} /><Line type="monotone" dataKey="benchmark" name="Benchmark" stroke="#94a3c2" strokeDasharray="4 4" /></LineChart></ResponsiveContainer></div></Panel></>}</div>;
 }
 
 function StudentsPage({ onView, role }: { onView: (student: (typeof students)[number]) => void; role: Role }) {
@@ -2186,9 +2345,9 @@ function DepartmentsPage({ onToast }: { onToast: (message: string) => void }) {
 function TrendsPage() {
   const reportsQuery = trpc.reports.rows.useQuery({});
   const rows = reportsQuery.data ?? [];
-  const grouped = Array.from(new Map(rows.map((row) => [row.subject?.code ?? `SUB-${row.submission.subjectId}`, row.subject?.name ?? "Subject"])).entries()).map(([code, name]) => { const current = rows.filter((row) => (row.subject?.code ?? `SUB-${row.submission.subjectId}`) === code); const values = (assessment: "IA-1" | "IA-2") => { const selected = current.filter((row) => row.submission.assessment === assessment); let total = 0; let count = 0; selected.forEach((row) => { try { const parsed = JSON.parse(row.submission.marksJson) as Record<string, number>; total += Object.values(parsed).reduce((sum, value) => sum + Number(value || 0), 0); count += Object.keys(parsed).length; } catch { } }); return count ? Math.round((total / (count * 20)) * 100) : 0; }; return { department: code, name, ia1: values("IA-1"), ia2: values("IA-2") }; });
+  const grouped: Array<{ department: string; name: string; ia1: number; ia2: number }> = Array.from(new Map<string, string>(rows.map((row: any) => [row.subject?.code ?? `SUB-${row.submission.subjectId}`, row.subject?.name ?? "Subject"])).entries()).map(([code, name]) => { const current = rows.filter((row: any) => (row.subject?.code ?? `SUB-${row.submission.subjectId}`) === code); const values = (assessment: "IA-1" | "IA-2") => { const selected = current.filter((row: any) => row.submission.assessment === assessment); let total = 0; let count = 0; selected.forEach((row: any) => { try { const parsed = JSON.parse(row.submission.marksJson) as Record<string, number>; total += Object.values(parsed).reduce((sum, value) => sum + Number(value || 0), 0); count += Object.keys(parsed).length; } catch { } }); return count ? Math.round((total / (count * 20)) * 100) : 0; }; return { department: String(code), name: String(name), ia1: values("IA-1"), ia2: values("IA-2") }; });
   const trendRows = grouped.length ? grouped : [{ department: "No data", name: "No persisted subjects", ia1: 0, ia2: 0 }];
-  return <div className="space-y-6"><PageIntro eyebrow="Executive analytics" title="Trend analysis" description="Live assessment movement calculated from persisted marks submissions." /><div className="grid gap-5 xl:grid-cols-[1.2fr_1fr]"><Panel className="p-5"><SectionHeading title="IA-1 vs IA-2 by subject" detail="Calculated from current backend records" /><div className="h-[290px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={trendRows} margin={{ top: 8, right: 8, left: -22, bottom: 0 }}><CartesianGrid stroke="#e2e8f0" vertical={false} strokeDasharray="3 3" /><XAxis dataKey="department" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} dy={10} /><YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} tickFormatter={(v) => `${v}%`} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="ia1" name="IA-1" fill="#FDBA74" radius={[4, 4, 0, 0]} barSize={18} /><Bar dataKey="ia2" name="IA-2" fill="#FC6226" radius={[4, 4, 0, 0]} barSize={18} /></BarChart></ResponsiveContainer></div></Panel><Panel className="p-5"><SectionHeading title="Live trend signals" detail="Decision support summary" /><div className="space-y-3 pt-2">{trendRows.slice(0, 4).map((row) => <div key={row.department} className="rounded-lg border border-slate-100 p-3"><div className="flex items-center justify-between"><span className="text-xs font-semibold text-slate-800">{row.name}</span><span className={cn("text-xs font-bold", row.ia2 >= row.ia1 ? "text-green-700" : "text-red-700")}>{row.ia2 - row.ia1 >= 0 ? "+" : ""}{row.ia2 - row.ia1} pts</span></div><p className="mt-1 text-[11px] text-slate-500">IA-1 {row.ia1 || "—"}% → IA-2 {row.ia2 || "—"}%</p></div>)}</div></Panel></div></div>;
+  return <div className="space-y-6"><PageIntro eyebrow="Executive analytics" title="Trend analysis" description="Live assessment movement calculated from persisted marks submissions." /><div className="grid gap-5 xl:grid-cols-[1.2fr_1fr]"><Panel className="p-5"><SectionHeading title="IA-1 vs IA-2 by subject" detail="Calculated from current backend records" /><div className="h-[290px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={trendRows} margin={{ top: 8, right: 8, left: -22, bottom: 0 }}><CartesianGrid stroke="#e2e8f0" vertical={false} strokeDasharray="3 3" /><XAxis dataKey="department" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} dy={10} /><YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} tickFormatter={(v) => `${v}%`} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="ia1" name="IA-1" fill="#FDBA74" radius={[4, 4, 0, 0]} barSize={18} /><Bar dataKey="ia2" name="IA-2" fill="#FC6226" radius={[4, 4, 0, 0]} barSize={18} /></BarChart></ResponsiveContainer></div></Panel><Panel className="p-5"><SectionHeading title="Live trend signals" detail="Decision support summary" /><div className="space-y-3 pt-2">{trendRows.slice(0, 4).map((row) => <div key={String(row.department)} className="rounded-lg border border-slate-100 p-3"><div className="flex items-center justify-between"><span className="text-xs font-semibold text-slate-800">{String(row.name)}</span><span className={cn("text-xs font-bold", row.ia2 >= row.ia1 ? "text-green-700" : "text-red-700")}>{row.ia2 - row.ia1 >= 0 ? "+" : ""}{row.ia2 - row.ia1} pts</span></div><p className="mt-1 text-[11px] text-slate-500">IA-1 {row.ia1 || "—"}% → IA-2 {row.ia2 || "—"}%</p></div>)}</div></Panel></div></div>;
 }
 
 
@@ -3320,8 +3479,8 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
           <FacultyDashboard onNavigate={navigate} />
         ) : role === "HOD" ? (
           <HodPortalDashboard onLogout={() => {}} />
-        ) : role === "Dean" ? (
-          <DeanDashboard onNavigate={navigate} onToast={setToast} />
+        ) : role === "Associate Dean" || role === "Dean" ? (
+          <AssociateDeanDashboard onLogout={() => onLogout()} isEmbedded={true} />
         ) : (
           <ElectivesComponent onToast={setToast} />
         );
@@ -3334,6 +3493,25 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
         return <SubjectsPage onToast={setToast} />;
       case "marks":
         return <FacultyMarkEntry onToast={setToast} />;
+      case "question-paper":
+        if (role === "Faculty")
+          return (
+            <FacultyQuestionPaperView
+              onToast={setToast}
+              facultyName={facultyCollege?.facultyName || "Dr. Ananya Menon"}
+              department={facultyCollege?.collegeName || "Computer Science and Engineering"}
+            />
+          );
+        if (role === "HOD")
+          return (
+            <HodQuestionPapersView
+              department="Computer Science & Engineering"
+              hodName="Dr. Jayapradha"
+            />
+          );
+        if (role === "Associate Dean" || role === "Dean" || role === "Admin")
+          return <QuestionPaperReviewView onToast={setToast} />;
+        return <QuestionPaperReviewView onToast={setToast} />;
       case "verification":
       case "noticeboard":
         return <FacultyDashboard onNavigate={navigate} />;
@@ -3677,9 +3855,9 @@ function LoginPage({
   const usersQuery = trpc.admin.users.useQuery({ actorRole: "Admin" });
   const allUsers: any[] = usersQuery.data ?? [];
 
-  const [selectedRole, setSelectedRole] = useState<"Student" | "HOD" | "Faculty">("Student");
+  const [loginPortal, setLoginPortal] = useState<"Student" | "Staff">("Staff");
   const [regNumber, setRegNumber] = useState("20260110226001");
-  const [username, setUsername] = useState("FACULTY01");
+  const [username, setUsername] = useState("ASSOC_DEAN");
   const [password, setPassword] = useState("password123");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -3710,7 +3888,7 @@ function LoginPage({
   }, []);
 
   const isStudentPortalLocked =
-    selectedRole === "Student" &&
+    loginPortal === "Student" &&
     systemConfig &&
     (systemConfig.systemMode === "EMERGENCY_LOCK" ||
       systemConfig.systemMode === "MAINTENANCE" ||
@@ -3720,7 +3898,7 @@ function LoginPage({
     event.preventDefault();
     setErrorMsg(null);
 
-    if (selectedRole === "Student") {
+    if (loginPortal === "Student") {
       if (isStudentPortalLocked) {
         setErrorMsg("Access Denied: Student Portal is currently offline under maintenance by Controller of Examinations (Dr. Sathish).");
         return;
@@ -3741,19 +3919,57 @@ function LoginPage({
         name: studentName,
         semester: 1,
       });
-    } else if (selectedRole === "HOD") {
+    } else {
+      // Academic Staff Unified Login with Role-based Authentication
       const trimmed = (username || "").trim().toLowerCase();
       const matched = allUsers.find(
         (u: any) =>
-          (u.portalRole === "HOD" || u.portalRole === "Faculty" || u.portalRole === "Dean") &&
-          (u.username?.toLowerCase() === trimmed || u.openId?.toLowerCase() === trimmed || u.email?.toLowerCase() === trimmed || u.name?.toLowerCase().includes(trimmed))
+          u.username?.toLowerCase() === trimmed ||
+          u.openId?.toLowerCase() === trimmed ||
+          u.email?.toLowerCase() === trimmed ||
+          u.name?.toLowerCase().includes(trimmed)
       );
 
-      if (matched && matched.portalRole === "Faculty") {
+      let resolvedRole: Role = "Faculty";
+      if (
+        matched?.portalRole === "Associate Dean" ||
+        trimmed.includes("assoc") ||
+        trimmed.includes("adean") ||
+        trimmed.includes("rajesh")
+      ) {
+        resolvedRole = "Associate Dean";
+      } else if (
+        matched?.portalRole === "Dean" ||
+        trimmed.includes("dean") ||
+        trimmed.includes("meera")
+      ) {
+        resolvedRole = "Dean";
+      } else if (
+        matched?.portalRole === "HOD" ||
+        trimmed.includes("hod") ||
+        trimmed.includes("jayapradha")
+      ) {
+        resolvedRole = "HOD";
+      } else if (matched?.portalRole === "Admin" || trimmed.includes("admin")) {
+        resolvedRole = "Admin";
+      } else {
+        resolvedRole = "Faculty";
+      }
+
+      if (resolvedRole === "Associate Dean") {
+        onAuthenticated("Associate Dean");
+      } else if (resolvedRole === "Dean") {
+        onAuthenticated("Dean");
+      } else if (resolvedRole === "HOD") {
+        onAuthenticated("HOD", undefined, {
+          name: matched?.name || (username.toUpperCase() || "JAYAPRADHA"),
+          department: matched?.department || "COMPUTER SCIENCE AND ENGINEERING",
+        });
+      } else if (resolvedRole === "Faculty") {
         let resolvedCollege: FacultyCollege = "Engineering";
-        if (trimmed.includes("pharm") || matched?.department?.toLowerCase().includes("pharm")) {
+        if (trimmed.includes("pharm") || matched?.department?.toLowerCase().includes("pharm") || matched?.college === "Pharmacy") {
           resolvedCollege = "Pharmacy";
-        } else if (trimmed.includes("nur") || matched?.department?.toLowerCase().includes("nurs")) {
+        } else if (trimmed.includes("nur") || matched?.department?.toLowerCase().includes("nurs") || matched?.college === "Nursing") {
           resolvedCollege = "Nursing";
         }
         if (resolvedCollege !== "Engineering") {
@@ -3761,42 +3977,9 @@ function LoginPage({
         }
         localStorage.setItem("kvell_faculty_college", resolvedCollege);
         onAuthenticated("Faculty");
-      } else if (matched) {
-        onAuthenticated("HOD", undefined, {
-          name: matched.name,
-          department: matched.department || "COMPUTER SCIENCE AND ENGINEERING",
-        });
       } else {
-        onAuthenticated("HOD", undefined, {
-          name: username || "JAYAPRADHA",
-          department: "COMPUTER SCIENCE AND ENGINEERING",
-        });
+        onAuthenticated(resolvedRole);
       }
-    } else if (selectedRole === "Faculty") {
-      const trimmed = (username || "").trim().toLowerCase();
-      let resolvedCollege: FacultyCollege = "Engineering";
-      if (trimmed.includes("pharm")) {
-        resolvedCollege = "Pharmacy";
-      } else if (trimmed.includes("nur")) {
-        resolvedCollege = "Nursing";
-      } else {
-        const matched = allUsers.find(
-          (u: any) =>
-            u.username?.toLowerCase() === trimmed ||
-            u.openId?.toLowerCase() === trimmed ||
-            u.email?.toLowerCase() === trimmed
-        );
-        if (matched?.college === "Pharmacy" || matched?.department?.toLowerCase().includes("pharm")) {
-          resolvedCollege = "Pharmacy";
-        } else if (matched?.college === "Nursing" || matched?.department?.toLowerCase().includes("nurs")) {
-          resolvedCollege = "Nursing";
-        }
-      }
-      if (resolvedCollege !== "Engineering") {
-        clearFacultyPharmacyAndNursingData();
-      }
-      localStorage.setItem("kvell_faculty_college", resolvedCollege);
-      onAuthenticated("Faculty");
     }
   };
 
@@ -3850,7 +4033,7 @@ function LoginPage({
           <div className="hidden sm:flex items-center gap-2">
             <span className="bg-[#0B192C] text-[#D4A72C] text-xs font-bold px-4 py-2 rounded-full flex items-center gap-2 shadow-md">
               <GraduationCap size={15} className="text-[#D4A72C]" />
-              {selectedRole} Portal Mode
+              {loginPortal === "Student" ? "Student Portal Mode" : "Academic Staff Mode"}
             </span>
           </div>
         </div>
@@ -3880,7 +4063,7 @@ function LoginPage({
               </h1>
             </div>
             <p className="text-slate-300 text-sm leading-relaxed font-medium">
-              Access Student Result Portal, HOD Department Analytics & Bar Graphs, and Examination Control Management. Select your portal role to sign in.
+              Access Student Result Portal, Academic Staff Portal for Faculty, HOD Department Analytics, and Associate Dean & Dean Evaluation Governance.
             </p>
             <div className="grid grid-cols-2 gap-4 pt-2">
               <div className="p-4 rounded-2xl bg-white/5 border border-white/10 shadow-sm">
@@ -3906,47 +4089,40 @@ function LoginPage({
                   className="h-16 w-16 mx-auto rounded-full bg-white p-1 border-2 border-[#D4A72C] shadow-md"
                 />
                 <h2 className="font-extrabold text-xl text-[#0B192C] mt-2.5">
-                  {selectedRole === "Student" ? "Student Result Portal" : selectedRole === "HOD" ? "HOD Department Portal" : "Faculty Portal"}
+                  {loginPortal === "Student" ? "Student Result Portal" : "Academic Staff Portal"}
                 </h2>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Select your role and enter credentials to sign in
+                  {loginPortal === "Student"
+                    ? "Enter register number to view published examination results"
+                    : "Single sign-on for Faculty, HOD, Associate Dean & Dean"}
                 </p>
               </div>
 
-              {/* Role Selection Tabs */}
-              <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-2xl mb-5 border border-slate-200">
+              {/* Merged Role Selection Tabs: Student vs Academic Staff */}
+              <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-100 rounded-2xl mb-5 border border-slate-200">
                 <button
                   type="button"
-                  onClick={() => setSelectedRole("Student")}
-                  className={`py-2 text-xs font-black rounded-xl transition ${
-                    selectedRole === "Student"
+                  onClick={() => setLoginPortal("Student")}
+                  className={`py-2.5 text-xs font-black rounded-xl transition cursor-pointer flex items-center justify-center gap-2 ${
+                    loginPortal === "Student"
                       ? "bg-[#0B192C] text-white shadow-md"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  🎓 Student
+                  <GraduationCap size={15} className={loginPortal === "Student" ? "text-[#D4A72C]" : "text-slate-400"} />
+                  <span>Student Portal</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSelectedRole("HOD")}
-                  className={`py-2 text-xs font-black rounded-xl transition ${
-                    selectedRole === "HOD"
+                  onClick={() => setLoginPortal("Staff")}
+                  className={`py-2.5 text-xs font-black rounded-xl transition cursor-pointer flex items-center justify-center gap-2 ${
+                    loginPortal === "Staff"
                       ? "bg-[#0B192C] text-white shadow-md"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  👔 HOD
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedRole("Faculty")}
-                  className={`py-2 text-xs font-black rounded-xl transition cursor-pointer ${
-                    selectedRole === "Faculty"
-                      ? "bg-[#0B192C] text-white shadow-md"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  👨‍🏫 Faculty
+                  <Building2 size={15} className={loginPortal === "Staff" ? "text-[#D4A72C]" : "text-slate-400"} />
+                  <span>Academic Staff</span>
                 </button>
               </div>
 
@@ -3981,7 +4157,7 @@ function LoginPage({
 
               {/* Login Form */}
               <form onSubmit={submit} className="space-y-4">
-                {selectedRole === "Student" ? (
+                {loginPortal === "Student" ? (
                   <div>
                     <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
                       STUDENT REGISTER NUMBER
@@ -3998,27 +4174,10 @@ function LoginPage({
                       />
                     </div>
                   </div>
-                ) : selectedRole === "Faculty" ? (
-                  <div>
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
-                      FACULTY USERNAME / EXAMINER ID
-                    </label>
-                      <div className="relative">
-                        <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="text"
-                          required
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          placeholder="e.g. FACULTY01 / FACULTY_PHARM / FACULTY_NUR"
-                          className="w-full h-12 pl-11 pr-4 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 focus:bg-white text-xs font-semibold text-[#172033] focus:border-[#0B192C] focus:ring-1 focus:ring-[#0B192C] focus:outline-none transition shadow-sm"
-                        />
-                      </div>
-                    </div>
                 ) : (
                   <div>
                     <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
-                      HOD USERNAME / ID
+                      STAFF USERNAME / ID
                     </label>
                     <div className="relative">
                       <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -4027,7 +4186,7 @@ function LoginPage({
                         required
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        placeholder="e.g. JAYAPRADHA"
+                        placeholder="e.g. FACULTY01 / JAYAPRADHA / ASSOC_DEAN / DEAN"
                         className="w-full h-12 pl-11 pr-4 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 focus:bg-white text-xs font-semibold text-[#172033] focus:border-[#0B192C] focus:ring-1 focus:ring-[#0B192C] focus:outline-none transition shadow-sm"
                       />
                     </div>
@@ -4051,7 +4210,7 @@ function LoginPage({
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800 p-1"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800 p-1 cursor-pointer"
                     >
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -4077,7 +4236,9 @@ function LoginPage({
                   <Lock size={14} className={isStudentPortalLocked ? "text-slate-400" : "text-[#D4A72C]"} />
                   {isStudentPortalLocked
                     ? "Student Portal Offline (COE Locked)"
-                    : `Sign In to ${selectedRole === "Faculty" ? "Faculty Portal" : `${selectedRole} Portal`}`}
+                    : loginPortal === "Student"
+                    ? "Sign In to Student Portal"
+                    : "Sign In as Academic Staff"}
                 </button>
               </form>
 
@@ -4095,7 +4256,7 @@ function LoginPage({
                     }}
                     className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-900 font-extrabold text-[11px] hover:bg-amber-100 transition shadow-sm border border-amber-300 cursor-pointer"
                   >
-                    ⚙️ Engineering Faculty
+                    👨‍🏫 Faculty (CSE)
                   </button>
                   <button
                     type="button"
@@ -4134,16 +4295,48 @@ function LoginPage({
                   <button
                     type="button"
                     onClick={() => {
-                      onAuthenticated("Student", {
-                        reg: "20260110226001",
-                        name: "ABI T",
-                        semester: 1,
-                      });
+                      onAuthenticated("Associate Dean");
                     }}
-                    className="px-3 py-1.5 rounded-full bg-[#D4A72C]/20 text-[#0B192C] font-extrabold text-[11px] hover:bg-[#D4A72C]/30 transition shadow-sm border border-[#D4A72C] cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-full bg-[#0B192C] text-[#D4A72C] font-extrabold text-[11px] hover:bg-[#152744] transition shadow-md border border-[#D4A72C]/60 cursor-pointer flex items-center gap-1"
                   >
-                    🎓 Student (ABI T)
+                    🎖️ Associate Dean
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onAuthenticated("Dean");
+                    }}
+                    className="px-3 py-1.5 rounded-full bg-purple-50 text-purple-900 font-extrabold text-[11px] hover:bg-purple-100 transition shadow-sm border border-purple-300 cursor-pointer"
+                  >
+                    🎓 Dean of Academics
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onAuthenticated("Admin");
+                    }}
+                    className="px-3.5 py-1.5 rounded-full bg-slate-900 text-white font-extrabold text-[11px] hover:bg-black transition shadow-sm border border-slate-700 cursor-pointer"
+                  >
+                    🛡️ University Admin
+                  </button>
+                  <a
+                    href="http://localhost:3002/admin/question-papers"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-blue-700 to-indigo-800 text-white font-extrabold text-[11px] hover:from-blue-800 hover:to-indigo-900 transition shadow-md border border-blue-400/50 cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>🏛️ COE Portal (Stage 4)</span>
+                    <ExternalLink size={12} className="text-[#D4A72C]" />
+                  </a>
+                  <a
+                    href="http://localhost:3002/admin/super-admin"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-[#D4A72C] text-[#0B192C] font-extrabold text-[11px] hover:from-amber-600 hover:to-amber-500 transition shadow-md border border-[#D4A72C] cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>👑 Chief COE Console (Stage 5)</span>
+                    <ExternalLink size={12} className="text-[#0B192C]" />
+                  </a>
                 </div>
               </div>
 
@@ -5313,6 +5506,14 @@ export default function Home() {
       <HodPortalDashboard
         hodName={activeHod.name}
         department={activeHod.department}
+        onLogout={() => setAuthenticatedRole(null)}
+      />
+    );
+  }
+
+  if (authenticatedRole === "Associate Dean" || authenticatedRole === "Dean") {
+    return (
+      <AssociateDeanDashboard
         onLogout={() => setAuthenticatedRole(null)}
       />
     );

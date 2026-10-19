@@ -20,6 +20,7 @@ import {
   Sparkles,
   Layers,
   Filter,
+  FileCheck,
 } from "lucide-react";
 import { adminDashboardApi, AdminDashboardStats } from "../services/api";
 import { getStoredDepartments, Department } from "./Departments";
@@ -181,6 +182,12 @@ export const Dashboard: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 relative z-10">
+          <Link
+            href="/admin/question-papers"
+            className="px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-600/30 text-[#D4A72C] font-extrabold text-xs hover:bg-[#D4A72C] hover:text-[#0B192C] transition border border-[#D4A72C]/40 flex items-center gap-2 shadow"
+          >
+            <FileCheck size={16} /> Question Paper Hub (Stage 4 &amp; 5)
+          </Link>
           <Link
             href="/admin/results/upload"
             className="px-5 py-3 rounded-xl bg-[#D4A72C] text-[#0B192C] font-extrabold text-xs hover:bg-[#b08014] transition shadow flex items-center gap-2"

@@ -16,11 +16,13 @@ import { ProfilePage } from "./pages/Profile";
 import { SubjectsPage } from "./pages/Subjects";
 import { DepartmentsPage } from "./pages/Departments";
 import { SuperAdminControlPage } from "./pages/SuperAdminControl";
+import { QuestionPapersPage } from "./pages/QuestionPapers";
 
 const pageTitles: Record<string, string> = {
   "/admin/super-admin": "Chief COE & Super Admin Console",
   "/admin/dashboard": "University Admin Dashboard",
   "/admin/departments": "University Department Directory & Management",
+  "/admin/question-papers": "Question Paper Logistics & Master Release Hub",
   "/admin/results": "Result Management Hub",
   "/admin/results/upload": "Student Data",
   "/admin/results/validation": "Student Mark Entry",
@@ -136,6 +138,14 @@ export const App: React.FC = () => {
         {() => (
           <AdminLayout>
             <ProtectedRoute component={SubjectsPage} />
+          </AdminLayout>
+        )}
+      </Route>
+
+      <Route path="/admin/question-papers">
+        {() => (
+          <AdminLayout>
+            <ProtectedRoute component={QuestionPapersPage} />
           </AdminLayout>
         )}
       </Route>

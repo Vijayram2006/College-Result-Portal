@@ -3,6 +3,7 @@ import { SystemConfig } from "../../utils/systemConfig";
 
 export type SystemAdminTab =
   | "overview"
+  | "question-papers"
   | "gateways"
   | "users"
   | "regulations"

@@ -34,6 +34,12 @@ const createMutationHook = (actionSupplier?: (val?: any) => any) => {
 
 let adminUsersStore: any[] = [
   { id: 2, openId: "KV-FAC-0012", username: "KV-FAC-0012", name: "Dr. Ananya Rao", email: "faculty.ananya@kvell.edu", role: "user", portalRole: "HOD", department: "Faculty of Engineering", status: "ACTIVE" },
+  { id: 101, openId: "FACULTY01", username: "FACULTY01", name: "Dr. Ananya Menon", email: "faculty.cse@kvell.edu", role: "user", portalRole: "Faculty", department: "Computer Science & Engineering", status: "ACTIVE" },
+  { id: 102, openId: "FACULTY_PHARM", username: "FACULTY_PHARM", name: "Dr. R. K. Sharma", email: "faculty.pharm@kvell.edu", role: "user", portalRole: "Faculty", department: "Faculty of Pharmacy", status: "ACTIVE" },
+  { id: 103, openId: "FACULTY_NUR", username: "FACULTY_NUR", name: "Prof. Grace David", email: "faculty.nur@kvell.edu", role: "user", portalRole: "Faculty", department: "Faculty of Nursing", status: "ACTIVE" },
+  { id: 104, openId: "JAYAPRADHA", username: "JAYAPRADHA", name: "Dr. Jayapradha", email: "hod.cse@kvell.edu", role: "user", portalRole: "HOD", department: "COMPUTER SCIENCE AND ENGINEERING", status: "ACTIVE" },
+  { id: 105, openId: "ASSOC_DEAN", username: "ASSOC_DEAN", name: "Dr. Rajesh Kumar", email: "assoc.dean@kvell.edu", role: "user", portalRole: "Associate Dean", department: "Office of the Associate Dean (Academics & Evaluation)", status: "ACTIVE" },
+  { id: 106, openId: "DEAN", username: "DEAN", name: "Dr. Meera Krishnan", email: "dean.academics@kvell.edu", role: "user", portalRole: "Dean", department: "Academic Affairs & Autonomous Wing", status: "ACTIVE" },
   { id: 3, openId: "ADMIN", username: "ADMIN", name: "System Controller", email: "admin.kvell@kvell.edu", role: "admin", portalRole: "Admin", department: "University Administration", status: "ACTIVE" },
 ];
 
