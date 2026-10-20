@@ -171,7 +171,7 @@ export const ResultsPublished: React.FC = () => {
                             : "bg-gray-100 text-gray-800 border border-gray-300"
                         }`}
                       >
-                        {b.publicationStatus === "VALIDATED" ? "AWAITING COE PUBLISH" : b.publicationStatus}
+                        {b.publicationStatus === "VALIDATED" ? "STAGE 4: COE AUDIT • AWAITING CHIEF COE" : "STAGE 5: RELEASED BY CHIEF COE"}
                       </span>
                     </td>
                     <td className="p-3.5 text-right space-x-2">
@@ -186,8 +186,9 @@ export const ResultsPublished: React.FC = () => {
                         <button
                           onClick={() => setPublishConfirmBatch(b)}
                           className="px-3 py-1.5 rounded-lg bg-[#2E7D5B] hover:bg-emerald-700 text-white font-extrabold text-[11px] transition shadow inline-flex items-center gap-1"
+                          title="Chief COE final release authorization"
                         >
-                          <Send size={13} /> PUBLISH
+                          <Send size={13} /> RELEASE (STAGE 5)
                         </button>
                       )}
 

@@ -26,10 +26,12 @@ import {
   Crown,
   RotateCcw,
   ClipboardCheck,
+  FileCheck,
 } from "lucide-react";
 import { adminAuthApi } from "../services/api";
 import { getActiveCollege, isSuperAdmin, SUPER_ADMIN_CONFIG } from "../utils/rbac";
 import { UNIVERSITY_BAR_HEIGHT } from "./Navbar";
+import { safeLoadQuestionPapers } from "../data/questionPapersData";
 
 const kvellSealLogo = "/kvell-logo.png";
 
@@ -41,10 +43,27 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) => {
   const [location, navigate] = useLocation();
   const [resultsOpen, setResultsOpen] = useState(true);
+  const [qpCounts, setQpCounts] = useState({ pendingCoe: 0, pendingChief: 0 });
 
   const currentUser = adminAuthApi.getCurrentUser();
   const college = getActiveCollege();
   const isSuper = isSuperAdmin(currentUser);
+
+  React.useEffect(() => {
+    const updateCounts = () => {
+      const papers = safeLoadQuestionPapers();
+      const pendingCoe = papers.filter((p) => p.status === "PENDING_COE_REVIEW").length;
+      const pendingChief = papers.filter((p) => p.status === "PENDING_CHIEF_COE").length;
+      setQpCounts({ pendingCoe, pendingChief });
+    };
+    updateCounts();
+    window.addEventListener("kvell_qp_updated", updateCounts);
+    window.addEventListener("storage", updateCounts);
+    return () => {
+      window.removeEventListener("kvell_qp_updated", updateCounts);
+      window.removeEventListener("storage", updateCounts);
+    };
+  }, []);
 
   const handleLogout = () => {
     adminAuthApi.logout();
@@ -242,6 +261,33 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
                 </div>
               )}
             </div>
+
+            {/* Question Papers Navigation Link */}
+            <Link
+              href="/admin/question-papers"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${
+                isActive("/admin/question-papers")
+                  ? "bg-[#D4A72C] text-[#0B192C] shadow-md font-black"
+                  : "text-white/80 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <FileCheck size={17} />
+                <span>Question Papers</span>
+              </div>
+              {(isSuper ? qpCounts.pendingChief : qpCounts.pendingCoe) > 0 && (
+                <span
+                  className={`text-[10px] font-black px-1.5 py-0.2 rounded-full ${
+                    isActive("/admin/question-papers")
+                      ? "bg-[#0B192C] text-[#D4A72C]"
+                      : "bg-[#D4A72C] text-[#0B192C]"
+                  }`}
+                >
+                  {isSuper ? qpCounts.pendingChief : qpCounts.pendingCoe}
+                </span>
+              )}
+            </Link>
 
             
             {/* Departments and subjects are managed by each college's COE; the Chief COE does not see them */}

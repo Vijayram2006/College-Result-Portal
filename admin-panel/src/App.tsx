@@ -30,12 +30,14 @@ const SuperAdminControlPage = lazy(() => import("./pages/SuperAdminControl").the
 const RevaluationRequestsPage = lazy(() => import("./pages/RevaluationRequests").then((m) => ({ default: m.RevaluationRequestsPage })));
 const FacultyMasterPage = lazy(() => import("./pages/FacultyMaster").then((m) => ({ default: m.FacultyMasterPage })));
 const InternalMarksPage = lazy(() => import("./pages/InternalMarks").then((m) => ({ default: m.InternalMarksPage })));
+const QuestionPapersPage = lazy(() => import("./pages/QuestionPapers").then((m) => ({ default: m.QuestionPapersPage })));
 
 const pageTitles: Record<string, string> = {
   "/admin/super-admin": "Dashboard",
   "/admin/results/revaluation": "Student Revaluation Requests",
   "/admin/dashboard": "University Admin Dashboard",
   "/admin/departments": "University Department Directory & Management",
+  "/admin/question-papers": "Question Paper Logistics & Master Release Hub",
   "/admin/results": "Result Management Hub",
   "/admin/results/upload": "Student Data",
   "/admin/results/validation": "Student Mark Entry",
@@ -231,6 +233,14 @@ export const App: React.FC = () => {
         {() => (
           <AdminLayout>
             <ProtectedRoute component={SubjectsPage} />
+          </AdminLayout>
+        )}
+      </Route>
+
+      <Route path="/admin/question-papers">
+        {() => (
+          <AdminLayout>
+            <ProtectedRoute component={QuestionPapersPage} />
           </AdminLayout>
         )}
       </Route>

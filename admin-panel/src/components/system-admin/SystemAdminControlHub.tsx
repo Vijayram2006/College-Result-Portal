@@ -24,8 +24,10 @@ import { UserProvisioningTab } from "./UserProvisioningTab";
 import { AcademicRegulationTab } from "./AcademicRegulationTab";
 import { StorageMaintenanceTab } from "./StorageMaintenanceTab";
 import { SecurityAuditTab } from "./SecurityAuditTab";
+import { QuestionPapersPage } from "../../pages/QuestionPapers";
 import { getSystemConfig, SystemConfig, updateSystemConfig } from "../../utils/systemConfig";
 import { SUPER_ADMIN_CONFIG, getActiveCollege, getActiveCollegeKey } from "../../utils/rbac";
+import { FileCheck } from "lucide-react";
 
 export const SystemAdminControlHub: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SystemAdminTab>("overview");
@@ -50,6 +52,7 @@ export const SystemAdminControlHub: React.FC = () => {
 
   const tabs = [
     { id: "overview", label: "Multi-College Governance", icon: Building2 },
+    { id: "question-papers", label: "Question Papers (Master Seal)", icon: FileCheck },
     { id: "gateways", label: "Portal Gateways & Locks", icon: Globe },
     { id: "users", label: "Officer & COE Provisioning", icon: Users },
     { id: "regulations", label: "Regulations & Grading", icon: BookOpen },
@@ -99,6 +102,8 @@ export const SystemAdminControlHub: React.FC = () => {
             onNavigateToTab={(tab) => setActiveTab(tab)}
           />
         )}
+
+        {activeTab === "question-papers" && <QuestionPapersPage />}
 
         {activeTab === "gateways" && (
           <PortalGatewaysTab

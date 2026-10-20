@@ -20,6 +20,7 @@ import {
   Sparkles,
   Layers,
   Filter,
+  FileCheck,
 } from "lucide-react";
 import { adminDashboardApi, AdminDashboardStats, studentsApi, StudentRecord } from "../services/api";
 import { getStoredDepartments, refreshDepartments, Department } from "./Departments";
