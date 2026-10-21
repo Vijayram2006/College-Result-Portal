@@ -69,14 +69,8 @@ export const StudentsAdmissionRoster: React.FC<RosterProps> = ({
         student.twelfthMarks || {},
         college.name
       );
-      updateMandatedFeedsForCollege(collegeKey, student.id, {
-        twelfthMarks: {
-          document: digitalDoc,
-          marksheetDocName: digitalDoc.fileName,
-        },
-      });
-      loadData();
-      setPreviewDoc(digitalDoc);
+      // No marksheet was uploaded: show a summary of the entered marks only (never saved as the student's document)
+      setPreviewDoc({ ...digitalDoc, fileName: "Summary of entered 12th marks (no marksheet uploaded)" });
     }
   };
 

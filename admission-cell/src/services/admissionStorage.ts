@@ -60,6 +60,7 @@ export function getStoredApplicantsByCollege(collegeKey: CollegeKey): StudentApp
 }
 
 function remember(collegeKey: CollegeKey, applicant: StudentApplicant) {
+  if (applicant.regNo) forgetRolls();
   const list = cache[collegeKey] ?? [];
   const i = list.findIndex((s) => s.id === applicant.id);
   cache[collegeKey] = i >= 0 ? list.map((s) => (s.id === applicant.id ? applicant : s)) : [applicant, ...list];
@@ -195,6 +196,43 @@ export function getNextEngineeringRollNumber(programmeCode: string, degreeCode: 
     .map((r) => parseInt(r.slice(-3), 10))
     .filter((n) => !isNaN(n));
   return rolls.length ? Math.max(...rolls) + 1 : 1;
+}
+
+const serverNextRoll = new Map<string, number>();
+const rollLoading = new Set<string>();
+
+function rollPrefix(programmeCode: string, degreeCode: string, admYear: number): string {
+  return `${admYear}01${degreeCode}${String(programmeCode).padStart(2, "0")}${String(admYear).slice(-2)}`;
+}
+
+/**
+ * The next roll number as a hook: the server's answer counts students already enrolled in the results system as
+ * well as applicants, so the suggestion never collides with an existing register number.
+ */
+export function useNextEngineeringRoll(programmeCode: string, degreeCode: string = "1", admYear: number = 2026): number {
+  const prefix = rollPrefix(programmeCode, degreeCode, admYear);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const again = () => tick((n) => n + 1);
+    window.addEventListener(ADMISSION_UPDATED_EVENT, again);
+    if (programmeCode && !serverNextRoll.has(prefix) && !rollLoading.has(prefix)) {
+      rollLoading.add(prefix);
+      api<{ next: number }>("GET", `/admission/applicants/next-roll?prefix=${prefix}`)
+        .then((r) => serverNextRoll.set(prefix, r.next))
+        .catch(() => undefined)
+        .finally(() => {
+          rollLoading.delete(prefix);
+          announce();
+        });
+    }
+    return () => window.removeEventListener(ADMISSION_UPDATED_EVENT, again);
+  }, [prefix, programmeCode]);
+  return Math.max(getNextEngineeringRollNumber(programmeCode, degreeCode, admYear), serverNextRoll.get(prefix) ?? 1);
+}
+
+/** After saving a register number the server's next roll is fetched again. */
+function forgetRolls() {
+  serverNextRoll.clear();
 }
 
 export function seedCleanDemonstrationForCollegeIfEmpty(_collegeKey: CollegeKey) {

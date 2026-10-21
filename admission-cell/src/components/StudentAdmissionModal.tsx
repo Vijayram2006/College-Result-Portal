@@ -28,7 +28,7 @@ import {
 } from "../utils/cutoffCalculator";
 import {
   createApplicantForCollege,
-  getNextEngineeringRollNumber,
+  useNextEngineeringRoll,
 } from "../services/admissionStorage";
 import { DocumentUploadZone } from "./DocumentUploadZone";
 import { createDigitalTwelfthAttachment } from "../utils/digitalMarksheet";
@@ -163,7 +163,6 @@ export const StudentAdmissionModal: React.FC<ModalProps> = ({
     }
   }, [isOpen, fixedCollegeKey]);
 
-  if (!isOpen) return null;
 
   // Real-time calculations (zero when marks are empty)
   const aadharValidation = validateAadharNumber(aadharRaw);
@@ -207,9 +206,8 @@ export const StudentAdmissionModal: React.FC<ModalProps> = ({
   // Engineering Next Roll No preview (only if Engineering and Dept selected)
   const isEngineering = selectedCollege === "engineering";
   const canGenerateReg = isEngineering && !!selectedBranchCode && !!degreeLevel;
-  const nextRollNumber = canGenerateReg
-    ? getNextEngineeringRollNumber(selectedBranchCode, degreeLevel === "UG" ? "1" : "2", admissionYear)
-    : 1;
+  const serverNextRoll = useNextEngineeringRoll(canGenerateReg ? selectedBranchCode : "", degreeLevel === "UG" ? "1" : "2", admissionYear);
+  const nextRollNumber = canGenerateReg ? serverNextRoll : 1;
 
   const sampleEngRegNoPreview = canGenerateReg
     ? buildEngineeringRegNo({
@@ -274,6 +272,11 @@ export const StudentAdmissionModal: React.FC<ModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Enter on an earlier step moves on; only the last step enrolls
+    if (activeTab !== "twelfth") {
+      handleNextStep();
+      return;
+    }
     setErrorMsg("");
 
     if (!degreeLevel) {
@@ -316,29 +319,8 @@ export const StudentAdmissionModal: React.FC<ModalProps> = ({
     const newId = `APP-${collegeConf.code}-${Date.now().toString().slice(-6)}`;
     const appNumber = `${collegeConf.shortName.toUpperCase()}/${admissionYear}/${Math.floor(100 + Math.random() * 900)}`;
 
-    // If candidate has entered 12th marks or has no doc, generate official digital marksheet so they always have an attachment!
-    let finalTwelfthDoc = twelfthDoc;
-    if (!finalTwelfthDoc && (twelfthPhysics !== "" || twelfthChemistry !== "" || twelfthMaths !== "")) {
-      finalTwelfthDoc = createDigitalTwelfthAttachment(
-        fullName.trim(),
-        {
-          board: (twelfthBoard as any) || "STATE_BOARD",
-          stream: twelfthStream || "PCMB",
-          schoolName: twelfthSchool.trim() || "Higher Secondary School",
-          rollNumber: twelfthRoll.trim() || `HSC-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`,
-          yearOfPassing: Number(twelfthPassingYear) || new Date().getFullYear(),
-          lang1Marks: Number(twelfthL1) || 0,
-          lang2Marks: Number(twelfthL2) || 0,
-          mathsMarks: Number(twelfthMaths) || 0,
-          physicsMarks: Number(twelfthPhysics) || 0,
-          chemistryMarks: Number(twelfthChemistry) || 0,
-          biologyMarks: Number(twelfthBiology) || 0,
-          computerScienceMarks: Number(twelfthCS) || 0,
-          calculatedCutoff: twelfthCutoff.cutoff,
-        },
-        collegeConf.name
-      );
-    }
+    // Only a marksheet the officer actually uploaded is stored as the student's document
+    const finalTwelfthDoc = twelfthDoc;
 
     const newStudent: StudentApplicant = {
       id: newId,
@@ -366,7 +348,8 @@ export const StudentAdmissionModal: React.FC<ModalProps> = ({
       degreeCode: degreeLevel === "UG" ? "1" : "2",
       admissionYear,
       quota: quota as AdmissionQuota,
-      status: "DOCS_VERIFIED",
+      // The verification desk checks the documents before the student is marked verified
+      status: "PENDING_VERIFICATION",
       aadhar: {
         aadharNumber: aadharRaw.replace(/\D/g, ""),
         isVerified: aadharValidation.isValid,
@@ -421,6 +404,9 @@ export const StudentAdmissionModal: React.FC<ModalProps> = ({
   };
 
   const collegeConf = COLLEGES[selectedCollege];
+
+  // Closed: nothing to show (checked after every hook so the hooks always run in the same order)
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
@@ -1298,8 +1284,10 @@ export const StudentAdmissionModal: React.FC<ModalProps> = ({
                 </button>
               )}
 
+              {/* Separate keys: React must not turn the Next button into the submit button during the click */}
               {activeTab !== "twelfth" ? (
                 <button
+                  key="next"
                   type="button"
                   onClick={handleNextStep}
                   className="px-5 py-2.5 rounded-xl bg-[#0B192C] text-white text-xs font-bold hover:bg-[#132943] transition cursor-pointer"
@@ -1308,6 +1296,7 @@ export const StudentAdmissionModal: React.FC<ModalProps> = ({
                 </button>
               ) : (
                 <button
+                  key="enroll"
                   type="submit"
                   className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#D4A72C] to-amber-600 text-[#0B192C] text-xs font-black shadow-lg hover:from-amber-400 hover:to-amber-500 transition border border-amber-300 active:scale-95 cursor-pointer flex items-center gap-2"
                 >

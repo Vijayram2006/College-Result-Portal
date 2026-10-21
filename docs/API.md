@@ -1,6 +1,6 @@
 # API
 
-- **Description:** [`docs/openapi.json`](openapi.json) (OpenAPI 3, 90 endpoints). Open it in https://editor.swagger.io
+- **Description:** [`docs/openapi.json`](openapi.json) (OpenAPI 3, 91 endpoints). Open it in https://editor.swagger.io
   or any OpenAPI viewer. TypeScript types generated from it: [`shared/api-types.ts`](../shared/api-types.ts).
 - **Base path:** `/api/v1`. The old unversioned `/api/...` paths still answer, with a `Deprecation: true` header and a
   `Link` to the `/api/v1` path; they will be removed in a later release after both frontends use v1 (they do now).

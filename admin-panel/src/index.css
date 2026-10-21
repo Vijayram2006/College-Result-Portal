@@ -21,3 +21,9 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #94A3B8;
 }
+
+/* The apps have their own show-password button: hide Edge's built-in one */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}

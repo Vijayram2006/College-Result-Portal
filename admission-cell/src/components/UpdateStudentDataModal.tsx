@@ -25,7 +25,7 @@ import {
 } from "../utils/engineeringRegGen";
 import {
   updateMandatedFeedsForCollege,
-  getNextEngineeringRollNumber,
+  useNextEngineeringRoll,
 } from "../services/admissionStorage";
 import { DocumentUploadZone } from "./DocumentUploadZone";
 import { createDigitalTwelfthAttachment } from "../utils/digitalMarksheet";
@@ -37,13 +37,16 @@ interface UpdateModalProps {
   onUpdated: () => void;
 }
 
-export const UpdateStudentDataModal: React.FC<UpdateModalProps> = ({
+// Hooks must run in the same order on every render, so the closed state is handled by this wrapper
+export const UpdateStudentDataModal: React.FC<UpdateModalProps> = (props) =>
+  props.isOpen && props.student ? <UpdateStudentDataForm {...props} student={props.student} /> : null;
+
+const UpdateStudentDataForm: React.FC<UpdateModalProps & { student: StudentApplicant }> = ({
   student,
   isOpen,
   onClose,
   onUpdated,
 }) => {
-  if (!isOpen || !student) return null;
 
   const [activeSection, setActiveSection] = useState<"aadhar" | "tenth" | "twelfth" | "regNo">("aadhar");
 
@@ -132,9 +135,8 @@ export const UpdateStudentDataModal: React.FC<UpdateModalProps> = ({
 
   // Engineering Next Roll No preview
   const isEngineering = student.collegeKey === "engineering";
-  const nextRoll = isEngineering
-    ? getNextEngineeringRollNumber(student.deptKey, student.degreeCode, student.admissionYear)
-    : 1;
+  const serverNextRoll = useNextEngineeringRoll(isEngineering ? student.deptKey : "", student.degreeCode, student.admissionYear);
+  const nextRoll = isEngineering ? serverNextRoll : 1;
 
   const suggestedEngRegNo = isEngineering
     ? buildEngineeringRegNo({

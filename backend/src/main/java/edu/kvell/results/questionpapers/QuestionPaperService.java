@@ -344,8 +344,8 @@ public class QuestionPaperService {
             case FACULTY -> new Scope(departments.college(), user.deptKey(), user.username());
             case HOD -> new Scope(departments.college(), user.deptKey(), null);
             case DEAN, ADMIN -> new Scope(departments.college(), null, null);
-            // The Chief COE releases the papers of all three colleges
-            case SUPER_ADMIN -> new Scope(null, null, null);
+            // The Chief COE releases the papers of all three colleges (or the one being inspected)
+            case SUPER_ADMIN -> new Scope(CurrentUser.collegeOrNull(), null, null);
             default -> throw new ApiException(HttpStatus.FORBIDDEN, "Question papers are not available to this account");
         };
     }

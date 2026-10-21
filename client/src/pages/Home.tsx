@@ -1523,6 +1523,13 @@ function HodPortalDashboard({
               <p className="text-sm font-extrabold text-[#0B192C]">{hodName}</p>
               <p className="text-[11px] font-bold text-[#8A6410] tracking-wider uppercase">HOD - {department}</p>
             </div>
+            {/* The HOD's notifications: forwarded marks, question papers waiting for scrutiny */}
+            <NotificationBell
+              onLink={(link) =>
+                link === "mark-approvals" ? setActiveTab("markApprovals")
+                  : link === "question-paper" ? setActiveTab("questionPapers") : undefined
+              }
+            />
             <button
               onClick={() => window.dispatchEvent(new Event("kvell:open-profile-edit"))}
               className="bg-white hover:bg-slate-50 text-[#0B192C] border border-slate-300 text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition"

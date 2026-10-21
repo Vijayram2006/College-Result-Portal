@@ -18,7 +18,7 @@ import {
   parseEngineeringRegNo,
   ENGINEERING_COLLEGE_CODE,
 } from "../utils/engineeringRegGen";
-import { getNextEngineeringRollNumber } from "../services/admissionStorage";
+import { useNextEngineeringRoll } from "../services/admissionStorage";
 
 export const EngineeringRegEnginePage: React.FC = () => {
   // Playground state
@@ -35,7 +35,7 @@ export const EngineeringRegEnginePage: React.FC = () => {
   const branches = degreeCode === "1" ? ENGINEERING_UG_BRANCHES : ENGINEERING_PG_BRANCHES;
   const currentBranchObj = branches.find((b) => b.code === selectedBranch) || branches[0];
 
-  const nextAutoRoll = getNextEngineeringRollNumber(
+  const nextAutoRoll = useNextEngineeringRoll(
     selectedBranch,
     degreeCode,
     admissionYear

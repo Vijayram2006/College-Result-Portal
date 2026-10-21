@@ -48,6 +48,9 @@ export const Login: React.FC = () => {
 
   const [otp, setOtp] = useState("");
   const [otpNeeded, setOtpNeeded] = useState(false);
+  // After failed attempts the server asks for a picture challenge
+  const [captcha, setCaptcha] = useState<{ id: string; image: string } | null>(null);
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [pendingUser, setPendingUser] = useState<{ user: AdmissionUser; token: string; path: string } | null>(null);
 
@@ -73,6 +76,7 @@ export const Login: React.FC = () => {
         password,
         role: chief ? "admin" : "admission",
         ...(otpNeeded ? { otp: otp.trim() } : {}),
+        ...(captcha ? { captchaId: captcha.id, captchaAnswer: captchaAnswer.trim() } : {}),
       });
       const u = res.user;
       const superAdmin = u.role === "SUPER_ADMIN";
@@ -95,6 +99,8 @@ export const Login: React.FC = () => {
       }
       finish(user, res.token, path);
     } catch (err: any) {
+      setCaptcha(err?.body?.captchaRequired ? err.body.captcha : null);
+      setCaptchaAnswer("");
       if (err?.body?.otpRequired) {
         setOtpNeeded(true);
         setErrorMsg(otpNeeded ? err.message : "Enter the 6-digit code from your authenticator app.");
@@ -289,6 +295,23 @@ export const Login: React.FC = () => {
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
                     placeholder="6-digit code"
+                    className="w-full h-12 px-4 rounded-2xl border border-slate-200 text-xs font-semibold"
+                  />
+                </div>
+              )}
+
+              {captcha && (
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
+                    TYPE THE CHARACTERS IN THE PICTURE
+                  </label>
+                  <img src={captcha.image} alt="Picture challenge" className="h-14 rounded-lg border border-slate-200 bg-white mb-2" />
+                  <input
+                    value={captchaAnswer}
+                    onChange={(e) => setCaptchaAnswer(e.target.value)}
+                    required
+                    autoComplete="off"
+                    placeholder="Characters shown above"
                     className="w-full h-12 px-4 rounded-2xl border border-slate-200 text-xs font-semibold"
                   />
                 </div>

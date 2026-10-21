@@ -57,9 +57,20 @@ export const VerificationDeskPage: React.FC<VerificationDeskProps> = ({
     return () => window.removeEventListener("kvell_admission_updated", loadData);
   }, [collegeKey]);
 
+  // All three documents verified moves a pending applicant to "documents verified" (and back when one is un-verified)
+  const statusAfter = (student: StudentApplicant, flags: { aadhar?: boolean; tenth?: boolean; twelfth?: boolean }) => {
+    const a = flags.aadhar ?? !!student.aadhar?.isVerified;
+    const t = flags.tenth ?? !!student.tenthMarks?.isVerified;
+    const w = flags.twelfth ?? !!student.twelfthMarks?.isVerified;
+    if (a && t && w && student.status === "PENDING_VERIFICATION") return "DOCS_VERIFIED" as const;
+    if (!(a && t && w) && student.status === "DOCS_VERIFIED") return "PENDING_VERIFICATION" as const;
+    return undefined;
+  };
+
   const toggleAadharVerification = (student: StudentApplicant) => {
     const nextState = !student.aadhar?.isVerified;
     updateMandatedFeedsForCollege(collegeKey, student.id, {
+      status: statusAfter(student, { aadhar: nextState }),
       aadhar: {
         isVerified: nextState,
         verifiedAt: nextState ? new Date().toISOString() : undefined,
@@ -71,6 +82,7 @@ export const VerificationDeskPage: React.FC<VerificationDeskProps> = ({
   const toggleTenthVerification = (student: StudentApplicant) => {
     const nextState = !student.tenthMarks?.isVerified;
     updateMandatedFeedsForCollege(collegeKey, student.id, {
+      status: statusAfter(student, { tenth: nextState }),
       tenthMarks: {
         isVerified: nextState,
       },
@@ -81,6 +93,7 @@ export const VerificationDeskPage: React.FC<VerificationDeskProps> = ({
   const toggleTwelfthVerification = (student: StudentApplicant) => {
     const nextState = !student.twelfthMarks?.isVerified;
     updateMandatedFeedsForCollege(collegeKey, student.id, {
+      status: statusAfter(student, { twelfth: nextState }),
       twelfthMarks: {
         isVerified: nextState,
       },
@@ -98,14 +111,8 @@ export const VerificationDeskPage: React.FC<VerificationDeskProps> = ({
         student.twelfthMarks || {},
         college.name
       );
-      updateMandatedFeedsForCollege(collegeKey, student.id, {
-        twelfthMarks: {
-          document: digitalDoc,
-          marksheetDocName: digitalDoc.fileName,
-        },
-      });
-      loadData();
-      setPreviewDoc(digitalDoc);
+      // No marksheet was uploaded: show a summary of the entered marks only (never saved as the student's document)
+      setPreviewDoc({ ...digitalDoc, fileName: "Summary of entered 12th marks (no marksheet uploaded)" });
     }
   };
 

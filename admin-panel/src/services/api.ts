@@ -267,9 +267,15 @@ export interface PublishRow {
   marksEntered: number;
   /**
    * NO_MARKS, NOT_FORWARDED (marks entered, faculty has not forwarded), FORWARDED (awaiting COE), PUBLISHED,
-   * OUT_OF_DATE (marks changed after forwarding: faculty must forward again).
+   * OUT_OF_DATE (marks changed after forwarding: faculty must forward again), RETURNED (sent back to the faculty by
+   * the HOD or Associate Dean).
    */
-  state: "NO_MARKS" | "NOT_FORWARDED" | "FORWARDED" | "PUBLISHED" | "OUT_OF_DATE" | "WITHDRAWN";
+  state: "NO_MARKS" | "NOT_FORWARDED" | "FORWARDED" | "PUBLISHED" | "OUT_OF_DATE" | "WITHDRAWN" | "RETURNED";
+  /** Approvals of the forwarded marks (required when the Chief COE turned the approval chain on). */
+  hodApprovedBy?: string | null;
+  deanApprovedBy?: string | null;
+  returnedBy?: string | null;
+  returnReason?: string | null;
   forwardedBy: string | null;
   batchId: string | null;
   publishedAt: string | null;

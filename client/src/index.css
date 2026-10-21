@@ -106,3 +106,9 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(212, 167, 44
   background-size: 28px 28px;
 }
 .login-shell input::selection { background: rgba(212, 167, 44, .25); }
+
+/* The apps have their own show-password button: hide Edge's built-in one */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}

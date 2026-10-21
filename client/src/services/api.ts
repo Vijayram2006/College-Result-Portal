@@ -412,10 +412,13 @@ export interface SubjectStatusDTO {
   subjectTitle: string;
   students: number;
   marksEntered: number;
-  state: "NO_MARKS" | "NOT_FORWARDED" | "FORWARDED" | "PUBLISHED" | "OUT_OF_DATE";
+  state: "NO_MARKS" | "NOT_FORWARDED" | "FORWARDED" | "PUBLISHED" | "OUT_OF_DATE" | "WITHDRAWN" | "RETURNED";
   batchId: string | null;
   publishedAt: string | null;
   forwardedBy: string | null;
+  /** Set when the HOD or Associate Dean sent the forwarded marks back for correction. */
+  returnedBy?: string | null;
+  returnReason?: string | null;
 }
 
 export interface FacultyCourseDTO {

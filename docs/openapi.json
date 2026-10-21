@@ -4352,6 +4352,40 @@
         ]
       }
     },
+    "/api/admission/applicants/next-roll": {
+      "get": {
+        "operationId": "nextRoll",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "prefix",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "format": "int32",
+                    "type": "integer"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admission-controller"
+        ]
+      }
+    },
     "/api/admission/applicants/{id}": {
       "delete": {
         "operationId": "delete",

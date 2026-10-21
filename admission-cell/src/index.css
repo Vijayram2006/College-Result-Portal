@@ -50,3 +50,9 @@
     background: white;
   }
 }
+
+/* The apps have their own show-password button: hide Edge's built-in one */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}

@@ -70,7 +70,9 @@ import {
 } from "./dean/DeanLiveViews";
 import { QuestionPaperReviewView, safeLoadQuestionPapers } from "./dean/QuestionPaperReviewView";
 import { refreshQuestionPapers } from "../services/questionPapersApi";
+import { authApi } from "../services/api";
 import { MarkApprovalsView } from "./MarkApprovalsView";
+import { NotificationBell } from "./NotificationBell";
 
 export interface AssociateDeanDashboardProps {
   onLogout: () => void;
@@ -364,6 +366,12 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
   onLogout,
   isEmbedded = false,
 }) => {
+  // The signed-in Associate Dean / Dean and their college (from the server's sign-in)
+  const me = authApi.currentUser();
+  const myName = me?.name || "Associate Dean";
+  const myTitle = me?.role === "DEAN" ? "Dean" : "Associate Dean";
+  const myCollegeName = me?.collegeName || "KVELL University";
+  const myCollegeShort = (me?.collegeKey || "engineering").toUpperCase();
   // Navigation & View state
   const [activeNav, setActiveNav] = useState<string>("dashboard");
   const [resultsMenuOpen, setResultsMenuOpen] = useState<boolean>(true);
@@ -760,7 +768,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                   KVELL UNIVERSITY
                 </span>
                 <span className="text-[10px] font-extrabold text-[#D4A72C] tracking-wider uppercase block truncate">
-                  ENGINEERING
+                  {myCollegeShort}
                 </span>
               </div>
             </div>
@@ -1015,7 +1023,6 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
             <button
               onClick={() => {
                 setActiveNav("faculty");
-                setShowFacultyModal(true);
                 setMobileSidebarOpen(false);
               }}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left ${
@@ -1034,17 +1041,17 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
         <div className="p-3 border-t border-white/10 bg-[#081322] flex items-center justify-between">
           <div className="flex items-center gap-2.5 overflow-hidden">
             <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-[#D4A72C]/20 text-[#D4A72C] border border-[#D4A72C]/40 font-mono shrink-0">
-              ENG
+              {myCollegeShort.slice(0, 3)}
             </span>
             <div className="overflow-hidden">
               <p
                 className="text-xs font-bold text-white truncate max-w-[145px]"
-                title="Dean of Academics"
+                title={myName}
               >
-                Dean of Academics
+                {myName}
               </p>
               <p className="text-[9px] font-bold text-[#D4A72C] uppercase tracking-wider truncate">
-                ROLE: DEAN OF ACADEMICS
+                ROLE: {myTitle.toUpperCase()}
               </p>
             </div>
           </div>
@@ -1059,7 +1066,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 lg:pl-72 min-h-screen flex flex-col">
+      <main className="flex-1 min-w-0 lg:pl-72 min-h-screen flex flex-col">
         {/* Mobile Top App Bar */}
         <div className="lg:hidden bg-[#0B192C] text-white px-4 py-3 border-b border-[#D4A72C]/20 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-2">
@@ -1073,12 +1080,12 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
               Karpaga Vinayaga Portal
             </span>
           </div>
-          <button
-            onClick={() => setShowNotificationDrawer(!showNotificationDrawer)}
-            className="p-1.5 rounded-full bg-white text-[#0B192C]"
-          >
-            <Bell size={16} />
-          </button>
+          <NotificationBell
+            onLink={(link) =>
+              link === "question-paper" ? setActiveNav("question-paper-review")
+                : link === "mark-approvals" ? setActiveNav("mark-approvals") : undefined
+            }
+          />
         </div>
 
         {/* Body Container */}
@@ -1094,10 +1101,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
               />
               <div>
                 <span className="bg-[#EAB308] text-[#0B192C] text-[10px] font-black uppercase px-2.5 py-0.5 rounded tracking-widest inline-block mb-1.5 shadow-sm">
-                  OFFICE OF THE DEAN OF ACADEMICS
+                  OFFICE OF THE {myTitle.toUpperCase()}
                 </span>
                 <h1 className="font-display text-xl sm:text-2xl font-black text-white leading-tight">
-                  Karpaga Vinayaga College of Engineering and Technology
+                  {myCollegeName}
                 </h1>
                 <p className="text-xs text-[#D4A72C] font-semibold mt-1">
                   {activeNav === "student-data"
@@ -1105,7 +1112,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                     : activeNav === "internal-marks"
                     ? "Internal Marks"
                     : activeNav === "answer-scripts"
-                    ? "Answer Script Entry"
+                    ? "Answer Scripts"
                     : activeNav === "published-results"
                     ? "Published Examination Results"
                     : activeNav === "revaluation"
@@ -1113,10 +1120,16 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                     : activeNav === "question-paper-review"
                     ? "Question Paper Review & COE Forwarding"
                     : activeNav === "departments"
-                    ? "University Department Directory & Management"
+                    ? "Departments"
                     : activeNav === "subjects"
-                    ? "COE Subject Catalog & Finalization Hub"
-                    : "University Admin Dashboard"}
+                    ? "Subjects"
+                    : activeNav === "faculty"
+                    ? "Faculty"
+                    : activeNav === "analytics"
+                    ? "Department Pass Rates"
+                    : activeNav === "mark-approvals"
+                    ? "Approval of Forwarded Marks"
+                    : "Overview"}
                 </p>
               </div>
 
@@ -1132,62 +1145,23 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
 
             {/* Right: Bell Icon & Profile Badge */}
             <div className="flex items-center gap-4 relative z-10 self-end md:self-center">
-              {/* Notification Bell */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowNotificationDrawer(!showNotificationDrawer)}
-                  className="h-10 w-10 rounded-full bg-white text-[#0B192C] flex items-center justify-center hover:bg-slate-100 transition shadow cursor-pointer"
-                  title="View Academic Notifications"
-                >
-                  <Bell size={18} />
-                  <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[#0B192C]" />
-                </button>
-
-                {/* Notification Dropdown Drawer */}
-                {showNotificationDrawer && (
-                  <div className="absolute right-0 mt-3 w-80 bg-white text-[#0B192C] rounded-2xl shadow-2xl border border-gray-200 p-4 z-50 animate-in fade-in slide-in-from-top-2">
-                    <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-                      <span className="text-xs font-black uppercase tracking-wider text-gray-700">
-                        Academic Alerts & Gazette
-                      </span>
-                      <button
-                        onClick={() => setShowNotificationDrawer(false)}
-                        className="text-gray-400 hover:text-gray-700"
-                      >
-                        <X size={15} />
-                      </button>
-                    </div>
-                    <div className="space-y-2.5 mt-3 text-xs">
-                      <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200">
-                        <p className="font-bold text-[#0B192C]">AI&DS (AI602) Moderation Complete</p>
-                        <p className="text-[11px] text-gray-600 mt-0.5">
-                          +2 BoS grace marks approved. Awaiting final Dean gazette sign-off.
-                        </p>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200">
-                        <p className="font-bold text-[#0B192C]">CSE (CS601) Mark Entry Verified</p>
-                        <p className="text-[11px] text-gray-600 mt-0.5">
-                          20/20 students submitted. 95% pass rate.
-                        </p>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
-                        <p className="font-bold text-[#0B192C]">Central Exam Session Active</p>
-                        <p className="text-[11px] text-gray-600 mt-0.5">
-                          Autonomous valuation wing operational on Port 3000.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+              {/* The Associate Dean's notifications from the server (on phones the top bar has the bell) */}
+              <div className="hidden lg:block">
+                <NotificationBell
+                  onLink={(link) =>
+                    link === "question-paper" ? setActiveNav("question-paper-review")
+                      : link === "mark-approvals" ? setActiveNav("mark-approvals") : undefined
+                  }
+                />
               </div>
 
               {/* Profile Card */}
               <div className="text-right">
                 <p className="text-xs font-extrabold text-white leading-tight">
-                  Dean of Academics (Engineering)
+                  {myName}
                 </p>
                 <span className="text-[9px] font-black text-white/60 uppercase tracking-widest block">
-                  ADMIN
+                  {myTitle}
                 </span>
               </div>
             </div>

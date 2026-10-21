@@ -532,6 +532,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admission/applicants/next-roll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["nextRoll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admission/applicants/{id}": {
         parameters: {
             query?: never;
@@ -3582,6 +3598,30 @@ export interface operations {
                 content: {
                     "*/*": {
                         [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    nextRoll: {
+        parameters: {
+            query: {
+                prefix: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: number;
                     };
                 };
             };

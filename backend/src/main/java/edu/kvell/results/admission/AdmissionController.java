@@ -34,6 +34,12 @@ public class AdmissionController {
         return admissions.list(college, CurrentUser.get());
     }
 
+    /** The next free roll number for a register number prefix (enrolled students and applicants both count). */
+    @GetMapping("/next-roll")
+    Map<String, Integer> nextRoll(@RequestParam String prefix) {
+        return Map.of("next", admissions.nextRoll(prefix, CurrentUser.get()));
+    }
+
     @GetMapping("/{id}")
     Map<String, Object> get(@PathVariable long id) {
         return admissions.get(id, CurrentUser.get());

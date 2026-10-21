@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { AlertTriangle, CheckCircle2, EyeOff, Globe, RefreshCw, Send } from "lucide-react";
 import { adminResultsApi, apiErrorMessage, PublishRow } from "../services/api";
 import { getStoredDepartments } from "./Departments";
+import { getSystemConfig } from "../utils/systemConfig";
 
 
 
@@ -16,7 +17,9 @@ const STATE_LABEL: Record<PublishRow["state"], { text: string; className: string
   PUBLISHED: { text: "Published", className: "bg-emerald-50 text-emerald-800 border-emerald-300" },
   OUT_OF_DATE: { text: "Marks changed - forward again", className: "bg-red-50 text-red-700 border-red-300" },
   WITHDRAWN: { text: "Withdrawn - can be published again", className: "bg-purple-50 text-purple-800 border-purple-300" },
+  RETURNED: { text: "Returned to faculty - forward again", className: "bg-rose-50 text-rose-700 border-rose-300" },
 };
+const UNKNOWN_STATE = { text: "Unknown", className: "bg-gray-100 text-gray-700 border-gray-200" };
 
 export const ResultsPublish: React.FC = () => {
   const [DEPARTMENTS, setDepartments] = useState(() => getStoredDepartments());
@@ -66,9 +69,15 @@ export const ResultsPublish: React.FC = () => {
   // Results are released for the whole department at once, and only when every subject has marks for every student
   const incomplete = rows.filter((r) => r.marksEntered < r.students);
   // Faculty must forward every subject (the COE's own Mark Entry counts) and forward again after any change
-  const notForwarded = rows.filter((r) => r.state === "NOT_FORWARDED" || r.state === "NO_MARKS" || r.state === "OUT_OF_DATE");
+  const notForwarded = rows.filter((r) => r.state === "NOT_FORWARDED" || r.state === "NO_MARKS" || r.state === "OUT_OF_DATE"
+    || r.state === "RETURNED");
+  // The approvals the Chief COE requires before publishing (the server checks them too)
+  const chain = getSystemConfig().markApproval;
+  const awaitingApproval = rows.filter((r) => r.state === "FORWARDED"
+    && ((chain?.hodApproval && !r.hodApprovedBy) || (chain?.deanApproval && !r.deanApprovedBy)));
   const allMarked =
-    rows.length > 0 && rows.every((r) => r.students > 0) && incomplete.length === 0 && notForwarded.length === 0;
+    rows.length > 0 && rows.every((r) => r.students > 0) && incomplete.length === 0 && notForwarded.length === 0
+    && awaitingApproval.length === 0;
   const allLive = rows.length > 0 && rows.every((r) => r.state === "PUBLISHED");
   const anyLive = rows.some((r) => r.state === "PUBLISHED" || r.state === "OUT_OF_DATE");
   const outOfDate = rows.some((r) => r.state === "OUT_OF_DATE");
@@ -193,9 +202,13 @@ export const ResultsPublish: React.FC = () => {
                 ? `Publishing is locked until marks are entered for every student in every subject. Still missing: ${incomplete
                     .map((r) => `${r.subjectCode} (${r.students - r.marksEntered} student${r.students - r.marksEntered === 1 ? "" : "s"})`)
                     .join(", ")}. A student who was absent needs a 0 entered.`
-                : `Publishing is locked until faculty forward every subject for verification. Waiting for: ${notForwarded
-                    .map((r) => `${r.subjectCode}${r.state === "OUT_OF_DATE" ? " (changed - forward again)" : ""}`)
-                    .join(", ")}.`}
+                : notForwarded.length > 0
+                  ? `Publishing is locked until faculty forward every subject for verification. Waiting for: ${notForwarded
+                      .map((r) => `${r.subjectCode}${r.state === "OUT_OF_DATE" ? " (changed - forward again)" : r.state === "RETURNED" ? ` (returned: ${r.returnReason ?? ""})` : ""}`)
+                      .join(", ")}.`
+                  : `Publishing is locked until the approvals set by the Chief COE are in. Waiting for: ${awaitingApproval
+                      .map((r) => `${r.subjectCode} (${chain?.hodApproval && !r.hodApprovedBy ? "HOD" : "Associate Dean"})`)
+                      .join(", ")}.`}
           </span>
         </div>
       )}
@@ -313,7 +326,7 @@ export const ResultsPublish: React.FC = () => {
                 </tr>
               ) : (
                 rows.map((r) => {
-                  const label = STATE_LABEL[r.state];
+                  const label = STATE_LABEL[r.state] ?? UNKNOWN_STATE;
                   const live = r.state === "PUBLISHED" || r.state === "OUT_OF_DATE";
                   return (
                     <tr key={r.subjectCode} className="hover:bg-[#F8F5EE]/60 transition">
@@ -333,6 +346,11 @@ export const ResultsPublish: React.FC = () => {
                         </span>
                         {r.forwardedBy && r.state !== "NOT_FORWARDED" && (
                           <p className="text-[10px] text-gray-500 mt-1">Forwarded by {r.forwardedBy}</p>
+                        )}
+                        {r.hodApprovedBy && <p className="text-[10px] text-emerald-700 mt-1">HOD approved: {r.hodApprovedBy}</p>}
+                        {r.deanApprovedBy && <p className="text-[10px] text-emerald-700 mt-1">Assoc. Dean approved: {r.deanApprovedBy}</p>}
+                        {r.state === "RETURNED" && r.returnReason && (
+                          <p className="text-[10px] text-rose-700 mt-1">Returned by {r.returnedBy}: {r.returnReason}</p>
                         )}
                         {r.publishedAt && (
                           <p className="text-[10px] text-gray-400 mt-1 font-mono">{r.publishedAt}</p>

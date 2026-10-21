@@ -416,6 +416,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
     uploadedBy?: string;
     uploadDate?: string;
     changedAfterForward?: boolean;
+    returnReason?: string;
   }>({ status: "NOT_SAVED" });
 
   const checkBatchStatus = React.useCallback(async () => {
@@ -436,6 +437,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
         publishedAt: row.publishedAt ?? undefined,
         uploadedBy: row.forwardedBy ?? undefined,
         changedAfterForward: row.state === "OUT_OF_DATE",
+        returnReason: row.state === "RETURNED" ? `${row.returnReason ?? ""} (${row.returnedBy ?? "reviewer"})` : undefined,
       });
     } catch {
       setBatchStatusInfo({ status: "NOT_SAVED" });
@@ -802,6 +804,12 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                   </button>
                 </div>
               ) : (
+                <>
+                {batchStatusInfo.returnReason && (
+                  <div className="max-w-xs px-3.5 py-2 rounded-xl bg-rose-500/20 border border-rose-400/40 text-rose-100 text-[11px] font-bold">
+                    Returned for correction: {batchStatusInfo.returnReason}
+                  </div>
+                )}
                 <button
                   onClick={handleForwardToCOE}
                   className="px-5 py-3 rounded-xl bg-[#2E7D5B] hover:bg-emerald-700 text-white font-extrabold text-xs transition shadow flex items-center gap-2 active:scale-95"
@@ -809,6 +817,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                 >
                   <Send size={16} /> Forward Marks to {firstReviewer}
                 </button>
+                </>
               )}
             </>
           )}

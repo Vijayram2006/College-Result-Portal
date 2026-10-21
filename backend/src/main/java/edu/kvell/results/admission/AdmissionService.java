@@ -91,6 +91,26 @@ public class AdmissionService {
         return doc;
     }
 
+    /**
+     * The next free roll number for a 14-digit register number prefix (year, college, degree, programme, admission
+     * year: 11 digits), counting both enrolled students and admission applicants. Only the number is returned.
+     */
+    public int nextRoll(String prefix, CurrentUser user) {
+        if (user.role() != Role.ADMISSION && user.role() != Role.SUPER_ADMIN) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Admissions are handled by the college's admission officer");
+        }
+        if (prefix == null || !prefix.matches("[0-9]{11}")) throw ApiException.badRequest("The prefix must have 11 digits");
+        Integer max = db.sql("""
+                        SELECT max(CAST(right(reg_no, 3) AS INTEGER)) FROM (
+                            SELECT reg_no FROM students WHERE reg_no LIKE :p AND length(reg_no) = 14
+                            UNION ALL
+                            SELECT reg_no FROM admission_applicants WHERE reg_no LIKE :p AND length(reg_no) = 14) r
+                        WHERE right(reg_no, 3) ~ '^[0-9]{3}$'
+                        """)
+                .param("p", prefix + "%").query(Integer.class).optional().orElse(null);
+        return max == null ? 1 : max + 1;
+    }
+
     // ---------------------------------------------------------------- changing
 
     @Transactional
