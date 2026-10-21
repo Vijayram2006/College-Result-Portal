@@ -17,6 +17,7 @@ import { FacultyMarkEntry, clearFacultyPharmacyAndNursingData } from "../compone
 import { AssociateDeanDashboard } from "../components/AssociateDeanDashboard";
 import { INITIAL_QUESTION_PAPERS, QuestionPaperReviewView, safeLoadQuestionPapers } from "../components/dean/QuestionPaperReviewView";
 import { FacultyQuestionPaperView } from "../components/FacultyQuestionPaperView";
+import { MarkApprovalsView } from "../components/MarkApprovalsView";
 import { HodQuestionPaperScrutinyView } from "../components/HodQuestionPaperScrutinyView";
 import type { LucideIcon } from "lucide-react";
 import { HodAnalytics } from "../components/hodAnalytics/HodAnalytics";
@@ -1336,7 +1337,7 @@ function HodPortalDashboard({
   department?: string;
 }) {
   const kvellSealLogo = "/kvell-logo.png";
-  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "internals" | "studentResult" | "questionPapers">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "internals" | "studentResult" | "questionPapers" | "markApprovals">("dashboard");
   const [pendingFacultyQpCount, setPendingFacultyQpCount] = useState<number>(() => {
     try {
       const list = safeLoadQuestionPapers();
@@ -1490,6 +1491,17 @@ function HodPortalDashboard({
                   {pendingFacultyQpCount}
                 </span>
               )}
+            </button>
+            <button
+              onClick={() => setActiveTab("markApprovals")}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
+                activeTab === "markApprovals"
+                  ? "bg-[#0B192C] text-white shadow-md"
+                  : "text-slate-600 hover:bg-white hover:text-slate-900"
+              }`}
+            >
+              <CheckSquare size={15} className={activeTab === "markApprovals" ? "text-[#D4A72C]" : "text-slate-500"} />
+              Mark Approvals
             </button>
             
             <a
@@ -1744,6 +1756,9 @@ function HodPortalDashboard({
         ) : activeTab === "studentResult" ? (
           /* Tab: student result search */
           <StudentResultView students={overview?.students ?? []} />
+        ) : activeTab === "markApprovals" ? (
+          /* Tab: forwarded marks waiting for the HOD's approval (when the Chief COE requires it) */
+          <MarkApprovalsView role="hod" />
         ) : (
           /* Tab: question papers submitted by the department's faculty */
           <HodQuestionPapersView department={department} hodName={hodName} />
@@ -3496,7 +3511,7 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
           return (
             <FacultyQuestionPaperView
               onToast={setToast}
-              facultyName={facultyCollege?.facultyName || "Dr. Ananya Menon"}
+              facultyName={authApi.currentUser()?.name ?? ""}
               department={facultyCollege?.collegeName || "Computer Science and Engineering"}
             />
           );
@@ -3504,7 +3519,7 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
           return (
             <HodQuestionPapersView
               department="Computer Science & Engineering"
-              hodName="Dr. Jayapradha"
+              hodName={authApi.currentUser()?.name ?? ""}
             />
           );
         if (role === "Associate Dean" || role === "Dean" || role === "Admin")
@@ -3820,7 +3835,7 @@ function LoginPage({
     hodInfo?: { name: string; department: string }
   ) => void;
 }) {
-  const [selectedRole, setSelectedRole] = useState<"Student" | "HOD" | "Faculty" | "Admin">("Student");
+  const [selectedRole, setSelectedRole] = useState<"Student" | "HOD" | "Faculty" | "Dean" | "Admin">("Student");
   const [regNumber, setRegNumber] = useState("");
   const [dob, setDob] = useState("");
   const [username, setUsername] = useState("");
@@ -3869,6 +3884,10 @@ function LoginPage({
         const college = res.user.collegeKey === "pharmacy" ? "Pharmacy" : res.user.collegeKey === "nursing" ? "Nursing" : "Engineering";
         localStorage.setItem("kvell_faculty_college", college);
         onAuthenticated("Faculty");
+      } else if (selectedRole === "Dean") {
+        // The Associate Dean (or Dean) of the college reviews question papers and follows the college's results
+        await authApi.login(username.trim(), password, "dean", challenge());
+        onAuthenticated("Associate Dean");
       } else {
         const res = await authApi.login(username.trim(), password, "hod", challenge());
         onAuthenticated("HOD", undefined, {
@@ -3996,7 +4015,7 @@ function LoginPage({
                   className="h-16 w-16 mx-auto rounded-full bg-white p-1 border-2 border-[#D4A72C] shadow-md"
                 />
                 <h2 className="font-extrabold text-xl text-[#0B192C] mt-2.5">
-                  {selectedRole === "Student" ? "Student Result Portal" : selectedRole === "HOD" ? "HOD Department Portal" : "Faculty Portal"}
+                  {selectedRole === "Student" ? "Student Result Portal" : selectedRole === "HOD" ? "HOD Department Portal" : selectedRole === "Dean" ? "Associate Dean Portal" : "Faculty Portal"}
                 </h2>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
                   Select your role and enter credentials to sign in
@@ -4004,7 +4023,7 @@ function LoginPage({
               </div>
 
               {/* Role Selection Tabs */}
-              <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-2xl mb-5 border border-slate-200">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 bg-slate-100 rounded-2xl mb-5 border border-slate-200">
                 <button
                   type="button"
                   onClick={() => setSelectedRole("Student")}
@@ -4037,6 +4056,17 @@ function LoginPage({
                   }`}
                 >
                   👨‍🏫 Faculty
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole("Dean")}
+                  className={`py-2 text-xs font-black rounded-xl transition cursor-pointer ${
+                    selectedRole === "Dean"
+                      ? "bg-[#0B192C] text-white shadow-md"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  🏛️ Assoc. Dean
                 </button>
               </div>
 
@@ -4113,7 +4143,7 @@ function LoginPage({
                 ) : (
                   <div>
                     <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
-                      HOD USERNAME / ID
+                      {selectedRole === "Dean" ? "ASSOCIATE DEAN USERNAME" : "HOD USERNAME / ID"}
                     </label>
                     <div className="relative">
                       <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -4122,7 +4152,7 @@ function LoginPage({
                         required
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        placeholder={selectedRole === "HOD" ? "e.g. HODCSE" : "e.g. FACCSE"}
+                        placeholder={selectedRole === "HOD" ? "e.g. HODCSE" : selectedRole === "Dean" ? "e.g. ADEAN_ENG" : "e.g. FACCSE"}
                         className="w-full h-12 pl-11 pr-4 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 focus:bg-white text-xs font-semibold text-[#172033] focus:border-[#0B192C] focus:ring-1 focus:ring-[#0B192C] focus:outline-none transition shadow-sm"
                       />
                     </div>
@@ -4149,7 +4179,7 @@ function LoginPage({
                   </div>
                 )}
 
-                {(selectedRole === "HOD" || selectedRole === "Faculty") && (
+                {(selectedRole === "HOD" || selectedRole === "Faculty" || selectedRole === "Dean") && (
                   <div>
                     <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
                       PASSWORD
@@ -5467,7 +5497,10 @@ export default function Home() {
   if (authenticatedRole === "Associate Dean" || authenticatedRole === "Dean") {
     return (
       <AssociateDeanDashboard
-        onLogout={() => setAuthenticatedRole(null)}
+        onLogout={() => {
+          authApi.logout();
+          setAuthenticatedRole(null);
+        }}
       />
     );
   }

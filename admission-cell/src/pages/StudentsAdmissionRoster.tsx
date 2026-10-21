@@ -1,3 +1,5 @@
+import { resolveDocUrl } from "../services/admissionStorage";
+import { errorMessage } from "../services/api";
 import React, { useState, useEffect } from "react";
 import {
   Search,
@@ -41,7 +43,14 @@ export const StudentsAdmissionRoster: React.FC<RosterProps> = ({
   const [degreeFilter, setDegreeFilter] = useState<string>("all");
   const [regNoFilter, setRegNoFilter] = useState<string>("all");
   const [quotaFilter, setQuotaFilter] = useState<string>("all");
-  const [previewDoc, setPreviewDoc] = useState<DocumentAttachment | null>(null);
+  const [previewDoc, setPreviewDocState] = useState<DocumentAttachment | null>(null);
+  // Stored documents are fetched from the server when opened (each opening is recorded there)
+  const setPreviewDoc = (doc: DocumentAttachment | null) => {
+    if (!doc) return setPreviewDocState(null);
+    resolveDocUrl(doc.dataUrl)
+      .then((url) => setPreviewDocState({ ...doc, dataUrl: url }))
+      .catch((e) => alert(errorMessage(e, "Could not open the document.")));
+  };
 
   const college = COLLEGES[collegeKey];
 

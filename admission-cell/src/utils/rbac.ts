@@ -1,3 +1,4 @@
+import { API_ROOT } from "../services/api";
 import { CollegeConfig, CollegeKey, AdminRole } from "../types/admission";
 
 export interface AdmissionUser {
@@ -123,29 +124,28 @@ export function isAuthenticated(): boolean {
   return Boolean(token && user);
 }
 
-export function loginAdmissionUser(user: AdmissionUser) {
-  const token = `token-${user.role.toLowerCase()}-${Date.now()}`;
+export function loginAdmissionUser(user: AdmissionUser, token: string) {
   localStorage.setItem(TOKEN_STORAGE_KEY, token);
   localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
   window.dispatchEvent(new Event("storage"));
   window.dispatchEvent(new Event("kvell_admission_user_changed"));
 }
 
-export function setCurrentAdmissionUser(user: AdmissionUser) {
-  loginAdmissionUser(user);
+export function setCurrentAdmissionUser(user: AdmissionUser, token: string) {
+  loginAdmissionUser(user, token);
 }
 
 export function isSuperAdmin(user?: AdmissionUser | null): boolean {
   const u = user !== undefined ? user : getCurrentAdmissionUser();
   if (!u) return false;
-  return (
-    u.role === "SUPER_ADMIN" ||
-    u.username.toUpperCase() === "SATHISH" ||
-    u.name.toLowerCase().includes("sathish")
-  );
+  return u.role === "SUPER_ADMIN";
 }
 
 export function logoutAdmissionUser() {
+  const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+  if (token) {
+    fetch(`${API_ROOT}/v1/auth/logout`, { method: "POST", headers: { Authorization: `Bearer ${token}` } }).catch(() => undefined);
+  }
   localStorage.removeItem(USER_STORAGE_KEY);
   localStorage.removeItem(TOKEN_STORAGE_KEY);
   window.dispatchEvent(new Event("storage"));

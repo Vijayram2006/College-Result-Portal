@@ -67,13 +67,13 @@ export function apiErrorMessage(err: any, fallback = "Request failed. Please try
 
 // DTOs matching the Spring Boot backend
 
-export type PortalRole = "student" | "hod" | "faculty" | "admin";
+export type PortalRole = "student" | "hod" | "faculty" | "admin" | "dean";
 
 export interface AuthUser {
   id: number;
   username: string;
   name: string;
-  role: "ADMIN" | "HOD" | "STUDENT" | "FACULTY";
+  role: "ADMIN" | "HOD" | "STUDENT" | "FACULTY" | "ASSOCIATE_DEAN" | "DEAN";
   departmentKey?: string;
   collegeKey?: "engineering" | "nursing" | "pharmacy";
   collegeName?: string;
@@ -85,7 +85,7 @@ export interface AuthUser {
 
 export interface AuthResponseDTO {
   token: string;
-  role: "ADMIN" | "HOD" | "STUDENT" | "FACULTY";
+  role: AuthUser["role"];
   user: AuthUser;
 }
 

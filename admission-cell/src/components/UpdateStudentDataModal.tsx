@@ -51,7 +51,9 @@ export const UpdateStudentDataModal: React.FC<UpdateModalProps> = ({
   const [regNo, setRegNo] = useState(student.regNo || "");
 
   // Aadhar Feed state
-  const [aadharNumber, setAadharNumber] = useState(student.aadhar?.aadharNumber || "");
+  // The server only sends the masked number: leave the field empty to keep it, or type the full number to replace it
+  const storedAadhar = student.aadhar?.aadharNumber || "";
+  const [aadharNumber, setAadharNumber] = useState(/^\d{12}$/.test(storedAadhar) ? storedAadhar : "");
   const [aadharVerified, setAadharVerified] = useState(student.aadhar?.isVerified || false);
   const [aadharDoc, setAadharDoc] = useState<DocumentAttachment | undefined>(student.aadhar?.document);
   const [showAadhar, setShowAadhar] = useState(false);
@@ -153,7 +155,7 @@ export const UpdateStudentDataModal: React.FC<UpdateModalProps> = ({
       regNo: regNo.trim(),
       status,
       aadhar: {
-        aadharNumber: aadharNumber.replace(/\D/g, ""),
+        aadharNumber: aadharNumber.replace(/\D/g, "") || storedAadhar,
         isVerified: aadharVerified,
         document: aadharDoc,
         documentName: aadharDoc?.fileName,
@@ -327,7 +329,7 @@ export const UpdateStudentDataModal: React.FC<UpdateModalProps> = ({
                     maxLength={14}
                     value={formatAadharInput(aadharNumber)}
                     onChange={(e) => setAadharNumber(e.target.value)}
-                    placeholder="1234 5678 9012"
+                    placeholder={storedAadhar ? `On file: ${storedAadhar.slice(-4).padStart(12, "X").replace(/(.{4})/g, "$1 ").trim()} (type to replace)` : "1234 5678 9012"}
                     className="w-full text-base font-mono font-bold tracking-widest px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-sky-500 outline-none pr-10"
                   />
                   <button
@@ -340,7 +342,9 @@ export const UpdateStudentDataModal: React.FC<UpdateModalProps> = ({
                 </div>
 
                 <div className="mt-1.5">
-                  {aadharNumber.replace(/\D/g, "").length === 12 ? (
+                  {aadharNumber === "" && storedAadhar ? (
+                    <span className="text-[11px] text-gray-500">The number on file is kept (shown masked).</span>
+                  ) : aadharNumber.replace(/\D/g, "").length === 12 ? (
                     aadharCheck.isValid ? (
                       <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1.5">
                         <CheckCircle2 size={15} /> Verhoeff Checksum Valid

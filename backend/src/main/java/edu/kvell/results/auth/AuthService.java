@@ -73,7 +73,7 @@ public class AuthService {
     private record UserRow(long id, String username, String passwordHash, String role, String displayName,
                            String deptKey, String deptName, String regNo, LocalDate dob, boolean enabled,
                            String collegeKey, boolean mustChangePassword, boolean totpEnabled, String totpSecret,
-                           Long totpLastStep) {
+                           Long totpLastStep, String officerTitle) {
     }
 
     private static final int MIN_PASSWORD_LENGTH = 10;
@@ -211,7 +211,7 @@ public class AuthService {
                         FROM auth_tokens t JOIN users u ON u.id = t.user_id
                         LEFT JOIN departments d ON d.dept_key = u.dept_key
                         WHERE t.token_hash = :hash AND t.expires_at > now() AND u.enabled
-                          AND t.last_used_at > now() - make_interval(mins => CASE WHEN u.role IN ('ADMIN', 'SUPER_ADMIN')
+                          AND t.last_used_at > now() - make_interval(mins => CASE WHEN u.role IN ('ADMIN', 'SUPER_ADMIN', 'DEAN', 'ADMISSION')
                                                                       THEN :adminIdle ELSE :idle END)
                         """)
                 .param("hash", hash).param("adminIdle", (int) adminIdleMinutes).param("idle", (int) idleMinutes)
@@ -416,7 +416,7 @@ public class AuthService {
                         SELECT u.id, u.username, u.password_hash, u.role, u.display_name, u.dept_key,
                                d.name AS dept_name, u.reg_no, s.dob, u.enabled,
                                coalesce(u.college_key, d.college_key) AS college_key, u.must_change_password,
-                               u.totp_enabled, u.totp_secret, u.totp_last_step
+                               u.totp_enabled, u.totp_secret, u.totp_last_step, u.officer_title
                         FROM users u
                         LEFT JOIN departments d ON d.dept_key = u.dept_key
                         LEFT JOIN students s ON s.reg_no = u.reg_no
@@ -429,7 +429,7 @@ public class AuthService {
                         rs.getObject("dob", LocalDate.class), rs.getBoolean("enabled"),
                         rs.getString("college_key"), rs.getBoolean("must_change_password"),
                         rs.getBoolean("totp_enabled"), rs.getString("totp_secret"),
-                        rs.getObject("totp_last_step", Long.class)))
+                        rs.getObject("totp_last_step", Long.class), rs.getString("officer_title")))
                 .optional();
     }
 
@@ -440,7 +440,10 @@ public class AuthService {
                     "Karpaga Vinayaga Educational Group (Central University)", u.mustChangePassword(), u.totpEnabled(),
                     mfaRequired && !u.totpEnabled());
         }
-        String role = "ADMIN".equals(u.role()) ? "COE_" + college.toUpperCase(Locale.ROOT) : u.role();
+        // Associate Dean and Dean share the DEAN role; the title tells them apart
+        String role = "ADMIN".equals(u.role()) ? "COE_" + college.toUpperCase(Locale.ROOT)
+                : "DEAN".equals(u.role()) ? (u.officerTitle() == null ? "ASSOCIATE_DEAN" : u.officerTitle())
+                : u.role();
         boolean officer = "ADMIN".equals(u.role());
         return new UserView(u.id(), u.username(), u.displayName(), role, u.deptKey(), u.deptName(), u.regNo(),
                 college, COLLEGE_NAMES.getOrDefault(college, college), u.mustChangePassword(), u.totpEnabled(),
@@ -480,6 +483,8 @@ public class AuthService {
             case "hod" -> Role.HOD;
             case "faculty" -> Role.FACULTY;
             case "student" -> Role.STUDENT;
+            case "dean" -> Role.DEAN;
+            case "admission" -> Role.ADMISSION;
             default -> null;
         };
     }

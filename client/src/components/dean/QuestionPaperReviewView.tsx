@@ -1,5 +1,15 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
+  apiErrorMessage,
+  cachedQuestionPapers,
+  questionPaperAction,
+  refreshQuestionPapers,
+  resolvePdfUrl,
+  usePdfUrl,
+  useQuestionPapers,
+  type PaperAction,
+} from "../../services/questionPapersApi";
+import {
   FileText,
   CheckCircle2,
   XCircle,
@@ -1755,17 +1765,9 @@ export function sanitizeQuestionPaper(p: any): QuestionPaperItem {
   };
 }
 
+/** The question papers the signed-in user may see (from the server; see services/questionPapersApi). */
 export function safeLoadQuestionPapers(): QuestionPaperItem[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return INITIAL_QUESTION_PAPERS;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_QUESTION_PAPERS;
-    return parsed.map(sanitizeQuestionPaper);
-  } catch (e) {
-    console.error("Failed to load question papers from localStorage:", e);
-    return INITIAL_QUESTION_PAPERS;
-  }
+  return cachedQuestionPapers();
 }
 
 export interface QuestionPaperReviewViewProps {
@@ -1773,10 +1775,7 @@ export interface QuestionPaperReviewViewProps {
 }
 
 export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = ({ onToast }) => {
-  // Load papers from localStorage or fallback with safe sanitization
-  const [papers, setPapers] = useState<QuestionPaperItem[]>(() => {
-    return safeLoadQuestionPapers();
-  });
+  const { papers, loading, error: loadError } = useQuestionPapers();
 
   const [selectedDept, setSelectedDept] = useState<string>("all");
   const [selectedStage, setSelectedStage] = useState<string>("all");
@@ -1787,10 +1786,17 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
   const [activeModalTab, setActiveModalTab] = useState<"hierarchy" | "specifications" | "partA" | "partB" | "partC" | "officialPreview" | "pdf">("hierarchy");
   const [deanNotesInput, setDeanNotesInput] = useState<string>("");
   const [isProcessingAction, setIsProcessingAction] = useState<boolean>(false);
-  const [pdfModalOpen, setPdfModalOpen] = useState<{
+  const [pdfModalOpen, setPdfModalState] = useState<{
     fileName: string;
     fileData: string;
   } | null>(null);
+  // Stored PDFs are fetched from the server when opened
+  const setPdfModalOpen = (v: { fileName: string; fileData: string } | null) => {
+    if (!v) return setPdfModalState(null);
+    resolvePdfUrl(v.fileData)
+      .then((url) => setPdfModalState({ ...v, fileData: url }))
+      .catch((e) => alert(apiErrorMessage(e, "Could not open the PDF.")));
+  };
 
   // Quick Action Confirm Modal
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -1798,36 +1804,11 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
     paper: QuestionPaperItem;
   } | null>(null);
 
-  // Sync to localStorage
-  const savePapers = (updated: QuestionPaperItem[]) => {
-    setPapers(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      window.dispatchEvent(new Event("kvell_qp_updated"));
-    } catch (e) {
-      console.error("Failed to save question papers to localStorage:", e);
-    }
-  };
+  const activePdfUrl = usePdfUrl(activePaperModal?.pdfAttachment?.fileData);
 
-  // Sync with other components via events
-  useEffect(() => {
-    const reload = () => {
-      setPapers(safeLoadQuestionPapers());
-    };
-    window.addEventListener("kvell_qp_updated", reload);
-    window.addEventListener("storage", reload);
-    return () => {
-      window.removeEventListener("kvell_qp_updated", reload);
-      window.removeEventListener("storage", reload);
-    };
-  }, []);
-
-  // Reset to initial sample papers
+  // Reload the list from the server
   const handleResetData = () => {
-    if (window.confirm("Reset all question papers to original 5-Stage Hierarchy demo data?")) {
-      savePapers(INITIAL_QUESTION_PAPERS);
-      onToast?.("Reset Question Papers to initial 5-stage hierarchy dataset!");
-    }
+    void refreshQuestionPapers().then(() => onToast?.("Question papers reloaded from the server."));
   };
 
   // KPI Calculations across stages with defensive checks
@@ -1873,255 +1854,64 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
     setDeanNotesInput(paper.adRemarks || "");
   };
 
-  // Stage 3 -> Stage 4: Associate Dean Approves & Forwards to COE
+  const runAction = async (
+    paperId: string,
+    action: PaperAction,
+    options: Parameters<typeof questionPaperAction>[2],
+    success: (p: QuestionPaperItem) => string
+  ) => {
+    const paper = papers.find((p) => p.id === paperId);
+    if (!paper) return;
+    setIsProcessingAction(true);
+    try {
+      const updated = await questionPaperAction(paper, action, options);
+      setConfirmDialog(null);
+      if (activePaperModal && activePaperModal.id === paperId) setActivePaperModal(updated);
+      onToast?.(success(updated));
+    } catch (e) {
+      alert(apiErrorMessage(e, "The action could not be completed."));
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
+
+  // Stage 3 -> Stage 4: Associate Dean approves and forwards to the COE
   const handleAdApproveAndForwardToCOE = (paperId: string, customRemarks?: string) => {
-    setIsProcessingAction(true);
-    setTimeout(() => {
-      const coeSealNumber = `COE/DISPATCH/2026/${Math.floor(1000 + Math.random() * 9000)}`;
-      const timestamp = new Date().toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-
-      const updated = papers.map((p) => {
-        if (p.id === paperId) {
-          const newTrail = p.hierarchyTrail.map((sig) => {
-            if (sig.stageNumber === 3) {
-              return {
-                ...sig,
-                status: "COMPLETED" as const,
-                timestamp,
-                sealOrReference: `AD/ACAD/MOD-2026/${Math.floor(100 + Math.random() * 900)}`,
-                remarks:
-                  customRemarks?.trim() ||
-                  deanNotesInput.trim() ||
-                  "Verified Bloom's taxonomy distribution, Course Outcome mapping, and Part B difficulty balance. Approved for COE examination wing.",
-              };
-            }
-            if (sig.stageNumber === 4) {
-              return {
-                ...sig,
-                status: "CURRENT" as const,
-                timestamp: `Received from AD at ${timestamp}`,
-                remarks: "Under COE confidential room review and room allocation.",
-              };
-            }
-            return sig;
-          });
-
-          return {
-            ...p,
-            currentStageNumber: 4 as const,
-            currentStageRole: "COE" as const,
-            status: "PENDING_COE_REVIEW" as const,
-            forwardedToCoe: true,
-            forwardedDate: timestamp,
-            approvedBy: "Dr. K. R. Ramanathan (Associate Dean - Academics)",
-            coeReferenceNo: coeSealNumber,
-            adRemarks:
-              customRemarks?.trim() ||
-              deanNotesInput.trim() ||
-              "Verified by Associate Dean. Questions balance, Bloom's levels, and CO mapping approved for COE examination conduction.",
-            hierarchyTrail: newTrail,
-          };
-        }
-        return p;
-      });
-
-      savePapers(updated);
-      setIsProcessingAction(false);
-      setConfirmDialog(null);
-
-      if (activePaperModal && activePaperModal.id === paperId) {
-        const updatedTarget = updated.find((p) => p.id === paperId);
-        if (updatedTarget) setActivePaperModal(updatedTarget);
-      }
-
-      onToast?.(
-        `SUCCESS: Question Paper officially APPROVED by Associate Dean (Stage 3) and FORWARDED to COE (Stage 4) with dispatch seal ${coeSealNumber}!`
-      );
-    }, 400);
+    const remarks = customRemarks?.trim() || deanNotesInput.trim() || undefined;
+    void runAction(paperId, "APPROVE", { remarks }, (p) =>
+      `Question paper ${p.subjectCode} approved by the Associate Dean and forwarded to the COE.`);
   };
 
-  // Stage 4 -> Stage 5: COE Endorses & Forwards to Chief COE
+  // Stage 4 -> Stage 5: COE forwards to the Chief COE
   const handleCoeForwardToChiefCOE = (paperId: string) => {
-    setIsProcessingAction(true);
-    setTimeout(() => {
-      const timestamp = new Date().toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-
-      const updated = papers.map((p) => {
-        if (p.id === paperId) {
-          const newTrail = p.hierarchyTrail.map((sig) => {
-            if (sig.stageNumber === 4) {
-              return {
-                ...sig,
-                status: "COMPLETED" as const,
-                timestamp,
-                sealOrReference: p.coeReferenceNo || `COE/ENCRYPT/2026/089`,
-                remarks: "Confidential Set encryption verified. Forwarded to Chief COE for executive authorization.",
-              };
-            }
-            if (sig.stageNumber === 5) {
-              return {
-                ...sig,
-                status: "CURRENT" as const,
-                timestamp: `Received from COE at ${timestamp}`,
-                remarks: "Awaiting final clearance by Dr. Sathish (Chief COE & Super Administrator).",
-              };
-            }
-            return sig;
-          });
-
-          return {
-            ...p,
-            currentStageNumber: 5 as const,
-            currentStageRole: "Chief COE" as const,
-            status: "PENDING_CHIEF_COE" as const,
-            hierarchyTrail: newTrail,
-          };
-        }
-        return p;
-      });
-
-      savePapers(updated);
-      setIsProcessingAction(false);
-      setConfirmDialog(null);
-
-      if (activePaperModal && activePaperModal.id === paperId) {
-        const updatedTarget = updated.find((p) => p.id === paperId);
-        if (updatedTarget) setActivePaperModal(updatedTarget);
-      }
-
-      onToast?.(
-        `COE Stage 4 complete: Question paper forwarded to Chief COE (Dr. Sathish) for final university authorization!`
-      );
-    }, 400);
+    void runAction(paperId, "FORWARD", {}, (p) =>
+      `Question paper ${p.subjectCode} forwarded to the Chief COE (reference ${p.coeReferenceNo}).`);
   };
 
-  // Stage 5: Chief COE Grants Master University Seal Release
+  // Stage 5: Chief COE releases the paper with the seal
   const handleChiefCoeAuthorizeRelease = (paperId: string) => {
-    setIsProcessingAction(true);
-    setTimeout(() => {
-      const masterSeal = `KVELL/CHIEF-COE/FINAL/2026/${Math.floor(1000 + Math.random() * 9000)}`;
-      const timestamp = new Date().toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-
-      const updated = papers.map((p) => {
-        if (p.id === paperId) {
-          const newTrail = p.hierarchyTrail.map((sig) => {
-            if (sig.stageNumber === 5) {
-              return {
-                ...sig,
-                status: "COMPLETED" as const,
-                timestamp,
-                sealOrReference: masterSeal,
-                remarks: "Executive clearance granted. Master University Seal applied. Locked for confidential printing and hall distribution.",
-              };
-            }
-            return sig;
-          });
-
-          return {
-            ...p,
-            currentStageNumber: 5 as const,
-            currentStageRole: "Chief COE" as const,
-            status: "CHIEF_COE_APPROVED" as const,
-            chiefCoeSealNo: masterSeal,
-            hierarchyTrail: newTrail,
-          };
-        }
-        return p;
-      });
-
-      savePapers(updated);
-      setIsProcessingAction(false);
-      setConfirmDialog(null);
-
-      if (activePaperModal && activePaperModal.id === paperId) {
-        const updatedTarget = updated.find((p) => p.id === paperId);
-        if (updatedTarget) setActivePaperModal(updatedTarget);
-      }
-
-      onToast?.(
-        `EXECUTIVE SEAL APPLIED: Master University Seal generated (${masterSeal}) by Chief COE Dr. Sathish! Examination paper is officially released.`
-      );
-    }, 400);
+    void runAction(paperId, "RELEASE", {}, (p) =>
+      `Question paper ${p.subjectCode} released by the Chief COE (seal ${p.chiefCoeSealNo}).`);
   };
 
-  // Return along hierarchy (e.g. Return to HOD or Faculty)
+  // Return to an earlier stage with the reason
   const handleReturnPaper = (paperId: string, returnTarget: "HOD" | "Faculty", returnRemarks?: string) => {
     const finalRemarks = returnRemarks?.trim() || deanNotesInput.trim();
-    if (!finalRemarks) {
-      alert(`Please provide scrutiny remarks explaining why the paper is being returned to ${returnTarget}.`);
+    if (finalRemarks.length < 5) {
+      alert(`Please give the reason (at least 5 characters) for returning the paper to the ${returnTarget}.`);
       return;
     }
-
-    setIsProcessingAction(true);
-    setTimeout(() => {
-      const updated = papers.map((p) => {
-        if (p.id === paperId) {
-          const targetStage = returnTarget === "HOD" ? 2 : 1;
-          const targetStatus = returnTarget === "HOD" ? ("RETURNED_TO_HOD" as const) : ("RETURNED_TO_FACULTY" as const);
-
-          const newTrail = p.hierarchyTrail.map((sig) => {
-            if (sig.stageNumber === 3) {
-              return {
-                ...sig,
-                status: "RETURNED" as const,
-                remarks: `Returned to ${returnTarget}: ${finalRemarks}`,
-              };
-            }
-            if (sig.stageNumber === targetStage) {
-              return {
-                ...sig,
-                status: "RETURNED" as const,
-                remarks: `Revision requested: ${finalRemarks}`,
-              };
-            }
-            return sig;
-          });
-
-          return {
-            ...p,
-            currentStageNumber: targetStage as HierarchyStageNumber,
-            currentStageRole: returnTarget as HierarchyRole,
-            status: targetStatus,
-            adRemarks: `Returned to ${returnTarget}: ${finalRemarks}`,
-            hierarchyTrail: newTrail,
-          };
-        }
-        return p;
-      });
-
-      savePapers(updated);
-      setIsProcessingAction(false);
-      setConfirmDialog(null);
-
-      if (activePaperModal && activePaperModal.id === paperId) {
-        const updatedTarget = updated.find((p) => p.id === paperId);
-        if (updatedTarget) setActivePaperModal(updatedTarget);
-      }
-
-      onToast?.(`Question Paper returned to ${returnTarget} for revision with scrutiny notes.`);
-    }, 400);
+    void runAction(paperId, "RETURN", { returnTo: returnTarget, remarks: finalRemarks }, () =>
+      `Question paper returned to the ${returnTarget} for revision.`);
   };
 
   return (
     <div className="space-y-6">
+      {(loading || loadError) && (
+        <div role="status" className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${loadError ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+          {loadError || "Loading question papers..."}
+        </div>
+      )}
       {/* Top Banner - 5-Stage Hierarchy Governance */}
       <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 relative overflow-hidden space-y-6">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -2151,11 +1941,11 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
           <div className="flex flex-wrap items-center gap-2 self-stretch md:self-auto shrink-0">
             <button
               onClick={handleResetData}
-              title="Reset question paper states to initial 5-stage test dataset"
+              title="Reload the question papers from the server"
               className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white/80 hover:text-white text-xs font-bold transition flex items-center gap-1.5 border border-white/10 cursor-pointer"
             >
               <RotateCcw size={14} />
-              <span>Reset 5-Stage Data</span>
+              <span>Refresh</span>
             </button>
           </div>
         </div>
@@ -2626,7 +2416,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                         onClick={() =>
                           setPdfModalOpen({
                             fileName: paper.pdfAttachment!.fileName,
-                            fileData: paper.pdfAttachment!.fileData || SAMPLE_QP_PDF_DATA,
+                            fileData: paper.pdfAttachment!.fileData,
                           })
                         }
                         className="px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
@@ -2858,7 +2648,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                         onClick={() =>
                           setPdfModalOpen({
                             fileName: activePaperModal.pdfAttachment?.fileName || `${activePaperModal.qpCode}.pdf`,
-                            fileData: activePaperModal.pdfAttachment?.fileData || SAMPLE_QP_PDF_DATA,
+                            fileData: activePaperModal.pdfAttachment?.fileData || "",
                           })
                         }
                         className="px-3.5 py-2 rounded-xl bg-[#0B192C] text-white text-xs font-bold hover:bg-[#152744] transition flex items-center gap-1.5 cursor-pointer shadow-xs"
@@ -2874,7 +2664,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                         <span>Open in Tab</span>
                       </button>
                       <a
-                        href={activePaperModal.pdfAttachment?.fileData || SAMPLE_QP_PDF_DATA}
+                        href={activePdfUrl || undefined}
                         download={activePaperModal.pdfAttachment?.fileName || `${activePaperModal.qpCode}.pdf`}
                         className="px-3.5 py-2 rounded-xl bg-[#D4A72C] text-[#0B192C] text-xs font-black hover:bg-amber-400 transition flex items-center gap-1.5 shadow-xs"
                       >
@@ -3401,7 +3191,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                         onClick={() =>
                           setPdfModalOpen({
                             fileName: activePaperModal.pdfAttachment?.fileName || `${activePaperModal.qpCode}.pdf`,
-                            fileData: activePaperModal.pdfAttachment?.fileData || SAMPLE_QP_PDF_DATA,
+                            fileData: activePaperModal.pdfAttachment?.fileData || "",
                           })
                         }
                         className="px-4 py-2 rounded-xl bg-[#0B192C] text-white text-xs font-bold hover:bg-[#152744] transition flex items-center gap-1.5 shadow-sm cursor-pointer"
@@ -3410,7 +3200,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                         <span>Full Screen PDF</span>
                       </button>
                       <a
-                        href={activePaperModal.pdfAttachment?.fileData || SAMPLE_QP_PDF_DATA}
+                        href={activePdfUrl || undefined}
                         download={activePaperModal.pdfAttachment?.fileName || `${activePaperModal.qpCode}.pdf`}
                         className="px-4 py-2 rounded-xl bg-[#D4A72C] text-[#0B192C] text-xs font-black hover:bg-amber-400 transition flex items-center gap-1.5 shadow-sm"
                       >
@@ -3422,7 +3212,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
 
                   <div className="bg-slate-100 p-2 rounded-2xl border border-slate-200 h-[650px]">
                     <iframe
-                      src={activePaperModal.pdfAttachment?.fileData || SAMPLE_QP_PDF_DATA}
+                      src={activePdfUrl || undefined}
                       title={activePaperModal.pdfAttachment?.fileName || "Question Paper"}
                       className="w-full h-full rounded-xl bg-white border border-slate-200"
                     />

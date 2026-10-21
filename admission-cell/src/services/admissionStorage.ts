@@ -1,84 +1,118 @@
 /**
- * Isolated Student Admission Storage & Service Layer
- * Each Constituent Admission Cell has its OWN strictly partitioned storage key:
- * - Engineering: kvell_admission_engineering_applicants
- * - Nursing: kvell_admission_nursing_applicants
- * - Pharmacy: kvell_admission_pharmacy_applicants
- * - Emerging Sciences: kvell_admission_emerging_applicants
- *
- * ZERO registration numbers are pre-added. Everything is ready for the user to add.
- * ZERO mock applicants: All dashboards start clean with 0 default candidates.
- * Full support for real document uploads (Aadhar card, 10th marksheet, 12th marksheet).
+ * Admission applicants, kept on the result server (/api/v1/admission/applicants) for the signed-in officer's
+ * college. The screens read a shared copy of each college's list (refreshed from the server) and every change is
+ * sent to the server, which validates it, keeps the Aadhaar number masked and records it in the audit log. Scanned
+ * documents are uploaded separately and fetched only when someone opens them ("server-doc:<id>:<section>").
  */
 
-import { StudentApplicant, CollegeKey } from "../types/admission";
+import { useEffect, useState } from "react";
+import { StudentApplicant, CollegeKey, DocumentAttachment } from "../types/admission";
+import { api, errorMessage } from "./api";
+import { getCurrentAdmissionUser } from "../utils/rbac";
 
-export function getCollegeStorageKey(collegeKey: CollegeKey): string {
-  return `kvell_admission_${collegeKey}_applicants`;
+export const ADMISSION_UPDATED_EVENT = "kvell_admission_updated";
+const SERVER_COLLEGES: CollegeKey[] = ["engineering", "nursing", "pharmacy"];
+
+const cache: Partial<Record<CollegeKey, StudentApplicant[]>> = {};
+const loading: Partial<Record<CollegeKey, Promise<StudentApplicant[]>>> = {};
+let lastError: string | null = null;
+
+function announce() {
+  window.dispatchEvent(new Event(ADMISSION_UPDATED_EVENT));
 }
 
+export function admissionLoadError(): string | null {
+  return lastError;
+}
+
+/** Reloads a college's applicants from the server. */
+export function refreshApplicants(collegeKey: CollegeKey): Promise<StudentApplicant[]> {
+  const user = getCurrentAdmissionUser();
+  const allowed = user?.role === "SUPER_ADMIN" || user?.collegeKey === collegeKey;
+  if (!SERVER_COLLEGES.includes(collegeKey) || !allowed) {
+    cache[collegeKey] = [];
+    return Promise.resolve([]);
+  }
+  const running = loading[collegeKey];
+  if (running) return running;
+  const p = api<StudentApplicant[]>("GET", `/admission/applicants?college=${collegeKey}`)
+    .then((list) => {
+      cache[collegeKey] = list;
+      lastError = null;
+      return list;
+    })
+    .catch((e) => {
+      lastError = errorMessage(e, "Could not load the applicants.");
+      return cache[collegeKey] ?? [];
+    })
+    .finally(() => {
+      delete loading[collegeKey];
+      announce();
+    });
+  loading[collegeKey] = p;
+  return p;
+}
+
+/** The college's applicants as last received from the server (loads them the first time). */
 export function getStoredApplicantsByCollege(collegeKey: CollegeKey): StudentApplicant[] {
-  try {
-    const key = getCollegeStorageKey(collegeKey);
-    const raw = localStorage.getItem(key);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        // Strip out any previously seeded mock applicants so dashboard starts clean
-        const cleaned = parsed.filter(
-          (s) =>
-            !s.id?.startsWith("APP-ENG-") &&
-            !s.id?.startsWith("APP-NUR-") &&
-            !s.id?.startsWith("APP-PHARM-") &&
-            !s.id?.startsWith("APP-EMERG-")
-        );
-        if (cleaned.length !== parsed.length) {
-          localStorage.setItem(key, JSON.stringify(cleaned));
-        }
-        return cleaned;
-      }
+  if (!cache[collegeKey] && !loading[collegeKey]) void refreshApplicants(collegeKey);
+  return cache[collegeKey] ?? [];
+}
+
+function remember(collegeKey: CollegeKey, applicant: StudentApplicant) {
+  const list = cache[collegeKey] ?? [];
+  const i = list.findIndex((s) => s.id === applicant.id);
+  cache[collegeKey] = i >= 0 ? list.map((s) => (s.id === applicant.id ? applicant : s)) : [applicant, ...list];
+  announce();
+}
+
+function failed(collegeKey: CollegeKey, e: unknown, what: string) {
+  alert(errorMessage(e, `Could not ${what}.`));
+  void refreshApplicants(collegeKey);
+}
+
+const SECTIONS: { section: "aadhar" | "tenthMarks" | "twelfthMarks"; kind: string }[] = [
+  { section: "aadhar", kind: "aadhar" },
+  { section: "tenthMarks", kind: "tenth" },
+  { section: "twelfthMarks", kind: "twelfth" },
+];
+
+/** Uploads every document that was just chosen (a data: URL); stored ones stay on the server. */
+async function uploadDocuments(id: string, applicant: Partial<StudentApplicant>): Promise<StudentApplicant | null> {
+  let latest: StudentApplicant | null = null;
+  for (const { section, kind } of SECTIONS) {
+    const doc = (applicant as any)[section]?.document as DocumentAttachment | undefined;
+    if (doc?.dataUrl?.startsWith("data:")) {
+      latest = await api<StudentApplicant>("PUT", `/admission/applicants/${id}/documents/${kind}`, {
+        fileName: doc.fileName,
+        dataUrl: doc.dataUrl,
+      });
     }
-  } catch (e) {
-    console.error(`Error reading admission storage for ${collegeKey}`, e);
   }
-  return [];
+  return latest;
 }
 
-export function saveApplicantsByCollege(collegeKey: CollegeKey, list: StudentApplicant[]) {
-  try {
-    const key = getCollegeStorageKey(collegeKey);
-    localStorage.setItem(key, JSON.stringify(list));
-    window.dispatchEvent(new Event("kvell_admission_updated"));
-    window.dispatchEvent(new Event("storage"));
-  } catch (e) {
-    console.error(`Error saving admission applicants for ${collegeKey}`, e);
-  }
-}
-
-export function clearAllAdmissionDataForCollege(collegeKey: CollegeKey) {
-  try {
-    const key = getCollegeStorageKey(collegeKey);
-    localStorage.removeItem(key);
-    window.dispatchEvent(new Event("kvell_admission_updated"));
-    window.dispatchEvent(new Event("storage"));
-  } catch (e) {
-    console.error(`Error clearing storage for ${collegeKey}`, e);
-  }
-}
-
-export function clearAllAdmissionDataEverywhere() {
-  const colleges: CollegeKey[] = ["engineering", "nursing", "pharmacy", "emerging_sciences"];
-  colleges.forEach((c) => clearAllAdmissionDataForCollege(c));
-}
-
-export function createApplicantForCollege(
-  collegeKey: CollegeKey,
-  newApplicant: StudentApplicant
-): StudentApplicant {
-  const current = getStoredApplicantsByCollege(collegeKey);
-  const updated = [newApplicant, ...current];
-  saveApplicantsByCollege(collegeKey, updated);
+export function createApplicantForCollege(collegeKey: CollegeKey, newApplicant: StudentApplicant): StudentApplicant {
+  void (async () => {
+    try {
+      let saved = await api<StudentApplicant>("POST", `/admission/applicants?college=${collegeKey}`, newApplicant);
+      saved = (await uploadDocuments(saved.id, newApplicant)) ?? saved;
+      remember(collegeKey, saved);
+    } catch (e) {
+      failed(collegeKey, e, "save the applicant");
+    }
+  })();
   return newApplicant;
+}
+
+async function save(collegeKey: CollegeKey, merged: StudentApplicant) {
+  try {
+    let saved = await api<StudentApplicant>("PUT", `/admission/applicants/${merged.id}`, merged);
+    saved = (await uploadDocuments(saved.id, merged)) ?? saved;
+    remember(collegeKey, saved);
+  } catch (e) {
+    failed(collegeKey, e, "save the changes");
+  }
 }
 
 export function updateApplicantForCollege(
@@ -86,19 +120,12 @@ export function updateApplicantForCollege(
   id: string,
   updates: Partial<StudentApplicant>
 ): StudentApplicant | null {
-  const current = getStoredApplicantsByCollege(collegeKey);
-  const index = current.findIndex((s) => s.id === id);
-  if (index === -1) return null;
-
-  const updatedStudent: StudentApplicant = {
-    ...current[index],
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  };
-
-  current[index] = updatedStudent;
-  saveApplicantsByCollege(collegeKey, current);
-  return updatedStudent;
+  const current = (cache[collegeKey] ?? []).find((s) => s.id === id);
+  if (!current) return null;
+  const merged: StudentApplicant = { ...current, ...updates };
+  remember(collegeKey, merged);
+  void save(collegeKey, merged);
+  return merged;
 }
 
 export function updateMandatedFeedsForCollege(
@@ -112,105 +139,96 @@ export function updateMandatedFeedsForCollege(
     twelfthMarks?: Partial<StudentApplicant["twelfthMarks"]>;
   }
 ): StudentApplicant | null {
-  const current = getStoredApplicantsByCollege(collegeKey);
-  const index = current.findIndex((s) => s.id === id);
-  if (index === -1) return null;
-
-  const target = current[index];
-  const updatedStudent: StudentApplicant = {
+  const target = (cache[collegeKey] ?? []).find((s) => s.id === id);
+  if (!target) return null;
+  const merged: StudentApplicant = {
     ...target,
     regNo: data.regNo !== undefined ? data.regNo : target.regNo,
     status: data.status || target.status,
     aadhar: data.aadhar ? { ...target.aadhar, ...data.aadhar } : target.aadhar,
     tenthMarks: data.tenthMarks ? { ...target.tenthMarks, ...data.tenthMarks } : target.tenthMarks,
     twelfthMarks: data.twelfthMarks ? { ...target.twelfthMarks, ...data.twelfthMarks } : target.twelfthMarks,
-    updatedAt: new Date().toISOString(),
   };
-
-  current[index] = updatedStudent;
-  saveApplicantsByCollege(collegeKey, current);
-  return updatedStudent;
+  remember(collegeKey, merged);
+  void save(collegeKey, merged);
+  return merged;
 }
 
 export function deleteApplicantFromCollege(collegeKey: CollegeKey, id: string): boolean {
-  const current = getStoredApplicantsByCollege(collegeKey);
-  const filtered = current.filter((s) => s.id !== id);
-  if (filtered.length !== current.length) {
-    saveApplicantsByCollege(collegeKey, filtered);
-    return true;
-  }
-  return false;
+  const list = cache[collegeKey] ?? [];
+  if (!list.some((s) => s.id === id)) return false;
+  cache[collegeKey] = list.filter((s) => s.id !== id);
+  announce();
+  api("DELETE", `/admission/applicants/${id}`).catch((e) => failed(collegeKey, e, "delete the applicant"));
+  return true;
 }
 
-export function getApplicantById(
-  collegeKey: CollegeKey,
-  id: string
-): StudentApplicant | undefined {
-  const current = getStoredApplicantsByCollege(collegeKey);
-  return current.find((s) => s.id === id);
+export function getApplicantById(collegeKey: CollegeKey, id: string): StudentApplicant | undefined {
+  return (cache[collegeKey] ?? []).find((s) => s.id === id);
+}
+
+/** Only clears what this browser shows; the records stay on the server. */
+export function clearAllAdmissionDataForCollege(collegeKey: CollegeKey) {
+  delete cache[collegeKey];
+  announce();
+}
+
+export function clearAllAdmissionDataEverywhere() {
+  (Object.keys(cache) as CollegeKey[]).forEach((c) => delete cache[c]);
+  announce();
+}
+
+export function getCollegeStorageKey(collegeKey: CollegeKey): string {
+  return `kvell_admission_${collegeKey}_applicants`;
 }
 
 /**
- * Calculates next sequential roll number strictly for Engineering
+ * The next roll number for an Engineering register number: one more than the highest already given for the same
+ * year, degree, programme and admission year (the server refuses a number that is already used).
  */
-export function getNextEngineeringRollNumber(
-  programmeCode: string,
-  degreeCode: string = "1",
-  admYear: number = 2026
-): number {
-  const current = getStoredApplicantsByCollege("engineering");
-
-  // Filter students in the same department who already have a 14-digit regNo
-  const matching = current.filter(
-    (s) =>
-      s.deptKey === programmeCode &&
-      s.regNo &&
-      s.regNo.length === 14
-  );
-
-  if (matching.length === 0) return 1;
-
-  const rollNumbers = matching
-    .map((s) => {
-      const rollStr = s.regNo.slice(-3);
-      return parseInt(rollStr, 10);
-    })
+export function getNextEngineeringRollNumber(programmeCode: string, degreeCode: string = "1", admYear: number = 2026): number {
+  const yy = String(admYear).slice(-2);
+  const prefix = `${admYear}01${degreeCode}${String(programmeCode).padStart(2, "0")}${yy}`;
+  const rolls = (cache.engineering ?? [])
+    .map((s) => s.regNo || "")
+    .filter((r) => r.length === 14 && r.startsWith(prefix))
+    .map((r) => parseInt(r.slice(-3), 10))
     .filter((n) => !isNaN(n));
-
-  if (rollNumbers.length === 0) return 1;
-  return Math.max(...rollNumbers) + 1;
+  return rolls.length ? Math.max(...rolls) + 1 : 1;
 }
 
-/**
- * Clean zero-mock policy: Zero default candidates in dashboards.
- * Dashboards start 100% clean with 0 applicants until real students are enrolled.
- */
 export function seedCleanDemonstrationForCollegeIfEmpty(_collegeKey: CollegeKey) {
-  // Purposely empty to satisfy zero-default-values requirement.
+  // Applicants come only from the server
 }
 
-// Auto-clean any leftover mock seeds across all colleges on startup
-if (typeof window !== "undefined" && window.localStorage) {
-  const allCollegeKeys: CollegeKey[] = ["engineering", "nursing", "pharmacy", "emerging_sciences"];
-  allCollegeKeys.forEach((ck) => {
-    try {
-      const k = getCollegeStorageKey(ck);
-      const raw = localStorage.getItem(k);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          const cleaned = parsed.filter(
-            (s) =>
-              !s.id?.startsWith("APP-ENG-") &&
-              !s.id?.startsWith("APP-NUR-") &&
-              !s.id?.startsWith("APP-PHARM-") &&
-              !s.id?.startsWith("APP-EMERG-")
-          );
-          if (cleaned.length !== parsed.length) {
-            localStorage.setItem(k, JSON.stringify(cleaned));
-          }
-        }
-      }
-    } catch {}
-  });
+const docUrls = new Map<string, string>();
+
+/** A URL the browser can show: a just-chosen file as it is, a stored one fetched from the server (cached). */
+export async function resolveDocUrl(dataUrl: string): Promise<string> {
+  if (!dataUrl.startsWith("server-doc:")) return dataUrl;
+  const known = docUrls.get(dataUrl);
+  if (known) return known;
+  const [, id, section] = dataUrl.split(":");
+  const kind = SECTIONS.find((s) => s.section === section)?.kind ?? section;
+  const blob = await api<Blob>("GET", `/admission/applicants/${id}/documents/${kind}`, undefined, true);
+  const url = URL.createObjectURL(blob);
+  docUrls.set(dataUrl, url);
+  return url;
+}
+
+/** For previews and links: the browser URL once ready ("" while loading). */
+export function useDocUrl(dataUrl: string | undefined): string {
+  const [url, setUrl] = useState(dataUrl && !dataUrl.startsWith("server-doc:") ? dataUrl : "");
+  useEffect(() => {
+    let live = true;
+    if (!dataUrl) {
+      setUrl("");
+      return;
+    }
+    resolveDocUrl(dataUrl).then((u) => live && setUrl(u)).catch(() => live && setUrl(""));
+    return () => {
+      live = false;
+    };
+  }, [dataUrl]);
+  return url;
 }

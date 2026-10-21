@@ -1,4 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
+import {
+  apiErrorMessage,
+  questionPaperAction,
+  resolvePdfUrl,
+  usePdfUrl,
+  useQuestionPapers,
+  type PaperAction,
+} from "../services/questionPapersApi";
 import { Link } from "wouter";
 import {
   FileText,
@@ -42,7 +50,6 @@ import {
   PdfAttachment,
   SAMPLE_QP_PDF_DATA,
   safeLoadQuestionPapers,
-  saveQuestionPapers,
 } from "../data/questionPapersData";
 import { adminAuthApi } from "../services/api";
 import { isSuperAdmin, SUPER_ADMIN_CONFIG, getActiveCollege } from "../utils/rbac";
@@ -53,11 +60,10 @@ export const QuestionPapersPage: React.FC = () => {
   const isSuper = isSuperAdmin(currentUser);
 
   // Allow user to toggle between COE View (Stage 4) and Chief COE View (Stage 5)
-  const [activeRoleView, setActiveRoleView] = useState<"COE" | "Chief COE">(
-    isSuper ? "Chief COE" : "COE"
-  );
+  const activeRoleView: "COE" | "Chief COE" = isSuper ? "Chief COE" : "COE";
 
-  const [papers, setPapers] = useState<QuestionPaperItem[]>(() => safeLoadQuestionPapers());
+  const { papers, loading, error: loadError } = useQuestionPapers();
+  const [busy, setBusy] = useState(false);
   const [selectedDept, setSelectedDept] = useState<string>("all");
   const [selectedStageTab, setSelectedStageTab] = useState<
     "all" | "pending_coe" | "pending_chief_coe" | "approved" | "returned"
@@ -65,10 +71,17 @@ export const QuestionPapersPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [viewPaper, setViewPaper] = useState<QuestionPaperItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [pdfModalOpen, setPdfModalOpen] = useState<{
+  const [pdfModalOpen, setPdfModalState] = useState<{
     fileName: string;
     fileData: string;
   } | null>(null);
+  // Stored PDFs are fetched from the server when opened
+  const setPdfModalOpen = (v: { fileName: string; fileData: string } | null) => {
+    if (!v) return setPdfModalState(null);
+    resolvePdfUrl(v.fileData)
+      .then((url) => setPdfModalState({ ...v, fileData: url }))
+      .catch((e) => alert(apiErrorMessage(e, "Could not open the PDF.")));
+  };
 
   // COE Moderation State for Modal
   const [allocatedSet, setAllocatedSet] = useState<"Set A" | "Set B">("Set A");
@@ -87,20 +100,6 @@ export const QuestionPapersPage: React.FC = () => {
     paper: QuestionPaperItem;
   } | null>(null);
 
-  // Sync with localStorage & events
-  const refreshData = () => {
-    setPapers(safeLoadQuestionPapers());
-  };
-
-  useEffect(() => {
-    window.addEventListener("kvell_qp_updated", refreshData);
-    window.addEventListener("storage", refreshData);
-    return () => {
-      window.removeEventListener("kvell_qp_updated", refreshData);
-      window.removeEventListener("storage", refreshData);
-    };
-  }, []);
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
@@ -113,6 +112,8 @@ export const QuestionPapersPage: React.FC = () => {
       if (updated) setViewPaper(updated);
     }
   }, [papers]);
+
+  const viewPdfUrl = usePdfUrl(viewPaper?.pdfAttachment?.fileData);
 
   // Update view paper set state when opened
   useEffect(() => {
@@ -159,164 +160,67 @@ export const QuestionPapersPage: React.FC = () => {
     });
   }, [papers, selectedStageTab, selectedDept, searchQuery]);
 
-  // Action: COE Forwards to Chief COE (Stage 4 -> Stage 5)
-  const handleCoeForwardToChiefCOE = (paperId: string) => {
-    const currentPaper = papers.find((p) => p.id === paperId);
-    if (!currentPaper) return;
-
-    const refNo = currentPaper.coeReferenceNo || `COE/DISPATCH/2026/${Math.floor(1000 + Math.random() * 9000)}`;
-    const nowStr = new Date().toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-    const updated = papers.map((p) => {
-      if (p.id !== paperId) return p;
-
-      const newTrail = p.hierarchyTrail.map((sig) => {
-        if (sig.stageNumber === 4) {
-          return {
-            ...sig,
-            status: "COMPLETED" as const,
-            timestamp: nowStr,
-            sealOrReference: refNo,
-            remarks: dispatchNote || `Confidential room allocation: ${allocatedSet}. Certified & forwarded to Chief COE.`,
-          };
-        }
-        if (sig.stageNumber === 5) {
-          return {
-            ...sig,
-            status: "CURRENT" as const,
-            timestamp: "Awaiting Chief COE Master Seal",
-          };
-        }
-        return sig;
-      });
-
-      return {
-        ...p,
-        set: allocatedSet,
-        currentStageNumber: 5 as HierarchyStageNumber,
-        currentStageRole: "Chief COE" as HierarchyRole,
-        status: "PENDING_CHIEF_COE" as const,
-        coeReferenceNo: refNo,
-        hierarchyTrail: newTrail,
-      };
-    });
-
-    saveQuestionPapers(updated);
-    setPapers(updated);
-    setConfirmDialog(null);
-    showToast(`✓ Question Paper ${currentPaper.subjectCode} endorsed & dispatched to Chief COE (Ref: ${refNo})`);
+  const runAction = async (
+    paper: QuestionPaperItem,
+    action: PaperAction,
+    options: Parameters<typeof questionPaperAction>[2],
+    success: (p: QuestionPaperItem) => string
+  ) => {
+    if (busy) return false;
+    setBusy(true);
+    try {
+      const updated = await questionPaperAction(paper, action, options);
+      if (viewPaper && viewPaper.id === paper.id) setViewPaper(updated);
+      showToast(success(updated));
+      return true;
+    } catch (e) {
+      alert(apiErrorMessage(e, "The action could not be completed."));
+      return false;
+    } finally {
+      setBusy(false);
+    }
   };
 
-  // Action: Chief COE Authorizes Master University Seal (Stage 5 Completed)
-  const handleChiefCoeAuthorizeRelease = (paperId: string) => {
-    const currentPaper = papers.find((p) => p.id === paperId);
-    if (!currentPaper) return;
-
-    const sealNo = `KVELL/SEAL/2026/${Math.floor(1000 + Math.random() * 9000)}`;
-    const nowStr = new Date().toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-    const updated = papers.map((p) => {
-      if (p.id !== paperId) return p;
-
-      const newTrail = p.hierarchyTrail.map((sig) => {
-        if (sig.stageNumber === 5) {
-          return {
-            ...sig,
-            status: "COMPLETED" as const,
-            timestamp: nowStr,
-            sealOrReference: sealNo,
-            remarks: `EXECUTIVE SEAL APPLIED: Master University Examination Seal issued by Dr. Sathish (Chief COE). Final clearance granted for printing and autonomous conduction.`,
-          };
-        }
-        return sig;
-      });
-
-      return {
-        ...p,
-        currentStageNumber: 5 as HierarchyStageNumber,
-        currentStageRole: "Chief COE" as HierarchyRole,
-        status: "CHIEF_COE_APPROVED" as const,
-        chiefCoeSealNo: sealNo,
-        approvedBy: `${SUPER_ADMIN_CONFIG.name} (${SUPER_ADMIN_CONFIG.shortTitle})`,
-        hierarchyTrail: newTrail,
-      };
-    });
-
-    saveQuestionPapers(updated);
-    setPapers(updated);
+  // COE forwards to the Chief COE (Stage 4 -> 5) with the chosen set
+  const handleCoeForwardToChiefCOE = async (paperId: string) => {
+    const paper = papers.find((p) => p.id === paperId);
+    if (!paper) return;
+    await runAction(paper, "FORWARD", { set: allocatedSet, remarks: dispatchNote.trim().slice(0, 500) || undefined }, (p) =>
+      `Question Paper ${p.subjectCode} forwarded to the Chief COE (Ref: ${p.coeReferenceNo}).`);
     setConfirmDialog(null);
-    showToast(`👑 Master Seal Affixed (${sealNo}): ${currentPaper.subjectCode} officially released for Examination!`);
   };
 
-  // Action: Return to earlier stage with remarks
-  const handleExecuteReturn = () => {
-    if (!returnModal || !returnRemarks.trim()) return;
+  // Chief COE releases the paper with the seal (Stage 5)
+  const handleChiefCoeAuthorizeRelease = async (paperId: string) => {
+    const paper = papers.find((p) => p.id === paperId);
+    if (!paper) return;
+    await runAction(paper, "RELEASE", {}, (p) => `Seal ${p.chiefCoeSealNo}: ${p.subjectCode} released for the examination.`);
+    setConfirmDialog(null);
+  };
 
-    const { paperId, targetStage } = returnModal;
-    const targetStageNum: HierarchyStageNumber =
-      targetStage === "COE" ? 4 : targetStage === "AD" ? 3 : targetStage === "HOD" ? 2 : 1;
-    const targetStatus =
-      targetStage === "COE"
-        ? "RETURNED_TO_COE"
-        : targetStage === "AD"
-        ? "RETURNED_TO_AD"
-        : targetStage === "HOD"
-        ? "RETURNED_TO_HOD"
-        : "RETURNED_TO_FACULTY";
-
-    const officerName = activeRoleView === "Chief COE" ? SUPER_ADMIN_CONFIG.name : "COE Examination Wing";
-
-    const updated = papers.map((p) => {
-      if (p.id !== paperId) return p;
-
-      const newTrail = p.hierarchyTrail.map((sig) => {
-        if (sig.stageNumber === (activeRoleView === "Chief COE" ? 5 : 4)) {
-          return {
-            ...sig,
-            status: "RETURNED" as const,
-            remarks: `Returned to Stage ${targetStageNum} (${targetStage}) by ${officerName}: ${returnRemarks}`,
-          };
-        }
-        if (sig.stageNumber === targetStageNum) {
-          return {
-            ...sig,
-            status: "CURRENT" as const,
-          };
-        }
-        return sig;
-      });
-
-      return {
-        ...p,
-        currentStageNumber: targetStageNum,
-        currentStageRole: targetStage as HierarchyRole,
-        status: targetStatus as any,
-        adRemarks: `Returned by ${officerName} (${activeRoleView}): ${returnRemarks}`,
-        hierarchyTrail: newTrail,
-      };
-    });
-
-    saveQuestionPapers(updated);
-    setPapers(updated);
-    setReturnModal(null);
-    setReturnRemarks("");
-    showToast(`Question paper returned to ${targetStage} for revision.`);
+  // Return to an earlier stage with the reason
+  const handleExecuteReturn = async () => {
+    if (!returnModal || returnRemarks.trim().length < 5) {
+      alert("Please give the reason for returning the paper (at least 5 characters).");
+      return;
+    }
+    const paper = papers.find((p) => p.id === returnModal.paperId);
+    if (!paper) return;
+    const ok = await runAction(paper, "RETURN", { returnTo: returnModal.targetStage, remarks: returnRemarks.trim().slice(0, 500) },
+      () => `Question paper returned to the ${returnModal.targetStage} for revision.`);
+    if (ok) {
+      setReturnModal(null);
+      setReturnRemarks("");
+    }
   };
 
   return (
     <div className="space-y-6">
+      {(loading || loadError) && (
+        <div role="status" className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${loadError ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+          {loadError || "Loading question papers..."}
+        </div>
+      )}
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-20 right-6 z-50 animate-bounce bg-[#0B192C] text-[#D4A72C] px-5 py-3.5 rounded-2xl shadow-2xl border-2 border-[#D4A72C] flex items-center gap-3">
@@ -385,7 +289,6 @@ export const QuestionPapersPage: React.FC = () => {
             <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-xl border border-white/10">
               <button
                 onClick={() => {
-                  setActiveRoleView("COE");
                   setSelectedStageTab("pending_coe");
                 }}
                 className={`px-3.5 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 ${
@@ -405,7 +308,6 @@ export const QuestionPapersPage: React.FC = () => {
 
               <button
                 onClick={() => {
-                  setActiveRoleView("Chief COE");
                   setSelectedStageTab("pending_chief_coe");
                 }}
                 className={`px-3.5 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 ${
@@ -499,7 +401,6 @@ export const QuestionPapersPage: React.FC = () => {
         {/* KPI 1: Stage 4 Pending */}
         <div
           onClick={() => {
-            setActiveRoleView("COE");
             setSelectedStageTab("pending_coe");
           }}
           className={`p-5 rounded-3xl border-2 transition cursor-pointer shadow-sm flex flex-col justify-between ${
@@ -530,7 +431,6 @@ export const QuestionPapersPage: React.FC = () => {
         {/* KPI 2: Stage 5 Pending */}
         <div
           onClick={() => {
-            setActiveRoleView("Chief COE");
             setSelectedStageTab("pending_chief_coe");
           }}
           className={`p-5 rounded-3xl border-2 transition cursor-pointer shadow-sm flex flex-col justify-between ${
@@ -868,7 +768,7 @@ export const QuestionPapersPage: React.FC = () => {
                         onClick={() =>
                           setPdfModalOpen({
                             fileName: paper.pdfAttachment!.fileName,
-                            fileData: paper.pdfAttachment!.fileData || SAMPLE_QP_PDF_DATA,
+                            fileData: paper.pdfAttachment!.fileData,
                           })
                         }
                         className="px-3.5 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
@@ -985,7 +885,7 @@ export const QuestionPapersPage: React.FC = () => {
                     onClick={() =>
                       setPdfModalOpen({
                         fileName: viewPaper.pdfAttachment?.fileName || `${viewPaper.qpCode}.pdf`,
-                        fileData: viewPaper.pdfAttachment?.fileData || SAMPLE_QP_PDF_DATA,
+                        fileData: viewPaper.pdfAttachment?.fileData || "",
                       })
                     }
                     className="px-4 py-2.5 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-[#D4A72C] text-xs font-black transition flex items-center gap-1.5 cursor-pointer shadow-md"
@@ -994,7 +894,7 @@ export const QuestionPapersPage: React.FC = () => {
                     <span>Inspect PDF Document</span>
                   </button>
                   <a
-                    href={viewPaper.pdfAttachment?.fileData || SAMPLE_QP_PDF_DATA}
+                    href={viewPdfUrl || undefined}
                     download={viewPaper.pdfAttachment?.fileName || `${viewPaper.qpCode}.pdf`}
                     className="px-4 py-2.5 rounded-xl bg-[#D4A72C] hover:bg-amber-400 text-[#0B192C] text-xs font-black transition flex items-center gap-1.5 cursor-pointer shadow-md"
                   >

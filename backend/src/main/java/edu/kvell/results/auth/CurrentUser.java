@@ -12,7 +12,9 @@ public record CurrentUser(long id, String username, String name, Role role, Stri
                           String collegeKey, boolean mustChangePassword, boolean mfaSetupRequired) {
 
     /** SUPER_ADMIN: the overall university COE; also has every ADMIN right, in whichever college it inspects. */
-    public enum Role { SUPER_ADMIN, ADMIN, HOD, STUDENT, FACULTY }
+    /** DEAN: an Associate Dean or Dean of one college (read-only oversight, question-paper and mark approvals).
+     *  ADMISSION: an admission officer of one college (the admission-cell app). */
+    public enum Role { SUPER_ADMIN, ADMIN, HOD, STUDENT, FACULTY, DEAN, ADMISSION }
 
     public static CurrentUser get() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

@@ -1,3 +1,4 @@
+import { useDocUrl } from "../services/admissionStorage";
 import React, { useRef, useState } from "react";
 import {
   Upload,
@@ -29,6 +30,7 @@ export const DocumentUploadZone: React.FC<UploadZoneProps> = ({
   onDocumentChange,
   accentColor = "#D4A72C",
 }) => {
+  const docUrl = useDocUrl(currentDocument?.dataUrl);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -99,7 +101,7 @@ export const DocumentUploadZone: React.FC<UploadZoneProps> = ({
     e.stopPropagation();
     if (!currentDocument) return;
     const a = document.createElement("a");
-    a.href = currentDocument.dataUrl;
+    a.href = docUrl || currentDocument.dataUrl;
     a.download = currentDocument.fileName;
     document.body.appendChild(a);
     a.click();
@@ -251,13 +253,13 @@ export const DocumentUploadZone: React.FC<UploadZoneProps> = ({
             <div className="flex-1 bg-gray-100 p-4 overflow-auto flex items-center justify-center">
               {isPdf ? (
                 <iframe
-                  src={currentDocument.dataUrl}
+                  src={docUrl || undefined}
                   title={currentDocument.fileName}
                   className="w-full h-full rounded-xl border border-gray-300 bg-white"
                 />
               ) : (
                 <img
-                  src={currentDocument.dataUrl}
+                  src={docUrl || undefined}
                   alt={currentDocument.fileName}
                   className="max-h-full max-w-full rounded-xl object-contain shadow-lg"
                 />

@@ -27,10 +27,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_4"];
+        get: operations["list_6"];
         put?: never;
         post: operations["upload"];
-        delete: operations["delete_2"];
+        delete: operations["delete_3"];
         options?: never;
         head?: never;
         patch?: never;
@@ -91,9 +91,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_3"];
+        get: operations["list_5"];
         put?: never;
-        post: operations["create_2"];
+        post: operations["create_4"];
         delete?: never;
         options?: never;
         head?: never;
@@ -108,9 +108,9 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put: operations["update_1"];
+        put: operations["update_2"];
         post?: never;
-        delete: operations["delete_1"];
+        delete: operations["delete_2"];
         options?: never;
         head?: never;
         patch?: never;
@@ -123,9 +123,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_2"];
+        get: operations["list_4"];
         put?: never;
-        post: operations["create_1"];
+        post: operations["create_3"];
         delete?: never;
         options?: never;
         head?: never;
@@ -139,10 +139,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get"];
-        put: operations["update"];
+        get: operations["get_2"];
+        put: operations["update_1"];
         post?: never;
-        delete: operations["delete"];
+        delete: operations["delete_1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -366,7 +366,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["delete_5"];
+        delete: operations["delete_6"];
         options?: never;
         head?: never;
         patch?: never;
@@ -446,7 +446,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["delete_4"];
+        delete: operations["delete_5"];
         options?: never;
         head?: never;
         patch?: never;
@@ -459,9 +459,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_1"];
+        get: operations["list_3"];
         put?: never;
-        post: operations["create"];
+        post: operations["create_2"];
         delete: operations["deleteAll"];
         options?: never;
         head?: never;
@@ -494,7 +494,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["delete_3"];
+        delete: operations["delete_4"];
         options?: never;
         head?: never;
         patch?: never;
@@ -509,6 +509,54 @@ export interface paths {
         };
         get?: never;
         put: operations["setStatus"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admission/applicants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_2"];
+        put?: never;
+        post: operations["create_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admission/applicants/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_1"];
+        put: operations["update"];
+        post?: never;
+        delete: operations["delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admission/applicants/{id}/documents/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["document"];
+        put: operations["putDocument"];
         post?: never;
         delete?: never;
         options?: never;
@@ -622,6 +670,54 @@ export interface paths {
         get: operations["profile"];
         put: operations["updateProfile"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dean/mark-approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_7"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dean/mark-approvals/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dean/mark-approvals/{id}/return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["returnToFaculty_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -820,6 +916,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/hod/mark-approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_8"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hod/mark-approvals/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["approve_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hod/mark-approvals/{id}/return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["returnToFaculty"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/hod/overview": {
         parameters: {
             query?: never;
@@ -956,6 +1100,70 @@ export interface paths {
             cookie?: never;
         };
         get: operations["systemConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/question-papers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_1"];
+        put?: never;
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/question-papers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get"];
+        put: operations["resubmit"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/question-papers/{id}/action": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["act"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/question-papers/{id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["pdf"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1245,6 +1453,17 @@ export interface components {
             semesterTerm?: string;
             sessionStatus?: string;
         };
+        ActionRequest: {
+            action?: string;
+            /** Format: int32 */
+            expectedVersion?: number;
+            hodDeclaration?: {
+                [key: string]: unknown;
+            };
+            remarks?: string;
+            returnTo?: string;
+            set?: string;
+        };
         Address: {
             city?: string;
             country?: string;
@@ -1267,6 +1486,10 @@ export interface components {
             assessmentType?: string;
             semester?: string;
             subjectCodes?: string[];
+        };
+        Attachment: {
+            dataUrl?: string;
+            fileName?: string;
         };
         AuditEntry: {
             action?: string;
@@ -1574,13 +1797,26 @@ export interface components {
             unread?: number;
         };
         Item: {
-            createdAt?: string;
-            /** Format: int64 */
-            id?: number;
-            link?: string;
-            message?: string;
-            read?: boolean;
-            title?: string;
+            assessmentType?: string;
+            batchId?: string;
+            deanApprovedAt?: string;
+            deanApprovedBy?: string;
+            departmentName?: string;
+            deptKey?: string;
+            forwardedAt?: string;
+            forwardedBy?: string;
+            hodApprovedAt?: string;
+            hodApprovedBy?: string;
+            /** Format: double */
+            passPercentage?: number;
+            returnReason?: string;
+            returnedBy?: string;
+            semester?: string;
+            /** Format: int32 */
+            students?: number;
+            subjectCode?: string;
+            subjectTitle?: string;
+            waitingForYou?: boolean;
         };
         JsonNode: {
             array?: boolean;
@@ -1622,6 +1858,10 @@ export interface components {
             role?: string;
             token?: string;
             user?: components["schemas"]["UserView"];
+        };
+        MarkApproval: {
+            deanApproval?: boolean;
+            hodApproval?: boolean;
         };
         MarkRequest: {
             assessmentType?: string;
@@ -1679,6 +1919,20 @@ export interface components {
             topFaculty?: components["schemas"]["TopFaculty"][];
             yearPass?: components["schemas"]["YearPass"][];
         };
+        PaperInput: {
+            academicYear?: string;
+            content?: {
+                [key: string]: unknown;
+            };
+            examType?: string;
+            pdf?: components["schemas"]["Attachment"];
+            regulation?: string;
+            remarks?: string;
+            semester?: string;
+            set?: string;
+            subjectCode?: string;
+            subjectTitle?: string;
+        };
         PasswordReset: {
             password?: string;
         };
@@ -1722,7 +1976,9 @@ export interface components {
         };
         PublishRow: {
             batchId?: string;
+            deanApprovedBy?: string;
             forwardedBy?: string;
+            hodApprovedBy?: string;
             /** Format: int32 */
             marksEntered?: number;
             /** Format: double */
@@ -1730,6 +1986,8 @@ export interface components {
             publishedAt?: string;
             /** Format: int32 */
             publishedStudents?: number;
+            returnReason?: string;
+            returnedBy?: string;
             state?: string;
             /** Format: int32 */
             students?: number;
@@ -2096,6 +2354,7 @@ export interface components {
                 [key: string]: components["schemas"]["CollegeLock"];
             };
             lastUpdated?: string;
+            markApproval?: components["schemas"]["MarkApproval"];
             systemMode?: string;
             updatedBy?: string;
         };
@@ -2172,7 +2431,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_6: {
         parameters: {
             query: {
                 dept: string;
@@ -2229,7 +2488,7 @@ export interface operations {
             };
         };
     };
-    delete_2: {
+    delete_3: {
         parameters: {
             query: {
                 dept: string;
@@ -2319,7 +2578,7 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -2339,7 +2598,7 @@ export interface operations {
             };
         };
     };
-    create_2: {
+    create_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -2363,7 +2622,7 @@ export interface operations {
             };
         };
     };
-    update_1: {
+    update_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -2389,7 +2648,7 @@ export interface operations {
             };
         };
     };
-    delete_1: {
+    delete_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -2409,7 +2668,7 @@ export interface operations {
             };
         };
     };
-    list_2: {
+    list_4: {
         parameters: {
             query?: {
                 dept?: string;
@@ -2431,7 +2690,7 @@ export interface operations {
             };
         };
     };
-    create_1: {
+    create_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -2455,7 +2714,7 @@ export interface operations {
             };
         };
     };
-    get: {
+    get_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -2477,7 +2736,7 @@ export interface operations {
             };
         };
     };
-    update: {
+    update_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -2503,7 +2762,7 @@ export interface operations {
             };
         };
     };
-    delete: {
+    delete_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -2952,7 +3211,7 @@ export interface operations {
             };
         };
     };
-    delete_5: {
+    delete_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -3116,7 +3375,7 @@ export interface operations {
             };
         };
     };
-    delete_4: {
+    delete_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -3136,7 +3395,7 @@ export interface operations {
             };
         };
     };
-    list_1: {
+    list_3: {
         parameters: {
             query?: {
                 dept?: string;
@@ -3158,7 +3417,7 @@ export interface operations {
             };
         };
     };
-    create: {
+    create_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -3226,7 +3485,7 @@ export interface operations {
             };
         };
     };
-    delete_3: {
+    delete_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -3270,6 +3529,192 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["SubjectItem"];
+                };
+            };
+        };
+    };
+    list_2: {
+        parameters: {
+            query?: {
+                college?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+        };
+    };
+    create_1: {
+        parameters: {
+            query?: {
+                college?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    document: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+        };
+    };
+    putDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
@@ -3444,6 +3889,76 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ProfileView"];
+                };
+            };
+        };
+    };
+    list_7: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Overview"];
+                };
+            };
+        };
+    };
+    approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Item"];
+                };
+            };
+        };
+    };
+    returnToFaculty_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Item"];
                 };
             };
         };
@@ -3790,6 +4305,76 @@ export interface operations {
             };
         };
     };
+    list_8: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Overview"];
+                };
+            };
+        };
+    };
+    approve_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Item"];
+                };
+            };
+        };
+    };
+    returnToFaculty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Item"];
+                };
+            };
+        };
+    };
     overview_1: {
         parameters: {
             query?: never;
@@ -3968,6 +4553,156 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["SystemConfig"];
+                };
+            };
+        };
+    };
+    list_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+        };
+    };
+    create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaperInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    resubmit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaperInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    act: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    pdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
                 };
             };
         };

@@ -56,13 +56,21 @@ import {
 import * as XLSX from "xlsx";
 import { cseSem1Students, bmeSem1Students, ensureDummyMarksLoaded } from "../data/dummyMarksData";
 import { aidsSem1Students } from "../data/aidsStudents";
-import { StudentDataView } from "./dean/StudentDataView";
-import { InternalMarksView } from "./dean/InternalMarksView";
-import { AnswerScriptsView } from "./dean/AnswerScriptsView";
-import { PublishedResultsView } from "./dean/PublishedResultsView";
-import { DepartmentsView } from "./dean/DepartmentsView";
-import { SubjectsView } from "./dean/SubjectsView";
-import { QuestionPaperReviewView, INITIAL_QUESTION_PAPERS, safeLoadQuestionPapers } from "./dean/QuestionPaperReviewView";
+import {
+  DeanAnalyticsView,
+  DeanAnswerScriptsView,
+  DeanDepartmentsView,
+  DeanFacultyView,
+  DeanInternalMarksView,
+  DeanOverview,
+  DeanResultsView,
+  DeanRevaluationView,
+  DeanStudentsView,
+  DeanSubjectsView,
+} from "./dean/DeanLiveViews";
+import { QuestionPaperReviewView, safeLoadQuestionPapers } from "./dean/QuestionPaperReviewView";
+import { refreshQuestionPapers } from "../services/questionPapersApi";
+import { MarkApprovalsView } from "./MarkApprovalsView";
 
 export interface AssociateDeanDashboardProps {
   onLogout: () => void;
@@ -404,7 +412,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
       const list = safeLoadQuestionPapers();
       return list.filter((p: any) => p.status === "PENDING_AD_REVIEW").length;
     } catch {
-      return 3;
+      return 0;
     }
   });
 
@@ -420,6 +428,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
     };
     window.addEventListener("kvell_qp_updated", updateQpCount);
     window.addEventListener("storage", updateQpCount);
+    void refreshQuestionPapers();
     return () => {
       window.removeEventListener("kvell_qp_updated", updateQpCount);
       window.removeEventListener("storage", updateQpCount);
@@ -787,6 +796,22 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                 EXAMINATION & RESULTS
               </span>
             </div>
+
+            {/* Forwarded marks waiting for the Associate Dean's approval (when the Chief COE requires it) */}
+            <button
+              onClick={() => {
+                setActiveNav("mark-approvals");
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left cursor-pointer ${
+                activeNav === "mark-approvals"
+                  ? "bg-[#EAB308] text-[#0B192C] shadow-md font-extrabold"
+                  : "text-white/80 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <CheckSquare size={17} />
+              <span>Mark Approvals</span>
+            </button>
 
             {/* Stage 3 Question Paper Review - Dedicated First-Class Item */}
             <button
@@ -1168,408 +1193,27 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
             </div>
           </div>
 
-          {/* DASHBOARD VIEW CONTENT */}
-          {activeNav === "dashboard" && (
-            <div className="space-y-7">
-              {/* METRIC DIRECTORY TITLE & TOP ACTION BUTTONS - Exact match */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <span className="text-xs font-black text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles size={14} className="text-[#D4A72C]" />
-                  LIVE UNIVERSITY METRIC DIRECTORY · CLICK ANY CARD TO INSPECT &amp; MANAGE
-                </span>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    onClick={() => setActiveNav("question-paper-review")}
-                    className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs transition shadow flex items-center gap-2 cursor-pointer"
-                  >
-                    <CheckSquare size={15} /> Question Paper Review {pendingQpCount > 0 ? `(${pendingQpCount} Pending)` : ""}
-                  </button>
-                  <button
-                    onClick={handleExportAllStudents}
-                    className="px-4 py-2.5 rounded-xl bg-[#EAB308] hover:bg-[#d69e06] text-[#0B192C] font-extrabold text-xs transition shadow flex items-center gap-2 cursor-pointer"
-                  >
-                    <Upload size={15} /> Student Data Excel/CSV
-                  </button>
-                  <button
-                    onClick={() => setShowPublishedModal(true)}
-                    className="px-4 py-2.5 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-white font-extrabold text-xs transition flex items-center gap-2 border border-white/20 cursor-pointer shadow"
-                  >
-                    <Globe size={15} /> View Published Results
-                  </button>
-                </div>
-              </div>
-
-              {/* 4 METRIC CARDS - Exact match */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                {/* Card 1: Total Students (216) */}
-                <div
-                  onClick={() => setShowStudentsModal(true)}
-                  className="group cursor-pointer bg-white p-5 rounded-3xl border-2 border-[#E5E1D8] hover:border-[#D4A72C] shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="text-[10px] font-extrabold uppercase text-[#667085] block tracking-wider group-hover:text-[#0B192C] transition">
-                        TOTAL STUDENTS
-                      </span>
-                      <span className="font-display font-black text-3xl sm:text-4xl text-[#0B192C] mt-1 block">
-                        216
-                      </span>
-                    </div>
-                    <div className="w-12 h-12 rounded-2xl bg-[#0B192C]/5 text-[#0B192C] group-hover:bg-[#0B192C] group-hover:text-[#D4A72C] flex items-center justify-center shrink-0 transition-all duration-200 shadow-sm">
-                      <Users size={22} />
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                    <span className="text-[11px] font-bold text-[#1D8A5A] flex items-center gap-1">
-                      <CheckCircle2 size={13} /> Active Enrolled
-                    </span>
-                    <span className="text-[11px] font-extrabold text-[#0B192C] group-hover:text-[#B08014] flex items-center gap-0.5 transition">
-                      View Roster <ChevronRight size={13} />
-                    </span>
-                  </div>
-                </div>
-
-                {/* Card 2: Total Departments (12) */}
-                <div
-                  onClick={() => setActiveNav("departments")}
-                  className="group cursor-pointer bg-white p-5 rounded-3xl border-2 border-[#E5E1D8] hover:border-[#D4A72C] shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="text-[10px] font-extrabold uppercase text-[#667085] block tracking-wider group-hover:text-[#0B192C] transition">
-                        TOTAL DEPARTMENTS
-                      </span>
-                      <span className="font-display font-black text-3xl sm:text-4xl text-[#0B192C] mt-1 block">
-                        12
-                      </span>
-                    </div>
-                    <div className="w-12 h-12 rounded-2xl bg-[#0B192C]/5 text-[#0B192C] group-hover:bg-[#0B192C] group-hover:text-[#D4A72C] flex items-center justify-center shrink-0 transition-all duration-200 shadow-sm">
-                      <Building2 size={22} />
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                    <span className="text-[11px] font-bold text-[#B08014] font-mono">
-                      12 Active Branches
-                    </span>
-                    <span className="text-[11px] font-extrabold text-[#0B192C] group-hover:text-[#B08014] flex items-center gap-0.5 transition">
-                      Manage Depts <ChevronRight size={13} />
-                    </span>
-                  </div>
-                </div>
-
-                {/* Card 3: Total Faculty & HODs (24) */}
-                <div
-                  onClick={() => setShowFacultyModal(true)}
-                  className="group cursor-pointer bg-white p-5 rounded-3xl border-2 border-[#E5E1D8] hover:border-[#D4A72C] shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="text-[10px] font-extrabold uppercase text-[#667085] block tracking-wider group-hover:text-[#0B192C] transition">
-                        TOTAL FACULTY &amp; HODS
-                      </span>
-                      <span className="font-display font-black text-3xl sm:text-4xl text-[#0B192C] mt-1 block">
-                        24
-                      </span>
-                    </div>
-                    <div className="w-12 h-12 rounded-2xl bg-[#0B192C]/5 text-[#0B192C] group-hover:bg-[#0B192C] group-hover:text-[#D4A72C] flex items-center justify-center shrink-0 transition-all duration-200 shadow-sm">
-                      <UserCheck size={22} />
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                    <span className="text-[11px] font-bold text-gray-500">
-                      Assigned Dept Heads
-                    </span>
-                    <span className="text-[11px] font-extrabold text-[#0B192C] group-hover:text-[#B08014] flex items-center gap-0.5 transition">
-                      View Faculty <ChevronRight size={13} />
-                    </span>
-                  </div>
-                </div>
-
-                {/* Card 4: Total Courses (50) */}
-                <div
-                  onClick={() => setActiveNav("subjects")}
-                  className="group cursor-pointer bg-white p-5 rounded-3xl border-2 border-[#E5E1D8] hover:border-[#D4A72C] shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="text-[10px] font-extrabold uppercase text-[#667085] block tracking-wider group-hover:text-[#0B192C] transition">
-                        TOTAL COURSES
-                      </span>
-                      <span className="font-display font-black text-3xl sm:text-4xl text-[#0B192C] mt-1 block">
-                        50
-                      </span>
-                    </div>
-                    <div className="w-12 h-12 rounded-2xl bg-[#0B192C]/5 text-[#0B192C] group-hover:bg-[#0B192C] group-hover:text-[#D4A72C] flex items-center justify-center shrink-0 transition-all duration-200 shadow-sm">
-                      <BookOpen size={22} />
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                    <span className="text-[11px] font-bold text-gray-500">
-                      Active Curriculum
-                    </span>
-                    <span className="text-[11px] font-extrabold text-[#0B192C] group-hover:text-[#B08014] flex items-center gap-0.5 transition">
-                      Open Catalog <ChevronRight size={13} />
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* HOD Question Paper Review Alert Banner for Associate Dean */}
-              <div className="p-4 sm:p-5 rounded-3xl bg-[#0B192C] text-white border-2 border-[#D4A72C]/40 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3.5">
-                  <div className="h-11 w-11 rounded-2xl bg-[#D4A72C]/20 border border-[#D4A72C]/40 flex items-center justify-center text-[#D4A72C] shrink-0">
-                    <CheckSquare size={22} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-extrabold text-sm sm:text-base text-white">
-                        HOD Question Paper Submissions Awaiting Review
-                      </h3>
-                      <span className="bg-amber-400 text-slate-950 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">
-                        {pendingQpCount} Awaiting AD Action
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-300 mt-0.5">
-                      Verify Bloom&apos;s Taxonomy, CO mapping, and syllabus coverage before approving and forwarding to the Controller of Examinations (COE).
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setActiveNav("question-paper-review")}
-                  className="px-4 py-2.5 rounded-xl bg-[#D4A72C] hover:bg-[#e2b435] text-[#0B192C] text-xs font-black transition flex items-center gap-1.5 shadow shrink-0 cursor-pointer"
-                >
-                  <span>Review Question Papers</span>
-                  <ArrowRight size={14} />
-                </button>
-              </div>
-
-              {/* UNIVERSITY ACADEMIC MATRIX & BRANCH DIRECTORY - Exact match */}
-              <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-sm p-6 sm:p-7 space-y-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E5E1D8] pb-4">
-                  <div>
-                    <div className="flex items-center gap-2 text-xs font-black text-[#D4A72C] uppercase tracking-wider mb-1">
-                      <Building2 size={15} />
-                      UNIVERSITY ACADEMIC MATRIX &amp; BRANCH DIRECTORY
-                    </div>
-                    <h2 className="font-display font-bold text-xl text-[#0B192C]">
-                      Department Enrolled Candidates &amp; Quick Action Center
-                    </h2>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Select any department to jump directly into Student Roster, Examination Mark Entry, or Performance Analytics.
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => setShowDepartmentsModal(true)}
-                      className="px-4 py-2.5 rounded-xl bg-[#F8F5EE] hover:bg-[#E5E1D8] text-[#0B192C] text-xs font-bold transition border border-[#E5E1D8] flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Building2 size={14} className="text-[#D4A72C]" />
-                      <span>Configure Departments</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedDeptFilter("all");
-                        setShowStudentsModal(true);
-                      }}
-                      className="px-4 py-2.5 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-white text-xs font-extrabold transition shadow flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Users size={14} className="text-[#D4A72C]" />
-                      <span>Inspect All Students (216)</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* 3-Column Grid of 12 Department Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {departments.map((dept) => {
-                    return (
-                      <div
-                        key={dept.key}
-                        className="p-4 sm:p-5 rounded-2xl border transition-all duration-150 flex flex-col justify-between bg-white border-[#E5E1D8] hover:border-[#D4A72C] shadow-sm hover:shadow"
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-mono text-xs font-black text-[#0B192C] bg-[#D4A72C]/20 border border-[#D4A72C]/40 px-2.5 py-0.5 rounded-lg">
-                              {dept.code}
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                                dept.studentCount > 0
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : "bg-gray-100 text-gray-500"
-                              }`}
-                            >
-                              {dept.studentCount} {dept.studentCount === 1 ? "Student" : "Students"}
-                            </span>
-                          </div>
-
-                          <h3 className="font-display font-bold text-sm text-[#0B192C] line-clamp-1" title={dept.name}>
-                            {dept.name}
-                          </h3>
-                          <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-                            HOD: <span className="font-semibold text-gray-700">{dept.headName}</span>
-                          </p>
-                        </div>
-
-                        {/* Bottom Action Buttons: Roster | Marks | Chart */}
-                        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedDeptFilter(dept.code);
-                              setShowStudentsModal(true);
-                            }}
-                            className="flex-1 py-1.5 px-2 rounded-lg bg-[#F8F5EE] hover:bg-[#E5E1D8] text-[#0B192C] text-[11px] font-extrabold transition text-center border border-[#E5E1D8] cursor-pointer"
-                            title={`Inspect ${dept.code} student roster`}
-                          >
-                            Roster
-                          </button>
-                          <button
-                            onClick={() => {
-                              setActiveNav("internal-marks");
-                            }}
-                            className="flex-1 py-1.5 px-2 rounded-lg bg-[#0B192C] hover:bg-[#132943] text-white text-[11px] font-extrabold transition text-center shadow-sm cursor-pointer"
-                            title={`View internal marks for ${dept.code}`}
-                          >
-                            Marks
-                          </button>
-                          <button
-                            onClick={() => {
-                              setActiveNav("analytics");
-                            }}
-                            className="p-1.5 rounded-lg bg-[#D4A72C]/20 hover:bg-[#D4A72C]/30 text-[#0B192C] transition border border-[#D4A72C]/50 cursor-pointer"
-                            title={`View analytics for ${dept.code}`}
-                          >
-                            <BarChart3 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* STUDENT DATA VIEW (Matching Image 1) */}
-          {activeNav === "student-data" && <StudentDataView />}
-
-          {/* INTERNAL MARKS VIEW (Matching Image 2) */}
-          {activeNav === "internal-marks" && <InternalMarksView />}
-
-          {/* ANSWER SCRIPTS VIEW (Matching Image 3 with View instead of Upload) */}
-          {activeNav === "answer-scripts" && <AnswerScriptsView />}
-
-          {/* PUBLISHED RESULTS VIEW (Matching Image 4) */}
-          {activeNav === "published-results" && <PublishedResultsView />}
-
-          {/* DEPARTMENTS VIEW (Matching Image 1) */}
-          {activeNav === "departments" && <DepartmentsView />}
-
-          {/* SUBJECTS & ELECTIVES VIEW (Matching Image 2) */}
-          {activeNav === "subjects" && <SubjectsView />}
-
-          {/* QUESTION PAPER REVIEW VIEW (Dedicated Component in AD Panel) */}
+          {/* Every view reads the college's real data from the server (read only) */}
+          {activeNav === "dashboard" && <DeanOverview onNavigate={setActiveNav} pendingQpCount={pendingQpCount} />}
+          {activeNav === "student-data" && <DeanStudentsView />}
+          {activeNav === "internal-marks" && <DeanInternalMarksView />}
+          {activeNav === "answer-scripts" && <DeanAnswerScriptsView />}
+          {activeNav === "published-results" && <DeanResultsView />}
+          {activeNav === "departments" && <DeanDepartmentsView />}
+          {activeNav === "subjects" && <DeanSubjectsView />}
+          {activeNav === "faculty" && <DeanFacultyView />}
+          {activeNav === "revaluation" && <DeanRevaluationView />}
+          {activeNav === "analytics" && <DeanAnalyticsView />}
+          {activeNav === "mark-approvals" && <MarkApprovalsView role="dean" />}
           {activeNav === "question-paper-review" && (
             <QuestionPaperErrorBoundary
               onReset={() => {
-                localStorage.removeItem("kvell_assoc_dean_question_papers");
-                window.dispatchEvent(new Event("kvell_qp_updated"));
-                showToast("Restored initial question paper dataset!");
+                void refreshQuestionPapers();
+                showToast("Question papers reloaded from the server.");
               }}
             >
               <QuestionPaperReviewView onToast={showToast} />
             </QuestionPaperErrorBoundary>
-          )}
-
-
-          {/* REVALUATION REQUESTS VIEW */}
-          {activeNav === "revaluation" && (
-            <div className="bg-white rounded-3xl border border-[#E5E1D8] p-6 shadow-sm space-y-4">
-              <div className="border-b border-gray-100 pb-4">
-                <h2 className="font-display font-bold text-xl text-[#0B192C]">
-                  Revaluation &amp; Answer Script Photocopy Requests
-                </h2>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Student grievance applications for re-totalling and external evaluation review.
-                </p>
-              </div>
-
-              <div className="overflow-x-auto rounded-2xl border border-gray-100">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[#FAF8F5] text-gray-600 font-extrabold uppercase text-[10px] tracking-wider border-b border-gray-200">
-                    <tr>
-                      <th className="py-3 px-4">Application ID</th>
-                      <th className="py-3 px-4">Register No</th>
-                      <th className="py-3 px-4">Student Name</th>
-                      <th className="py-3 px-4">Subject</th>
-                      <th className="py-3 px-4">Original Mark</th>
-                      <th className="py-3 px-4">Request Type</th>
-                      <th className="py-3 px-4 text-center">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 font-medium">
-                    <tr>
-                      <td className="py-3 px-4 font-mono font-bold text-blue-600">REV-2026-001</td>
-                      <td className="py-3 px-4 font-mono font-bold text-[#0B192C]">20260110201014</td>
-                      <td className="py-3 px-4 font-bold text-gray-800">SANJAY RAM K</td>
-                      <td className="py-3 px-4">CS601 Data Structures</td>
-                      <td className="py-3 px-4 font-mono text-amber-700 font-bold">46 (RA)</td>
-                      <td className="py-3 px-4 font-semibold text-gray-600">Revaluation + Script Copy</td>
-                      <td className="py-3 px-4 text-center">
-                        <button
-                          onClick={() => showToast("Revaluation Assigned to External Evaluator")}
-                          className="px-3 py-1 rounded-lg bg-[#0B192C] text-white text-[11px] font-bold hover:bg-[#152744]"
-                        >
-                          Approve Review
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* ANALYTICS VIEW */}
-          {activeNav === "analytics" && (
-            <div className="bg-white rounded-3xl border border-[#E5E1D8] p-6 shadow-sm space-y-6">
-              <div className="border-b border-gray-100 pb-4">
-                <h2 className="font-display font-bold text-xl text-[#0B192C]">
-                  Department Performance &amp; Pass Rate Analytics
-                </h2>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Comparative pass percentage and distinction distribution across engineering streams.
-                </p>
-              </div>
-
-              <div className="h-72 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[
-                      { dept: "AIDS", pass: 94.0, count: 50 },
-                      { dept: "BME", pass: 92.8, count: 28 },
-                      { dept: "BT", pass: 96.0, count: 25 },
-                      { dept: "CSE", pass: 95.0, count: 20 },
-                      { dept: "ECE", pass: 91.4, count: 35 },
-                      { dept: "MECH", pass: 89.6, count: 48 },
-                      { dept: "IT", pass: 90.0, count: 10 },
-                    ]}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E1D8" />
-                    <XAxis dataKey="dept" stroke="#667085" fontSize={11} />
-                    <YAxis domain={[80, 100]} stroke="#667085" fontSize={11} unit="%" />
-                    <ChartTooltip />
-                    <Bar dataKey="pass" fill="#0B192C" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
           )}
         </div>
       </main>

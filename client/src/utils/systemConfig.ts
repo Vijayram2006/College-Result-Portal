@@ -19,6 +19,8 @@ export interface PortalConfig {
     revaluationWindow: { enabled: boolean; deadline: string; feePerCourse: number };
   };
   institutionalLocks: Record<string, { locked: boolean; resultsLive: boolean; freezeSubmissions: boolean }>;
+  /** Approvals forwarded marks need before the COE may publish them (set by the Chief COE). */
+  markApproval?: { hodApproval: boolean; deanApproval: boolean };
 }
 
 let latest: PortalConfig | null = null;

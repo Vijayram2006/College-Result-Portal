@@ -11,7 +11,7 @@ import {
   Award,
   Sparkles,
 } from "lucide-react";
-import { COLLEGES, getCurrentAdmissionUser, isSuperAdmin, setCurrentAdmissionUser, SUPER_ADMIN_CONFIG } from "../utils/rbac";
+import { COLLEGES, getCurrentAdmissionUser, isAuthenticated, isSuperAdmin } from "../utils/rbac";
 import { CollegeKey } from "../types/admission";
 import {
   getStoredApplicantsByCollege,
@@ -42,25 +42,15 @@ export const AdmissionGateway: React.FC = () => {
     setCounts(newCounts);
   }, []);
 
+  // Entering a college always goes through sign-in; a signed-in officer goes straight to their own college
   const handleEnterPortal = (key: CollegeKey) => {
-    const col = COLLEGES[key];
-    const user = {
-      id: `ADM-${col.code}-001`,
-      name: col.deanTitle,
-      username: `DEAN_${col.key.toUpperCase()}`,
-      role: col.role,
-      collegeKey: col.key,
-      collegeName: col.name,
-      email: col.email,
-      title: col.deanTitle,
-    };
-    setCurrentAdmissionUser(user);
-    setLocation(col.portalPath);
+    const user = getCurrentAdmissionUser();
+    const allowed = isAuthenticated() && user && (user.role === "SUPER_ADMIN" || user.collegeKey === key);
+    setLocation(allowed ? COLLEGES[key].portalPath : "/login");
   };
 
   const handleSuperAdminLogin = () => {
-    setCurrentAdmissionUser(SUPER_ADMIN_CONFIG);
-    setLocation("/engineering");
+    setLocation("/login");
   };
 
   return (

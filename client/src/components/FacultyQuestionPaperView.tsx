@@ -1,4 +1,16 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
+import {
+  SEMESTER_OPTIONS,
+  academicYearNow,
+  apiErrorMessage,
+  paperContent,
+  pdfInput,
+  readPdfFile,
+  resolvePdfUrl,
+  resubmitQuestionPaper,
+  submitQuestionPaper,
+  useQuestionPapers,
+} from "../services/questionPapersApi";
 import {
   FileText,
   CheckCircle2,
@@ -42,7 +54,6 @@ import {
   safeLoadQuestionPapers,
 } from "./dean/QuestionPaperReviewView";
 
-const STORAGE_KEY = "kvell_assoc_dean_question_papers";
 
 interface FacultyQuestionPaperViewProps {
   onToast?: (msg: string) => void;
@@ -55,9 +66,9 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
   facultyName = "Dr. Ananya Menon",
   department = "Computer Science and Engineering",
 }) => {
-  const [papers, setPapers] = useState<QuestionPaperItem[]>(() => {
-    return safeLoadQuestionPapers();
-  });
+  // The server returns only this faculty member's own papers
+  const { papers, loading, error: loadError } = useQuestionPapers();
+  const [busy, setBusy] = useState(false);
 
   const [activeTab, setActiveTab] = useState<
     "all" | "pending_hod" | "in_review" | "approved" | "returned"
@@ -68,46 +79,11 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
   const [previewPaper, setPreviewPaper] = useState<QuestionPaperItem | null>(null);
   const [hierarchyPaper, setHierarchyPaper] = useState<QuestionPaperItem | null>(null);
 
-  // Sync with localStorage
-  const loadPapers = () => {
-    setPapers(safeLoadQuestionPapers());
-  };
-
-  useEffect(() => {
-    loadPapers();
-    window.addEventListener("kvell_qp_updated", loadPapers);
-    window.addEventListener("storage", loadPapers);
-    return () => {
-      window.removeEventListener("kvell_qp_updated", loadPapers);
-      window.removeEventListener("storage", loadPapers);
-    };
-  }, []);
-
-  const savePapers = (updated: QuestionPaperItem[]) => {
-    setPapers(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      window.dispatchEvent(new Event("kvell_qp_updated"));
-    } catch {}
-  };
-
   // Filter papers for this Faculty member or department with safe optional chaining
   const facultyPapers = useMemo(() => {
     const fName = (facultyName || "").toLowerCase();
     const dName = (department || "").toLowerCase();
-    const filtered = papers.filter((p) => {
-      const pFaculty = (p.facultyName || "").toLowerCase();
-      const pDept = (p.department || "").toLowerCase();
-      const pDeptKey = (p.deptKey || "").toLowerCase();
-
-      const matchesFaculty =
-        pFaculty.includes("ananya") ||
-        (fName && pFaculty.includes(fName)) ||
-        pDeptKey === "cse" ||
-        (dName && pDept.includes(dName));
-
-      if (!matchesFaculty) return false;
-
+    return papers.filter((p) => {
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchesQuery =
@@ -134,23 +110,11 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
 
       return true;
     });
-
-    // If filtering produced no papers for strict criteria, return all papers so portal is never blank
-    return filtered.length > 0 ? filtered : papers;
-  }, [papers, facultyName, department, searchQuery, activeTab]);
+  }, [papers, searchQuery, activeTab]);
 
   // Statistics with safe optional chaining
   const stats = useMemo(() => {
-    const fName = (facultyName || "").toLowerCase();
-    let list = papers.filter((p) => {
-      const pFaculty = (p.facultyName || "").toLowerCase();
-      return (
-        pFaculty.includes("ananya") ||
-        (fName && pFaculty.includes(fName)) ||
-        (p.deptKey || "").toLowerCase() === "cse"
-      );
-    });
-    if (list.length === 0) list = papers;
+    const list = papers;
 
     return {
       total: list.length,
@@ -164,11 +128,11 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
       approved: list.filter((p) => p.status === "CHIEF_COE_APPROVED").length,
       returned: list.filter((p) => p.status === "RETURNED_TO_FACULTY").length,
     };
-  }, [papers, facultyName]);
+  }, [papers]);
 
   // Draft form state
-  const [formSubjectCode, setFormSubjectCode] = useState("CS602");
-  const [formSubjectTitle, setFormSubjectTitle] = useState("Distributed Systems Architecture");
+  const [formSubjectCode, setFormSubjectCode] = useState("");
+  const [formSubjectTitle, setFormSubjectTitle] = useState("");
   const [formExamType, setFormExamType] = useState<
     "End Semester Examination" | "Internal Assessment - I" | "Internal Assessment - II" | "Model Examination"
   >("End Semester Examination");
@@ -182,70 +146,43 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
   // PDF Attachment State
   const [formPdfAttachment, setFormPdfAttachment] = useState<PdfAttachment | null>(null);
   const [pdfUploadLoading, setPdfUploadLoading] = useState(false);
-  const [pdfModalOpen, setPdfModalOpen] = useState<{
+  const [pdfModalOpen, setPdfModalState] = useState<{
     fileName: string;
     fileData: string;
   } | null>(null);
-
-  const handlePdfFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-      alert("Please upload a valid PDF file (.pdf format).");
-      return;
-    }
-
-    if (file.size > 25 * 1024 * 1024) {
-      alert("File size exceeds 25 MB limit.");
-      return;
-    }
-
-    setPdfUploadLoading(true);
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const sizeStr =
-        file.size > 1024 * 1024
-          ? `${(file.size / (1024 * 1024)).toFixed(2)} MB`
-          : `${(file.size / 1024).toFixed(1)} KB`;
-
-      setFormPdfAttachment({
-        fileName: file.name,
-        fileSize: sizeStr,
-        fileData: result,
-        uploadedAt: new Date().toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      });
-      setPdfUploadLoading(false);
-      onToast?.(`✓ PDF "${file.name}" uploaded successfully!`);
-    };
-    reader.onerror = () => {
-      alert("Failed to read the selected PDF file.");
-      setPdfUploadLoading(false);
-    };
-    reader.readAsDataURL(file);
+  const setPdfModalOpen = (v: { fileName: string; fileData: string } | null) => {
+    if (!v) return setPdfModalState(null);
+    resolvePdfUrl(v.fileData)
+      .then((url) => setPdfModalState({ ...v, fileData: url }))
+      .catch((e) => alert(apiErrorMessage(e, "Could not open the PDF.")));
   };
 
-  const handleAttachSamplePdf = () => {
-    setFormPdfAttachment({
-      fileName: `${formSubjectCode}_Autonomous_QP_2026.pdf`,
-      fileSize: "245 KB",
-      fileData: SAMPLE_QP_PDF_DATA,
-      uploadedAt: new Date().toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    });
-    onToast?.(`✓ Sample Autonomous Question Paper PDF attached!`);
+  const handlePdfFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const file = input.files?.[0];
+    if (!file) return;
+    setPdfUploadLoading(true);
+    readPdfFile(file)
+      .then((pdf) => {
+        setFormPdfAttachment({
+          fileName: pdf.fileName,
+          fileSize: pdf.fileSize,
+          fileData: pdf.dataUrl,
+          uploadedAt: new Date().toLocaleString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        });
+        onToast?.(`PDF "${pdf.fileName}" attached.`);
+      })
+      .catch((err: Error) => {
+        alert(err.message);
+        input.value = "";
+      })
+      .finally(() => setPdfUploadLoading(false));
   };
 
   const openDraftModal = (paper?: QuestionPaperItem) => {
@@ -256,324 +193,72 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
       setFormExamType(paper.examType);
       setFormSet(paper.set);
       setFormSemester(paper.semester);
-      setFormPdfAttachment(
-        paper.pdfAttachment || {
-          fileName: `${paper.subjectCode}_Autonomous_QP_2026.pdf`,
-          fileSize: "245 KB",
-          fileData: SAMPLE_QP_PDF_DATA,
-          uploadedAt: paper.dateSubmitted || "May 10, 2026",
-        }
-      );
-      setFormFacultyRemarks(
-        `Revision addressing DAC recommendations: Part C evaluative rubrics and Part B difficulty parity updated.`
-      );
-      setFormCertified(true);
+      // The stored PDF stays unless a new one is chosen
+      setFormPdfAttachment(paper.pdfAttachment || null);
+      setFormFacultyRemarks("");
+      setFormCertified(false);
     } else {
       setPaperToRevise(null);
-      setFormSubjectCode("CS602");
-      setFormSubjectTitle("Distributed Systems Architecture");
+      setFormSubjectCode("");
+      setFormSubjectTitle("");
       setFormExamType("End Semester Examination");
       setFormSet("Set A");
       setFormSemester("Semester VI");
-      setFormPdfAttachment({
-        fileName: "CS602_Distributed_Systems_QP_2026.pdf",
-        fileSize: "245 KB",
-        fileData: SAMPLE_QP_PDF_DATA,
-        uploadedAt: new Date().toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      });
-      setFormFacultyRemarks(
-        "Drafted strictly in accordance with Autonomous Regulation 2021 curriculum and Bloom's Revised Taxonomy levels."
-      );
+      setFormPdfAttachment(null);
+      setFormFacultyRemarks("");
       setFormCertified(false);
     }
     setShowDraftModal(true);
   };
 
-  const handleSubmitDraftToHod = (e: React.FormEvent) => {
+  const handleSubmitDraftToHod = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     if (!formCertified) {
       alert("Please check the declaration box certifying syllabus and Bloom's taxonomy compliance.");
       return;
     }
-
-    const now = new Date();
-    const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-
-    if (paperToRevise) {
-      // Update existing returned paper
-      const updatedList = papers.map((p) => {
-        if (p.id !== paperToRevise.id) return p;
-
-        const updatedTrail: StageSignature[] = p.hierarchyTrail.map((sig) => {
-          if (sig.stageNumber === 1) {
-            return {
-              ...sig,
-              status: "COMPLETED",
-              timestamp: `${dateStr}, ${timeStr}`,
-              sealOrReference: `FAC-REV-${p.subjectCode}-${Date.now().toString().slice(-3)}`,
-              remarks: formFacultyRemarks,
-            };
-          }
-          if (sig.stageNumber === 2) {
-            return {
-              ...sig,
-              status: "CURRENT",
-              timestamp: "Awaiting HOD DAC Scrutiny",
-              remarks: "Resubmitted by Faculty after revisions. Awaiting HOD scrutiny.",
-            };
-          }
-          return sig;
-        });
-
-        return {
-          ...p,
-          subjectCode: formSubjectCode.toUpperCase(),
-          subjectTitle: formSubjectTitle,
-          examType: formExamType,
-          set: formSet,
-          semester: formSemester,
-          status: "PENDING_HOD_REVIEW" as const,
-          currentStageNumber: 2 as const,
-          currentStageRole: "HOD" as const,
-          dateSubmitted: dateStr,
-          timeSubmitted: timeStr,
-          hierarchyTrail: updatedTrail,
-          adRemarks: "",
-          pdfAttachment:
-            formPdfAttachment ||
-            p.pdfAttachment || {
-              fileName: `${formSubjectCode}_Autonomous_QP_2026.pdf`,
-              fileSize: "245 KB",
-              fileData: SAMPLE_QP_PDF_DATA,
-              uploadedAt: `${dateStr}, ${timeStr}`,
-            },
-        };
-      });
-
-      savePapers(updatedList);
+    if (!formPdfAttachment) {
+      alert("Please attach the question paper PDF.");
+      return;
+    }
+    const input = {
+      subjectCode: formSubjectCode.trim(),
+      subjectTitle: formSubjectTitle.trim(),
+      semester: formSemester,
+      academicYear: paperToRevise?.academicYear || academicYearNow(),
+      regulation: paperToRevise?.regulation || "Regulation 2021",
+      examType: formExamType,
+      set: formSet,
+      content: paperContent(),
+      pdf: pdfInput(formPdfAttachment),
+      remarks: formFacultyRemarks.trim().slice(0, 500) || undefined,
+    };
+    setBusy(true);
+    try {
+      if (paperToRevise) {
+        const saved = await resubmitQuestionPaper(paperToRevise.id, input);
+        onToast?.(`Question Paper ${saved.subjectCode} revised and resubmitted to the HOD.`);
+      } else {
+        const saved = await submitQuestionPaper(input);
+        onToast?.(`Question Paper ${saved.subjectCode} submitted to the HOD for scrutiny.`);
+      }
       setShowDraftModal(false);
       setPaperToRevise(null);
-      onToast?.(
-        `Question Paper ${formSubjectCode} revised and resubmitted to HOD (Dr. Jayapradha) for Stage 2 DAC Scrutiny!`
-      );
-    } else {
-      // Create new paper
-      const newPaper: QuestionPaperItem = {
-        id: `QP-${Date.now()}-CSE-${formSubjectCode.toUpperCase()}`,
-        qpCode: `KVELL/ESE/2026/${formSubjectCode.toUpperCase()}-${formSet.includes("A") ? "A" : "B"}`,
-        subjectCode: formSubjectCode.toUpperCase(),
-        subjectTitle: formSubjectTitle,
-        department: "Computer Science and Engineering",
-        deptKey: "cse",
-        facultyName: `${facultyName} (Assistant Professor - CSE)`,
-        hodName: "Prof. Jayapradha (HOD - CSE)",
-        adName: "Dr. K. R. Ramanathan (Associate Dean - Academics)",
-        coeName: "Dr. N. Balasubramanian (Controller of Examinations)",
-        chiefCoeName: "Dr. Sathish (Chief COE & Super Administrator)",
-        currentStageNumber: 2,
-        currentStageRole: "HOD",
-        status: "PENDING_HOD_REVIEW",
-        forwardedToCoe: false,
-        semester: formSemester,
-        academicYear: "2025 - 2026",
-        regulation: "Regulation 2021 (Autonomous)",
-        examType: formExamType,
-        set: formSet,
-        dateSubmitted: dateStr,
-        timeSubmitted: timeStr,
-        maxMarks: 100,
-        durationHours: 3,
-        syllabusCoverage: "100% (Units I to V)",
-        bloomsDistribution: {
-          rememberUnderstand: 30,
-          applyAnalyze: 50,
-          evaluateCreate: 20,
-        },
-        courseOutcomesCovered: ["CO1", "CO2", "CO3", "CO4", "CO5"],
-        adRemarks: "",
-        hierarchyTrail: [
-          {
-            stageNumber: 1,
-            stageRole: "Faculty",
-            officerTitle: "Subject Instructor",
-            officerName: facultyName,
-            status: "COMPLETED",
-            timestamp: `${dateStr}, ${timeStr}`,
-            sealOrReference: `FAC-SUB-CSE-${Date.now().toString().slice(-3)}`,
-            remarks: formFacultyRemarks,
-          },
-          {
-            stageNumber: 2,
-            stageRole: "HOD",
-            officerTitle: "Head of Department",
-            officerName: "Prof. Jayapradha",
-            status: "CURRENT",
-            timestamp: "Awaiting HOD DAC Scrutiny",
-            remarks: "Submitted by Faculty. Pending HOD DAC scrutiny and endorsement to Associate Dean.",
-          },
-          {
-            stageNumber: 3,
-            stageRole: "AD",
-            officerTitle: "Associate Dean (Academics)",
-            officerName: "Dr. K. R. Ramanathan",
-            status: "PENDING",
-          },
-          {
-            stageNumber: 4,
-            stageRole: "COE",
-            officerTitle: "Controller of Examinations",
-            officerName: "Dr. N. Balasubramanian",
-            status: "PENDING",
-          },
-          {
-            stageNumber: 5,
-            stageRole: "Chief COE",
-            officerTitle: "Chief University Controller",
-            officerName: "Dr. Sathish",
-            status: "PENDING",
-          },
-        ],
-        parts: {
-          partA: {
-            instructions: "Answer ALL Questions. (10 × 2 = 20 Marks)",
-            questions: [
-              { qNo: 1, text: `Define the primary consistency models in ${formSubjectTitle}.`, co: "CO1", bloom: "K1 (Remember)", marks: 2 },
-              { qNo: 2, text: "Explain the CAP theorem and trade-offs between consistency and availability.", co: "CO1", bloom: "K2 (Understand)", marks: 2 },
-              { qNo: 3, text: "Differentiate between scalar clocks and vector clocks for causal ordering.", co: "CO2", bloom: "K2 (Understand)", marks: 2 },
-              { qNo: 4, text: "What is the Byzantine Generals Problem in distributed consensus?", co: "CO2", bloom: "K1 (Remember)", marks: 2 },
-              { qNo: 5, text: "Calculate the quorum intersection requirements for read/write quorums.", co: "CO3", bloom: "K3 (Apply)", marks: 2 },
-              { qNo: 6, text: "Explain how Raft consensus algorithm elects a leader node.", co: "CO3", bloom: "K2 (Understand)", marks: 2 },
-              { qNo: 7, text: "What is distributed mutual exclusion and Ricart-Agrawala algorithm?", co: "CO4", bloom: "K2 (Understand)", marks: 2 },
-              { qNo: 8, text: "Define distributed snapshots and the Chandy-Lamport recording protocol.", co: "CO4", bloom: "K1 (Remember)", marks: 2 },
-              { qNo: 9, text: "Explain gossip protocols and anti-entropy synchronization.", co: "CO5", bloom: "K2 (Understand)", marks: 2 },
-              { qNo: 10, text: "State the fault tolerance limits of Paxos consensus under network partitions.", co: "CO5", bloom: "K2 (Understand)", marks: 2 },
-            ],
-          },
-          partB: {
-            instructions: "Answer ALL Questions, choosing either (a) or (b). (5 × 13 = 65 Marks)",
-            questions: [
-              {
-                qNo: 11,
-                optionA: {
-                  text: `Explain client-centric consistency models: Monotonic Reads, Monotonic Writes, Read-Your-Writes, and Writes-Follow-Reads in ${formSubjectTitle}.`,
-                  co: "CO1",
-                  bloom: "K4 (Analyze)",
-                  marks: 13,
-                },
-                optionB: {
-                  text: "Deconstruct linearizability versus sequential consistency. Provide execution traces that satisfy sequential consistency but violate linearizability.",
-                  co: "CO1",
-                  bloom: "K4 (Analyze)",
-                  marks: 13,
-                },
-              },
-              {
-                qNo: 12,
-                optionA: {
-                  text: "Design a distributed lock manager using Chubby/ZooKeeper architectural patterns. Diagram ephemeral sequential z-nodes and watch triggers.",
-                  co: "CO2",
-                  bloom: "K4 (Analyze)",
-                  marks: 13,
-                },
-                optionB: {
-                  text: "Detail Lamport's Logical Clocks and total ordering of events. Solve a 3-process message exchange scenario step-by-step.",
-                  co: "CO2",
-                  bloom: "K3 (Apply)",
-                  marks: 13,
-                },
-              },
-              {
-                qNo: 13,
-                optionA: {
-                  text: "Explain the Multi-Paxos consensus protocol: Phase 1 (Prepare/Promise) and Phase 2 (Accept/Accepted). Analyze leader election and log compaction.",
-                  co: "CO3",
-                  bloom: "K4 (Analyze)",
-                  marks: 13,
-                },
-                optionB: {
-                  text: "Analyze the Raft algorithm in detail: Log replication, safety invariants, joint consensus cluster membership change, and split-brain mitigation.",
-                  co: "CO3",
-                  bloom: "K4 (Analyze)",
-                  marks: 13,
-                },
-              },
-              {
-                qNo: 14,
-                optionA: {
-                  text: "Examine distributed transaction commit protocols: Two-Phase Commit (2PC) versus Three-Phase Commit (3PC). Identify blocking states under coordinator failure.",
-                  co: "CO4",
-                  bloom: "K4 (Analyze)",
-                  marks: 13,
-                },
-                optionB: {
-                  text: "Detail distributed deadlocks: Wait-for graphs, edge chasing algorithms, and Chandy-Misra-Haas probe message protocol.",
-                  co: "CO4",
-                  bloom: "K3 (Apply)",
-                  marks: 13,
-                },
-              },
-              {
-                qNo: 15,
-                optionA: {
-                  text: "Deconstruct Amazon DynamoDB internal architecture: Consistent hashing with virtual nodes, vector clocks for versioning, sloppy quorums, and Merkle tree anti-entropy.",
-                  co: "CO5",
-                  bloom: "K4 (Analyze)",
-                  marks: 13,
-                },
-                optionB: {
-                  text: "Explain Google Spanner TrueTime API and externally consistent distributed transactions using atomic hardware clocks (GPS and atomic rubidium oscillators).",
-                  co: "CO5",
-                  bloom: "K4 (Analyze)",
-                  marks: 13,
-                },
-              },
-            ],
-          },
-          partC: {
-            instructions: "Answer the Comprehensive / Evaluative Question. (1 × 15 = 15 Marks)",
-            questions: [
-              {
-                qNo: 16,
-                text: `You are designated as Principal Distributed Systems Architect for KVELL Global Cloud. Design a globally distributed, partition-tolerant multi-region database serving 10 million daily active university applications. (a) Specify the replication topology and conflict resolution strategy. (b) Formulate the consensus mechanism that achieves sub-50ms commit latency while satisfying linearizability for financial grade audit transactions. (c) Devise an automated chaos engineering and split-brain recovery rubric.`,
-                co: "CO5",
-                bloom: "K6 (Create)",
-                marks: 15,
-                rubricHint: "System architecture and topology (5 marks), consensus and latency guarantees (5 marks), disaster recovery and chaos resilience (5 marks).",
-              },
-            ],
-          },
-        },
-        hodDeclaration: {
-          certifiedByHod: false,
-          moderationDoneByDept: false,
-          date: dateStr,
-          hodNote: "Submitted by Faculty. Awaiting HOD DAC Scrutiny.",
-        },
-        pdfAttachment: formPdfAttachment || {
-          fileName: `${formSubjectCode}_Autonomous_QP_2026.pdf`,
-          fileSize: "245 KB",
-          fileData: SAMPLE_QP_PDF_DATA,
-          uploadedAt: `${dateStr}, ${timeStr}`,
-        },
-      };
-
-      savePapers([newPaper, ...papers]);
-      setShowDraftModal(false);
-      onToast?.(
-        `Question Paper ${formSubjectCode} submitted to HOD (Dr. Jayapradha) for Stage 2 DAC Scrutiny!`
-      );
+    } catch (err) {
+      alert(apiErrorMessage(err, "The question paper could not be submitted."));
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
     <div className="space-y-6">
+      {(loading || loadError) && (
+        <div role="status" className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${loadError ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+          {loadError || "Loading question papers..."}
+        </div>
+      )}
       {/* Top Banner Card */}
       <div className="relative overflow-hidden rounded-3xl bg-linear-to-r from-[#0B192C] via-[#0F223D] to-[#132A4A] p-6 sm:p-8 text-white border border-[#D4A72C]/30 shadow-xl">
         <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
@@ -1116,12 +801,9 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
                     onChange={(e) => setFormSemester(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 font-semibold focus:outline-none focus:border-[#0B192C]"
                   >
-                    <option>Semester VI</option>
-                    <option>Semester IV</option>
-                    <option>Semester V</option>
-                    <option>Semester III</option>
-                    <option>Semester VII</option>
-                    <option>Semester VIII</option>
+                    {SEMESTER_OPTIONS.map((o) => (
+                      <option key={o}>{o}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -1173,13 +855,6 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleAttachSamplePdf}
-                    className="px-2.5 py-1 rounded-lg bg-white border border-blue-300 text-blue-800 text-[10px] font-extrabold hover:bg-blue-100 transition shadow-xs shrink-0 cursor-pointer"
-                  >
-                    Auto-Generate PDF
-                  </button>
                 </div>
 
                 {formPdfAttachment ? (
@@ -1279,10 +954,11 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-white font-black transition flex items-center gap-2 cursor-pointer shadow-md"
+                  disabled={busy}
+                  className="px-6 py-2.5 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-white font-black transition flex items-center gap-2 cursor-pointer shadow-md disabled:opacity-60"
                 >
                   <Send size={15} className="text-[#D4A72C]" />
-                  <span>Submit Question Paper to HOD [Stage 1 ➔ 2]</span>
+                  <span>{busy ? "Submitting..." : "Submit Question Paper to HOD [Stage 1 ➔ 2]"}</span>
                 </button>
               </div>
             </form>

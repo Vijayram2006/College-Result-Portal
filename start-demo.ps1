@@ -90,6 +90,8 @@ if (Test-Port 8080) {
     $env:DEMO_NURSING_COE_PASSWORD = $logins.DEMO_NURSING_COE_PASSWORD
     $env:DEMO_PHARMACY_COE_PASSWORD = $logins.DEMO_PHARMACY_COE_PASSWORD
     $env:DEMO_SUPER_ADMIN_PASSWORD = $logins.DEMO_SUPER_ADMIN_PASSWORD
+    $env:DEMO_DEAN_PASSWORD = $logins.DEMO_DEAN_PASSWORD
+    $env:DEMO_ADMISSION_PASSWORD = $logins.DEMO_ADMISSION_PASSWORD
     $log = Join-Path $backend "backend-demo.log"
     $errLog = Join-Path $backend "backend-demo-error.log"
     Start-Process -FilePath "java" -ArgumentList "-jar", "`"$jar`"" -WorkingDirectory $backend `
@@ -100,16 +102,21 @@ if (Test-Port 8080) {
     }
 }
 
-# 3 + 4. Frontends (bound to this laptop only)
-Write-Host "[3/4] Student / HOD portal (port 3000)..." -ForegroundColor Cyan
+# 3 - 5. Frontends (bound to this laptop only)
+Write-Host "[3/5] Student / HOD portal (port 3000)..." -ForegroundColor Cyan
 if (-not (Test-Port 3000)) {
     Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "npx vite --host 127.0.0.1 --port 3000 --strictPort" `
         -WorkingDirectory $root -WindowStyle Minimized
 }
-Write-Host "[4/4] Admin control panel (port 3002)..." -ForegroundColor Cyan
+Write-Host "[4/5] Admin control panel (port 3002)..." -ForegroundColor Cyan
 if (-not (Test-Port 3002)) {
     Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "npx vite --host 127.0.0.1 --port 3002 --strictPort" `
         -WorkingDirectory (Join-Path $root "admin-panel") -WindowStyle Minimized
+}
+Write-Host "[5/5] Admission cell (port 3003)..." -ForegroundColor Cyan
+if (-not (Test-Port 3003)) {
+    Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "npx vite --host 127.0.0.1 --port 3003 --strictPort" `
+        -WorkingDirectory (Join-Path $root "admission-cell") -WindowStyle Minimized
 }
 $ok3000 = Wait-Http "http://127.0.0.1:3000/" 60 @(200)
 $ok3002 = Wait-Http "http://127.0.0.1:3002/admin/login" 60 @(200)
@@ -118,7 +125,8 @@ if (-not ($ok3000 -and $ok3002)) { throw "A frontend did not start (3000: $ok300
 Write-Host ""
 Write-Host "KVELL Result Portal is running:" -ForegroundColor Green
 Write-Host "  Admin control panel : http://localhost:3002/admin/login   (user ADMIN)"
-Write-Host "  Student / HOD portal: http://localhost:3000               (students: Reg No + DOB; HOD: HODCSE, HODECE, ...)"
+Write-Host "  Student / HOD portal: http://localhost:3000               (students: Reg No + DOB; HOD: HODCSE, ...; Assoc. Dean: ADEAN_ENG)"
+Write-Host "  Admission cell      : http://localhost:3003/login         (ADMISSION_ENG, ADMISSION_NUR, ADMISSION_PHARM)"
 Write-Host "  Passwords           : $(Resolve-Path (Join-Path $SecretsDir 'demo-logins.env'))"
 Start-Process "http://localhost:3002/admin/login"
 Start-Process "http://localhost:3000"

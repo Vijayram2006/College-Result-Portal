@@ -65,9 +65,11 @@ public class ResultBatchService {
      * forwarded them), FORWARDED (awaiting the COE), PUBLISHED, or OUT_OF_DATE (marks changed after they were
      * forwarded, so they must be forwarded again).
      */
+    /** hodApprovedBy / deanApprovedBy: approvals of the forwarded marks; returnReason: why they were sent back. */
     public record PublishRow(String subjectCode, String subjectTitle, int students, int marksEntered, String state,
                              String batchId, String publishedAt, int publishedStudents, double passPercentage,
-                             String forwardedBy) {
+                             String forwardedBy, String hodApprovedBy, String deanApprovedBy, String returnedBy,
+                             String returnReason) {
     }
 
     /** Faculty (or the COE) forwards one subject's marks for verification. */
@@ -105,6 +107,9 @@ public class ResultBatchService {
     @org.springframework.beans.factory.annotation.Autowired
     private edu.kvell.results.common.ResultsCache cache;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private edu.kvell.results.governance.GovernanceService governance;
+
     public ResultBatchService(JdbcClient db, Departments departments, MarkService marks, AuditService audit,
                               NotificationService notifications) {
         this.db = db;
@@ -123,7 +128,9 @@ public class ResultBatchService {
         String title = marks.subjectTitle(deptKey, sem, code);
         // Publishing keeps who forwarded the marks; forwarding again records the new sender
         Map<String, Object> forwarded = db.sql("""
-                        SELECT forwarded_by, forwarded_at FROM result_batches
+                        SELECT forwarded_by, forwarded_at, hod_approved_by, hod_approved_at, ad_approved_by,
+                               ad_approved_at
+                        FROM result_batches
                         WHERE dept_key = ? AND semester = ? AND subject_code = ? AND assessment_type = ?
                         ORDER BY uploaded_at DESC LIMIT 1
                         """)
@@ -182,6 +189,17 @@ public class ResultBatchService {
                         """)
                 .params(id, deptKey, sem, code, assessment)
                 .update();
+        // The published batch keeps the HOD's and Associate Dean's approvals of the forwarded marks
+        if (publishing && (forwarded.get("hod_approved_at") != null || forwarded.get("ad_approved_at") != null)) {
+            db.sql("""
+                            UPDATE result_batches SET hod_approved_by = ?, hod_approved_at = ?, ad_approved_by = ?,
+                                                      ad_approved_at = ?
+                            WHERE id = ?
+                            """)
+                    .params(forwarded.get("hod_approved_by"), forwarded.get("hod_approved_at"),
+                            forwarded.get("ad_approved_by"), forwarded.get("ad_approved_at"), id)
+                    .update();
+        }
 
         return get(id);
     }
@@ -334,7 +352,15 @@ public class ResultBatchService {
                 + batch.subjectTitle() + " for verification.";
         notifications.notify(Audience.COE, deptKey, sem, "Marks forwarded: " + what, body + " Review on Publish Results.",
                 "/admin/results/publish");
-        notifications.notify(Audience.HOD, deptKey, sem, "Marks forwarded: " + what, body, null);
+        boolean hodNeeded = governance.markApproval().hodApproval();
+        boolean deanNeeded = governance.markApproval().deanApproval();
+        notifications.notify(Audience.HOD, deptKey, sem, "Marks forwarded: " + what,
+                body + (hodNeeded ? " Your approval is needed before the COE can publish them." : ""),
+                hodNeeded ? "mark-approvals" : null);
+        if (!hodNeeded && deanNeeded) {
+            notifications.notify(Audience.DEAN, deptKey, sem, "Marks forwarded: " + what,
+                    body + " Your approval is needed before the COE can publish them.", "mark-approvals");
+        }
         return batch;
     }
 
@@ -499,6 +525,29 @@ public class ResultBatchService {
             throw ApiException.conflict("Cannot publish yet: marks for " + String.join(", ", changed)
                     + " changed after they were forwarded. They must be forwarded again.");
         }
+        List<String> returned = rows.stream().filter(r -> r.state().equals("RETURNED"))
+                .map(PublishRow::subjectCode).toList();
+        if (!returned.isEmpty()) {
+            throw ApiException.conflict("Cannot publish yet: " + String.join(", ", returned)
+                    + " was returned to the faculty for correction and must be forwarded again.");
+        }
+        // The approvals the Chief COE requires (Super Admin governance)
+        edu.kvell.results.governance.SystemConfig.MarkApproval chain = governance.markApproval();
+        if (chain.hodApproval()) {
+            List<String> waiting = rows.stream().filter(r -> r.state().equals("FORWARDED") && r.hodApprovedBy() == null)
+                    .map(PublishRow::subjectCode).toList();
+            if (!waiting.isEmpty()) {
+                throw ApiException.conflict("Cannot publish yet: the HOD has not approved " + String.join(", ", waiting) + ".");
+            }
+        }
+        if (chain.deanApproval()) {
+            List<String> waiting = rows.stream().filter(r -> r.state().equals("FORWARDED") && r.deanApprovedBy() == null)
+                    .map(PublishRow::subjectCode).toList();
+            if (!waiting.isEmpty()) {
+                throw ApiException.conflict("Cannot publish yet: the Associate Dean has not approved "
+                        + String.join(", ", waiting) + ".");
+            }
+        }
     }
 
     /** Every catalog subject of a department and semester with its publication state for one assessment. */
@@ -517,7 +566,7 @@ public class ResultBatchService {
                                 AND m.semester = j.semester AND m.subject_code = j.code
                                 AND m.assessment_type = :assessment) AS last_mark_at,
                                b.id AS batch_id, b.status, b.forwarded_at AS committed_at, b.published_at,
-                               b.forwarded_by,
+                               b.forwarded_by, b.hod_approved_by, b.ad_approved_by, b.returned_by, b.return_reason,
                                (SELECT count(*) FROM result_records r WHERE r.batch_id = b.id) AS records,
                                (SELECT count(*) FROM result_records r WHERE r.batch_id = b.id AND r.passed) AS passed
                         FROM subjects j
@@ -537,11 +586,14 @@ public class ResultBatchService {
                     if (batchId == null) state = marks == 0 ? "NO_MARKS" : "NOT_FORWARDED";
                     else if (lastMark != null && committed != null && lastMark.isAfter(committed)) state = "OUT_OF_DATE";
                     else if ("WITHDRAWN".equals(status)) state = "WITHDRAWN";
+                    else if (rs.getString("returned_by") != null) state = "RETURNED";
                     else state = "PUBLISHED".equals(status) ? "PUBLISHED" : "FORWARDED";
                     int records = rs.getInt("records");
                     return new PublishRow(rs.getString("code"), rs.getString("title"), rs.getInt("students"), marks,
                             state, batchId, Semesters.display(rs.getObject("published_at", OffsetDateTime.class)),
-                            records, percent(rs.getInt("passed"), records), rs.getString("forwarded_by"));
+                            records, percent(rs.getInt("passed"), records), rs.getString("forwarded_by"),
+                            rs.getString("hod_approved_by"), rs.getString("ad_approved_by"), rs.getString("returned_by"),
+                            rs.getString("return_reason"));
                 }).list();
     }
 

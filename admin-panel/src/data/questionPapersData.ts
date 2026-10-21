@@ -1,3 +1,5 @@
+import { cachedQuestionPapers } from "../services/questionPapersApi";
+
 export type HierarchyRole = "Faculty" | "HOD" | "AD" | "COE" | "Chief COE";
 export type HierarchyStageNumber = 1 | 2 | 3 | 4 | 5;
 
@@ -946,24 +948,7 @@ export function sanitizeQuestionPaper(p: any): QuestionPaperItem {
   };
 }
 
+/** The question papers the signed-in COE / Chief COE may see (from the server; see services/questionPapersApi). */
 export function safeLoadQuestionPapers(): QuestionPaperItem[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return INITIAL_QUESTION_PAPERS;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_QUESTION_PAPERS;
-    return parsed.map(sanitizeQuestionPaper);
-  } catch (e) {
-    console.error("Failed to load question papers from localStorage:", e);
-    return INITIAL_QUESTION_PAPERS;
-  }
-}
-
-export function saveQuestionPapers(updated: QuestionPaperItem[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    window.dispatchEvent(new Event("kvell_qp_updated"));
-  } catch (e) {
-    console.error("Failed to save question papers to localStorage:", e);
-  }
+  return cachedQuestionPapers();
 }

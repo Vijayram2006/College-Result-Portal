@@ -15,6 +15,31 @@
         },
         "type": "object"
       },
+      "ActionRequest": {
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "expectedVersion": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "hodDeclaration": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "remarks": {
+            "type": "string"
+          },
+          "returnTo": {
+            "type": "string"
+          },
+          "set": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "Address": {
         "properties": {
           "city": {
@@ -92,6 +117,17 @@
               "type": "string"
             },
             "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "Attachment": {
+        "properties": {
+          "dataUrl": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
           }
         },
         "type": "object"
@@ -919,24 +955,61 @@
       },
       "Item": {
         "properties": {
-          "createdAt": {
+          "assessmentType": {
             "type": "string"
           },
-          "id": {
-            "format": "int64",
+          "batchId": {
+            "type": "string"
+          },
+          "deanApprovedAt": {
+            "type": "string"
+          },
+          "deanApprovedBy": {
+            "type": "string"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "forwardedAt": {
+            "type": "string"
+          },
+          "forwardedBy": {
+            "type": "string"
+          },
+          "hodApprovedAt": {
+            "type": "string"
+          },
+          "hodApprovedBy": {
+            "type": "string"
+          },
+          "passPercentage": {
+            "format": "double",
+            "type": "number"
+          },
+          "returnReason": {
+            "type": "string"
+          },
+          "returnedBy": {
+            "type": "string"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "students": {
+            "format": "int32",
             "type": "integer"
           },
-          "link": {
+          "subjectCode": {
             "type": "string"
           },
-          "message": {
+          "subjectTitle": {
             "type": "string"
           },
-          "read": {
+          "waitingForYou": {
             "type": "boolean"
-          },
-          "title": {
-            "type": "string"
           }
         },
         "type": "object"
@@ -1063,6 +1136,17 @@
           },
           "user": {
             "$ref": "#/components/schemas/UserView"
+          }
+        },
+        "type": "object"
+      },
+      "MarkApproval": {
+        "properties": {
+          "deanApproval": {
+            "type": "boolean"
+          },
+          "hodApproval": {
+            "type": "boolean"
           }
         },
         "type": "object"
@@ -1231,6 +1315,42 @@
         },
         "type": "object"
       },
+      "PaperInput": {
+        "properties": {
+          "academicYear": {
+            "type": "string"
+          },
+          "content": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "examType": {
+            "type": "string"
+          },
+          "pdf": {
+            "$ref": "#/components/schemas/Attachment"
+          },
+          "regulation": {
+            "type": "string"
+          },
+          "remarks": {
+            "type": "string"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "set": {
+            "type": "string"
+          },
+          "subjectCode": {
+            "type": "string"
+          },
+          "subjectTitle": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "PasswordReset": {
         "properties": {
           "password": {
@@ -1350,7 +1470,13 @@
           "batchId": {
             "type": "string"
           },
+          "deanApprovedBy": {
+            "type": "string"
+          },
           "forwardedBy": {
+            "type": "string"
+          },
+          "hodApprovedBy": {
             "type": "string"
           },
           "marksEntered": {
@@ -1367,6 +1493,12 @@
           "publishedStudents": {
             "format": "int32",
             "type": "integer"
+          },
+          "returnReason": {
+            "type": "string"
+          },
+          "returnedBy": {
+            "type": "string"
           },
           "state": {
             "type": "string"
@@ -2341,6 +2473,9 @@
           "lastUpdated": {
             "type": "string"
           },
+          "markApproval": {
+            "$ref": "#/components/schemas/MarkApproval"
+          },
           "systemMode": {
             "type": "string"
           },
@@ -2489,7 +2624,7 @@
     },
     "/api/admin/answer-scripts": {
       "delete": {
-        "operationId": "delete_2",
+        "operationId": "delete_3",
         "parameters": [
           {
             "in": "query",
@@ -2542,7 +2677,7 @@
         ]
       },
       "get": {
-        "operationId": "list_4",
+        "operationId": "list_6",
         "parameters": [
           {
             "in": "query",
@@ -2775,7 +2910,7 @@
     },
     "/api/admin/departments": {
       "get": {
-        "operationId": "list_3",
+        "operationId": "list_5",
         "responses": {
           "200": {
             "content": {
@@ -2796,7 +2931,7 @@
         ]
       },
       "post": {
-        "operationId": "create_2",
+        "operationId": "create_4",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2826,7 +2961,7 @@
     },
     "/api/admin/departments/{key}": {
       "delete": {
-        "operationId": "delete_1",
+        "operationId": "delete_2",
         "parameters": [
           {
             "in": "path",
@@ -2847,7 +2982,7 @@
         ]
       },
       "put": {
-        "operationId": "update_1",
+        "operationId": "update_2",
         "parameters": [
           {
             "in": "path",
@@ -2887,7 +3022,7 @@
     },
     "/api/admin/faculty-master": {
       "get": {
-        "operationId": "list_2",
+        "operationId": "list_4",
         "parameters": [
           {
             "in": "query",
@@ -2918,7 +3053,7 @@
         ]
       },
       "post": {
-        "operationId": "create_1",
+        "operationId": "create_3",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2948,7 +3083,7 @@
     },
     "/api/admin/faculty-master/{id}": {
       "delete": {
-        "operationId": "delete",
+        "operationId": "delete_1",
         "parameters": [
           {
             "in": "path",
@@ -2970,7 +3105,7 @@
         ]
       },
       "get": {
-        "operationId": "get",
+        "operationId": "get_2",
         "parameters": [
           {
             "in": "path",
@@ -2999,7 +3134,7 @@
         ]
       },
       "put": {
-        "operationId": "update",
+        "operationId": "update_1",
         "parameters": [
           {
             "in": "path",
@@ -3689,7 +3824,7 @@
     },
     "/api/admin/results/{id}": {
       "delete": {
-        "operationId": "delete_5",
+        "operationId": "delete_6",
         "parameters": [
           {
             "in": "path",
@@ -3947,7 +4082,7 @@
     },
     "/api/admin/students/{regNo}": {
       "delete": {
-        "operationId": "delete_4",
+        "operationId": "delete_5",
         "parameters": [
           {
             "in": "path",
@@ -3992,7 +4127,7 @@
         ]
       },
       "get": {
-        "operationId": "list_1",
+        "operationId": "list_3",
         "parameters": [
           {
             "in": "query",
@@ -4023,7 +4158,7 @@
         ]
       },
       "post": {
-        "operationId": "create",
+        "operationId": "create_2",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4077,7 +4212,7 @@
     },
     "/api/admin/subjects/{id}": {
       "delete": {
-        "operationId": "delete_3",
+        "operationId": "delete_4",
         "parameters": [
           {
             "in": "path",
@@ -4140,6 +4275,274 @@
         },
         "tags": [
           "subject-controller"
+        ]
+      }
+    },
+    "/api/admission/applicants": {
+      "get": {
+        "operationId": "list_2",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "college",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": {},
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admission-controller"
+        ]
+      },
+      "post": {
+        "operationId": "create_1",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "college",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {},
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admission-controller"
+        ]
+      }
+    },
+    "/api/admission/applicants/{id}": {
+      "delete": {
+        "operationId": "delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admission-controller"
+        ]
+      },
+      "get": {
+        "operationId": "get_1",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admission-controller"
+        ]
+      },
+      "put": {
+        "operationId": "update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {},
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admission-controller"
+        ]
+      }
+    },
+    "/api/admission/applicants/{id}/documents/{kind}": {
+      "get": {
+        "operationId": "document",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "format": "byte",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admission-controller"
+        ]
+      },
+      "put": {
+        "operationId": "putDocument",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "admission-controller"
         ]
       }
     },
@@ -4331,6 +4734,99 @@
         },
         "tags": [
           "auth-controller"
+        ]
+      }
+    },
+    "/api/dean/mark-approvals": {
+      "get": {
+        "operationId": "list_7",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Overview"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "mark-approval-controller"
+        ]
+      }
+    },
+    "/api/dean/mark-approvals/{id}/approve": {
+      "post": {
+        "operationId": "approve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Item"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "mark-approval-controller"
+        ]
+      }
+    },
+    "/api/dean/mark-approvals/{id}/return": {
+      "post": {
+        "operationId": "returnToFaculty_1",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Item"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "mark-approval-controller"
         ]
       }
     },
@@ -4853,6 +5349,99 @@
         ]
       }
     },
+    "/api/hod/mark-approvals": {
+      "get": {
+        "operationId": "list_8",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Overview"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "mark-approval-controller"
+        ]
+      }
+    },
+    "/api/hod/mark-approvals/{id}/approve": {
+      "post": {
+        "operationId": "approve_1",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Item"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "mark-approval-controller"
+        ]
+      }
+    },
+    "/api/hod/mark-approvals/{id}/return": {
+      "post": {
+        "operationId": "returnToFaculty",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Item"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "mark-approval-controller"
+        ]
+      }
+    },
     "/api/hod/overview": {
       "get": {
         "operationId": "overview_1",
@@ -5034,6 +5623,205 @@
         },
         "tags": [
           "public-controller"
+        ]
+      }
+    },
+    "/api/question-papers": {
+      "get": {
+        "operationId": "list_1",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": {},
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "question-paper-controller"
+        ]
+      },
+      "post": {
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "question-paper-controller"
+        ]
+      }
+    },
+    "/api/question-papers/{id}": {
+      "get": {
+        "operationId": "get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "question-paper-controller"
+        ]
+      },
+      "put": {
+        "operationId": "resubmit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "question-paper-controller"
+        ]
+      }
+    },
+    "/api/question-papers/{id}/action": {
+      "post": {
+        "operationId": "act",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {},
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "question-paper-controller"
+        ]
+      }
+    },
+    "/api/question-papers/{id}/pdf": {
+      "get": {
+        "operationId": "pdf",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "format": "byte",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "question-paper-controller"
         ]
       }
     },

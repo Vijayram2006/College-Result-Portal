@@ -1,4 +1,16 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
+import {
+  SEMESTER_OPTIONS,
+  academicYearNow,
+  apiErrorMessage,
+  paperContent,
+  questionPaperAction,
+  readPdfFile,
+  resolvePdfUrl,
+  submitQuestionPaper,
+  usePdfUrl,
+  useQuestionPapers,
+} from "../services/questionPapersApi";
 import {
   FileText,
   CheckCircle2,
@@ -35,7 +47,6 @@ import {
   safeLoadQuestionPapers,
 } from "./dean/QuestionPaperReviewView";
 
-const STORAGE_KEY = "kvell_assoc_dean_question_papers";
 
 interface HodQuestionPaperScrutinyViewProps {
   department: string;
@@ -46,19 +57,27 @@ export const HodQuestionPaperScrutinyView: React.FC<HodQuestionPaperScrutinyView
   department,
   hodName,
 }) => {
-  const [papers, setPapers] = useState<QuestionPaperItem[]>(() => {
-    return safeLoadQuestionPapers();
-  });
+  // The server returns only this department's papers
+  const { papers, loading, error: loadError } = useQuestionPapers();
+  const [busy, setBusy] = useState(false);
+  const [subPdf, setSubPdf] = useState<{ fileName: string; dataUrl: string; fileSize: string } | null>(null);
 
   const [activeFilterTab, setActiveFilterTab] = useState<
     "pending" | "forwarded" | "approved" | "returned" | "all"
   >("pending");
   const [searchQuery, setSearchQuery] = useState("");
   const [successToast, setSuccessToast] = useState<string | null>(null);
-  const [pdfModalOpen, setPdfModalOpen] = useState<{
+  const [pdfModalOpen, setPdfModalState] = useState<{
     fileName: string;
     fileData: string;
   } | null>(null);
+  // Stored PDFs are fetched from the server when opened
+  const setPdfModalOpen = (v: { fileName: string; fileData: string } | null) => {
+    if (!v) return setPdfModalState(null);
+    resolvePdfUrl(v.fileData)
+      .then((url) => setPdfModalState({ ...v, fileData: url }))
+      .catch((e) => alert(apiErrorMessage(e, "Could not open the PDF.")));
+  };
 
   // Scrutiny Modal State (Stage 2 HOD Action)
   const [scrutinyPaper, setScrutinyPaper] = useState<QuestionPaperItem | null>(null);
@@ -85,51 +104,12 @@ export const HodQuestionPaperScrutinyView: React.FC<HodQuestionPaperScrutinyView
   const [sem, setSem] = useState("Semester VI");
   const [certified, setCertified] = useState(false);
 
-  const loadPapers = () => {
-    setPapers(safeLoadQuestionPapers());
-  };
-
-  useEffect(() => {
-    loadPapers();
-    window.addEventListener("kvell_qp_updated", loadPapers);
-    window.addEventListener("storage", loadPapers);
-    return () => {
-      window.removeEventListener("kvell_qp_updated", loadPapers);
-      window.removeEventListener("storage", loadPapers);
-    };
-  }, []);
-
-  const savePapers = (updated: QuestionPaperItem[]) => {
-    setPapers(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      window.dispatchEvent(new Event("kvell_qp_updated"));
-    } catch {}
-  };
-
-  // Filter papers for this department
-  const deptKey = department.toLowerCase().includes("computer")
-    ? "cse"
-    : department.toLowerCase().includes("intelligence")
-    ? "aids"
-    : department.toLowerCase().includes("biomedical")
-    ? "bme"
-    : department.toLowerCase().includes("communication")
-    ? "ece"
-    : "cse";
-
-  const deptPapers = useMemo(() => {
-    return papers.filter(
-      (p) =>
-        p.deptKey === deptKey ||
-        p.department?.toLowerCase().includes(department.toLowerCase()) ||
-        p.hodName?.toLowerCase().includes(hodName.toLowerCase())
-    );
-  }, [papers, deptKey, department, hodName]);
+  const deptPapers = papers;
+  const scrutinyPdfUrl = usePdfUrl(scrutinyPaper?.pdfAttachment?.fileData);
 
   // Breakdown categories
   const pendingHodPapers = useMemo(
-    () => deptPapers.filter((p) => p.status === "PENDING_HOD_REVIEW"),
+    () => deptPapers.filter((p) => p.status === "PENDING_HOD_REVIEW" || p.status === "RETURNED_TO_HOD"),
     [deptPapers]
   );
   const forwardedToAdPapers = useMemo(
@@ -197,293 +177,103 @@ export const HodQuestionPaperScrutinyView: React.FC<HodQuestionPaperScrutinyView
     setReturnRemarksInput("");
   };
 
-  // Stage 2 ➔ Stage 3: HOD approves and forwards to Associate Dean
-  const handleApproveAndForwardToAd = () => {
-    if (!scrutinyPaper) return;
-    if (
-      !dacSyllabusChecked ||
-      !dacBloomsChecked ||
-      !dacChoiceParityChecked ||
-      !dacPartCEvaluativeChecked
-    ) {
+  const toast = (msg: string) => {
+    setSuccessToast(msg);
+    setTimeout(() => setSuccessToast(null), 4500);
+  };
+
+  // Stage 2 ➔ Stage 3: HOD approves and forwards to the Associate Dean
+  const handleApproveAndForwardToAd = async () => {
+    if (!scrutinyPaper || busy) return;
+    if (!dacSyllabusChecked || !dacBloomsChecked || !dacChoiceParityChecked || !dacPartCEvaluativeChecked) {
       alert("Please complete and verify all 4 DAC scrutiny checklist requirements.");
       return;
     }
-
-    const now = new Date();
-    const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-
-    const updatedList = papers.map((p) => {
-      if (p.id !== scrutinyPaper.id) return p;
-
-      const updatedTrail: StageSignature[] = (p.hierarchyTrail || []).map((sig) => {
-        if (sig.stageNumber === 2) {
-          return {
-            ...sig,
-            status: "COMPLETED",
-            timestamp: `${dateStr}, ${timeStr}`,
-            sealOrReference: `HOD/${deptKey.toUpperCase()}/DAC-2026/${Date.now().toString().slice(-3)}`,
-            remarks: hodEndorsementNotes,
-          };
-        }
-        if (sig.stageNumber === 3) {
-          return {
-            ...sig,
-            status: "CURRENT",
-            timestamp: "Under Academic Scrutiny",
-            remarks: "Endorsed by HOD following DAC scrutiny. Awaiting Associate Dean academic clearance.",
-          };
-        }
-        return sig;
+    setBusy(true);
+    try {
+      const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      await questionPaperAction(scrutinyPaper, "APPROVE", {
+        remarks: hodEndorsementNotes.trim().slice(0, 500) || undefined,
+        hodDeclaration: { certifiedByHod: true, moderationDoneByDept: true, date, hodNote: hodEndorsementNotes.trim() },
       });
-
-      return {
-        ...p,
-        status: "PENDING_AD_REVIEW" as const,
-        currentStageNumber: 3 as const,
-        currentStageRole: "AD" as const,
-        forwardedToCoe: false,
-        hierarchyTrail: updatedTrail,
-        hodDeclaration: {
-          certifiedByHod: true,
-          moderationDoneByDept: true,
-          date: dateStr,
-          hodNote: hodEndorsementNotes,
-        },
-      };
-    });
-
-    savePapers(updatedList);
-    setScrutinyPaper(null);
-    setSuccessToast(
-      `Question Paper ${scrutinyPaper.subjectCode} approved by HOD and forwarded to Associate Dean (Stage 2 ➔ 3)!`
-    );
-    setTimeout(() => setSuccessToast(null), 4500);
+      toast(`Question Paper ${scrutinyPaper.subjectCode} approved and forwarded to the Associate Dean.`);
+      setScrutinyPaper(null);
+    } catch (e) {
+      alert(apiErrorMessage(e, "The paper could not be approved."));
+    } finally {
+      setBusy(false);
+    }
   };
 
-  // Stage 2 ➔ Stage 1: HOD returns paper to Faculty for revision
-  const handleReturnToFaculty = () => {
-    if (!scrutinyPaper) return;
-    if (!returnRemarksInput.trim()) {
-      alert("Please enter the specific revision notes or recommendations for the faculty member.");
+  // Stage 2 ➔ Stage 1: HOD returns the paper to the faculty member
+  const handleReturnToFaculty = async () => {
+    if (!scrutinyPaper || busy) return;
+    if (returnRemarksInput.trim().length < 5) {
+      alert("Please enter the revision notes for the faculty member (at least 5 characters).");
       return;
     }
-
-    const now = new Date();
-    const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-
-    const updatedList = papers.map((p) => {
-      if (p.id !== scrutinyPaper.id) return p;
-
-      const updatedTrail: StageSignature[] = (p.hierarchyTrail || []).map((sig) => {
-        if (sig.stageNumber === 2) {
-          return {
-            ...sig,
-            status: "RETURNED",
-            timestamp: `${dateStr}, ${timeStr}`,
-            remarks: returnRemarksInput,
-          };
-        }
-        if (sig.stageNumber === 1) {
-          return {
-            ...sig,
-            status: "CURRENT",
-            remarks: "Returned by HOD for revision.",
-          };
-        }
-        return sig;
-      });
-
-      return {
-        ...p,
-        status: "RETURNED_TO_FACULTY" as const,
-        currentStageNumber: 1 as const,
-        currentStageRole: "Faculty" as const,
-        adRemarks: `Returned by HOD (${hodName}): ${returnRemarksInput}`,
-        hierarchyTrail: updatedTrail,
-      };
-    });
-
-    savePapers(updatedList);
-    setScrutinyPaper(null);
-    setShowReturnPrompt(false);
-    setReturnRemarksInput("");
-    setSuccessToast(
-      `Question Paper ${scrutinyPaper.subjectCode} returned to Faculty with revision recommendations.`
-    );
-    setTimeout(() => setSuccessToast(null), 4500);
+    setBusy(true);
+    try {
+      await questionPaperAction(scrutinyPaper, "RETURN", { returnTo: "Faculty", remarks: returnRemarksInput.trim().slice(0, 500) });
+      toast(`Question Paper ${scrutinyPaper.subjectCode} returned to the faculty member with your notes.`);
+      setScrutinyPaper(null);
+      setShowReturnPrompt(false);
+      setReturnRemarksInput("");
+    } catch (e) {
+      alert(apiErrorMessage(e, "The paper could not be returned."));
+    } finally {
+      setBusy(false);
+    }
   };
 
-  // Direct paper submission by HOD to AD
-  const handleSubmitNewPaper = (e: React.FormEvent) => {
+  // The HOD's own paper goes straight to the Associate Dean
+  const handleSubmitNewPaper = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     if (!certified) {
       alert("Please certify that the paper has been verified by the Departmental Academic Committee (DAC).");
       return;
     }
-
-    const now = new Date();
-    const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-
-    const newPaper: QuestionPaperItem = {
-      id: `QP-${Date.now()}-${deptKey.toUpperCase()}-${subCode.toUpperCase()}`,
-      qpCode: `KVELL/ESE/2026/${subCode.toUpperCase()}-${qpSet.includes("A") ? "A" : "B"}`,
-      subjectCode: subCode.toUpperCase(),
-      subjectTitle: subTitle,
-      department: department,
-      deptKey: deptKey,
-      facultyName: `${hodName} (HOD & Course Chair)`,
-      hodName: hodName,
-      adName: "Dr. K. R. Ramanathan (Associate Dean - Academics)",
-      coeName: "Dr. N. Balasubramanian (Controller of Examinations)",
-      chiefCoeName: "Dr. Sathish (Chief COE & Super Administrator)",
-      currentStageNumber: 3,
-      currentStageRole: "AD",
-      semester: sem,
-      academicYear: "2025 - 2026",
-      regulation: "Regulation 2021 (Autonomous)",
-      examType: examType,
-      set: qpSet,
-      dateSubmitted: dateStr,
-      timeSubmitted: timeStr,
-      status: "PENDING_AD_REVIEW",
-      forwardedToCoe: false,
-      maxMarks: 100,
-      durationHours: 3,
-      syllabusCoverage: "100% (Units I to V)",
-      bloomsDistribution: {
-        rememberUnderstand: 30,
-        applyAnalyze: 50,
-        evaluateCreate: 20,
-      },
-      courseOutcomesCovered: ["CO1", "CO2", "CO3", "CO4", "CO5"],
-      hierarchyTrail: [
-        {
-          stageNumber: 1,
-          stageRole: "Faculty",
-          officerTitle: "Subject Instructor / HOD",
-          officerName: hodName,
-          status: "COMPLETED",
-          timestamp: `${dateStr}, ${timeStr}`,
-          sealOrReference: `HOD-DEPT-${subCode.toUpperCase()}`,
-          remarks: "Authored and DAC scrutinized by Department Head.",
-        },
-        {
-          stageNumber: 2,
-          stageRole: "HOD",
-          officerTitle: "Head of Department",
-          officerName: hodName,
-          status: "COMPLETED",
-          timestamp: `${dateStr}, ${timeStr}`,
-          sealOrReference: `HOD/${deptKey.toUpperCase()}/DAC-2026/099`,
-          remarks: `Certified by HOD (${hodName}). Question paper verified by DAC against Autonomous Regulation 2021 curriculum.`,
-        },
-        {
-          stageNumber: 3,
-          stageRole: "AD",
-          officerTitle: "Associate Dean (Academics)",
-          officerName: "Dr. K. R. Ramanathan",
-          status: "CURRENT",
-          timestamp: "Under Academic Scrutiny",
-          remarks: "Awaiting Associate Dean academic clearance.",
-        },
-        {
-          stageNumber: 4,
-          stageRole: "COE",
-          officerTitle: "Controller of Examinations",
-          officerName: "Dr. N. Balasubramanian",
-          status: "PENDING",
-        },
-        {
-          stageNumber: 5,
-          stageRole: "Chief COE",
-          officerTitle: "Chief University Controller",
-          officerName: "Dr. Sathish",
-          status: "PENDING",
-        },
-      ],
-      parts: {
-        partA: {
-          instructions: "Answer ALL Questions. (10 × 2 = 20 Marks)",
-          questions: [
-            { qNo: 1, text: `Define basic foundational axioms of ${subTitle}.`, co: "CO1", bloom: "K1 (Remember)", marks: 2 },
-            { qNo: 2, text: "Explain the standard architectural parameters and scaling limits.", co: "CO1", bloom: "K2 (Understand)", marks: 2 },
-            { qNo: 3, text: "Calculate the processing efficiency for given constraints.", co: "CO2", bloom: "K3 (Apply)", marks: 2 },
-            { qNo: 4, text: "List the core advantages of modular design paradigms.", co: "CO2", bloom: "K1 (Remember)", marks: 2 },
-            { qNo: 5, text: "Formulate the transformation matrix.", co: "CO3", bloom: "K2 (Understand)", marks: 2 },
-            { qNo: 6, text: "Explain the stability criteria and safety envelopes.", co: "CO3", bloom: "K2 (Understand)", marks: 2 },
-            { qNo: 7, text: "Differentiate synchronous from asynchronous implementations.", co: "CO4", bloom: "K2 (Understand)", marks: 2 },
-            { qNo: 8, text: "Define fault tolerance benchmarks in mission-critical deployments.", co: "CO4", bloom: "K1 (Remember)", marks: 2 },
-            { qNo: 9, text: "State the formal verification and runtime security guarantees.", co: "CO5", bloom: "K2 (Understand)", marks: 2 },
-            { qNo: 10, text: "Describe energy efficiency optimization strategies in embedded nodes.", co: "CO5", bloom: "K2 (Understand)", marks: 2 },
-          ],
-        },
-        partB: {
-          instructions: "Answer ALL Questions, choosing either (a) or (b). (5 × 13 = 65 Marks)",
-          questions: [
-            {
-              qNo: 11,
-              optionA: { text: `Derive mathematical formulations for core ${subTitle} algorithms.`, co: "CO1", bloom: "K4 (Analyze)", marks: 13 },
-              optionB: { text: "Analyze computational complexity and space efficiency tradeoffs.", co: "CO1", bloom: "K4 (Analyze)", marks: 13 },
-            },
-            {
-              qNo: 12,
-              optionA: { text: "Design an optimized processing pipeline with detailed architectural block diagram.", co: "CO2", bloom: "K4 (Analyze)", marks: 13 },
-              optionB: { text: "Compare industry standard benchmark implementations with experimental metrics.", co: "CO2", bloom: "K3 (Apply)", marks: 13 },
-            },
-            {
-              qNo: 13,
-              optionA: { text: "Formulate recovery protocols under cascading network failure conditions.", co: "CO3", bloom: "K4 (Analyze)", marks: 13 },
-              optionB: { text: "Detail error mitigation rubrics and validation methodologies.", co: "CO3", bloom: "K3 (Apply)", marks: 13 },
-            },
-            {
-              qNo: 14,
-              optionA: { text: "Construct an end-to-end telemetry architecture for distributed nodes.", co: "CO4", bloom: "K4 (Analyze)", marks: 13 },
-              optionB: { text: "Analyze resource allocation algorithms under bursty workloads.", co: "CO4", bloom: "K3 (Apply)", marks: 13 },
-            },
-            {
-              qNo: 15,
-              optionA: { text: "Examine security threat surfaces and formal verification guarantees.", co: "CO5", bloom: "K4 (Analyze)", marks: 13 },
-              optionB: { text: "Detail deployment architectures on edge-cloud hybrid topologies.", co: "CO5", bloom: "K3 (Apply)", marks: 13 },
-            },
-          ],
-        },
-        partC: {
-          instructions: "Answer the Comprehensive / Evaluative Question. (1 × 15 = 15 Marks)",
-          questions: [
-            {
-              qNo: 16,
-              text: `You are designated as Chief Systems Architect for KVELL Innovation Labs. Design a production-grade ${subTitle} platform capable of serving 500,000 real-time concurrent requests while satisfying strict latency and security constraints. (a) Specify the full system architecture. (b) Formulate the performance evaluation criteria. (c) Address disaster recovery and automated failover.`,
-              co: "CO5",
-              bloom: "K6 (Create)",
-              marks: 15,
-              rubricHint: "Comprehensive system architecture design (6M), latency evaluation (5M), failover strategy (4M).",
-            },
-          ],
-        },
-      },
-      hodDeclaration: {
-        certifiedByHod: true,
-        moderationDoneByDept: true,
-        date: dateStr,
-        hodNote: `Certified by HOD (${hodName}). Question paper verified by DAC against Autonomous Regulation 2021 curriculum.`,
-      },
-    };
-
-    savePapers([newPaper, ...papers]);
-    setShowDirectSubmitModal(false);
-    setSubCode("");
-    setSubTitle("");
-    setCertified(false);
-    setSuccessToast(`Question Paper ${newPaper.subjectCode} submitted to Associate Dean for Academic Review!`);
-    setTimeout(() => setSuccessToast(null), 4000);
+    if (!subPdf) {
+      alert("Please attach the question paper PDF.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      const saved = await submitQuestionPaper({
+        subjectCode: subCode.trim(),
+        subjectTitle: subTitle.trim(),
+        semester: sem,
+        academicYear: academicYearNow(),
+        regulation: "Regulation 2021",
+        examType,
+        set: qpSet,
+        content: paperContent({
+          hodDeclaration: { certifiedByHod: true, moderationDoneByDept: true, date, hodNote: "Certified by the HOD after DAC moderation." },
+        }),
+        pdf: { fileName: subPdf.fileName, dataUrl: subPdf.dataUrl },
+      });
+      setShowDirectSubmitModal(false);
+      setSubCode("");
+      setSubTitle("");
+      setSubPdf(null);
+      setCertified(false);
+      toast(`Question Paper ${saved.subjectCode} submitted to the Associate Dean for review.`);
+    } catch (err) {
+      alert(apiErrorMessage(err, "The paper could not be submitted."));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <div className="bg-white rounded-[2.25rem] p-6 sm:p-9 shadow-sm border border-slate-200 space-y-6">
+      {(loading || loadError) && (
+        <div role="status" className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${loadError ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+          {loadError || "Loading question papers..."}
+        </div>
+      )}
       {/* Toast Notification */}
       {successToast && (
         <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 font-bold text-xs flex items-center gap-2 animate-in fade-in">
@@ -632,7 +422,7 @@ export const HodQuestionPaperScrutinyView: React.FC<HodQuestionPaperScrutinyView
           </div>
         ) : (
           displayPapers.map((paper) => {
-            const isPendingHod = paper.status === "PENDING_HOD_REVIEW";
+            const isPendingHod = paper.status === "PENDING_HOD_REVIEW" || paper.status === "RETURNED_TO_HOD";
             const isPendingAd = paper.status === "PENDING_AD_REVIEW";
             const isPendingCoe = paper.status === "PENDING_COE_REVIEW";
             const isPendingChiefCoe = paper.status === "PENDING_CHIEF_COE";
@@ -932,7 +722,7 @@ export const HodQuestionPaperScrutinyView: React.FC<HodQuestionPaperScrutinyView
                   </button>
 
                   <a
-                    href={scrutinyPaper.pdfAttachment.fileData}
+                    href={scrutinyPdfUrl || undefined}
                     download={scrutinyPaper.pdfAttachment.fileName}
                     className="px-3 py-1.5 rounded-xl bg-white border border-blue-200 text-blue-900 font-bold text-xs hover:bg-blue-100 transition flex items-center gap-1 cursor-pointer"
                   >
@@ -1162,12 +952,35 @@ export const HodQuestionPaperScrutinyView: React.FC<HodQuestionPaperScrutinyView
                   onChange={(e) => setSem(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 font-semibold focus:outline-none"
                 >
-                  <option>Semester VI</option>
-                  <option>Semester IV</option>
-                  <option>Semester V</option>
-                  <option>Semester VII</option>
-                  <option>Semester VIII</option>
+                  {SEMESTER_OPTIONS.map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Question paper (PDF, at most 15 MB)
+                </label>
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  required
+                  onChange={(e) => {
+                    const input = e.target;
+                    const file = input.files?.[0];
+                    if (!file) return setSubPdf(null);
+                    readPdfFile(file)
+                      .then(setSubPdf)
+                      .catch((err: Error) => {
+                        alert(err.message);
+                        input.value = "";
+                        setSubPdf(null);
+                      });
+                  }}
+                  className="w-full text-xs"
+                />
+                {subPdf && <p className="mt-1 text-[11px] text-slate-500">{subPdf.fileName} ({subPdf.fileSize})</p>}
               </div>
 
               <label className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50/70 border border-amber-200 cursor-pointer text-amber-950">
@@ -1192,9 +1005,10 @@ export const HodQuestionPaperScrutinyView: React.FC<HodQuestionPaperScrutinyView
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-white font-black shadow"
+                  disabled={busy}
+                  className="px-5 py-2.5 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-white font-black shadow disabled:opacity-60"
                 >
-                  Submit to Associate Dean
+                  {busy ? "Submitting..." : "Submit to Associate Dean"}
                 </button>
               </div>
             </form>

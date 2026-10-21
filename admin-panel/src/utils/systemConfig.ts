@@ -56,6 +56,8 @@ export interface SystemConfig {
     revaluationWindow: RevaluationGatewayConfig;
   };
   institutionalLocks: Record<CollegeKey, CollegeLockConfig>;
+  /** Approvals forwarded marks need before the college COE may publish them (both off: Faculty -> COE). */
+  markApproval?: { hodApproval: boolean; deanApproval: boolean };
   gradingRegulations: {
     engineering: GradingRegulationConfig;
     nursing: GradingRegulationConfig;
@@ -89,6 +91,7 @@ export const DEFAULT_SYSTEM_CONFIG: SystemConfig = {
     nursing: { locked: false, resultsLive: true, freezeSubmissions: false },
     pharmacy: { locked: false, resultsLive: true, freezeSubmissions: false },
   },
+  markApproval: { hodApproval: false, deanApproval: false },
   gradingRegulations: {
     engineering: { regulation: "", passMinInternal: 0, passMinExternal: 0, passMinTotal: 40, scaleDescription: "" },
     nursing: { regulation: "", passMinInternal: 0, passMinExternal: 0, passMinTotal: 40, scaleDescription: "" },

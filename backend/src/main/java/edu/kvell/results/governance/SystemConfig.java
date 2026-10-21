@@ -9,7 +9,14 @@ import java.util.Map;
  */
 public record SystemConfig(String systemMode, String lastUpdated, String updatedBy, AcademicSession academicSession,
                            Gateways gateways, Map<String, CollegeLock> institutionalLocks,
-                           GradingRegulations gradingRegulations) {
+                           GradingRegulations gradingRegulations, MarkApproval markApproval) {
+
+    /**
+     * Approvals forwarded marks need before the college COE may publish them: the department's HOD, then the
+     * college's Associate Dean. Both off (the default) keeps the original Faculty -> COE flow.
+     */
+    public record MarkApproval(boolean hodApproval, boolean deanApproval) {
+    }
 
     /** OPERATIONAL, MAINTENANCE (student portal closed) or EMERGENCY_LOCK (every portal and COE change closed). */
     public static final java.util.Set<String> MODES = java.util.Set.of("OPERATIONAL", "MAINTENANCE", "EMERGENCY_LOCK");
@@ -72,6 +79,6 @@ public record SystemConfig(String systemMode, String lastUpdated, String updated
                         new FacultyGateway(true, "", "Mark submission window is open for the current evaluation.",
                                 true, true),
                         new RevaluationGateway(false, "", 400)),
-                locks, actualGrading());
+                locks, actualGrading(), new MarkApproval(false, false));
     }
 }

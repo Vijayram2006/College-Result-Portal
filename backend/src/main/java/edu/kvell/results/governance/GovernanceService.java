@@ -48,7 +48,7 @@ public class GovernanceService {
         // Grading is fixed by the server until the college confirms its rules; a stored copy never overrides it
         return new SystemConfig(config.systemMode(), config.lastUpdated(), config.updatedBy(),
                 config.academicSession(), config.gateways(), withAllColleges(config.institutionalLocks()),
-                SystemConfig.actualGrading());
+                SystemConfig.actualGrading(), markApproval(config));
     }
 
     /** Applies a partial change (same shape as the configuration), validates it, saves it and records it. */
@@ -61,7 +61,7 @@ public class GovernanceService {
         validate(requested);
         SystemConfig saved = new SystemConfig(requested.systemMode(), OffsetDateTime.now(ZONE).toString(),
                 user.name() + " (" + user.username() + ")", requested.academicSession(), requested.gateways(),
-                withAllColleges(requested.institutionalLocks()), SystemConfig.actualGrading());
+                withAllColleges(requested.institutionalLocks()), SystemConfig.actualGrading(), markApproval(requested));
         db.sql("""
                         INSERT INTO system_config (id, config, updated_by, updated_at) VALUES (1, CAST(? AS jsonb), ?, now())
                         ON CONFLICT (id) DO UPDATE SET config = EXCLUDED.config, updated_by = EXCLUDED.updated_by,
@@ -120,6 +120,15 @@ public class GovernanceService {
         }
         String coe = coeLockReason(college);
         return coe == null ? null : coe.replace("This college is locked", "Mark entry for this college is locked");
+    }
+
+    /** Which approvals forwarded marks need before they may be published. */
+    public SystemConfig.MarkApproval markApproval() {
+        return markApproval(current());
+    }
+
+    private static SystemConfig.MarkApproval markApproval(SystemConfig c) {
+        return c.markApproval() == null ? new SystemConfig.MarkApproval(false, false) : c.markApproval();
     }
 
     /** Whether faculty may change Part A (internal) / Part B + C (external) marks. */

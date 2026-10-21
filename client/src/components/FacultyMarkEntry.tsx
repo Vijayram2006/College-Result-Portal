@@ -287,6 +287,14 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
 
   // Gateways and locks set by the Super Admin, from the result server (which refuses locked saves itself)
   const systemConfig = useSystemConfig() as any;
+  // The approval chain set by the Chief COE: Faculty -> [HOD] -> [Associate Dean] -> COE
+  const chainSteps = [
+    systemConfig?.markApproval?.hodApproval ? "HOD" : null,
+    systemConfig?.markApproval?.deanApproval ? "Associate Dean" : null,
+    "COE",
+  ].filter(Boolean) as string[];
+  const firstReviewer = chainSteps[0];
+  const chainText = ["Faculty", ...chainSteps].join(" ➔ ");
 
   // The college comes from the faculty member's login (the server uses the same one)
   const activeColKey = String(me?.collegeKey || getActiveFacultyCollege()).toLowerCase();
@@ -760,7 +768,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
       <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
           <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-widest inline-block mb-2">
-            FACULTY PORTAL • STAGE 1 EVALUATION HUB (FACULTY ➔ HOD ➔ AD ➔ COE ➔ CHIEF COE)
+            FACULTY PORTAL • MARK ENTRY ({chainText.toUpperCase()})
           </span>
           <h2 className="font-display text-2xl font-bold flex items-center gap-3">
             <PenLine className="text-[#D4A72C]" size={26} />
@@ -777,29 +785,29 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
               {batchStatusInfo.status === "PUBLISHED" ? (
                 <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-bold text-xs shadow">
                   <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
-                  <span>STAGE 5: OFFICIALLY PUBLISHED BY CHIEF COE</span>
+                  <span>PUBLISHED BY THE CONTROLLER OF EXAMINATIONS</span>
                 </div>
               ) : batchStatusInfo.status === "VALIDATED" ? (
                 <div className="flex items-center gap-2.5">
                   <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-300 font-bold text-xs shadow">
                     <Clock size={15} className="text-amber-400 shrink-0 animate-pulse" />
-                    <span>IN GOVERNANCE PIPELINE (HOD ➔ AD ➔ COE)</span>
+                    <span>FORWARDED: WAITING FOR {chainSteps.join(" ➔ ").toUpperCase()}</span>
                   </div>
                   <button
                     onClick={handleForwardToCOE}
                     className="px-4 py-2.5 rounded-xl bg-[#D4A72C] hover:bg-[#b08014] text-[#0B192C] font-extrabold text-xs transition shadow flex items-center gap-2 active:scale-95"
-                    title="Re-forward updated student evaluation marks to HOD"
+                    title={`Forward the updated marks again (${chainText})`}
                   >
-                    <Send size={14} /> Re-Submit to HOD
+                    <Send size={14} /> Forward again to {firstReviewer}
                   </button>
                 </div>
               ) : (
                 <button
                   onClick={handleForwardToCOE}
                   className="px-5 py-3 rounded-xl bg-[#2E7D5B] hover:bg-emerald-700 text-white font-extrabold text-xs transition shadow flex items-center gap-2 active:scale-95"
-                  title="Hierarchy: 1. Faculty ➔ 2. HOD ➔ 3. Associate Dean ➔ 4. COE ➔ 5. Chief COE"
+                  title={`Approval chain set by the Chief COE: ${chainText}`}
                 >
-                  <Send size={16} /> Submit Marks to HOD [Stage 1 ➔ 2]
+                  <Send size={16} /> Forward Marks to {firstReviewer}
                 </button>
               )}
             </>

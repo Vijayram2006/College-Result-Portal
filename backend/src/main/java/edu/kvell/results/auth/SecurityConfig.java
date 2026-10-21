@@ -50,6 +50,17 @@ public class SecurityConfig {
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
                         .requestMatchers("/api/super-admin/**").hasRole("SUPER_ADMIN")
+                        // The Associate Dean / Dean reads the college's data (never writes it through these routes)
+                        .requestMatchers(HttpMethod.GET, "/api/admin/dashboard", "/api/admin/departments",
+                                "/api/admin/subjects", "/api/admin/students", "/api/admin/results",
+                                "/api/admin/marks", "/api/admin/marks/all", "/api/admin/publish/status",
+                                "/api/admin/answer-scripts", "/api/admin/answer-scripts/file",
+                                "/api/admin/internal-marks", "/api/admin/internal-marks/history",
+                                "/api/admin/internal-scheme", "/api/admin/revaluation",
+                                // the faculty list only; a faculty member's full record (with Aadhaar) stays with the COE
+                                "/api/admin/faculty-master").hasAnyRole("ADMIN", "DEAN")
+                        .requestMatchers("/api/dean/**").hasRole("DEAN")
+                        .requestMatchers("/api/admission/**").hasAnyRole("ADMISSION", "SUPER_ADMIN")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/hod/**").hasRole("HOD")
                         .requestMatchers("/api/student/**").hasRole("STUDENT")

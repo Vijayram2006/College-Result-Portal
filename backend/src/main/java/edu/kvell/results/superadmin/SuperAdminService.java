@@ -67,7 +67,10 @@ public class SuperAdminService {
             "nursing", "Karpaga Vinayaga College of Nursing",
             "pharmacy", "Karpaga Vinayaga Institute for Pharmaceutical Sciences");
     private static final Set<String> OFFICER_ROLES =
-            Set.of("SUPER_ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY", "DEPUTY_COE");
+            Set.of("SUPER_ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY", "DEPUTY_COE", "ASSOCIATE_DEAN",
+                    "DEAN", "ADMISSION_OFFICER");
+    /** Officer kinds that belong to one chosen college (the COE kinds carry the college in their name). */
+    private static final Set<String> COLLEGE_CHOSEN = Set.of("DEPUTY_COE", "ASSOCIATE_DEAN", "DEAN", "ADMISSION_OFFICER");
     /** Tables shown on the storage tab (fixed list, so the names can be used in SQL). */
     private static final Map<String, String> TABLES = new LinkedHashMap<>();
 
@@ -103,14 +106,17 @@ public class SuperAdminService {
         return db.sql("""
                         SELECT id, username, display_name, email, role, college_key, officer_title, enabled,
                                last_login_at, must_change_password, totp_enabled
-                        FROM users WHERE role IN ('SUPER_ADMIN', 'ADMIN')
+                        FROM users WHERE role IN ('SUPER_ADMIN', 'ADMIN', 'DEAN', 'ADMISSION')
                         ORDER BY (role = 'SUPER_ADMIN') DESC, college_key, (officer_title IS NOT NULL), username
                         """)
                 .query((rs, n) -> {
                     String role = rs.getString("role");
                     String college = rs.getString("college_key");
+                    String title = rs.getString("officer_title");
                     String shown = "SUPER_ADMIN".equals(role) ? "SUPER_ADMIN"
-                            : "DEPUTY_COE".equals(rs.getString("officer_title")) ? "DEPUTY_COE"
+                            : "DEAN".equals(role) ? (title == null ? "ASSOCIATE_DEAN" : title)
+                            : "ADMISSION".equals(role) ? "ADMISSION_OFFICER"
+                            : "DEPUTY_COE".equals(title) ? "DEPUTY_COE"
                             : "COE_" + (college == null ? "ENGINEERING" : college.toUpperCase(Locale.ROOT));
                     OffsetDateTime last = rs.getObject("last_login_at", OffsetDateTime.class);
                     return new Officer(String.valueOf(rs.getLong("id")), rs.getString("display_name"),
@@ -171,11 +177,18 @@ public class SuperAdminService {
             throw ApiException.conflict("The username " + username + " is already taken");
         }
 
-        String dbRole = "SUPER_ADMIN".equals(role) ? "SUPER_ADMIN" : "ADMIN";
-        String college = switch (role) {
-            case "SUPER_ADMIN" -> null;
-            case "DEPUTY_COE" -> college(req.collegeKey());
-            default -> role.substring("COE_".length()).toLowerCase(Locale.ROOT);
+        String dbRole = switch (role) {
+            case "SUPER_ADMIN" -> "SUPER_ADMIN";
+            case "ASSOCIATE_DEAN", "DEAN" -> "DEAN";
+            case "ADMISSION_OFFICER" -> "ADMISSION";
+            default -> "ADMIN";
+        };
+        String college = "SUPER_ADMIN".equals(role) ? null
+                : COLLEGE_CHOSEN.contains(role) ? college(req.collegeKey())
+                : role.substring("COE_".length()).toLowerCase(Locale.ROOT);
+        String title = switch (role) {
+            case "DEPUTY_COE", "ASSOCIATE_DEAN", "DEAN" -> role;
+            default -> null;
         };
         // The Super Admin chooses the starting password, so the officer must replace it at first sign-in
         db.sql("""
@@ -184,7 +197,7 @@ public class SuperAdminService {
                         VALUES (?, ?, ?, ?, ?, ?, ?, TRUE)
                         """)
                 .params(username, encoder.encode(password), dbRole, name, email.isEmpty() ? null : email, college,
-                        "DEPUTY_COE".equals(role) ? "DEPUTY_COE" : null)
+                        title)
                 .update();
         audit.record(by.username(), by.name(), "PROVISIONED_OFFICER", username,
                 "Created " + role + " account " + username + " (" + name + ")"
@@ -228,7 +241,7 @@ public class SuperAdminService {
 
     private Map<String, Object> officer(long id) {
         List<Map<String, Object>> rows = db.sql(
-                        "SELECT id, username, role FROM users WHERE id = ? AND role IN ('SUPER_ADMIN', 'ADMIN')")
+                        "SELECT id, username, role FROM users WHERE id = ? AND role IN ('SUPER_ADMIN', 'ADMIN', 'DEAN', 'ADMISSION')")
                 .param(id).query().listOfRows();
         if (rows.isEmpty()) throw notFound();
         return rows.getFirst();
@@ -240,7 +253,7 @@ public class SuperAdminService {
 
     private static String college(String key) {
         String k = key == null ? "" : key.trim().toLowerCase(Locale.ROOT);
-        if (!Departments.COLLEGES.contains(k)) throw ApiException.badRequest("Choose the deputy's college");
+        if (!Departments.COLLEGES.contains(k)) throw ApiException.badRequest("Choose the officer's college");
         return k;
     }
 

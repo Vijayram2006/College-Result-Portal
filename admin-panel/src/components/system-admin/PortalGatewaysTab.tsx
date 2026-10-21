@@ -352,6 +352,54 @@ export const PortalGatewaysTab: React.FC<PortalGatewaysTabProps> = ({
                 </label>
               </div>
             </div>
+
+            <div className="mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+              <span className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                Approval of forwarded marks before the COE publishes
+              </span>
+                <label className="flex items-start gap-2 cursor-pointer text-xs font-semibold text-[#0B192C]">
+                  <input
+                    type="checkbox"
+                    checked={formData.markApproval?.hodApproval ?? false}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        markApproval: Object.assign(
+                          { hodApproval: false, deanApproval: false },
+                          formData.markApproval,
+                          { hodApproval: e.target.checked }
+                        ),
+                      })
+                    }
+                    className="mt-0.5 rounded text-[#0B192C] focus:ring-0"
+                  />
+                  <span>
+                    HOD approval
+                    <span className="block text-[10px] font-normal text-slate-500">The department's HOD approves each forwarded subject.</span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 cursor-pointer text-xs font-semibold text-[#0B192C]">
+                  <input
+                    type="checkbox"
+                    checked={formData.markApproval?.deanApproval ?? false}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        markApproval: Object.assign(
+                          { hodApproval: false, deanApproval: false },
+                          formData.markApproval,
+                          { deanApproval: e.target.checked }
+                        ),
+                      })
+                    }
+                    className="mt-0.5 rounded text-[#0B192C] focus:ring-0"
+                  />
+                  <span>
+                    Associate Dean approval
+                    <span className="block text-[10px] font-normal text-slate-500">The college's Associate Dean approves it (after the HOD, when both are on).</span>
+                  </span>
+                </label>
+            </div>
           </div>
 
           <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">

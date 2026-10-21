@@ -32,6 +32,7 @@ import { adminAuthApi } from "../services/api";
 import { getActiveCollege, isSuperAdmin, SUPER_ADMIN_CONFIG } from "../utils/rbac";
 import { UNIVERSITY_BAR_HEIGHT } from "./Navbar";
 import { safeLoadQuestionPapers } from "../data/questionPapersData";
+import { refreshQuestionPapers } from "../services/questionPapersApi";
 
 const kvellSealLogo = "/kvell-logo.png";
 
@@ -57,6 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
       setQpCounts({ pendingCoe, pendingChief });
     };
     updateCounts();
+    void refreshQuestionPapers();
     window.addEventListener("kvell_qp_updated", updateCounts);
     window.addEventListener("storage", updateCounts);
     return () => {

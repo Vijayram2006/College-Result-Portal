@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class NotificationService {
 
-    public enum Audience { COE, HOD, FACULTY, STUDENT }
+    public enum Audience { COE, HOD, FACULTY, STUDENT, DEAN }
 
     public record Item(long id, String title, String message, String link, String createdAt, boolean read) {
     }
@@ -28,13 +28,13 @@ public class NotificationService {
         this.db = db;
     }
 
-    /** Sends a notification to an audience of one department (deptKey) or, for the COE, of the department's college. */
+    /** Sends a notification to an audience of one department (deptKey) or, for the COE and the Associate Dean, of the department's college. */
     public void notify(Audience audience, String deptKey, Integer semester, String title, String message, String link) {
         db.sql("""
                         INSERT INTO notifications (college_key, audience, dept_key, semester, title, message, link)
                         SELECT d.college_key, ?, ?, ?, ?, ?, ? FROM departments d WHERE d.dept_key = ?
                         """)
-                .params(audience.name(), audience == Audience.COE ? null : deptKey, semester, title, message, link,
+                .params(audience.name(), audience == Audience.COE || audience == Audience.DEAN ? null : deptKey, semester, title, message, link,
                         deptKey)
                 .update();
     }
@@ -90,6 +90,8 @@ public class NotificationService {
     private static String target(CurrentUser user) {
         return switch (user.role()) {
             case SUPER_ADMIN, ADMIN -> " n.audience = 'COE' AND n.college_key = :college ";
+            case DEAN -> " n.audience = 'DEAN' AND n.college_key = :college ";
+            case ADMISSION -> " FALSE ";
             case HOD -> " n.audience = 'HOD' AND n.dept_key = :dept ";
             case FACULTY -> " n.audience = 'FACULTY' AND n.dept_key = :dept ";
             case STUDENT -> """
