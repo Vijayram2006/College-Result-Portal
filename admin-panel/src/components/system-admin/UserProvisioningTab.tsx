@@ -34,8 +34,22 @@ const RevealButton: React.FC<{ shown: boolean; onToggle: () => void }> = ({ show
   </button>
 );
 
-/** "College COE" or "Deputy COE" for a chosen college; "All colleges" makes a Super Admin. */
-type OfficerKind = "COE" | "DEPUTY_COE";
+/**
+ * For a chosen college: the college COE, a Deputy COE, the Associate Dean or Dean (question paper review, approval
+ * of forwarded marks, read-only results) or the admission officer; "All colleges" makes a Super Admin.
+ */
+type OfficerKind = "COE" | "DEPUTY_COE" | "ASSOCIATE_DEAN" | "DEAN" | "ADMISSION_OFFICER";
+
+const ROLE_LABEL: Record<string, string> = {
+  SUPER_ADMIN: "Chief COE (Super Admin)",
+  COE_ENGINEERING: "COE · Engineering",
+  COE_NURSING: "COE · Nursing",
+  COE_PHARMACY: "COE · Pharmacy",
+  DEPUTY_COE: "Deputy COE",
+  ASSOCIATE_DEAN: "Associate Dean",
+  DEAN: "Dean",
+  ADMISSION_OFFICER: "Admission Officer",
+};
 
 export const UserProvisioningTab: React.FC = () => {
   const [officers, setOfficers] = useState<OfficerUser[]>([]);
@@ -102,7 +116,7 @@ export const UserProvisioningTab: React.FC = () => {
     }
     const college = newUser.collegeKey || "engineering";
     const role =
-      college === "all" ? "SUPER_ADMIN" : newKind === "DEPUTY_COE" ? "DEPUTY_COE" : `COE_${String(college).toUpperCase()}`;
+      college === "all" ? "SUPER_ADMIN" : newKind === "COE" ? `COE_${String(college).toUpperCase()}` : newKind;
     setBusy(true);
     try {
       const created = await superAdminApi.createOfficer({
@@ -167,7 +181,7 @@ export const UserProvisioningTab: React.FC = () => {
             className="px-4 py-2.5 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-[#D4A72C] font-extrabold text-xs flex items-center gap-2 shadow-md transition"
           >
             <UserPlus size={16} />
-            <span>Provision New COE Account</span>
+            <span>Provision New Officer Account</span>
           </button>
         </div>
       </div>
@@ -243,7 +257,7 @@ export const UserProvisioningTab: React.FC = () => {
                     </td>
 
                     <td className="py-4 px-5">
-                      <span className="font-bold text-[#0B192C] block">{user.role}</span>
+                      <span className="font-bold text-[#0B192C] block">{ROLE_LABEL[user.role] ?? user.role}</span>
                       <span className="text-[10px] text-slate-500 font-semibold">{user.departmentScope}</span>
                     </td>
 
@@ -392,6 +406,9 @@ export const UserProvisioningTab: React.FC = () => {
                       <>
                         <option value="COE">Controller of Examinations</option>
                         <option value="DEPUTY_COE">Deputy COE</option>
+                        <option value="ASSOCIATE_DEAN">Associate Dean</option>
+                        <option value="DEAN">Dean</option>
+                        <option value="ADMISSION_OFFICER">Admission Officer</option>
                       </>
                     )}
                   </select>

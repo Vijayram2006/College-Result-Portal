@@ -837,7 +837,7 @@ export interface OfficerAccount {
   name: string;
   username: string;
   email: string;
-  role: "SUPER_ADMIN" | "COE_ENGINEERING" | "COE_NURSING" | "COE_PHARMACY" | "DEPUTY_COE";
+  role: "SUPER_ADMIN" | "COE_ENGINEERING" | "COE_NURSING" | "COE_PHARMACY" | "DEPUTY_COE" | "ASSOCIATE_DEAN" | "DEAN" | "ADMISSION_OFFICER";
   collegeKey: CollegeKey | "all";
   status: "ACTIVE" | "SUSPENDED";
   lastLogin: string;
