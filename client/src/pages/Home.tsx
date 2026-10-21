@@ -18,6 +18,7 @@ import { AssociateDeanDashboard } from "../components/AssociateDeanDashboard";
 import { INITIAL_QUESTION_PAPERS, QuestionPaperReviewView, safeLoadQuestionPapers } from "../components/dean/QuestionPaperReviewView";
 import { FacultyQuestionPaperView } from "../components/FacultyQuestionPaperView";
 import { MarkApprovalsView } from "../components/MarkApprovalsView";
+import { PortalShell } from "../components/PortalShell";
 import { HodQuestionPaperScrutinyView } from "../components/HodQuestionPaperScrutinyView";
 import type { LucideIcon } from "lucide-react";
 import { HodAnalytics } from "../components/hodAnalytics/HodAnalytics";
@@ -1385,180 +1386,46 @@ function HodPortalDashboard({
   }));
 
   return (
-    <div className="min-h-screen bg-[#F8F5EE] text-[#172033] font-sans flex flex-col justify-between selection:bg-[#D4A72C] selection:text-[#0B192C]">
-      {/* Top Banner Bar */}
-      <div className="bg-[#060D17] text-white border-b border-[#D4A72C]/20 text-[11px] py-2 px-4 sm:px-10 flex flex-wrap items-center justify-between gap-2 z-50">
-        <div className="flex items-center gap-2">
-          <span className="bg-[#D4A72C] text-[#0B192C] font-extrabold text-[10px] px-2.5 py-0.5 rounded tracking-wider uppercase shadow-sm">
-            # OFFICIAL PORTAL
-          </span>
-          <span className="text-slate-300 font-medium">
-            <PublicationNotice />
-          </span>
-        </div>
-
-        <div className="hidden sm:flex items-center gap-3 text-slate-400 text-[11px] font-semibold">
-          <span>AICTE & UGC Approved</span>
-          <span>•</span>
-          <span className="text-[#D4A72C]">NAAC A++ Accredited</span>
-        </div>
-      </div>
-
-      {/* Main Header Navbar */}
-      <header className="bg-white border-b border-[#E5E1D8] relative sm:sticky top-0 z-40 shadow-sm">
-        <div className="w-full px-4 sm:px-10 py-3 flex flex-wrap items-center justify-between gap-4">
-          {/* Logo & Title */}
-          <div className="flex items-center gap-4">
-            <img
-              src={kvellSealLogo}
-              alt="KVELL Seal"
-              className="h-12 w-12 sm:h-14 sm:w-14 object-contain rounded-full shadow-md p-0.5 bg-white border-2 border-[#D4A72C]/40"
-            />
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-base sm:text-xl tracking-tight text-[#0B192C]">
-                  KVELL DEEMED TO BE UNIVERSITY
-                </span>
-                <span className="hidden sm:inline-block bg-slate-100 text-slate-700 text-[10px] font-extrabold px-2 py-0.5 rounded border border-slate-200">
-                  ESTD. 2001
-                </span>
-              </div>
-              <p className="text-[11px] sm:text-xs font-bold text-[#8A6410] tracking-wider uppercase mt-0.5">
-                ENGINEERING AND EMERGING SCIENCES • RESULT & GRADE PORTAL
-              </p>
-            </div>
-          </div>
-
-          {/* Center Component Navigation Tabs & COE Admin Switcher */}
-          {/* Phones: a 2 x 2 grid of tabs with the COE link below, so nothing runs off the screen */}
-          <div className="grid grid-cols-2 sm:flex w-full sm:w-auto items-center gap-1.5 sm:gap-2 bg-[#F8F5EE] p-1.5 rounded-2xl border border-[#E5E1D8]">
-            <button
-              onClick={() => setActiveTab("dashboard")}
-              className={`flex-1 sm:flex-none justify-center whitespace-nowrap px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
-                activeTab === "dashboard"
-                  ? "bg-[#0B192C] text-white shadow-md"
-                  : "text-slate-600 hover:bg-white hover:text-slate-900"
-              }`}
-            >
-              <BarChart3 size={15} className={`hidden sm:block ${activeTab === "dashboard" ? "text-[#D4A72C]" : "text-slate-500"}`} />
-              Dashboard
-            </button>
-            <button
-              onClick={() => setActiveTab("analytics")}
-              className={`flex-1 sm:flex-none justify-center whitespace-nowrap px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
-                activeTab === "analytics"
-                  ? "bg-[#0B192C] text-white shadow-md"
-                  : "text-slate-600 hover:bg-white hover:text-slate-900"
-              }`}
-            >
-              <PieChart size={15} className={`hidden sm:block ${activeTab === "analytics" ? "text-[#D4A72C]" : "text-slate-500"}`} />
-              Analytics
-            </button>
-            <button
-              onClick={() => setActiveTab("internals")}
-              className={`flex-1 sm:flex-none justify-center whitespace-nowrap px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
-                activeTab === "internals"
-                  ? "bg-[#0B192C] text-white shadow-md"
-                  : "text-slate-600 hover:bg-white hover:text-slate-900"
-              }`}
-            >
-              <ClipboardCheck size={15} className={`hidden sm:block ${activeTab === "internals" ? "text-[#D4A72C]" : "text-slate-500"}`} />
-              Internals
-            </button>
-            <button
-              onClick={() => setActiveTab("studentResult")}
-              className={`flex-1 sm:flex-none justify-center whitespace-nowrap px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
-                activeTab === "studentResult"
-                  ? "bg-[#0B192C] text-white shadow-md"
-                  : "text-slate-600 hover:bg-white hover:text-slate-900"
-              }`}
-            >
-              <Users size={15} className={`hidden sm:block ${activeTab === "studentResult" ? "text-[#D4A72C]" : "text-slate-500"}`} />
-              Student Result
-            </button>
-            <button
-              onClick={() => setActiveTab("questionPapers")}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
-                activeTab === "questionPapers"
-                  ? "bg-[#0B192C] text-white shadow-md"
-                  : "text-slate-600 hover:bg-white hover:text-slate-900"
-              }`}
-            >
-              <FileCheck size={15} className={activeTab === "questionPapers" ? "text-[#D4A72C]" : "text-slate-500"} />
-              Question Papers
-              {pendingFacultyQpCount > 0 && (
-                <span className="bg-amber-400 text-slate-950 font-black px-1.5 py-0.5 rounded-full text-[10px]">
-                  {pendingFacultyQpCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab("markApprovals")}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 ${
-                activeTab === "markApprovals"
-                  ? "bg-[#0B192C] text-white shadow-md"
-                  : "text-slate-600 hover:bg-white hover:text-slate-900"
-              }`}
-            >
-              <CheckSquare size={15} className={activeTab === "markApprovals" ? "text-[#D4A72C]" : "text-slate-500"} />
-              Mark Approvals
-            </button>
-            
-            <a
-              href={ADMIN_PANEL_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="col-span-2 justify-center px-3.5 py-2 rounded-xl text-xs font-black text-[#0B192C] bg-[#D4A72C]/20 hover:bg-[#D4A72C]/40 border border-[#D4A72C]/50 transition flex items-center gap-1.5 shadow-sm"
-              title="Open Controller of Examinations Admin Panel"
-            >
-              <ExternalLink size={14} className="text-[#0B192C]" />
-              {/* Shown on phones too (the link has a row of its own there); only small tablets keep the icon alone */}
-              <span className="sm:hidden md:inline">COE Portal</span>
-            </a>
-          </div>
-
-          {/* Right HOD Info & Logout */}
-          <div className="flex w-full sm:w-auto sm:ml-auto items-center justify-end gap-3 sm:gap-4">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-extrabold text-[#0B192C]">{hodName}</p>
-              <p className="text-[11px] font-bold text-[#8A6410] tracking-wider uppercase">HOD - {department}</p>
-            </div>
-            {/* The HOD's notifications: forwarded marks, question papers waiting for scrutiny */}
-            <NotificationBell
-              onLink={(link) =>
-                link === "mark-approvals" ? setActiveTab("markApprovals")
-                  : link === "question-paper" ? setActiveTab("questionPapers") : undefined
-              }
-            />
-            <button
-              onClick={() => window.dispatchEvent(new Event("kvell:open-profile-edit"))}
-              className="bg-white hover:bg-slate-50 text-[#0B192C] border border-slate-300 text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition"
-              title="Edit profile"
-            >
-              <UserRound size={14} />
-              <span className="hidden md:inline">Profile</span>
-            </button>
-            <button
-              onClick={() => window.dispatchEvent(new Event("kvell:open-change-password"))}
-              className="bg-white hover:bg-slate-50 text-[#0B192C] border border-slate-300 text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition"
-              title="Change password"
-            >
-              <KeyRound size={14} />
-              <span className="hidden md:inline">Password</span>
-            </button>
-            <button
-              onClick={onLogout}
-              className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition whitespace-nowrap"
-            >
-              <LogOut size={14} />
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Body Layout Container - Enlarged to Full Window Width */}
-      <main className="w-full px-4 sm:px-10 py-8 space-y-8 flex-1">
+    <PortalShell
+      navItems={[
+        { key: "dashboard", label: "Dashboard", icon: BarChart3 },
+        { key: "analytics", label: "Analytics", icon: PieChart },
+        { key: "internals", label: "Internals", icon: ClipboardCheck },
+        { key: "studentResult", label: "Student Result", icon: Users },
+        { key: "questionPapers", label: "Question Papers", icon: FileCheck, badge: pendingFacultyQpCount },
+        { key: "markApprovals", label: "Mark Approvals", icon: CheckSquare },
+      ]}
+      active={activeTab}
+      onNavigate={(k) => setActiveTab(k as typeof activeTab)}
+      sidebarSubtitle={(authApi.currentUser()?.collegeKey ?? "engineering").toUpperCase()}
+      workspaceLabel="HOD Workspace"
+      workspaceDetail={department}
+      userName={hodName}
+      userSub={`HOD · ${department}`}
+      bannerTag={`HOD PORTAL · ${department}`}
+      bannerTitle={authApi.currentUser()?.collegeName ?? "KVELL University"}
+      bannerSubtitle="Department results, internal marks, question paper scrutiny and approval of forwarded marks"
+      bannerUser={hodName}
+      bannerUserSub={authApi.currentUser()?.username ?? ""}
+      onBellLink={(link) =>
+        link === "mark-approvals" ? setActiveTab("markApprovals")
+          : link === "question-paper" ? setActiveTab("questionPapers") : undefined
+      }
+      onLogout={onLogout}
+      navFooter={
+        <a
+          href={ADMIN_PANEL_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#D4A72C] border border-[#D4A72C]/40 hover:bg-white/10 transition"
+          title="Open the Controller of Examinations panel"
+        >
+          <ExternalLink size={16} />
+          <span>COE Portal</span>
+        </a>
+      }
+    >
+      <div className="space-y-8">
         {/* Dark Hero Welcome Card */}
         <div className="bg-[#0B192C] text-white rounded-[2rem] p-7 sm:p-9 shadow-2xl border border-white/10 relative overflow-hidden flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="space-y-2 z-10">
@@ -1770,15 +1637,8 @@ function HodPortalDashboard({
           /* Tab: question papers submitted by the department's faculty */
           <HodQuestionPapersView department={department} hodName={hodName} />
         )}
-      </main>
-
-      {/* Footer */}
-      <footer className="bg-[#060D17] border-t border-white/10 text-slate-400 text-xs py-4 text-center font-medium">
-        <p>© 2026 KVELL University. All Rights Reserved. Controller of Examinations Result Portal.</p>
-        <p className="mt-1 opacity-80">Results shown online are provisional; the marksheet issued by the Controller of Examinations is the official record. Support: Office of the Controller of Examinations.</p>
-        <p className="mt-1 space-x-3"><a className="underline" href="/privacy.html">Privacy policy</a><a className="underline" href="/terms.html">Terms of use</a><a className="underline" href="/status.html">System status</a></p>
-      </footer>
-    </div>
+      </div>
+    </PortalShell>
   );
 }
 
@@ -3988,10 +3848,10 @@ function LoginPage({
               <span>FACULTY OF ENGINEERING & EMERGING SCIENCES</span>
             </div>
             <div>
-              <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+              <h1 className="font-display text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
                 Academic Portal
               </h1>
-              <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight text-[#D4A72C] leading-tight mt-1">
+              <h1 className="font-display text-4xl lg:text-5xl font-extrabold tracking-tight text-[#D4A72C] leading-tight mt-1">
                 Kvell University
               </h1>
             </div>
@@ -4568,119 +4428,29 @@ function StudentDashboard({
   const publicAnnouncement = systemConfig?.gateways?.studentResultPortal?.announcement;
 
   return (
-    <div className="min-h-screen bg-[#F8F5EE] text-[#172033] font-sans flex flex-col justify-between selection:bg-[#D4A72C] selection:text-[#0B192C]">
-      {/* Top Banner Bar */}
-      <div className="bg-[#060D17] text-white border-b border-[#D4A72C]/20 text-[11px] py-2 px-4 sm:px-10 flex flex-wrap items-center justify-between gap-2 z-50">
-        <div className="flex items-center gap-2">
-          <span className="bg-[#D4A72C] text-[#0B192C] font-extrabold text-[10px] px-2.5 py-0.5 rounded tracking-wider uppercase shadow-sm">
-            # OFFICIAL PORTAL
-          </span>
-          <span className="text-slate-300 font-medium">
-            {publicAnnouncement || <PublicationNotice />}
-          </span>
-        </div>
-
-        <div className="hidden sm:flex items-center gap-3 text-slate-400 text-[11px] font-semibold">
-          <span>AICTE & UGC Approved</span>
-          <span>•</span>
-          <span className="text-[#D4A72C]">NAAC A++ Accredited Engineering Faculty</span>
-        </div>
-      </div>
-
-      {/* Main Header Navbar */}
-      <header className="bg-white border-b border-[#E5E1D8] relative sm:sticky top-0 z-40 shadow-sm">
-        <div className="w-full px-4 sm:px-10 py-3 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <img
-              src={kvellSealLogo}
-              alt="KVELL University Seal"
-              className="h-12 w-12 sm:h-14 sm:w-14 object-contain rounded-full shadow-md p-0.5 bg-white border-2 border-[#D4A72C]/40"
-            />
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-base sm:text-xl tracking-tight text-[#0B192C]">
-                  KVELL DEEMED TO BE UNIVERSITY
-                </span>
-                <span className="hidden sm:inline-block bg-slate-100 text-slate-700 text-[10px] font-extrabold px-2 py-0.5 rounded border border-slate-200">
-                  ESTD. 2001
-                </span>
-              </div>
-              <p className="text-[11px] sm:text-xs font-bold text-[#8A6410] tracking-wider uppercase mt-0.5">
-                ENGINEERING AND EMERGING SCIENCES • STUDENT PORTAL
-              </p>
-            </div>
-          </div>
-
-          {/* Navigation Module Switcher Tabs */}
-          <div className="flex w-full sm:w-auto items-center gap-1 sm:gap-1.5 bg-[#F8F5EE] border border-slate-200 p-1.5 rounded-2xl shadow-inner">
-            <button
-              onClick={() => setActiveTab("dashboard")}
-              className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap px-2 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition duration-150 ${activeTab === "dashboard"
-                  ? "bg-[#0B192C] text-white shadow-md"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-                }`}
-            >
-              <LayoutDashboard size={16} className={activeTab === "dashboard" ? "text-[#D4A72C]" : ""} />
-              Dashboard
-            </button>
-            <button
-              onClick={() => setActiveTab("result")}
-              className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap px-2 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition duration-150 ${activeTab === "result"
-                  ? "bg-[#0B192C] text-white shadow-md"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-                }`}
-            >
-              <FileText size={16} className={activeTab === "result" ? "text-[#D4A72C]" : ""} />
-              Result
-            </button>
-            <button
-              onClick={() => setActiveTab("internals")}
-              className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap px-2 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition duration-150 ${activeTab === "internals"
-                  ? "bg-[#0B192C] text-white shadow-md"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-                }`}
-            >
-              <ClipboardCheck size={16} className={`hidden sm:block ${activeTab === "internals" ? "text-[#D4A72C]" : ""}`} />
-              Internals
-            </button>
-            <button
-              onClick={() => setActiveTab("subjects")}
-              className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap px-2 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition duration-150 ${activeTab === "subjects"
-                  ? "bg-[#0B192C] text-white shadow-md"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-                }`}
-            >
-              <BookOpen size={16} className={activeTab === "subjects" ? "text-[#D4A72C]" : ""} />
-              My Subjects
-            </button>
-          </div>
-
-          <div className="flex w-full sm:w-auto sm:ml-auto items-center justify-between sm:justify-start gap-3 sm:gap-4">
-            {/* Static Current Semester Display Badge */}
-            <div className="flex items-center gap-2 bg-[#F8F5EE] border border-slate-300 rounded-xl px-2.5 sm:px-3.5 py-1.5 shadow-sm text-xs font-extrabold text-[#0B192C]">
-              <span className="hidden sm:inline">Current Semester:</span>
-              <span className="bg-[#0B192C] text-[#D4A72C] px-2.5 py-0.5 rounded-lg font-black text-xs tracking-wide whitespace-nowrap">
-                Semester {semRoman} ({semOrdinal} Sem)
-              </span>
-            </div>
-
-            <NotificationBell onLink={(link) => link === "result" && setActiveTab("result")} />
-
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-extrabold text-[#0B192C]">{studentName}</p>
-              <p className="text-xs font-bold text-slate-500">Register: {studentReg}</p>
-            </div>
-            <button
-              onClick={onLogout}
-              className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm transition whitespace-nowrap"
-            >
-              <LogOut size={14} />
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </header>
-
+    <PortalShell
+      navItems={[
+        { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { key: "result", label: "Result", icon: FileText },
+        { key: "internals", label: "Internals", icon: ClipboardCheck },
+        { key: "subjects", label: "My Subjects", icon: BookOpen },
+      ]}
+      active={activeTab}
+      onNavigate={(k) => setActiveTab(k as typeof activeTab)}
+      sidebarSubtitle="Student Portal"
+      workspaceLabel="Student Workspace"
+      workspaceDetail={`Semester ${semRoman} (${semOrdinal} Sem) · Register ${studentReg}`}
+      userName={studentName}
+      userSub={`Register: ${studentReg}`}
+      bannerTag={`STUDENT PORTAL · SEMESTER ${semRoman}`}
+      bannerTitle="KVELL Deemed to be University"
+      bannerSubtitle="Examination results, internal marks and registered subjects"
+      bannerUser={studentName}
+      bannerUserSub={studentReg}
+      onBellLink={(link) => (link === "result" ? setActiveTab("result") : undefined)}
+      accountButtons={false}
+      onLogout={onLogout}
+    >
       {/* Interactive Toast Banner */}
       {notificationMsg && (
         <div className="bg-[#0B192C] text-[#D4A72C] py-3 px-6 text-center text-xs sm:text-sm font-extrabold border-b border-[#D4A72C]/30 flex items-center justify-center gap-2 shadow-md">
@@ -4690,7 +4460,7 @@ function StudentDashboard({
       )}
 
       {/* Main Container - Enlarged to full window max-w-7xl */}
-      <main className="flex-1 py-8 px-4 sm:px-8 lg:px-12 flex justify-center items-start w-full">
+      <div className="flex justify-center items-start w-full">
         {activeTab === "dashboard" ? (
           /* Dashboard Module: Enlarged Credentials Card */
           <div className="w-full max-w-7xl space-y-6">
@@ -5418,15 +5188,8 @@ function StudentDashboard({
 
           </div>
         )}
-      </main>
-
-      {/* Footer */}
-      <footer className="bg-[#060D17] border-t border-white/10 text-slate-400 text-xs py-5 text-center font-medium">
-        <p>© 2026 KVELL University. All Rights Reserved. Controller of Examinations Result Portal.</p>
-        <p className="mt-1 opacity-80">Results shown online are provisional; the marksheet issued by the Controller of Examinations is the official record. Support: Office of the Controller of Examinations.</p>
-        <p className="mt-1 space-x-3"><a className="underline" href="/privacy.html">Privacy policy</a><a className="underline" href="/terms.html">Terms of use</a><a className="underline" href="/status.html">System status</a></p>
-      </footer>
-    </div>
+      </div>
+    </PortalShell>
   );
 }
 

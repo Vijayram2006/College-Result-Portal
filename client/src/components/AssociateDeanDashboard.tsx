@@ -73,6 +73,7 @@ import { refreshQuestionPapers } from "../services/questionPapersApi";
 import { authApi } from "../services/api";
 import { MarkApprovalsView } from "./MarkApprovalsView";
 import { NotificationBell } from "./NotificationBell";
+import { FacultyBanner } from "./FacultyBanner";
 
 export interface AssociateDeanDashboardProps {
   onLogout: () => void;
@@ -753,8 +754,8 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
       >
         <div>
           {/* Top Brand Header */}
-          <div className="p-4 border-b border-white/10 flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="px-5 h-[5.5rem] lg:h-[7.5rem] box-border border-b-4 border-[#D4A72C] flex items-center justify-between">
+            <div className="flex min-w-0 items-center gap-3">
               <img
                 src="/kvell-logo.png"
                 alt="KVELL UNIVERSITY"
@@ -950,28 +951,6 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                     <span>Revaluation Requests</span>
                   </button>
 
-                  {/* Question Paper Review (HOD Submissions) */}
-                  <button
-                    onClick={() => {
-                      setActiveNav("question-paper-review");
-                      setMobileSidebarOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left ${
-                      activeNav === "question-paper-review"
-                        ? "bg-[#D4A72C] text-[#0B192C] font-bold"
-                        : "text-white/70 hover:text-white hover:bg-white/5"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <CheckSquare size={14} />
-                      <span>Question Paper Review</span>
-                    </div>
-                    {pendingQpCount > 0 && (
-                      <span className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-amber-400 text-slate-950">
-                        {pendingQpCount}
-                      </span>
-                    )}
-                  </button>
                 </div>
               )}
             </div>
@@ -1068,104 +1047,24 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 min-w-0 lg:pl-72 min-h-screen flex flex-col">
         {/* Mobile Top App Bar */}
-        <div className="lg:hidden bg-[#0B192C] text-white px-4 py-3 border-b border-[#D4A72C]/20 flex items-center justify-between sticky top-0 z-30">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setMobileSidebarOpen(true)}
-              className="p-1.5 rounded-lg bg-white/10 text-white"
-            >
-              <Menu size={20} />
-            </button>
-            <span className="text-xs font-black tracking-wide text-white uppercase">
-              Karpaga Vinayaga Portal
-            </span>
-          </div>
-          <NotificationBell
-            onLink={(link) =>
-              link === "question-paper" ? setActiveNav("question-paper-review")
-                : link === "mark-approvals" ? setActiveNav("mark-approvals") : undefined
-            }
-          />
-        </div>
+        {/* The same navy college banner as every other portal */}
+        <FacultyBanner
+          collegeName={myCollegeName}
+          logoUrl="/kvell-logo.png"
+          userName={myName}
+          username={me?.username ?? ""}
+          tag={`OFFICE OF THE ${myTitle.toUpperCase()}`}
+          subtitle="Question paper review, approval of forwarded marks and the college's results (read only)"
+          onBellLink={(link) =>
+            link === "question-paper" ? setActiveNav("question-paper-review")
+              : link === "mark-approvals" ? setActiveNav("mark-approvals") : undefined
+          }
+          onOpenMenu={() => setMobileSidebarOpen(true)}
+          onBack={activeNav !== "dashboard" ? () => setActiveNav("dashboard") : undefined}
+        />
 
         {/* Body Container */}
         <div className="p-4 sm:p-6 lg:p-8 space-y-7 max-w-[1600px] w-full mx-auto">
-          {/* TOP BANNER WITH SEAL & KYRO TIGER MASCOT - Exactly matching screenshot */}
-          <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-7 shadow-xl border border-[#D4A72C]/30 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            {/* Left: Seal Logo + Badges + College Title */}
-            <div className="relative z-10 flex items-center gap-4 sm:gap-5 max-w-3xl">
-              <img
-                src="/engineering-logo.png"
-                alt="College Seal"
-                className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-white p-1 border-2 border-[#D4A72C] shrink-0 object-contain shadow-lg"
-              />
-              <div>
-                <span className="bg-[#EAB308] text-[#0B192C] text-[10px] font-black uppercase px-2.5 py-0.5 rounded tracking-widest inline-block mb-1.5 shadow-sm">
-                  OFFICE OF THE {myTitle.toUpperCase()}
-                </span>
-                <h1 className="font-display text-xl sm:text-2xl font-black text-white leading-tight">
-                  {myCollegeName}
-                </h1>
-                <p className="text-xs text-[#D4A72C] font-semibold mt-1">
-                  {activeNav === "student-data"
-                    ? "Student Data"
-                    : activeNav === "internal-marks"
-                    ? "Internal Marks"
-                    : activeNav === "answer-scripts"
-                    ? "Answer Scripts"
-                    : activeNav === "published-results"
-                    ? "Published Examination Results"
-                    : activeNav === "revaluation"
-                    ? "Revaluation Requests"
-                    : activeNav === "question-paper-review"
-                    ? "Question Paper Review & COE Forwarding"
-                    : activeNav === "departments"
-                    ? "Departments"
-                    : activeNav === "subjects"
-                    ? "Subjects"
-                    : activeNav === "faculty"
-                    ? "Faculty"
-                    : activeNav === "analytics"
-                    ? "Department Pass Rates"
-                    : activeNav === "mark-approvals"
-                    ? "Approval of Forwarded Marks"
-                    : "Overview"}
-                </p>
-              </div>
-
-              {/* Tiger Mascot standing on the right edge of title */}
-              <div className="hidden xl:block shrink-0 -my-4 ml-2">
-                <img
-                  src="/kyro-standing.png"
-                  alt="Kyro Mascot"
-                  className="h-28 object-contain drop-shadow-xl select-none pointer-events-none"
-                />
-              </div>
-            </div>
-
-            {/* Right: Bell Icon & Profile Badge */}
-            <div className="flex items-center gap-4 relative z-10 self-end md:self-center">
-              {/* The Associate Dean's notifications from the server (on phones the top bar has the bell) */}
-              <div className="hidden lg:block">
-                <NotificationBell
-                  onLink={(link) =>
-                    link === "question-paper" ? setActiveNav("question-paper-review")
-                      : link === "mark-approvals" ? setActiveNav("mark-approvals") : undefined
-                  }
-                />
-              </div>
-
-              {/* Profile Card */}
-              <div className="text-right">
-                <p className="text-xs font-extrabold text-white leading-tight">
-                  {myName}
-                </p>
-                <span className="text-[9px] font-black text-white/60 uppercase tracking-widest block">
-                  {myTitle}
-                </span>
-              </div>
-            </div>
-          </div>
 
           {/* Every view reads the college's real data from the server (read only) */}
           {activeNav === "dashboard" && <DeanOverview onNavigate={setActiveNav} pendingQpCount={pendingQpCount} />}

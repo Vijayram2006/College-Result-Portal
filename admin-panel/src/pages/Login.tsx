@@ -135,7 +135,37 @@ export const Login: React.FC = () => {
         <div className="pointer-events-none absolute right-10 -bottom-28 h-[400px] w-[400px] rounded-full border border-[#D4A72C]/10" />
         <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#D4A72C]/5 blur-3xl rounded-full" />
 
-        <div className="max-w-md w-full mx-auto relative z-10 flex justify-center">
+        <div className="max-w-6xl w-full mx-auto relative z-10 grid lg:grid-cols-2 gap-10 items-center">
+          {/* Left Hero Column (same layout as the student / HOD portal sign-in) */}
+          <div className="hidden lg:flex flex-col justify-center space-y-6 max-w-lg">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 text-[#D4A72C] text-xs font-extrabold w-fit border border-[#D4A72C]/30 shadow-sm">
+              <span>CONTROLLER OF EXAMINATIONS</span>
+            </div>
+            <div>
+              <h1 className="font-display text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+                Examination Control
+              </h1>
+              <h1 className="font-display text-4xl lg:text-5xl font-extrabold tracking-tight text-[#D4A72C] leading-tight mt-1">
+                Kvell University
+              </h1>
+            </div>
+            <p className="text-slate-300 text-sm leading-relaxed font-medium">
+              Publish results, manage marks, question papers and portal settings for the Engineering, Nursing and Pharmacy colleges. Every COE account is protected by two-step sign-in.
+            </p>
+            <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 shadow-sm">
+                <p className="text-2xl font-black text-[#D4A72C]">3 Colleges</p>
+                <p className="text-xs text-slate-300 font-bold mt-0.5">Engineering, Nursing, Pharmacy</p>
+              </div>
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 shadow-sm">
+                <p className="text-2xl font-black text-[#D4A72C]">2-Step</p>
+                <p className="text-xs text-slate-300 font-bold mt-0.5">Sign-in for every COE account</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Card Column */}
+          <div className="w-full flex justify-center">
           <div className="bg-white text-[#172033] rounded-[2.25rem] p-7 sm:p-9 shadow-2xl border border-white/20 w-full relative">
               
               {/* Seal Logo inside Card */}
@@ -346,12 +376,14 @@ export const Login: React.FC = () => {
               </div>
 
           </div>
+          </div>
         </div>
       </section>
 
       {/* Footer */}
       <footer className="bg-[#060D17] border-t border-white/10 text-slate-400 text-xs py-4 text-center font-medium">
-        <p>© 2026 KVELL University. All Rights Reserved. Controller of Examinations Result Portal.</p>
+        <p>© 2026 KVELL University. All Rights Reserved. Controller of Examinations Portal.</p>
+        <p className="mt-1 opacity-80">Support: Office of the Controller of Examinations.</p>
       </footer>
     </div>
   );

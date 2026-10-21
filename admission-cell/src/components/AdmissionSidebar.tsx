@@ -54,21 +54,19 @@ export const AdmissionSidebar: React.FC<SidebarProps> = ({
       >
         <div>
           {/* Header Brand */}
-          <div className="p-4 border-b border-white/10 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-xl bg-white flex items-center justify-center p-1 shadow-md border-2 border-[#D4A72C] shrink-0 overflow-hidden">
-                <img
-                  src={college.logoUrl}
-                  alt={college.name}
-                  className="h-full w-full object-contain"
-                />
-              </div>
-              <div className="overflow-hidden">
-                <span className="font-cinzel font-black text-xs tracking-wider text-white block truncate uppercase">
-                  {college.portalTitle}
+          <div className="px-5 h-[5.5rem] lg:h-[7.5rem] box-border border-b-4 border-[#D4A72C] flex items-center justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <img
+                src="/kvell-logo.png"
+                alt="KVELL UNIVERSITY"
+                className="h-10 w-10 object-contain rounded-full bg-white p-0.5 border border-[#D4A72C]/40 shadow-sm shrink-0"
+              />
+              <div className="min-w-0 flex-1">
+                <span className="text-xs font-black tracking-wide text-white block truncate uppercase">
+                  KVELL UNIVERSITY
                 </span>
-                <span className="text-[10px] font-extrabold text-[#D4A72C] tracking-wide uppercase block truncate">
-                  {college.shortName} Admissions • Code {college.code}
+                <span className="mt-0.5 text-[11px] font-bold text-[#D4A72C] tracking-wider uppercase block truncate">
+                  {college.shortName} Admissions
                 </span>
               </div>
             </div>

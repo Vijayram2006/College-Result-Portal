@@ -10,6 +10,11 @@ interface FacultyBannerProps {
   onOpenMenu: () => void;
   /** Shown on every page except the dashboard. */
   onBack?: () => void;
+  /** The gold tag line and the description under the college name (default: the faculty portal's). */
+  tag?: string;
+  subtitle?: string;
+  /** Where a notification's link leads (e.g. to the HOD's Mark Approvals tab). */
+  onBellLink?: (link: string) => void;
 }
 
 /**
@@ -17,7 +22,17 @@ interface FacultyBannerProps {
  * Affairs" tag, college name, portal line), kept at the top of every page. The sidebar's logo block is the same
  * height (h-[7.5rem] on large screens) so the gold rule runs straight across.
  */
-export const FacultyBanner: React.FC<FacultyBannerProps> = ({ collegeName, logoUrl, userName, username, onOpenMenu, onBack }) => (
+export const FacultyBanner: React.FC<FacultyBannerProps> = ({
+  collegeName,
+  logoUrl,
+  userName,
+  username,
+  onOpenMenu,
+  onBack,
+  tag = "OFFICE OF ACADEMIC AFFAIRS · FACULTY PORTAL",
+  subtitle = "Academic Course Administration, Continuous Internal Assessment & Marks Portal",
+  onBellLink,
+}) => (
   <header className="sticky top-0 z-30 bg-linear-to-r from-[#0B192C] via-[#0F223D] to-[#132A4A] text-white border-b-4 border-[#D4A72C] shadow-lg box-border min-h-[5.5rem] lg:h-[7.5rem]">
     <div className="flex h-full items-center justify-between gap-2 sm:gap-4 px-3 sm:px-6 lg:px-8 py-3">
       <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
@@ -45,17 +60,17 @@ export const FacultyBanner: React.FC<FacultyBannerProps> = ({ collegeName, logoU
         />
         <div className="min-w-0">
           <div className="hidden sm:inline-flex items-center gap-2 rounded-md bg-[#D4A72C]/20 border border-[#D4A72C]/40 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-[#D4A72C]">
-            <span>OFFICE OF ACADEMIC AFFAIRS · FACULTY PORTAL</span>
+            <span>{tag}</span>
           </div>
           <h1 className="sm:mt-1.5 text-sm sm:text-xl lg:text-2xl font-black text-white tracking-tight leading-snug">{collegeName}</h1>
           <p className="mt-0.5 hidden sm:block truncate text-xs lg:text-sm text-slate-300 font-semibold">
-            Academic Course Administration, Continuous Internal Assessment &amp; Marks Portal
+            {subtitle}
           </p>
         </div>
       </div>
 
       <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-        <NotificationBell />
+        <NotificationBell onLink={onBellLink} />
         <div className="hidden xl:block text-right pl-3 border-l border-white/20">
           <span className="block text-xs font-bold text-white whitespace-nowrap">{userName}</span>
           <span className="block text-[10px] font-mono text-white/60">{username}</span>

@@ -1,6 +1,53 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* KVELL design tokens: identical in the portal, the COE admin panel and the admission cell (keep them in sync) */
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "DM Sans", "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-kvell-navy: #0B192C;
+  --color-kvell-gold: #D4A72C;
+  --color-kvell-ink: #172033;
+  --color-kvell-paper: #F8F5EE;
+}
+
+@layer base {
+  body {
+    background-color: #F8F5EE;
+    color: #172033;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: #D4A72C;
+    color: #0B192C;
+  }
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F8F5EE;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* The apps have their own show-password button: hide Edge's built-in one */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+/* end of KVELL design tokens */
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -60,7 +107,7 @@ body {
   min-height: 100vh;
   background: #F8F5EE;
   color: #172033;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 /* In the base layer so Tailwind utilities (text-xs, font-black, ...) on buttons and inputs win over it */
@@ -70,7 +117,6 @@ body {
 }
 button:focus-visible, input:focus-visible { outline: 3px solid rgba(212, 167, 44, .3); outline-offset: 2px; }
 
-.font-display { font-family: 'DM Sans', sans-serif; }
 .portal-grid {
   background-image: linear-gradient(rgba(11, 25, 44, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(11, 25, 44, .035) 1px, transparent 1px);
   background-size: 28px 28px;
@@ -106,9 +152,3 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(212, 167, 44
   background-size: 28px 28px;
 }
 .login-shell input::selection { background: rgba(212, 167, 44, .25); }
-
-/* The apps have their own show-password button: hide Edge's built-in one */
-input::-ms-reveal,
-input::-ms-clear {
-  display: none;
-}

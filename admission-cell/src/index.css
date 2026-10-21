@@ -1,22 +1,30 @@
 @import "tailwindcss";
 
+/* KVELL design tokens: identical in the portal, the COE admin panel and the admission cell (keep them in sync) */
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "DM Sans", "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-kvell-navy: #0B192C;
+  --color-kvell-gold: #D4A72C;
+  --color-kvell-ink: #172033;
+  --color-kvell-paper: #F8F5EE;
+}
+
 @layer base {
   body {
     background-color: #F8F5EE;
     color: #172033;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: #D4A72C;
+    color: #0B192C;
   }
 }
 
-.font-cinzel {
-  font-family: 'Cinzel', Georgia, serif;
-}
-
-.font-mono-code {
-  font-family: 'JetBrains Mono', monospace;
-}
-
-/* Custom Scrollbars */
+/* Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -30,6 +38,22 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94A3B8;
+}
+
+/* The apps have their own show-password button: hide Edge's built-in one */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+/* end of KVELL design tokens */
+
+/* Headings the admission cell marks as "cinzel" use the shared display font */
+.font-cinzel {
+  font-family: var(--font-display);
+}
+
+.font-mono-code {
+  font-family: var(--font-mono);
 }
 
 /* Smooth print style for Admission Confirmation Letter */
@@ -49,10 +73,4 @@
     padding: 20px;
     background: white;
   }
-}
-
-/* The apps have their own show-password button: hide Edge's built-in one */
-input::-ms-reveal,
-input::-ms-clear {
-  display: none;
 }

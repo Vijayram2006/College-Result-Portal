@@ -1,12 +1,30 @@
 @import "tailwindcss";
 
-body {
-  background-color: #F8F5EE;
-  color: #172033;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+/* KVELL design tokens: identical in the portal, the COE admin panel and the admission cell (keep them in sync) */
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "DM Sans", "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-kvell-navy: #0B192C;
+  --color-kvell-gold: #D4A72C;
+  --color-kvell-ink: #172033;
+  --color-kvell-paper: #F8F5EE;
 }
 
-/* Custom Scrollbar for Admin Tables */
+@layer base {
+  body {
+    background-color: #F8F5EE;
+    color: #172033;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: #D4A72C;
+    color: #0B192C;
+  }
+}
+
+/* Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -27,3 +45,4 @@ input::-ms-reveal,
 input::-ms-clear {
   display: none;
 }
+/* end of KVELL design tokens */

@@ -44,8 +44,8 @@ export const AdmissionNavbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-[#0B192C] text-white border-b border-[#D4A72C]/30 shadow-md">
-      <div className="px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <header className="sticky top-0 z-30 bg-linear-to-r from-[#0B192C] via-[#0F223D] to-[#132A4A] text-white border-b-4 border-[#D4A72C] shadow-lg box-border min-h-[5.5rem] lg:h-[7.5rem]">
+      <div className="px-3 sm:px-6 lg:px-8 h-full py-3 flex items-center justify-between gap-3">
         {/* Left: Mobile trigger & Portal Branding */}
         <div className="flex items-center gap-3">
           {setMobileOpen && (
@@ -58,25 +58,21 @@ export const AdmissionNavbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
-          <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-xl bg-white flex items-center justify-center p-1 shadow-md border-2 border-[#D4A72C] overflow-hidden shrink-0">
-              <img
-                src={college.logoUrl}
-                alt={college.name}
-                className="h-full w-full object-contain"
-              />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-cinzel font-bold text-sm tracking-wide text-white uppercase hidden sm:inline">
-                  {college.portalTitle}
-                </span>
-                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-[#D4A72C] text-[#0B192C]">
-                  CODE {college.code}
-                </span>
+          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+            <img
+              src={college.logoUrl}
+              alt={college.name}
+              className="h-12 w-12 sm:h-16 sm:w-16 lg:h-20 lg:w-20 rounded-full bg-white p-1 border-2 border-[#D4A72C] object-contain shadow-lg shrink-0"
+            />
+            <div className="min-w-0">
+              <div className="hidden sm:inline-flex items-center gap-2 rounded-md bg-[#D4A72C]/20 border border-[#D4A72C]/40 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-[#D4A72C]">
+                <span>{college.portalTitle} · CODE {college.code}</span>
               </div>
-              <p className="text-[11px] text-[#D4A72C] font-semibold truncate max-w-xs sm:max-w-md">
-                {title || college.name}
+              <h1 className="sm:mt-1.5 text-sm sm:text-xl lg:text-2xl font-black text-white tracking-tight leading-snug">
+                {college.name}
+              </h1>
+              <p className="mt-0.5 hidden sm:block truncate text-xs lg:text-sm text-slate-300 font-semibold">
+                {title || "Admissions, document verification and register numbers"}
               </p>
             </div>
           </div>
