@@ -15,6 +15,8 @@ const SERVER_COLLEGES: CollegeKey[] = ["engineering", "nursing", "pharmacy"];
 
 const cache: Partial<Record<CollegeKey, StudentApplicant[]>> = {};
 const loading: Partial<Record<CollegeKey, Promise<StudentApplicant[]>>> = {};
+// Colleges whose first load was attempted: a failed load is retried only by an explicit refresh, never by a redraw
+const attempted = new Set<CollegeKey>();
 let lastError: string | null = null;
 
 function announce() {
@@ -35,6 +37,7 @@ export function refreshApplicants(collegeKey: CollegeKey): Promise<StudentApplic
   }
   const running = loading[collegeKey];
   if (running) return running;
+  attempted.add(collegeKey);
   const p = api<StudentApplicant[]>("GET", `/admission/applicants?college=${collegeKey}`)
     .then((list) => {
       cache[collegeKey] = list;
@@ -55,7 +58,7 @@ export function refreshApplicants(collegeKey: CollegeKey): Promise<StudentApplic
 
 /** The college's applicants as last received from the server (loads them the first time). */
 export function getStoredApplicantsByCollege(collegeKey: CollegeKey): StudentApplicant[] {
-  if (!cache[collegeKey] && !loading[collegeKey]) void refreshApplicants(collegeKey);
+  if (!attempted.has(collegeKey) && !loading[collegeKey]) void refreshApplicants(collegeKey);
   return cache[collegeKey] ?? [];
 }
 
@@ -171,6 +174,7 @@ export function getApplicantById(collegeKey: CollegeKey, id: string): StudentApp
 /** Only clears what this browser shows; the records stay on the server. */
 export function clearAllAdmissionDataForCollege(collegeKey: CollegeKey) {
   delete cache[collegeKey];
+  attempted.delete(collegeKey);
   announce();
 }
 

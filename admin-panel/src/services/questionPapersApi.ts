@@ -13,12 +13,15 @@ export const QP_UPDATED_EVENT = "kvell_qp_updated";
 
 let cache: QuestionPaperItem[] = [];
 let loaded = false;
+// Set after the first load attempt (even a failed one): a failure is retried only by an explicit refresh, never by a
+// screen redrawing, so a refused request (e.g. before the starting password is changed) cannot loop
+let attempted = false;
 let inFlight: Promise<QuestionPaperItem[]> | null = null;
 let lastError: string | null = null;
 
 /** The last list received from the server (empty until the first load finishes). */
 export function cachedQuestionPapers(): QuestionPaperItem[] {
-  if (!loaded && !inFlight) void refreshQuestionPapers();
+  if (!attempted && !inFlight) void refreshQuestionPapers();
   return cache;
 }
 
@@ -29,6 +32,7 @@ export function questionPapersError(): string | null {
 /** Reloads the list from the server and tells every open screen. */
 export function refreshQuestionPapers(): Promise<QuestionPaperItem[]> {
   if (inFlight) return inFlight;
+  attempted = true;
   inFlight = apiClient
     .get<QuestionPaperItem[]>("/question-papers")
     .then((r) => {
