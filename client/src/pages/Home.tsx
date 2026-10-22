@@ -30,6 +30,7 @@ import { HodExamNotificationsView } from "../components/HodExamNotificationsView
 import type { LucideIcon } from "lucide-react";
 import { HodAnalytics } from "../components/hodAnalytics/HodAnalytics";
 import { CoAssessment } from "../components/CoAssessment";
+import { startSharedStore } from "../services/sharedStore";
 import {
   Activity,
   AlertCircle,
@@ -5339,6 +5340,10 @@ function StudentDashboard({
 
 export default function Home() {
   const [authenticatedRole, setAuthenticatedRole] = useState<Role | null>(null);
+  // Staff share the examination workflow data (timetable, notifications, paper correction, revaluation) via the server
+  useEffect(() => {
+    if (authenticatedRole && authenticatedRole !== "Student") startSharedStore();
+  }, [authenticatedRole]);
   const [activeStudent, setActiveStudent] = useState<{
     reg: string;
     name: string;
