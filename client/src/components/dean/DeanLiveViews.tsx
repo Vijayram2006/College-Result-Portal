@@ -3,15 +3,21 @@ import {
   BarChart3,
   BookOpen,
   Building2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
   Eye,
   FileText,
   GraduationCap,
   Loader2,
+  Printer,
   Search,
   Users,
+  X,
 } from "lucide-react";
-import { apiClient, apiErrorMessage } from "../../services/api";
+import { apiClient, apiErrorMessage, authApi } from "../../services/api";
+import { AnswerScriptPane } from "../AnswerScriptPane";
+import { printMarkStatement, ReadOnlyMarkSheet, type StudentMark } from "./AnswerScriptReview";
 
 /**
  * The Associate Dean's read-only views of the college's real data (students, subjects, internal marks, answer
@@ -427,53 +433,121 @@ export function DeanAnswerScriptsView() {
   const [dept, setDept] = useState("");
   const [semester, setSemester] = useState("Semester I");
   const [assessment, setAssessment] = useState("IAT-1");
-  const [opening, setOpening] = useState<string | null>(null);
-  const { data, loading, error } = useGet<AnswerScript[]>(dept ? "/admin/answer-scripts" : null, { dept, semester, assessment });
-  const open = async (s: AnswerScript) => {
-    const key = s.regNo + s.subjectCode;
-    setOpening(key);
-    // Open the tab first (pop-up blockers allow it only inside the click), then load the file into it
-    const tab = window.open("", "_blank");
-    try {
-      const res = await apiClient.get("/admin/answer-scripts/file", {
-        params: { dept, semester, subject: s.subjectCode, regNo: s.regNo, assessment },
-        responseType: "blob",
-        timeout: 120000,
-      });
-      const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
-      if (tab) tab.location.href = url;
-      else window.location.assign(url);
-    } catch (e) {
-      tab?.close();
-      alert(apiErrorMessage(e, "Could not open the answer script."));
-    } finally {
-      setOpening(null);
-    }
+  const [subject, setSubject] = useState("");
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const subjects = useGet<Subject[]>(dept ? "/admin/subjects" : null, { dept });
+  const options = (subjects.data ?? []).filter((s) => s.semester === semester);
+  useEffect(() => {
+    if (!options.find((s) => s.code === subject)) setSubject(options[0]?.code ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subjects.data, semester]);
+  const scripts = useGet<AnswerScript[]>(dept ? "/admin/answer-scripts" : null, { dept, semester, assessment });
+  const roster = useGet<StudentMark[]>(dept && subject ? "/admin/marks" : null, { dept, semester, subject, assessment });
+  const uploaded = useMemo(
+    () => new Set((scripts.data ?? []).filter((s) => s.subjectCode === subject).map((s) => s.regNo)),
+    [scripts.data, subject]
+  );
+  const rows = useMemo(
+    () => [...(roster.data ?? [])].sort((a, b) => a.regNo.localeCompare(b.regNo, undefined, { numeric: true })),
+    [roster.data]
+  );
+  const current = openIndex === null ? null : rows[openIndex] ?? null;
+  const subjectInfo = options.find((s) => s.code === subject);
+  const loading = subjects.loading || roster.loading || scripts.loading;
+  const error = subjects.error || roster.error || scripts.error;
+
+  const print = () => {
+    const ok = printMarkStatement({
+      collegeKey: authApi.currentUser()?.collegeKey,
+      collegeName: authApi.currentUser()?.collegeName,
+      department: rows[0]?.deptName ?? dept.toUpperCase(),
+      semester,
+      subjectCode: subject,
+      subjectTitle: subjectInfo?.title ?? rows[0]?.subjectTitle ?? "",
+      assessment,
+      rows,
+    });
+    if (!ok) alert("The browser blocked the print window. Allow pop-ups for this site and try again.");
   };
+
   return (
     <Card>
-      <Header icon={FileText} title="Answer scripts" detail="Scanned answer scripts uploaded by the COE. Opening a script is recorded." />
+      <Header icon={FileText} title="Answer scripts"
+        detail="Evaluated answer scripts with the faculty's question-wise marks, view only. Opening a script is recorded." />
       <DeptSemesterPicker dept={dept} setDept={setDept} semester={semester} setSemester={setSemester}
-        extra={<Select label="Assessment" value={assessment} onChange={setAssessment} options={ASSESSMENTS.map((a) => ({ value: a, label: a }))} />} />
-      <Status loading={loading} error={error} empty={(data ?? []).length === 0} emptyText="No answer scripts uploaded for this selection." />
-      {!loading && !error && (data ?? []).length > 0 && (
-        <Table head={["Register No.", "Subject", "File", "Size", "Uploaded", ""]}>
-          {(data ?? []).map((s) => (
-            <tr key={s.regNo + s.subjectCode}>
-              <td className="px-4 py-3 font-mono text-[11px]">{s.regNo}</td>
-              <td className="px-4 py-3">{s.subjectCode}</td>
-              <td className="px-4 py-3 truncate max-w-[200px]">{s.fileName}</td>
-              <td className="px-4 py-3">{Math.max(1, Math.round(s.sizeBytes / 1024))} KB</td>
-              <td className="px-4 py-3 text-gray-500">{s.uploadedAt}</td>
-              <td className="px-4 py-3 text-right">
-                <button onClick={() => open(s)} disabled={opening !== null}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-[#0B192C] hover:underline disabled:opacity-50">
-                  <Eye size={13} /> {opening === s.regNo + s.subjectCode ? "Opening..." : "View"}
-                </button>
-              </td>
-            </tr>
-          ))}
-        </Table>
+        extra={<>
+          <Select label="Assessment" value={assessment} onChange={setAssessment} options={ASSESSMENTS.map((a) => ({ value: a, label: a }))} />
+          <Select label="Subject" value={subject} onChange={setSubject}
+            options={options.length ? options.map((s) => ({ value: s.code, label: `${s.code} · ${s.title}` })) : [{ value: "", label: "No subjects" }]} />
+        </>} />
+      <Status loading={loading} error={error} empty={!subject || rows.length === 0}
+        emptyText="No students or marks for this subject and assessment yet." />
+      {!loading && !error && rows.length > 0 && (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <p className="text-xs text-gray-500">
+              {rows.filter((r) => r.hasMarks).length} of {rows.length} evaluated · {rows.filter((r) => uploaded.has(r.regNo)).length} scripts uploaded
+            </p>
+            <button onClick={print}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#0B192C] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#132943]">
+              <Printer size={14} className="text-[#D4A72C]" /> Print statement of marks
+            </button>
+          </div>
+          <Table head={["S.No", "Register No.", "Name", "Answer script", "Total", "Status", ""]}>
+            {rows.map((r, i) => (
+              <tr key={r.regNo}>
+                <td className="px-4 py-3">{i + 1}</td>
+                <td className="px-4 py-3 font-mono text-[11px]">{r.regNo}</td>
+                <td className="px-4 py-3 font-semibold text-[#0B192C]">{r.name}</td>
+                <td className="px-4 py-3">{uploaded.has(r.regNo) ? "Uploaded" : <span className="text-gray-400">Not uploaded</span>}</td>
+                <td className="px-4 py-3 font-bold">{r.hasMarks ? `${r.grandTotal} / 100` : "—"}</td>
+                <td className="px-4 py-3">{r.hasMarks ? "Evaluated" : <span className="text-gray-400">Not evaluated</span>}</td>
+                <td className="px-4 py-3 text-right">
+                  <button onClick={() => setOpenIndex(i)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-[#0B192C] hover:underline">
+                    <Eye size={13} /> View
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </Table>
+        </>
+      )}
+
+      {current && openIndex !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto">
+          <div className="w-full max-w-[1600px] my-auto space-y-3">
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white px-4 py-3">
+              <span className="px-3 py-1 rounded-full bg-sky-100 text-sky-800 border border-sky-300 text-[10px] font-extrabold uppercase tracking-wider">
+                View only
+              </span>
+              <span className="text-xs font-mono font-bold text-[#8A6410]">{current.regNo}</span>
+              <span className="text-xs font-semibold text-[#0B192C]">{current.name}</span>
+              <span className="ml-auto text-[11px] text-gray-500">{openIndex + 1} of {rows.length}</span>
+              <button onClick={() => setOpenIndex(openIndex - 1)} disabled={openIndex === 0} aria-label="Previous student"
+                className="rounded-lg border border-gray-200 p-1.5 disabled:opacity-40"><ChevronLeft size={16} /></button>
+              <button onClick={() => setOpenIndex(openIndex + 1)} disabled={openIndex === rows.length - 1} aria-label="Next student"
+                className="rounded-lg border border-gray-200 p-1.5 disabled:opacity-40"><ChevronRight size={16} /></button>
+              <button onClick={() => setOpenIndex(null)} aria-label="Close"
+                className="rounded-lg bg-gray-100 p-1.5 hover:bg-gray-200"><X size={16} /></button>
+            </div>
+            <div className="flex flex-col lg:flex-row gap-4">
+              <AnswerScriptPane
+                scriptKey={`${current.regNo}|${subject}|${assessment}`}
+                label={`${current.regNo} • ${subject} • ${assessment}`}
+                prompt={uploaded.has(current.regNo) ? undefined : "No answer script uploaded for this student and assessment."}
+                fetchPdf={async () => (await apiClient.get("/admin/answer-scripts/file", {
+                  params: { dept, semester, subject, regNo: current.regNo, assessment },
+                  responseType: "blob",
+                  timeout: 120000,
+                })).data}
+              />
+              <div className="bg-white rounded-3xl lg:w-1/2 w-full p-4 sm:p-6 border border-[#E5E1D8] max-h-[90vh] overflow-y-auto">
+                <ReadOnlyMarkSheet m={current} />
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </Card>
   );
