@@ -66,6 +66,7 @@ export const AnswerScripts: React.FC = () => {
   const [bulk, setBulk] = useState<BulkItem[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
   const bulkInput = useRef<HTMLInputElement>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
 
   // One hidden file input, pointed at whichever cell's Upload / Replace was clicked
   const fileInput = useRef<HTMLInputElement>(null);
@@ -185,12 +186,19 @@ export const AnswerScripts: React.FC = () => {
   };
 
   // ---- Bulk upload: many PDFs for one subject, each matched to a student
+  const pathOf = (f: File) => (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
   const chooseBulk = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []).filter((f) => f.name.toLowerCase().endsWith(".pdf"));
+    let files = Array.from(e.target.files || []).filter((f) => f.name.toLowerCase().endsWith(".pdf"));
     e.target.value = "";
-    if (!files.length) return;
+    // A folder with one sub-folder per subject: keep only the chosen subject's folder (its name is the subject code)
+    const inSubjectFolder = files.filter((f) => pathOf(f).split("/").slice(0, -1).some((d) => d.trim().toUpperCase() === subjectCode));
+    if (inSubjectFolder.length) files = inSubjectFolder;
+    if (!files.length) {
+      setMessage({ type: "error", text: "No PDF files were found in what you chose." });
+      return;
+    }
     const items = files
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+      .sort((a, b) => pathOf(a).localeCompare(pathOf(b), undefined, { numeric: true }))
       .map((file) => ({ file, ...matchFile(file.name, students), include: file.size <= MAX_BYTES }));
     setBulk(items);
   };
@@ -236,6 +244,8 @@ export const AnswerScripts: React.FC = () => {
     <div className="space-y-6 w-full">
       <input ref={fileInput} type="file" accept="application/pdf,.pdf" className="hidden" onChange={onFileChosen} />
       <input ref={bulkInput} type="file" accept="application/pdf,.pdf" multiple className="hidden" onChange={chooseBulk} />
+      {/* A whole folder, including its sub-folders */}
+      <input ref={folderInput} type="file" multiple className="hidden" onChange={chooseBulk} {...({ webkitdirectory: "", directory: "" } as any)} />
 
       <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30">
         <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-widest inline-block mb-2">
@@ -331,13 +341,19 @@ export const AnswerScripts: React.FC = () => {
               <div>
                 <p className="text-sm font-black text-[#0B192C]">Bulk upload · {subjectCode} · {assessment}</p>
                 <p className="text-[11px] text-gray-600">
-                  Choose all the scanned PDFs of this subject at once. Each file is matched to a student by the register number in its
+                  Choose the folder of this subject's scanned PDFs (sub-folders are included; in a department folder with one
+                  sub-folder per subject, only the {subjectCode} folder is used), or choose the PDFs themselves. Each file is matched to a student by the register number in its
                   file name (or the student's name). Check the matches, then upload. One PDF per student; uploading replaces an earlier one.
                 </p>
               </div>
-              <button onClick={() => bulkInput.current?.click()} disabled={bulkBusy} className="h-9 px-4 rounded-xl bg-[#0B192C] text-white text-xs font-extrabold inline-flex items-center gap-2 disabled:opacity-60">
-                <Upload size={14} /> Choose PDFs
-              </button>
+              <div className="flex gap-2">
+                <button onClick={() => folderInput.current?.click()} disabled={bulkBusy} className="h-9 px-4 rounded-xl bg-[#0B192C] text-white text-xs font-extrabold inline-flex items-center gap-2 disabled:opacity-60">
+                  <Upload size={14} /> Choose folder
+                </button>
+                <button onClick={() => bulkInput.current?.click()} disabled={bulkBusy} className="h-9 px-4 rounded-xl bg-white border border-[#0B192C] text-[#0B192C] text-xs font-extrabold inline-flex items-center gap-2 disabled:opacity-60">
+                  Choose PDFs
+                </button>
+              </div>
             </div>
             {bulk.length > 0 && (
               <>
@@ -355,7 +371,7 @@ export const AnswerScripts: React.FC = () => {
                         return (
                           <tr key={i} className={b.result === "done" ? "bg-emerald-50" : bad ? "bg-red-50" : ""}>
                             <td className="p-2"><input type="checkbox" checked={b.include} disabled={bulkBusy || b.result === "done"} onChange={() => toggleBulk(i)} aria-label={`Upload ${b.file.name}`} /></td>
-                            <td className="p-2 font-mono text-[11px] break-all">{b.file.name}</td>
+                            <td className="p-2 font-mono text-[11px] break-all">{pathOf(b.file)}</td>
                             <td className={`p-2 whitespace-nowrap ${tooBig ? "text-red-700 font-bold" : ""}`}>{kb(b.file.size)}</td>
                             <td className="p-2">
                               <select value={b.regNo} disabled={bulkBusy || b.result === "done"} onChange={(e) => setBulkStudent(i, e.target.value)} className="h-8 px-2 rounded-lg border border-[#E5E1D8] text-xs font-semibold max-w-[260px]" aria-label={`Student for ${b.file.name}`}>
