@@ -1183,21 +1183,21 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
   return (
     <div className="space-y-7">
       {/* MODULE HEADER BANNER */}
-      <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-7 shadow-xl border border-[#D4A72C]/30 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="bg-white text-[#0B192C] rounded-3xl p-6 sm:p-7 shadow-sm border border-[#D4A72C]/30 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
             <span className="bg-[#EAB308] text-[#0B192C] text-[10px] font-black uppercase px-2.5 py-0.5 rounded tracking-widest inline-block shadow-sm">
               EXAMINATION CELL · AUTONOMOUS CENTRAL VALUATION
             </span>
-            <span className="bg-white/10 text-[#D4A72C] text-[10px] font-bold px-2 py-0.5 rounded border border-[#D4A72C]/30 font-mono">
+            <span className="bg-slate-50 text-[#D4A72C] text-[10px] font-bold px-2 py-0.5 rounded border border-[#D4A72C]/30 font-mono">
               STAGE 4 · FACULTY SCRIPT MAPPING
             </span>
           </div>
-          <h1 className="font-display text-2xl sm:text-3xl font-black text-white flex items-center gap-3">
+          <h1 className="font-display text-2xl sm:text-3xl font-black text-[#0B192C] flex items-center gap-3">
             <PenLine className="text-[#D4A72C]" size={28} />
             Paper Correction Module
           </h1>
-          <p className="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
+          <p className="text-xs text-slate-600 mt-1 max-w-3xl leading-relaxed">
             The Associate Dean maps current semester examination answer scripts for evaluation to qualified faculties.
             Enter the total answer script count and number of evaluating staff — our engine automatically divides and
             allocates bundles equally with discrete dummy serial numbers and official handover rosters.
@@ -1205,13 +1205,13 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
         </div>
 
         {/* Tab Switcher in Header */}
-        <div className="relative z-10 flex flex-wrap items-center bg-white/10 p-1 rounded-2xl border border-white/15 shrink-0 gap-1">
+        <div className="relative z-10 flex flex-wrap items-center bg-slate-50 p-1 rounded-2xl border border-slate-200 shrink-0 gap-1">
           <button
             onClick={() => setActiveTab("faculty-overview")}
             className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === "faculty-overview"
                 ? "bg-[#EAB308] text-[#0B192C] shadow-md ring-2 ring-[#EAB308]/40"
-                : "text-white/80 hover:text-white hover:bg-white/5"
+                : "text-slate-600 hover:text-[#0B192C] hover:bg-slate-50"
             }`}
           >
             <Users size={14} /> Faculty Overall Allotment &amp; Mark Avg Hub ({facultyList.length})
@@ -1221,7 +1221,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
             className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === "allocations-history"
                 ? "bg-[#EAB308] text-[#0B192C] shadow-md"
-                : "text-white/80 hover:text-white hover:bg-white/5"
+                : "text-slate-600 hover:text-[#0B192C] hover:bg-slate-50"
             }`}
           >
             <CheckSquare size={14} /> Subject Allocations &amp; Evaluator Deltas ({allocations.length})
@@ -1231,7 +1231,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
             className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === "new-allocation"
                 ? "bg-[#EAB308] text-[#0B192C] shadow-md"
-                : "text-white/80 hover:text-white hover:bg-white/5"
+                : "text-slate-600 hover:text-[#0B192C] hover:bg-slate-50"
             }`}
           >
             <Plus size={14} /> Map New Paper

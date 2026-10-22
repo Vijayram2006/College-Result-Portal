@@ -1913,7 +1913,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
         </div>
       )}
       {/* Top Banner - 5-Stage Hierarchy Governance */}
-      <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 relative overflow-hidden space-y-6">
+      <div className="bg-white text-[#0B192C] rounded-3xl p-6 sm:p-8 shadow-sm border border-[#D4A72C]/30 relative overflow-hidden space-y-6">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -1926,10 +1926,10 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
               </span>
             </div>
 
-            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-white">
+            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-[#0B192C]">
               Question Paper &amp; Mark Review Permission Hierarchy
             </h1>
-            <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+            <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
               Standardized linear governance:{" "}
               <strong className="text-[#D4A72C]">
                 1. Faculty Author ➔ 2. HOD (DAC Scrutiny) ➔ 3. Associate Dean (AD Moderation) ➔ 4. COE (Logistics) ➔ 5. Chief COE (Executive Master Seal)
@@ -1942,7 +1942,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
             <button
               onClick={handleResetData}
               title="Reload the question papers from the server"
-              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white/80 hover:text-white text-xs font-bold transition flex items-center gap-1.5 border border-white/10 cursor-pointer"
+              className="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-50 text-slate-600 hover:text-[#0B192C] text-xs font-bold transition flex items-center gap-1.5 border border-slate-200 cursor-pointer"
             >
               <RotateCcw size={14} />
               <span>Refresh</span>
@@ -1951,7 +1951,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
         </div>
 
         {/* 5-Step Visual Stepper Ribbon */}
-        <div className="bg-[#081322] p-4 rounded-2xl border border-white/10 overflow-x-auto">
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 overflow-x-auto">
           <div className="flex items-center justify-between min-w-[700px] text-xs">
             {/* Step 1: Faculty */}
             <div className="flex items-center gap-2.5">
@@ -1959,8 +1959,8 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                 1
               </span>
               <div>
-                <p className="font-extrabold text-white text-[11px]">Faculty</p>
-                <p className="text-[10px] text-slate-400">Course Instructor Draft</p>
+                <p className="font-extrabold text-[#0B192C] text-[11px]">Faculty</p>
+                <p className="text-[10px] text-slate-600">Course Instructor Draft</p>
               </div>
             </div>
 
@@ -1972,8 +1972,8 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                 2
               </span>
               <div>
-                <p className="font-extrabold text-white text-[11px]">HOD</p>
-                <p className="text-[10px] text-slate-400">DAC Scrutiny Endorsement</p>
+                <p className="font-extrabold text-[#0B192C] text-[11px]">HOD</p>
+                <p className="text-[10px] text-slate-600">DAC Scrutiny Endorsement</p>
               </div>
             </div>
 
@@ -1986,7 +1986,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
               </span>
               <div>
                 <p className="font-black text-[#D4A72C] text-[11px]">Associate Dean (AD)</p>
-                <p className="text-[10px] text-slate-300 font-semibold">Academic Moderation (Current)</p>
+                <p className="text-[10px] text-slate-600 font-semibold">Academic Moderation (Current)</p>
               </div>
             </div>
 
@@ -1998,8 +1998,8 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                 4
               </span>
               <div>
-                <p className="font-extrabold text-white text-[11px]">COE</p>
-                <p className="text-[10px] text-slate-400">Logistics &amp; Confidential Sets</p>
+                <p className="font-extrabold text-[#0B192C] text-[11px]">COE</p>
+                <p className="text-[10px] text-slate-600">Logistics &amp; Confidential Sets</p>
               </div>
             </div>
 
@@ -2011,8 +2011,8 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                 <Crown size={13} />
               </span>
               <div>
-                <p className="font-extrabold text-white text-[11px]">Chief COE</p>
-                <p className="text-[10px] text-slate-400">Dr. Sathish Master Seal</p>
+                <p className="font-extrabold text-[#0B192C] text-[11px]">Chief COE</p>
+                <p className="text-[10px] text-slate-600">Dr. Sathish Master Seal</p>
               </div>
             </div>
           </div>

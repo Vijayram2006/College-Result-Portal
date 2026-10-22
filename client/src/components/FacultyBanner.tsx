@@ -70,6 +70,7 @@ export const FacultyBanner: React.FC<FacultyBannerProps> = ({
       </div>
 
       <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+        <img src="/kyro-standing.png" alt="" aria-hidden="true" className="hidden xl:block h-16 -my-2 object-contain drop-shadow-lg select-none pointer-events-none" />
         <NotificationBell onLink={onBellLink} />
         <div className="hidden xl:block text-right pl-3 border-l border-white/20">
           <span className="block text-xs font-bold text-white whitespace-nowrap">{userName}</span>

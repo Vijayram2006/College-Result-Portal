@@ -767,7 +767,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
       )}
 
       {/* Header Banner */}
-      <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="bg-white text-[#0B192C] rounded-3xl p-6 sm:p-8 shadow-sm border border-[#D4A72C]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
           <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-widest inline-block mb-2">
             FACULTY PORTAL • MARK ENTRY ({chainText.toUpperCase()})
@@ -776,7 +776,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
             <PenLine className="text-[#D4A72C]" size={26} />
             Student Mark Entry &amp; Paper Evaluation
           </h2>
-          <p className="text-xs text-white/70 mt-1 max-w-xl">
+          <p className="text-xs text-slate-600 mt-1 max-w-xl">
             Select target department, semester, and subject code, then click <strong>"FETCH DATA"</strong> to retrieve students and enter paper marks.
           </p>
         </div>
@@ -812,7 +812,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                 )}
                 <button
                   onClick={handleForwardToCOE}
-                  className="px-5 py-3 rounded-xl bg-[#2E7D5B] hover:bg-emerald-700 text-white font-extrabold text-xs transition shadow flex items-center gap-2 active:scale-95"
+                  className="px-5 py-3 rounded-xl bg-[#2E7D5B] hover:bg-emerald-700 text-[#0B192C] font-extrabold text-xs transition shadow flex items-center gap-2 active:scale-95"
                   title={`Approval chain set by the Chief COE: ${chainText}`}
                 >
                   <Send size={16} /> Forward Marks to {firstReviewer}

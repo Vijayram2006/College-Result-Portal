@@ -1458,29 +1458,6 @@ function HodPortalDashboard({
     >
       <div className="space-y-8">
         {/* Dark Hero Welcome Card */}
-        <div className="bg-[#0B192C] text-white rounded-[2rem] p-7 sm:p-9 shadow-2xl border border-white/10 relative overflow-hidden flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="space-y-2 z-10">
-            <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-black uppercase tracking-wider px-3.5 py-1 rounded-full shadow-sm inline-block">
-              HOD PORTAL • {department}
-            </span>
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white mt-1">
-              {hodName}
-            </h1>
-            <p className="text-xs sm:text-sm font-semibold text-slate-300">
-              Head of Department (HOD) • {department}
-            </p>
-          </div>
-
-          {/* Department Pass Rate Pill Box */}
-          <div className="bg-white/10 border border-white/15 p-5 rounded-2xl text-center shadow-inner z-10 min-w-[220px]">
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-              DEPARTMENT PASS RATE
-            </span>
-            <p className="text-2xl font-black text-[#38BDF8] mt-1 tracking-tight">
-              {overview ? `${overview.overallPassPercentage}% Overall Pass` : "—"}
-            </p>
-          </div>
-        </div>
 
         {/* Tab 1: Main HOD Dashboard (Analytics & Pass Graph) */}
         {activeTab === "dashboard" ? (
@@ -3037,15 +3014,15 @@ function ElectivesComponent({ onToast }: { onToast: (msg: string) => void }) {
 
   return (
     <div className="space-y-6 w-full">
-      <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="bg-white text-[#0B192C] rounded-3xl p-6 sm:p-8 shadow-sm border border-[#D4A72C]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
           <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-black uppercase px-2.5 py-0.5 rounded tracking-widest inline-block mb-2 shadow-sm">
             ELECTIVE GROUP MANAGEMENT
           </span>
-          <h2 className="text-2xl font-black tracking-tight text-white">
+          <h2 className="text-2xl font-black tracking-tight text-[#0B192C]">
             Department Elective Configurations
           </h2>
-          <p className="text-xs text-white/70 mt-1 max-w-xl font-medium leading-relaxed">
+          <p className="text-xs text-slate-600 mt-1 max-w-xl font-medium leading-relaxed">
             Configure semester elective groups, set open/close selection windows, and add available course offerings for student enrollment.
           </p>
         </div>
@@ -3302,15 +3279,15 @@ function ElectiveDemandComponent({ onToast }: { onToast: (msg: string) => void }
 
   return (
     <div className="space-y-6 w-full">
-      <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="bg-white text-[#0B192C] rounded-3xl p-6 sm:p-8 shadow-sm border border-[#D4A72C]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
           <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-black uppercase px-2.5 py-0.5 rounded tracking-widest inline-block mb-2 shadow-sm">
             DEMAND ANALYTICS & COE APPROVAL WORKFLOW
           </span>
-          <h2 className="text-2xl font-black tracking-tight text-white">
+          <h2 className="text-2xl font-black tracking-tight text-[#0B192C]">
             Elective Demand Dashboard
           </h2>
-          <p className="text-xs text-white/70 mt-1 max-w-xl font-medium leading-relaxed">
+          <p className="text-xs text-slate-600 mt-1 max-w-xl font-medium leading-relaxed">
             Inspect live student elective preference rankings, total selection counts, and submit for Controller of Examinations (COE) official approval.
           </p>
         </div>
@@ -3319,7 +3296,7 @@ function ElectiveDemandComponent({ onToast }: { onToast: (msg: string) => void }
           {!approved ? (
             <button
               onClick={handleCoeApproval}
-              className="px-6 py-3 rounded-2xl bg-emerald-600 text-white font-extrabold text-xs hover:bg-emerald-700 transition shadow-lg flex items-center gap-2 active:scale-95 border border-emerald-400/40"
+              className="px-6 py-3 rounded-2xl bg-emerald-600 text-[#0B192C] font-extrabold text-xs hover:bg-emerald-700 transition shadow-lg flex items-center gap-2 active:scale-95 border border-emerald-400/40"
             >
               <CheckCircle2 size={16} /> Confirm COE Official Approval
             </button>

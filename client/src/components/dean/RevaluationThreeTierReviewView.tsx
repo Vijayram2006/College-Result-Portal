@@ -1715,21 +1715,21 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
   return (
     <div className="space-y-7 animate-in fade-in duration-200">
       {/* HEADER BANNER */}
-      <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="bg-white text-[#0B192C] rounded-3xl p-6 sm:p-8 shadow-sm border border-[#D4A72C]/30 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="relative z-10 max-w-3xl">
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <span className="bg-[#EAB308] text-[#0B192C] text-[10px] font-black uppercase px-2.5 py-0.5 rounded tracking-widest inline-block shadow-sm">
               OFFICE OF ASSOCIATE DEAN &amp; COE
             </span>
-            <span className="bg-white/10 text-[#D4A72C] text-[10px] font-bold px-2 py-0.5 rounded border border-[#D4A72C]/30 font-mono">
+            <span className="bg-slate-50 text-[#D4A72C] text-[10px] font-bold px-2 py-0.5 rounded border border-[#D4A72C]/30 font-mono">
               DEAN EXAMINER ALLOTMENT &bull; DEPT/SUBJECT STD DEV
             </span>
           </div>
-          <h1 className="font-display text-2xl sm:text-3xl font-black text-white flex items-center gap-3">
+          <h1 className="font-display text-2xl sm:text-3xl font-black text-[#0B192C] flex items-center gap-3">
             <Scale className="text-[#D4A72C]" size={28} />
             Re-evaluation &amp; 3-Tier Valuation Management
           </h1>
-          <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+          <p className="text-xs text-slate-600 mt-1 leading-relaxed">
             When a student applies for re-evaluation, the <strong>Dean only allots Examiner 2</strong>. If the mark difference{" "}
             <strong className="text-amber-400 font-mono">&Delta; = |M1 - M2| &gt; 10 marks</strong>, the paper mandatory encounters{" "}
             <strong>Procedure 3</strong> where the <strong>Dean only allots Examiner 3</strong> (Senior Valuer). All dispersion analytics are tracked via Department-wise and Subject-wise standard deviation graphs.
@@ -1748,7 +1748,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
           <button
             type="button"
             onClick={handleResetDataset}
-            className="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition flex items-center gap-1.5 cursor-pointer border border-white/20"
+            className="px-3.5 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-[#0B192C] font-bold text-xs transition flex items-center gap-1.5 cursor-pointer border border-slate-200"
             title="Reset to pristine 14-record multi-department test cohort"
           >
             <RefreshCw size={14} /> Reset Demo Data

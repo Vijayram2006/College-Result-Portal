@@ -184,10 +184,10 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
 
   return (
     <div className="space-y-5">
-      <div className="bg-[#0B192C] text-white rounded-3xl p-6 shadow-lg border border-[#D4A72C]/30">
+      <div className="bg-white text-[#0B192C] rounded-3xl p-6 shadow-lg border border-[#D4A72C]/30">
         <span className="text-[10px] font-black uppercase tracking-widest text-[#D4A72C]">R2026 · Direct CO assessment</span>
         <h2 className="text-xl sm:text-2xl font-black mt-1">Internal Marks · CO Attainment Sheet</h2>
-        <p className="text-xs text-white/70 mt-1 max-w-3xl">
+        <p className="text-xs text-slate-600 mt-1 max-w-3xl">
           {canEdit
             ? "Choose the subject and IAT cycle, then enter each sheet question-wise. IAT marks come from the answer-script mark entry. The CO of every question and all calculations follow the college's R2026 CO attainment workbook."
             : "View the question-wise internal marks and the CO attainment of any subject (read-only)."}

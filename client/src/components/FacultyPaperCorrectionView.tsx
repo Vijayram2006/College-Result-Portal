@@ -557,37 +557,37 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
   return (
     <div className="space-y-7">
       {/* TOP BANNER WITH SEALS & FACULTY ALLOCATION HEADER */}
-      <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="bg-white text-[#0B192C] rounded-3xl p-6 sm:p-8 shadow-sm border border-[#D4A72C]/30 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
             <span className="bg-[#EAB308] text-[#0B192C] text-[10px] font-black uppercase px-2.5 py-0.5 rounded tracking-widest inline-block shadow-sm">
               CENTRAL VALUATION CAMP · FACULTY DESK
             </span>
-            <span className="bg-white/10 text-[#D4A72C] text-[10px] font-bold px-2 py-0.5 rounded border border-[#D4A72C]/30 font-mono">
+            <span className="bg-slate-50 text-[#D4A72C] text-[10px] font-bold px-2 py-0.5 rounded border border-[#D4A72C]/30 font-mono">
               OFFICIAL SCRIPT EVALUATION
             </span>
           </div>
-          <h1 className="font-display text-2xl sm:text-3xl font-black text-white flex items-center gap-3">
+          <h1 className="font-display text-2xl sm:text-3xl font-black text-[#0B192C] flex items-center gap-3">
             <FileText className="text-[#D4A72C]" size={28} />
             Assigned Paper Correction Desk
           </h1>
-          <p className="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
+          <p className="text-xs text-slate-600 mt-1 max-w-3xl leading-relaxed">
             Welcome to the Autonomous Valuation Wing. Examination answer scripts allocated to you by the{" "}
-            <strong className="text-white">Associate Dean (Academics)</strong> are listed below with their discrete
+            <strong className="text-[#0B192C]">Associate Dean (Academics)</strong> are listed below with their discrete
             bundle packet IDs, serial ranges, and evaluation marksheets.
           </p>
         </div>
 
         {/* Identity & Active Faculty Selector */}
-        <div className="relative z-10 bg-white/10 p-3 rounded-2xl border border-white/15 min-w-[260px] shrink-0">
+        <div className="relative z-10 bg-slate-50 p-3 rounded-2xl border border-slate-200 min-w-[260px] shrink-0">
           <span className="text-[10px] font-extrabold uppercase text-[#D4A72C] tracking-wider block mb-1">
             Logged-In Evaluating Faculty
           </span>
-          <div className="w-full bg-[#081322] text-white font-bold text-xs py-2 px-3 rounded-xl border border-[#D4A72C]/40">
+          <div className="w-full bg-slate-50 text-[#0B192C] font-bold text-xs py-2 px-3 rounded-xl border border-[#D4A72C]/40">
             {selectedFacultyName}
           </div>
-          <span className="text-[10px] text-slate-400 mt-1 block">
-            Role: <strong className="text-white">{activeStaffSlot?.role || "Examiner"}</strong> •{" "}
+          <span className="text-[10px] text-slate-600 mt-1 block">
+            Role: <strong className="text-[#0B192C]">{activeStaffSlot?.role || "Examiner"}</strong> •{" "}
             {activeStaffSlot?.department || "Engineering"}
           </span>
         </div>

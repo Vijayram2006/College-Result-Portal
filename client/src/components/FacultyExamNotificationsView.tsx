@@ -66,20 +66,20 @@ export const FacultyExamNotificationsView: React.FC<FacultyExamNotificationsView
   return (
     <div className="space-y-6">
       {/* TOP BANNER */}
-      <div className="relative overflow-hidden rounded-3xl bg-linear-to-r from-[#0B192C] via-[#0F223D] to-[#132A4A] p-6 sm:p-8 text-white border border-[#D4A72C]/30 shadow-xl">
+      <div className="relative overflow-hidden rounded-3xl bg-white p-6 sm:p-8 text-[#0B192C] border border-[#D4A72C]/30 shadow-sm">
         <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4 sm:gap-6">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/10 border-2 border-[#D4A72C] flex items-center justify-center shrink-0 text-[#D4A72C] shadow-lg">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-50 border-2 border-[#D4A72C] flex items-center justify-center shrink-0 text-[#D4A72C] shadow-lg">
               <Bell size={32} />
             </div>
             <div>
               <div className="inline-flex items-center gap-2 rounded-md bg-[#D4A72C]/20 border border-[#D4A72C]/40 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-[#D4A72C]">
                 <span>WORKFLOW STEP 6 · DEAN ACADEMIC CIRCULARS</span>
               </div>
-              <h1 className="mt-2 text-xl sm:text-2xl font-black text-white tracking-tight">
+              <h1 className="mt-2 text-xl sm:text-2xl font-black text-[#0B192C] tracking-tight">
                 Examination Notifications &amp; Faculty Circulars
               </h1>
-              <p className="mt-1 text-xs sm:text-sm text-slate-300 font-semibold max-w-2xl">
+              <p className="mt-1 text-xs sm:text-sm text-slate-600 font-semibold max-w-2xl">
                 Official institutional notifications broadcasted by the Dean of Academics for Autonomous End Semester Examinations, question paper deadlines, and OBE rubrics.
               </p>
             </div>
