@@ -5,7 +5,9 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite --host",
-    "admission": "npm --prefix admission-cell run dev",
+    "admin": "pnpm --dir admin-panel dev",
+    "admission": "pnpm --dir admission-cell dev",
+    "all": "concurrently -n \"STUDENT,ADMIN,ADMISSION\" -c \"cyan.bold,magenta.bold,yellow.bold\" \"pnpm run dev\" \"pnpm run admin\" \"pnpm run admission\"",
     "build": "vite build",
     "preview": "vite preview --host",
     "check": "tsc --noEmit",
@@ -77,6 +79,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "add": "^2.0.6",
     "autoprefixer": "^10.4.20",
+    "concurrently": "^10.0.6",
     "esbuild": "^0.25.0",
     "pnpm": "^10.15.1",
     "postcss": "^8.4.47",

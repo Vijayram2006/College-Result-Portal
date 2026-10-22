@@ -40,6 +40,8 @@ import {
   RefreshCw,
   Clock,
   CheckSquare,
+  Scale,
+  GraduationCap,
 } from "lucide-react";
 import {
   BarChart,
@@ -63,6 +65,13 @@ import { PublishedResultsView } from "./dean/PublishedResultsView";
 import { DepartmentsView } from "./dean/DepartmentsView";
 import { SubjectsView } from "./dean/SubjectsView";
 import { QuestionPaperReviewView, INITIAL_QUESTION_PAPERS, safeLoadQuestionPapers } from "./dean/QuestionPaperReviewView";
+import { PaperCorrectionView } from "./dean/PaperCorrectionView";
+import { RevaluationThreeTierReviewView } from "./dean/RevaluationThreeTierReviewView";
+import { ExamTimetableNotificationView } from "./dean/ExamTimetableNotificationView";
+import { ExamCellClassroomAllocationView } from "./dean/ExamCellClassroomAllocationView";
+import { WorkflowChartTrackerView } from "./dean/WorkflowChartTrackerView";
+import { AnalyticsView } from "./dean/AnalyticsView";
+import { Calendar, GitFork } from "lucide-react";
 
 export interface AssociateDeanDashboardProps {
   onLogout: () => void;
@@ -359,6 +368,8 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
   // Navigation & View state
   const [activeNav, setActiveNav] = useState<string>("dashboard");
   const [resultsMenuOpen, setResultsMenuOpen] = useState<boolean>(true);
+  const [examinationMenuOpen, setExaminationMenuOpen] = useState<boolean>(true);
+  const [analyticsMenuOpen, setAnalyticsMenuOpen] = useState<boolean>(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
 
   // Departments
@@ -425,6 +436,12 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
       window.removeEventListener("storage", updateQpCount);
     };
   }, []);
+
+  useEffect(() => {
+    if (activeNav.startsWith("analytics") || activeNav === "analytics") {
+      setAnalyticsMenuOpen(true);
+    }
+  }, [activeNav]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -788,28 +805,119 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
               </span>
             </div>
 
-            {/* Stage 3 Question Paper Review - Dedicated First-Class Item */}
-            <button
-              onClick={() => {
-                setActiveNav("question-paper-review");
-                setMobileSidebarOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left cursor-pointer ${
-                activeNav === "question-paper-review"
-                  ? "bg-[#EAB308] text-[#0B192C] shadow-md font-extrabold"
-                  : "text-white/80 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <CheckSquare size={17} />
-                <span>Question Paper Review</span>
-              </div>
-              {pendingQpCount > 0 && (
-                <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-amber-400 text-slate-950 animate-pulse">
-                  {pendingQpCount}
-                </span>
+            {/* Examination Collapsible Menu */}
+            <div>
+              <button
+                onClick={() => setExaminationMenuOpen(!examinationMenuOpen)}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  [
+                    "examination",
+                    "timetable-notifications",
+                    "question-paper-review",
+                    "classroom-allocation",
+                    "paper-correction",
+                  ].includes(activeNav)
+                    ? "text-[#D4A72C] bg-white/5 font-extrabold"
+                    : "text-white/80 hover:bg-white/10"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <GraduationCap size={17} />
+                  <span>Examination</span>
+                </div>
+                {examinationMenuOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+              </button>
+
+              {examinationMenuOpen && (
+                <div className="ml-4 pl-3 border-l border-white/15 my-1 space-y-1">
+                  {/* Flowchart Steps 5 & 6: Timetable & Faculty Notifications */}
+                  <button
+                    onClick={() => {
+                      setActiveNav("timetable-notifications");
+                      setMobileSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${
+                      activeNav === "timetable-notifications"
+                        ? "bg-[#D4A72C] text-[#0B192C] font-bold"
+                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Calendar size={14} />
+                      <span>Timetable &amp; Notifications</span>
+                    </div>
+                    <span className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-blue-400 text-slate-950 font-mono">
+                      5 &amp; 6
+                    </span>
+                  </button>
+
+                  {/* Stage 3 Question Paper Review */}
+                  <button
+                    onClick={() => {
+                      setActiveNav("question-paper-review");
+                      setMobileSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${
+                      activeNav === "question-paper-review"
+                        ? "bg-[#D4A72C] text-[#0B192C] font-bold"
+                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <CheckSquare size={14} />
+                      <span>Question Paper Review</span>
+                    </div>
+                    {pendingQpCount > 0 && (
+                      <span className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-amber-400 text-slate-950 animate-pulse">
+                        {pendingQpCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Flowchart Steps 13-20: Exam Cell Classrooms (40/Hall) & 1 Faculty */}
+                  <button
+                    onClick={() => {
+                      setActiveNav("classroom-allocation");
+                      setMobileSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${
+                      activeNav === "classroom-allocation"
+                        ? "bg-[#D4A72C] text-[#0B192C] font-bold"
+                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Building2 size={14} />
+                      <span>Exam Cell &amp; Classrooms</span>
+                    </div>
+                    <span className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-emerald-400 text-slate-950 font-mono">
+                      40/HALL
+                    </span>
+                  </button>
+
+                  {/* Stage 4 Paper Correction */}
+                  <button
+                    onClick={() => {
+                      setActiveNav("paper-correction");
+                      setMobileSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${
+                      activeNav === "paper-correction"
+                        ? "bg-[#D4A72C] text-[#0B192C] font-bold"
+                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <PenLine size={14} />
+                      <span>Paper Correction</span>
+                    </div>
+                    <span className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-[#D4A72C] text-[#0B192C]">
+                      ASSIGN
+                    </span>
+                  </button>
+                </div>
               )}
-            </button>
+            </div>
 
             {/* Results Collapsible Menu */}
             <div>
@@ -820,6 +928,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                     "student-data",
                     "internal-marks",
                     "answer-scripts",
+                    "paper-correction",
                     "published-results",
                     "revaluation",
                     "question-paper-review",
@@ -901,43 +1010,203 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                     <span>Published Results</span>
                   </button>
 
-                  {/* Revaluation Requests */}
+                  {/* Revaluation Requests (3-Tier & Standard Deviation) */}
                   <button
                     onClick={() => {
                       setActiveNav("revaluation");
                       setMobileSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition text-left ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left ${
                       activeNav === "revaluation"
                         ? "bg-[#D4A72C] text-[#0B192C] font-bold"
                         : "text-white/70 hover:text-white hover:bg-white/5"
                     }`}
                   >
-                    <RotateCcw size={14} />
-                    <span>Revaluation Requests</span>
+                    <div className="flex items-center gap-2.5">
+                      <Scale size={14} />
+                      <span>Revaluation &amp; 3rd Val Desk</span>
+                    </div>
+                    <span className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-red-500 text-white font-mono">
+                      &Delta; &gt; 10M
+                    </span>
                   </button>
+                </div>
+              )}
+            </div>
 
-                  {/* Question Paper Review (HOD Submissions) */}
+            {/* Assessment Analytics Collapsible Menu with 4 Sub-Components (IAT-1, IAT-2, END-SEM, REVALUATION) */}
+            <div>
+              <button
+                onClick={() => {
+                  if (!activeNav.startsWith("analytics")) {
+                    setActiveNav("analytics-iat1");
+                    setAnalyticsMenuOpen(true);
+                  } else {
+                    setAnalyticsMenuOpen(!analyticsMenuOpen);
+                  }
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  activeNav.startsWith("analytics")
+                    ? "text-[#D4A72C] bg-white/5 font-extrabold"
+                    : "text-white/80 hover:bg-white/10"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <BarChart3 size={17} />
+                  <span>Assessment Analytics</span>
+                </div>
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAnalyticsMenuOpen(!analyticsMenuOpen);
+                  }}
+                  className="p-1 hover:bg-white/10 rounded cursor-pointer"
+                  title="Toggle Assessment Sub-Components"
+                >
+                  {analyticsMenuOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                </div>
+              </button>
+
+              {analyticsMenuOpen && (
+                <div className="ml-4 pl-3 border-l-2 border-[#D4A72C]/40 my-1 space-y-1">
+                  {/* Sub-component 1: IAT-1 */}
                   <button
                     onClick={() => {
-                      setActiveNav("question-paper-review");
+                      setActiveNav("analytics-iat1");
                       setMobileSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left ${
-                      activeNav === "question-paper-review"
-                        ? "bg-[#D4A72C] text-[#0B192C] font-bold"
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${
+                      activeNav === "analytics-iat1"
+                        ? "bg-[#D4A72C] text-[#0B192C] font-bold shadow-xs"
                         : "text-white/70 hover:text-white hover:bg-white/5"
                     }`}
                   >
-                    <div className="flex items-center gap-2.5">
-                      <CheckSquare size={14} />
-                      <span>Question Paper Review</span>
-                    </div>
-                    {pendingQpCount > 0 && (
-                      <span className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-amber-400 text-slate-950">
-                        {pendingQpCount}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-[9px] font-black font-mono px-1.5 py-0.2 rounded ${
+                          activeNav === "analytics-iat1"
+                            ? "bg-[#0B192C] text-[#D4A72C]"
+                            : "bg-blue-500/20 text-blue-300"
+                        }`}
+                      >
+                        SUB 1
                       </span>
-                    )}
+                      <span className="font-bold">IAT-1</span>
+                    </div>
+                    <span
+                      className={`px-1.5 py-0.2 text-[9px] font-mono rounded ${
+                        activeNav === "analytics-iat1"
+                          ? "bg-black/15 text-[#0B192C] font-black"
+                          : "bg-white/10 text-slate-300"
+                      }`}
+                    >
+                      Units I &amp; II
+                    </span>
+                  </button>
+
+                  {/* Sub-component 2: IAT-2 */}
+                  <button
+                    onClick={() => {
+                      setActiveNav("analytics-iat2");
+                      setMobileSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${
+                      activeNav === "analytics-iat2"
+                        ? "bg-[#D4A72C] text-[#0B192C] font-bold shadow-xs"
+                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-[9px] font-black font-mono px-1.5 py-0.2 rounded ${
+                          activeNav === "analytics-iat2"
+                            ? "bg-[#0B192C] text-[#D4A72C]"
+                            : "bg-indigo-500/20 text-indigo-300"
+                        }`}
+                      >
+                        SUB 2
+                      </span>
+                      <span className="font-bold">IAT-2</span>
+                    </div>
+                    <span
+                      className={`px-1.5 py-0.2 text-[9px] font-mono rounded ${
+                        activeNav === "analytics-iat2"
+                          ? "bg-black/15 text-[#0B192C] font-black"
+                          : "bg-white/10 text-slate-300"
+                      }`}
+                    >
+                      Units III &amp; IV
+                    </span>
+                  </button>
+
+                  {/* Sub-component 3: END-SEM */}
+                  <button
+                    onClick={() => {
+                      setActiveNav("analytics-endsem");
+                      setMobileSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${
+                      activeNav === "analytics-endsem" || activeNav === "analytics"
+                        ? "bg-[#D4A72C] text-[#0B192C] font-bold shadow-xs"
+                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-[9px] font-black font-mono px-1.5 py-0.2 rounded ${
+                          activeNav === "analytics-endsem" || activeNav === "analytics"
+                            ? "bg-[#0B192C] text-[#D4A72C]"
+                            : "bg-amber-400/20 text-amber-300"
+                        }`}
+                      >
+                        SUB 3
+                      </span>
+                      <span className="font-bold">END-SEM</span>
+                    </div>
+                    <span
+                      className={`px-1.5 py-0.2 text-[9px] font-mono rounded ${
+                        activeNav === "analytics-endsem" || activeNav === "analytics"
+                          ? "bg-black/15 text-[#0B192C] font-black"
+                          : "bg-[#D4A72C]/20 text-[#D4A72C]"
+                      }`}
+                    >
+                      100 Marks
+                    </span>
+                  </button>
+
+                  {/* Sub-component 4: REVALUATION */}
+                  <button
+                    onClick={() => {
+                      setActiveNav("analytics-revaluation");
+                      setMobileSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${
+                      activeNav === "analytics-revaluation"
+                        ? "bg-[#D4A72C] text-[#0B192C] font-bold shadow-xs"
+                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-[9px] font-black font-mono px-1.5 py-0.2 rounded ${
+                          activeNav === "analytics-revaluation"
+                            ? "bg-[#0B192C] text-[#D4A72C]"
+                            : "bg-red-500/20 text-red-300"
+                        }`}
+                      >
+                        SUB 4
+                      </span>
+                      <span className="font-bold">REVALUATION</span>
+                    </div>
+                    <span
+                      className={`px-1.5 py-0.2 text-[9px] font-mono rounded ${
+                        activeNav === "analytics-revaluation"
+                          ? "bg-black/15 text-[#0B192C] font-black"
+                          : "bg-red-500/20 text-red-300 font-bold"
+                      }`}
+                    >
+                      &Delta; Shift &bull; 3rd Val
+                    </span>
                   </button>
                 </div>
               )}
@@ -1075,16 +1344,36 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                   Karpaga Vinayaga College of Engineering and Technology
                 </h1>
                 <p className="text-xs text-[#D4A72C] font-semibold mt-1">
-                  {activeNav === "student-data"
+                  {activeNav === "workflow-chart"
+                    ? "Examination Lifecycle Workflow Map · Complete 35-Stage Governance Architecture"
+                    : activeNav === "examination"
+                    ? "Central Examination Operations & Academic Lifecycle"
+                    : activeNav === "student-data"
                     ? "Student Data"
                     : activeNav === "internal-marks"
                     ? "Internal Marks"
                     : activeNav === "answer-scripts"
                     ? "Answer Script Entry"
+                    : activeNav === "timetable-notifications"
+                    ? "Examination Timetable & Faculty Question Paper Notifications (Steps 5 & 6)"
+                    : activeNav === "classroom-allocation"
+                    ? "Central Examination Cell · 40 Candidates/Classroom & 1 Faculty Allocation (Steps 13–20)"
+                    : activeNav === "paper-correction"
+                    ? "Paper Correction · Faculty Script Allocation Engine"
                     : activeNav === "published-results"
                     ? "Published Examination Results"
                     : activeNav === "revaluation"
-                    ? "Revaluation Requests"
+                    ? "Revaluation Requests & 3-Tier Autonomous Review"
+                    : activeNav === "analytics-iat1"
+                    ? "Assessment Performance Analytics · IAT-1 Internal Assessment Test 1 (Units I & II)"
+                    : activeNav === "analytics-iat2"
+                    ? "Assessment Performance Analytics · IAT-2 Internal Assessment Test 2 (Units III & IV)"
+                    : activeNav === "analytics-endsem"
+                    ? "Assessment Performance Analytics · END-SEM Autonomous Final Examination (100 Marks)"
+                    : activeNav === "analytics-revaluation"
+                    ? "Assessment Performance Analytics · REVALUATION Procedural Variance & Mark Delta Shift"
+                    : activeNav === "analytics"
+                    ? "Assessment Performance Analytics · Common & Core Subject Intelligence"
                     : activeNav === "question-paper-review"
                     ? "Question Paper Review & COE Forwarding"
                     : activeNav === "departments"
@@ -1171,34 +1460,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
           {/* DASHBOARD VIEW CONTENT */}
           {activeNav === "dashboard" && (
             <div className="space-y-7">
-              {/* METRIC DIRECTORY TITLE & TOP ACTION BUTTONS - Exact match */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <span className="text-xs font-black text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles size={14} className="text-[#D4A72C]" />
-                  LIVE UNIVERSITY METRIC DIRECTORY · CLICK ANY CARD TO INSPECT &amp; MANAGE
-                </span>
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    onClick={() => setActiveNav("question-paper-review")}
-                    className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs transition shadow flex items-center gap-2 cursor-pointer"
-                  >
-                    <CheckSquare size={15} /> Question Paper Review {pendingQpCount > 0 ? `(${pendingQpCount} Pending)` : ""}
-                  </button>
-                  <button
-                    onClick={handleExportAllStudents}
-                    className="px-4 py-2.5 rounded-xl bg-[#EAB308] hover:bg-[#d69e06] text-[#0B192C] font-extrabold text-xs transition shadow flex items-center gap-2 cursor-pointer"
-                  >
-                    <Upload size={15} /> Student Data Excel/CSV
-                  </button>
-                  <button
-                    onClick={() => setShowPublishedModal(true)}
-                    className="px-4 py-2.5 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-white font-extrabold text-xs transition flex items-center gap-2 border border-white/20 cursor-pointer shadow"
-                  >
-                    <Globe size={15} /> View Published Results
-                  </button>
-                </div>
-              </div>
 
               {/* 4 METRIC CARDS - Exact match */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
@@ -1456,6 +1718,155 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
             </div>
           )}
 
+
+          {/* EXAMINATION UNIFIED HUB VIEW */}
+          {activeNav === "examination" && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-3xl border border-[#E5E1D8] p-6 shadow-sm">
+                <div className="border-b border-gray-100 pb-4">
+                  <h2 className="font-display font-black text-xl text-[#0B192C] flex items-center gap-2">
+                    <GraduationCap size={22} className="text-[#D4A72C]" />
+                    Central Examination Operations Hub
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Centralized examination stage controllers: timetables, faculty QP submission review, hall allocation, and valuation staff allotment.
+                  </p>
+                </div>
+
+                {/* 35-Stage Workflow Map Hero Banner */}
+                <div
+                  onClick={() => setActiveNav("workflow-chart")}
+                  className="mt-5 p-4 rounded-2xl bg-[#0B192C] text-white border-2 border-[#D4A72C]/40 hover:border-[#D4A72C] transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 group shadow-md"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-xl bg-[#D4A72C] text-[#0B192C] flex items-center justify-center shrink-0 font-black group-hover:scale-105 transition-transform">
+                      <GitFork size={24} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded text-[9px] font-black bg-[#D4A72C] text-[#0B192C]">
+                          FULL LIFECYCLE MAP
+                        </span>
+                        <span className="text-[11px] text-gray-300 font-mono">
+                          Pre-Exam &rarr; Valuation &rarr; Moderation &rarr; Dual Results &rarr; Revaluation
+                        </span>
+                      </div>
+                      <h3 className="font-bold text-sm text-white mt-0.5">
+                        Interactive Examination Lifecycle Workflow Chart (35 Stages)
+                      </h3>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-black text-[#D4A72C] shrink-0">
+                    <span>Inspect Interactive Flowchart</span>
+                    <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+                  {/* Card 1: Timetable */}
+                  <div
+                    onClick={() => setActiveNav("timetable-notifications")}
+                    className="p-5 rounded-2xl border-2 border-blue-100 hover:border-blue-400 bg-blue-50/20 hover:shadow-md transition-all cursor-pointer group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-blue-900 text-white flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                      <Calendar size={20} />
+                    </div>
+                    <span className="font-bold text-sm text-[#0B192C] block group-hover:text-blue-900">
+                      Timetable &amp; Notifications
+                    </span>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Exam timetable scheduling &amp; faculty QP broadcast notifications (Steps 5 &amp; 6).
+                    </p>
+                    <span className="text-[10px] font-black text-blue-700 mt-3 inline-block">
+                      Open Module &rarr;
+                    </span>
+                  </div>
+
+                  {/* Card 2: QP Review */}
+                  <div
+                    onClick={() => setActiveNav("question-paper-review")}
+                    className="p-5 rounded-2xl border-2 border-amber-100 hover:border-amber-400 bg-amber-50/20 hover:shadow-md transition-all cursor-pointer group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                      <CheckSquare size={20} />
+                    </div>
+                    <span className="font-bold text-sm text-[#0B192C] block group-hover:text-amber-900">
+                      Question Paper Review
+                    </span>
+                    <p className="text-xs text-gray-500 mt-1">
+                      5-stage scrutiny of HOD submitted QP sets &amp; COE forwarding.
+                    </p>
+                    <span className="text-[10px] font-black text-amber-800 mt-3 inline-block">
+                      Open Module &rarr;
+                    </span>
+                  </div>
+
+                  {/* Card 3: Exam Cell */}
+                  <div
+                    onClick={() => setActiveNav("classroom-allocation")}
+                    className="p-5 rounded-2xl border-2 border-emerald-100 hover:border-emerald-400 bg-emerald-50/20 hover:shadow-md transition-all cursor-pointer group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-emerald-800 text-white flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                      <Building2 size={20} />
+                    </div>
+                    <span className="font-bold text-sm text-[#0B192C] block group-hover:text-emerald-900">
+                      Exam Cell &amp; Classrooms
+                    </span>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Central hall seating engine (40 candidates &amp; 1 invigilator/hall).
+                    </p>
+                    <span className="text-[10px] font-black text-emerald-800 mt-3 inline-block">
+                      Open Module &rarr;
+                    </span>
+                  </div>
+
+                  {/* Card 4: Paper Correction */}
+                  <div
+                    onClick={() => setActiveNav("paper-correction")}
+                    className="p-5 rounded-2xl border-2 border-slate-200 hover:border-[#D4A72C] bg-slate-50 hover:shadow-md transition-all cursor-pointer group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-[#0B192C] text-[#D4A72C] flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                      <PenLine size={20} />
+                    </div>
+                    <span className="font-bold text-sm text-[#0B192C] block group-hover:text-[#0B192C]">
+                      Paper Correction
+                    </span>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Faculty answer script allocation &amp; valuation progress tracking.
+                    </p>
+                    <span className="text-[10px] font-black text-[#0B192C] mt-3 inline-block">
+                      Open Module &rarr;
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* COMPLETE 35-STAGE WORKFLOW CHART INTERACTIVE TRACKER VIEW */}
+          {activeNav === "workflow-chart" && (
+            <WorkflowChartTrackerView
+              onNavigate={(nav) => setActiveNav(nav)}
+              onToast={showToast}
+            />
+          )}
+
+          {/* EXAM TIMETABLE & NOTIFICATIONS VIEW (Workflow Steps 5 & 6) */}
+          {activeNav === "timetable-notifications" && (
+            <ExamTimetableNotificationView
+              onToast={showToast}
+              onNavigateToExamCell={() => setActiveNav("classroom-allocation")}
+            />
+          )}
+
+          {/* EXAM CELL CLASSROOM & FACULTY ALLOCATION VIEW (Workflow Steps 13-20) */}
+          {activeNav === "classroom-allocation" && (
+            <ExamCellClassroomAllocationView
+              onToast={showToast}
+              onNavigateToPaperCorrection={() => setActiveNav("paper-correction")}
+            />
+          )}
+
           {/* STUDENT DATA VIEW (Matching Image 1) */}
           {activeNav === "student-data" && <StudentDataView />}
 
@@ -1464,6 +1875,11 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
 
           {/* ANSWER SCRIPTS VIEW (Matching Image 3 with View instead of Upload) */}
           {activeNav === "answer-scripts" && <AnswerScriptsView />}
+
+          {/* PAPER CORRECTION VIEW (Staff Allocation & Equal Mapping Engine) */}
+          {activeNav === "paper-correction" && (
+            <PaperCorrectionView onToast={showToast} />
+          )}
 
           {/* PUBLISHED RESULTS VIEW (Matching Image 4) */}
           {activeNav === "published-results" && <PublishedResultsView />}
@@ -1488,88 +1904,31 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
           )}
 
 
-          {/* REVALUATION REQUESTS VIEW */}
+          {/* REVALUATION & 3-TIER VALUATION REVIEW VIEW (Std Dev Graphs & Delta > 10M Trigger) */}
           {activeNav === "revaluation" && (
-            <div className="bg-white rounded-3xl border border-[#E5E1D8] p-6 shadow-sm space-y-4">
-              <div className="border-b border-gray-100 pb-4">
-                <h2 className="font-display font-bold text-xl text-[#0B192C]">
-                  Revaluation &amp; Answer Script Photocopy Requests
-                </h2>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Student grievance applications for re-totalling and external evaluation review.
-                </p>
-              </div>
-
-              <div className="overflow-x-auto rounded-2xl border border-gray-100">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[#FAF8F5] text-gray-600 font-extrabold uppercase text-[10px] tracking-wider border-b border-gray-200">
-                    <tr>
-                      <th className="py-3 px-4">Application ID</th>
-                      <th className="py-3 px-4">Register No</th>
-                      <th className="py-3 px-4">Student Name</th>
-                      <th className="py-3 px-4">Subject</th>
-                      <th className="py-3 px-4">Original Mark</th>
-                      <th className="py-3 px-4">Request Type</th>
-                      <th className="py-3 px-4 text-center">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 font-medium">
-                    <tr>
-                      <td className="py-3 px-4 font-mono font-bold text-blue-600">REV-2026-001</td>
-                      <td className="py-3 px-4 font-mono font-bold text-[#0B192C]">20260110201014</td>
-                      <td className="py-3 px-4 font-bold text-gray-800">SANJAY RAM K</td>
-                      <td className="py-3 px-4">CS601 Data Structures</td>
-                      <td className="py-3 px-4 font-mono text-amber-700 font-bold">46 (RA)</td>
-                      <td className="py-3 px-4 font-semibold text-gray-600">Revaluation + Script Copy</td>
-                      <td className="py-3 px-4 text-center">
-                        <button
-                          onClick={() => showToast("Revaluation Assigned to External Evaluator")}
-                          className="px-3 py-1 rounded-lg bg-[#0B192C] text-white text-[11px] font-bold hover:bg-[#152744]"
-                        >
-                          Approve Review
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <RevaluationThreeTierReviewView onToast={showToast} />
           )}
 
-          {/* ANALYTICS VIEW */}
-          {activeNav === "analytics" && (
-            <div className="bg-white rounded-3xl border border-[#E5E1D8] p-6 shadow-sm space-y-6">
-              <div className="border-b border-gray-100 pb-4">
-                <h2 className="font-display font-bold text-xl text-[#0B192C]">
-                  Department Performance &amp; Pass Rate Analytics
-                </h2>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Comparative pass percentage and distinction distribution across engineering streams.
-                </p>
-              </div>
-
-              <div className="h-72 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[
-                      { dept: "AIDS", pass: 94.0, count: 50 },
-                      { dept: "BME", pass: 92.8, count: 28 },
-                      { dept: "BT", pass: 96.0, count: 25 },
-                      { dept: "CSE", pass: 95.0, count: 20 },
-                      { dept: "ECE", pass: 91.4, count: 35 },
-                      { dept: "MECH", pass: 89.6, count: 48 },
-                      { dept: "IT", pass: 90.0, count: 10 },
-                    ]}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E1D8" />
-                    <XAxis dataKey="dept" stroke="#667085" fontSize={11} />
-                    <YAxis domain={[80, 100]} stroke="#667085" fontSize={11} unit="%" />
-                    <ChartTooltip />
-                    <Bar dataKey="pass" fill="#0B192C" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+          {/* ASSESSMENT ANALYTICS VIEW (Subject-wise, Common vs Core, 4 Subcomponents) */}
+          {(activeNav.startsWith("analytics") || activeNav === "analytics") && (
+            <AnalyticsView
+              onToast={showToast}
+              activeSubComponent={
+                activeNav === "analytics-iat1"
+                  ? "IAT-1"
+                  : activeNav === "analytics-iat2"
+                  ? "IAT-2"
+                  : activeNav === "analytics-revaluation"
+                  ? "REVALUATION"
+                  : "END-SEM"
+              }
+              onSubComponentChange={(sub) => {
+                if (sub === "IAT-1") setActiveNav("analytics-iat1");
+                else if (sub === "IAT-2") setActiveNav("analytics-iat2");
+                else if (sub === "END-SEM") setActiveNav("analytics-endsem");
+                else if (sub === "REVALUATION") setActiveNav("analytics-revaluation");
+              }}
+            />
           )}
         </div>
       </main>

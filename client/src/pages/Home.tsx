@@ -7,7 +7,14 @@ import { FacultyMarkEntry, clearFacultyPharmacyAndNursingData } from "../compone
 import { AssociateDeanDashboard } from "../components/AssociateDeanDashboard";
 import { INITIAL_QUESTION_PAPERS, QuestionPaperReviewView, safeLoadQuestionPapers } from "../components/dean/QuestionPaperReviewView";
 import { FacultyQuestionPaperView } from "../components/FacultyQuestionPaperView";
+import { FacultyPaperCorrectionView } from "../components/FacultyPaperCorrectionView";
 import { HodQuestionPaperScrutinyView } from "../components/HodQuestionPaperScrutinyView";
+import {
+  safeLoadNotifications,
+  DeanExamNotification,
+} from "../components/dean/ExamTimetableNotificationView";
+import { FacultyExamNotificationsView } from "../components/FacultyExamNotificationsView";
+import { HodExamNotificationsView } from "../components/HodExamNotificationsView";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
@@ -105,6 +112,7 @@ type PageKey =
   | "elective-demand"
   | "verification"
   | "noticeboard"
+  | "paper-correction"
   | "question-paper";
 
 interface NavItem {
@@ -169,11 +177,14 @@ const roleNav: Record<Role, NavItem[]> = {
   ],
   Faculty: [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "noticeboard", label: "Exam Notifications", icon: Bell },
     { key: "marks", label: "Marks Entry", icon: PenLine },
+    { key: "paper-correction", label: "Paper Correction", icon: FileText },
     { key: "question-paper", label: "Question Papers", icon: FileCheck },
   ],
   HOD: [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "noticeboard", label: "Exam Notifications", icon: Bell },
     { key: "question-paper", label: "Question Papers", icon: FileCheck },
     { key: "faculty", label: "Faculty", icon: GraduationCap },
     { key: "students", label: "Students", icon: UsersRound },
@@ -560,6 +571,19 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
   const [searchQuery, setSearchQuery] = useState("");
   const [showRosterModal, setShowRosterModal] = useState(false);
   const [showGradeAnalyticsModal, setShowGradeAnalyticsModal] = useState(false);
+  const [examNotifs, setExamNotifs] = useState<DeanExamNotification[]>(() => safeLoadNotifications());
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setExamNotifs(safeLoadNotifications());
+    };
+    window.addEventListener("kvell_exam_notification_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener("kvell_exam_notification_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
 
   // Dynamic Functional Metrics
   const totalStudents = useMemo(
@@ -615,6 +639,13 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
 
           <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
             <button
+              onClick={() => onNavigate("paper-correction")}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-[#EAB308] hover:bg-[#d69e06] text-[#0B192C] px-5 py-3 text-xs font-black shadow-lg transition cursor-pointer"
+            >
+              <FileText size={16} strokeWidth={2.5} />
+              <span>Assigned Paper Correction</span>
+            </button>
+            <button
               onClick={() => onNavigate("marks")}
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-[#D4A72C] hover:bg-[#b08014] text-[#0B192C] px-5 py-3 text-xs font-black shadow-lg transition cursor-pointer"
             >
@@ -641,6 +672,74 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
           </div>
         </div>
       </div>
+
+      {/* WORKFLOW STEP 6 & 7: DEAN BROADCAST EXAM NOTIFICATIONS HERO BANNER */}
+      {examNotifs.length > 0 && examNotifs[0].status === "ACTIVE" && (
+        <div className="bg-[#0B192C] text-white rounded-3xl border-2 border-[#D4A72C] p-6 shadow-2xl relative overflow-hidden space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-[#D4A72C] text-[#0B192C] flex items-center justify-center font-bold shrink-0 shadow-md">
+                <Send size={24} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-black uppercase px-2.5 py-0.5 rounded tracking-wider shadow-xs">
+                    WORKFLOW STEP 6 · OFFICIAL NOTIFICATION FROM DEAN
+                  </span>
+                  <span className="font-mono text-xs text-[#D4A72C] font-bold">
+                    {examNotifs[0].refNo}
+                  </span>
+                </div>
+                <h3 className="font-display font-extrabold text-base sm:text-lg text-white mt-1">
+                  {examNotifs[0].title}
+                </h3>
+              </div>
+            </div>
+
+            <div className="text-right shrink-0">
+              <span className="text-[10px] text-white/60 uppercase tracking-wider block font-bold">
+                SUBMISSION DEADLINE
+              </span>
+              <span className="text-xs font-mono font-black text-rose-400 bg-rose-950/60 border border-rose-800 px-3 py-1 rounded-lg">
+                {examNotifs[0].deadline}
+              </span>
+            </div>
+          </div>
+
+          <p className="text-xs sm:text-sm text-slate-200 leading-relaxed bg-white/5 p-4 rounded-2xl border border-white/10">
+            {examNotifs[0].message}
+          </p>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 text-xs">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-[11px] text-[#D4A72C] font-semibold">
+                Signatory: {examNotifs[0].senderName} ({examNotifs[0].senderRole})
+              </span>
+              <span className="text-white/40">•</span>
+              <span className="text-slate-300 text-[11px]">
+                Target: {examNotifs[0].targetDepartments.join(", ")}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={() => onNavigate("noticeboard")}
+                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition border border-white/20 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Bell size={14} />
+                <span>View Full Circular</span>
+              </button>
+              <button
+                onClick={() => onNavigate("question-paper")}
+                className="px-5 py-2.5 rounded-xl bg-[#D4A72C] hover:bg-[#e2b435] text-[#0B192C] font-black text-xs transition shadow flex items-center gap-2 cursor-pointer shrink-0"
+              >
+                <span>Faculty Prepares Question Paper (Step 7)</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Live University Metric Directory Header */}
       <div className="flex items-center justify-between pt-1">
@@ -1389,7 +1488,9 @@ function HodPortalDashboard({
   department?: string;
 }) {
   const kvellSealLogo = "/kvell-logo.png";
-  const [activeTab, setActiveTab] = useState<"dashboard" | "studentResult" | "questionPapers">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "studentResult" | "questionPapers" | "notifications">("dashboard");
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [deanBroadcastNotifs, setDeanBroadcastNotifs] = useState<DeanExamNotification[]>(() => safeLoadNotifications());
   const [pendingFacultyQpCount, setPendingFacultyQpCount] = useState<number>(() => {
     try {
       const list = safeLoadQuestionPapers();
@@ -1405,11 +1506,14 @@ function HodPortalDashboard({
         const list = safeLoadQuestionPapers();
         setPendingFacultyQpCount(list.filter((p: any) => p.status === "PENDING_HOD_REVIEW").length);
       } catch {}
+      setDeanBroadcastNotifs(safeLoadNotifications());
     };
     window.addEventListener("kvell_qp_updated", updateCount);
+    window.addEventListener("kvell_exam_notification_updated", updateCount);
     window.addEventListener("storage", updateCount);
     return () => {
       window.removeEventListener("kvell_qp_updated", updateCount);
+      window.removeEventListener("kvell_exam_notification_updated", updateCount);
       window.removeEventListener("storage", updateCount);
     };
   }, []);
@@ -1550,6 +1654,22 @@ function HodPortalDashboard({
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveTab("notifications")}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer ${
+                activeTab === "notifications"
+                  ? "bg-[#0B192C] text-white shadow-md"
+                  : "text-slate-600 hover:bg-white hover:text-slate-900"
+              }`}
+            >
+              <Bell size={15} className={activeTab === "notifications" ? "text-[#D4A72C]" : "text-slate-500"} />
+              Exam Notifications
+              {deanBroadcastNotifs.length > 0 && (
+                <span className="bg-[#D4A72C] text-[#0B192C] font-black px-1.5 py-0.5 rounded-full text-[10px]">
+                  {deanBroadcastNotifs.length}
+                </span>
+              )}
+            </button>
             
             <a
               href="http://localhost:3002"
@@ -1563,8 +1683,87 @@ function HodPortalDashboard({
             </a>
           </div>
 
-          {/* Right HOD Info & Logout */}
-          <div className="flex items-center gap-4">
+          {/* Right HOD Info & Notifications Bell & Logout */}
+          <div className="flex items-center gap-3">
+            {/* Notification Bell with Slide-over Drawer */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setNotificationsOpen((current) => !current)}
+                className="relative rounded-xl p-2 text-slate-500 hover:bg-[#F8F5EE] hover:text-[#0B192C] transition cursor-pointer border border-transparent hover:border-slate-200"
+                aria-label="Dean Notifications"
+                title="Dean Broadcast Circulars"
+              >
+                <Bell size={18} />
+                {deanBroadcastNotifs.length > 0 && (
+                  <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white animate-pulse" />
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <div className="absolute right-0 top-11 z-50 w-88 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <Bell size={16} className="text-[#D4A72C]" />
+                      <p className="text-xs font-black text-[#0B192C]">
+                        Dean Broadcast Circulars
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-black text-[#B08014] bg-[#D4A72C]/15 px-2 py-0.5 rounded-full font-mono">
+                      {deanBroadcastNotifs.length} Live
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 max-h-80 overflow-y-auto">
+                    {deanBroadcastNotifs.length > 0 ? (
+                      deanBroadcastNotifs.map((dbn) => (
+                        <div
+                          key={dbn.id}
+                          onClick={() => {
+                            setNotificationsOpen(false);
+                            setActiveTab("notifications");
+                          }}
+                          className="p-3 rounded-xl bg-amber-50/70 hover:bg-amber-100/90 border border-amber-200 text-left transition cursor-pointer space-y-1"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-[9px] font-black text-blue-900 bg-white px-1.5 py-0.2 rounded border border-blue-200">
+                              {dbn.refNo}
+                            </span>
+                            <span className="text-[9px] font-bold text-rose-600 font-mono">
+                              Due: {dbn.deadline.split(" ")[0]}
+                            </span>
+                          </div>
+                          <p className="text-xs font-bold text-[#0B192C] line-clamp-1">
+                            {dbn.title}
+                          </p>
+                          <p className="text-[10px] text-gray-600 line-clamp-2">
+                            {dbn.message}
+                          </p>
+                          <div className="flex items-center justify-between pt-1 text-[9px] font-mono text-gray-400">
+                            <span>From: {dbn.senderName}</span>
+                            <span className="text-blue-700 font-bold">View memo &rarr;</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="py-4 text-xs text-center text-slate-400">No active circulars from Dean.</p>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotificationsOpen(false);
+                      setActiveTab("notifications");
+                    }}
+                    className="w-full py-2 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-white font-bold text-xs transition cursor-pointer text-center"
+                  >
+                    Open All Exam Circulars
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="text-right hidden sm:block">
               <p className="text-sm font-extrabold text-[#0B192C]">{hodName}</p>
               <p className="text-[11px] font-bold text-[#B08014] tracking-wider uppercase">HOD - {department}</p>
@@ -1610,6 +1809,87 @@ function HodPortalDashboard({
         {/* Tab 1: Main HOD Dashboard (Analytics & Pass Graph) */}
         {activeTab === "dashboard" ? (
           <div className="space-y-6">
+            {/* WORKFLOW STEP 6 & 7: DEAN BROADCAST EXAM NOTIFICATIONS HERO BANNER FOR HOD */}
+            {deanBroadcastNotifs.length > 0 && deanBroadcastNotifs[0].status === "ACTIVE" && (
+              <div className="bg-[#0B192C] text-white rounded-3xl border-2 border-[#D4A72C] p-6 shadow-2xl relative overflow-hidden space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-[#D4A72C] text-[#0B192C] flex items-center justify-center font-bold shrink-0 shadow-md">
+                      <Bell size={24} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded font-mono font-black text-[10px] bg-[#D4A72C] text-[#0B192C] tracking-widest uppercase">
+                          OFFICIAL DEAN BROADCAST CIRCULAR
+                        </span>
+                        <span className="font-mono text-xs text-amber-400 font-bold">
+                          {deanBroadcastNotifs[0].refNo}
+                        </span>
+                      </div>
+                      <h2 className="text-base sm:text-lg font-black text-white mt-1">
+                        {deanBroadcastNotifs[0].title}
+                      </h2>
+                      <p className="text-xs text-slate-300 font-medium">
+                        Issued by <strong>{deanBroadcastNotifs[0].senderName}</strong> ({deanBroadcastNotifs[0].senderRole}) &bull; Date: {deanBroadcastNotifs[0].issueDate}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="bg-red-500/20 border border-red-500/50 px-3.5 py-1.5 rounded-xl text-right">
+                      <span className="text-[10px] font-black uppercase text-red-300 block">
+                        DAC Scrutiny Deadline
+                      </span>
+                      <span className="font-mono font-black text-xs text-white">
+                        {deanBroadcastNotifs[0].deadline}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/10 space-y-2 text-xs">
+                  <p className="text-slate-200 leading-relaxed font-medium">
+                    {deanBroadcastNotifs[0].message}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10 text-[11px] text-amber-300 font-mono">
+                    <span className="font-bold text-white">Target Streams:</span>
+                    {deanBroadcastNotifs[0].targetDepartments.map((deptCode) => (
+                      <span key={deptCode} className="px-2 py-0.5 rounded bg-white/10 border border-white/15">
+                        {deptCode}
+                      </span>
+                    ))}
+                    <span className="ml-auto text-slate-400">
+                      Delivered: {deanBroadcastNotifs[0].deliveredAt}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <span className="text-xs text-slate-400 font-medium">
+                    Dean directive requires HOD to ensure 2 sets (Set A &amp; Set B) per course with DAC compliance.
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("notifications")}
+                      className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition border border-white/20 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <FileText size={14} className="text-[#D4A72C]" />
+                      <span>View Full Memorandum ({deanBroadcastNotifs.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("questionPapers")}
+                      className="px-4 py-2 rounded-xl bg-[#D4A72C] hover:bg-[#b08014] text-[#0B192C] font-black text-xs transition flex items-center gap-1.5 cursor-pointer shadow-md"
+                    >
+                      <span>Stage 2 DAC Scrutiny</span>
+                      <ArrowRight size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Stage 2 DAC Scrutiny Banner if Faculty submissions pending */}
             {pendingFacultyQpCount > 0 && (
               <div
@@ -1770,8 +2050,15 @@ function HodPortalDashboard({
         ) : activeTab === "studentResult" ? (
           /* Tab 2: Separate Component "Student Result" Search Directory */
           <StudentResultView />
+        ) : activeTab === "notifications" ? (
+          /* Tab 3: Official Dean Broadcast Exam Notifications */
+          <HodExamNotificationsView
+            department={department}
+            hodName={hodName}
+            onNavigateQP={() => setActiveTab("questionPapers")}
+          />
         ) : (
-          /* Tab 3: Separate Component "Question Papers" Submitted to Associate Dean */
+          /* Tab 4: Separate Component "Question Papers" Submitted to Associate Dean */
           <HodQuestionPapersView department={department} hodName={hodName} />
         )}
       </main>
@@ -3445,6 +3732,19 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
     onSuccess: () => notificationsQuery.refetch(),
   });
   const notifications = notificationsQuery.data ?? [];
+  const [deanBroadcastNotifs, setDeanBroadcastNotifs] = useState<DeanExamNotification[]>(() => safeLoadNotifications());
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setDeanBroadcastNotifs(safeLoadNotifications());
+    };
+    window.addEventListener("kvell_exam_notification_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener("kvell_exam_notification_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     if (toast) {
@@ -3493,6 +3793,13 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
         return <SubjectsPage onToast={setToast} />;
       case "marks":
         return <FacultyMarkEntry onToast={setToast} />;
+      case "paper-correction":
+        return (
+          <FacultyPaperCorrectionView
+            currentFacultyName={facultyCollege?.facultyName || meta.name}
+            onToast={setToast}
+          />
+        );
       case "question-paper":
         if (role === "Faculty")
           return (
@@ -3514,6 +3821,26 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
         return <QuestionPaperReviewView onToast={setToast} />;
       case "verification":
       case "noticeboard":
+        if (role === "Faculty") {
+          return (
+            <FacultyExamNotificationsView
+              onNavigateToQuestionPaper={() => navigate("question-paper")}
+              onToast={setToast}
+              facultyName={facultyCollege?.facultyName || meta.name}
+              department={facultyCollege?.collegeName || meta.department}
+            />
+          );
+        }
+        if (role === "HOD") {
+          return (
+            <HodExamNotificationsView
+              department={meta.department || "Computer Science & Engineering"}
+              hodName={meta.name || "Dr. Jayapradha"}
+              onNavigateQP={() => navigate("question-paper")}
+              onToast={setToast}
+            />
+          );
+        }
         return <FacultyDashboard onNavigate={navigate} />;
       case "performance":
         if (role === "Faculty") return <FacultyDashboard onNavigate={navigate} />;
@@ -3741,21 +4068,63 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
                 aria-label="Notifications"
               >
                 <Bell size={18} />
-                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white" />
+                {(notifications.some((item) => item.isRead === 0) || deanBroadcastNotifs.some((n) => n.status === "ACTIVE")) && (
+                  <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white animate-pulse" />
+                )}
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 top-11 z-30 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
+                <div className="absolute right-0 top-11 z-30 w-84 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <p className="text-xs font-extrabold text-[#0B192C]">
-                      Notifications
+                      Notifications &amp; Exam Circulars
                     </p>
                     <span className="text-[10px] font-bold text-[#B08014] bg-[#D4A72C]/10 px-2 py-0.5 rounded-md">
-                      {notifications.filter((item) => item.isRead === 0).length}{" "}
-                      unread
+                      {notifications.filter((item) => item.isRead === 0).length + deanBroadcastNotifs.length}{" "}
+                      total
                     </span>
                   </div>
-                  <div className="space-y-3 pt-3">
+
+                  {/* Dean Broadcast Exam Notifications Section */}
+                  {deanBroadcastNotifs.length > 0 && (
+                    <div className="border-b border-slate-100 pb-3 mb-2 pt-2 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-blue-900 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                          OFFICIAL DEAN EXAM CIRCULARS
+                        </span>
+                        <span className="text-[9px] font-bold text-amber-700 font-mono">
+                          {deanBroadcastNotifs.length} Live
+                        </span>
+                      </div>
+                      {deanBroadcastNotifs.slice(0, 3).map((dbn) => (
+                        <div
+                          key={dbn.id}
+                          onClick={() => {
+                            setNotificationsOpen(false);
+                            navigate("noticeboard");
+                          }}
+                          className="p-2.5 rounded-xl bg-amber-50/70 hover:bg-amber-100 border border-amber-200 text-left transition cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-[9px] font-black text-blue-900 bg-white px-1.5 py-0.2 rounded border border-blue-200">
+                              {dbn.refNo}
+                            </span>
+                            <span className="text-[9px] font-bold text-rose-600 font-mono">
+                              Due: {dbn.deadline.split(" ")[0]}
+                            </span>
+                          </div>
+                          <p className="text-xs font-bold text-[#0B192C] mt-1 line-clamp-1">
+                            {dbn.title}
+                          </p>
+                          <p className="text-[10px] text-gray-600 mt-0.5 line-clamp-2">
+                            {dbn.message}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="space-y-3 pt-1">
                     {notifications.length ? (
                       notifications.slice(0, 5).map((item) => (
                         <button
@@ -3781,11 +4150,11 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
                           </span>
                         </button>
                       ))
-                    ) : (
+                    ) : !deanBroadcastNotifs.length ? (
                       <p className="py-2 text-[11px] text-slate-400 font-medium">
                         No workflow notifications yet.
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               )}
