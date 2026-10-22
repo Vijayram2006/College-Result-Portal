@@ -22,7 +22,7 @@ import { PortalShell } from "../components/PortalShell";
 import { HodQuestionPaperScrutinyView } from "../components/HodQuestionPaperScrutinyView";
 import type { LucideIcon } from "lucide-react";
 import { HodAnalytics } from "../components/hodAnalytics/HodAnalytics";
-import { InternalMarksSheet, StudentInternalMarks } from "../components/InternalMarks";
+import { CoAssessment } from "../components/CoAssessment";
 import {
   Activity,
   AlertCircle,
@@ -1623,7 +1623,7 @@ function HodPortalDashboard({
           </div>
         ) : activeTab === "internals" ? (
           /* Tab: internal marks of the department (view only, with change history) */
-          <InternalMarksSheet role="hod" />
+          <CoAssessment mode="hod" />
         ) : activeTab === "analytics" ? (
           /* Tab 2: the department's full result analytics (same as the COE's, for this department only) */
           <HodAnalytics />
@@ -3372,7 +3372,7 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
       case "marks":
         return <FacultyMarkEntry onToast={setToast} />;
       case "internal-marks":
-        return <InternalMarksSheet role="faculty" onToast={setToast} />;
+        return <CoAssessment mode="faculty" onToast={setToast} />;
       case "question-paper":
         if (role === "Faculty")
           return (
@@ -4432,7 +4432,6 @@ function StudentDashboard({
       navItems={[
         { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
         { key: "result", label: "Result", icon: FileText },
-        { key: "internals", label: "Internals", icon: ClipboardCheck },
         { key: "subjects", label: "My Subjects", icon: BookOpen },
       ]}
       active={activeTab}
@@ -4582,7 +4581,7 @@ function StudentDashboard({
         ) : activeTab === "internals" ? (
           /* Internal marks: quiz, activity, assignment, attendance and IATs, live from the faculty's entries */
           <div className="w-full max-w-7xl">
-            <StudentInternalMarks />
+            null
           </div>
         ) : activeTab === "subjects" ? (
           /* My Subjects Module: Enlarged View */

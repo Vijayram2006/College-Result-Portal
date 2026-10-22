@@ -56,6 +56,7 @@ public class SecurityConfig {
                                 "/api/admin/marks", "/api/admin/marks/all", "/api/admin/publish/status",
                                 "/api/admin/answer-scripts", "/api/admin/answer-scripts/file",
                                 "/api/admin/internal-marks", "/api/admin/internal-marks/history",
+                                "/api/admin/co-assessment", "/api/admin/co-assessment/attainment",
                                 "/api/admin/internal-scheme", "/api/admin/revaluation",
                                 // the faculty list only; a faculty member's full record (with Aadhaar) stays with the COE
                                 "/api/admin/faculty-master").hasAnyRole("ADMIN", "DEAN")

@@ -29,7 +29,7 @@ const DepartmentsPage = lazy(() => import("./pages/Departments").then((m) => ({ 
 const SuperAdminControlPage = lazy(() => import("./pages/SuperAdminControl").then((m) => ({ default: m.SuperAdminControlPage })));
 const RevaluationRequestsPage = lazy(() => import("./pages/RevaluationRequests").then((m) => ({ default: m.RevaluationRequestsPage })));
 const FacultyMasterPage = lazy(() => import("./pages/FacultyMaster").then((m) => ({ default: m.FacultyMasterPage })));
-const InternalMarksPage = lazy(() => import("./pages/InternalMarks").then((m) => ({ default: m.InternalMarksPage })));
+const InternalMarksPage = lazy(() => import("./components/CoAssessment").then((m) => ({ default: () => <m.CoAssessment mode="admin" /> })));
 const QuestionPapersPage = lazy(() => import("./pages/QuestionPapers").then((m) => ({ default: m.QuestionPapersPage })));
 
 const pageTitles: Record<string, string> = {

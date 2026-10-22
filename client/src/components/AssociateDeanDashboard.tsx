@@ -70,6 +70,7 @@ import {
 } from "./dean/DeanLiveViews";
 import { QuestionPaperReviewView, safeLoadQuestionPapers } from "./dean/QuestionPaperReviewView";
 import { refreshQuestionPapers } from "../services/questionPapersApi";
+import { CoAssessment } from "./CoAssessment";
 import { authApi } from "../services/api";
 import { MarkApprovalsView } from "./MarkApprovalsView";
 import { NotificationBell } from "./NotificationBell";
@@ -1069,7 +1070,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
           {/* Every view reads the college's real data from the server (read only) */}
           {activeNav === "dashboard" && <DeanOverview onNavigate={setActiveNav} pendingQpCount={pendingQpCount} />}
           {activeNav === "student-data" && <DeanStudentsView />}
-          {activeNav === "internal-marks" && <DeanInternalMarksView />}
+          {activeNav === "internal-marks" && <CoAssessment mode="admin" />}
           {activeNav === "answer-scripts" && <DeanAnswerScriptsView />}
           {activeNav === "published-results" && <DeanResultsView />}
           {activeNav === "departments" && <DeanDepartmentsView />}
