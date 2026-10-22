@@ -4,6 +4,7 @@ import {
   answerScriptsApi,
   apiErrorMessage,
   AnswerScriptInfo,
+  AbsenceInfo,
   studentsApi,
   StudentRecord,
   subjectsApi,
@@ -59,6 +60,7 @@ export const AnswerScripts: React.FC = () => {
   const [students, setStudents] = useState<StudentRecord[]>([]);
   const [subjects, setSubjects] = useState<SubjectRecord[]>([]);
   const [scripts, setScripts] = useState<AnswerScriptInfo[]>([]);
+  const [absences, setAbsences] = useState<AbsenceInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyCell, setBusyCell] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -89,11 +91,13 @@ export const AnswerScripts: React.FC = () => {
     }
     setLoading(true);
     try {
-      const [st, subs, sc] = await Promise.all([
+      const [st, subs, sc, ab] = await Promise.all([
         studentsApi.list(deptKey, semester),
         subjectsApi.list(deptKey),
         answerScriptsApi.list(deptKey, semester, assessment),
+        answerScriptsApi.absences(deptKey, semester, assessment),
       ]);
+      setAbsences(ab);
       setStudents(st);
       setSubjects(subs.filter((s) => s.semester === semester).sort((a, b) => a.code.localeCompare(b.code)));
       setScripts(sc);
@@ -118,6 +122,24 @@ export const AnswerScripts: React.FC = () => {
     scripts.forEach((s) => m.set(`${s.regNo}|${s.subjectCode}`, s));
     return m;
   }, [scripts]);
+
+  const absentSet = useMemo(() => new Set(absences.map((a) => `${a.regNo}|${a.subjectCode}`)), [absences]);
+
+  const setAbsent = async (regNo: string, subject: string, absent: boolean) => {
+    const cell = `${regNo}|${subject}`;
+    setBusyCell(cell);
+    try {
+      await answerScriptsApi.setAbsent(params(regNo, subject), absent);
+      setAbsences((prev) => absent
+        ? [...prev, { regNo, subjectCode: subject, markedBy: "", markedAt: "" }]
+        : prev.filter((a) => `${a.regNo}|${a.subjectCode}` !== cell));
+      setMessage({ type: "success", text: `${regNo} marked ${absent ? "absent" : "present"} for ${subject} (${assessment}).` });
+    } catch (err) {
+      setMessage({ type: "error", text: apiErrorMessage(err, "Could not change the attendance.") });
+    } finally {
+      setBusyCell(null);
+    }
+  };
 
   const visibleStudents = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -147,6 +169,7 @@ export const AnswerScripts: React.FC = () => {
     try {
       const saved = await answerScriptsApi.upload(params(target.regNo, target.subject), file);
       setScripts((prev) => [...prev.filter((s) => `${s.regNo}|${s.subjectCode}` !== cell), saved]);
+      setAbsences((prev) => prev.filter((a) => `${a.regNo}|${a.subjectCode}` !== cell));
       setMessage({ type: "success", text: `Uploaded ${saved.fileName} for ${target.regNo} • ${target.subject} (${assessment}).` });
     } catch (err) {
       setMessage({ type: "error", text: apiErrorMessage(err, "Could not upload the answer script.") });
@@ -209,7 +232,8 @@ export const AnswerScripts: React.FC = () => {
   const bulkProblems = bulk.filter((b) => b.include && !b.result && (!b.regNo || b.file.size > MAX_BYTES || bulkCount(b.regNo) > 1)).length;
   const bulkReady = bulk.filter((b) => b.include && b.regNo && b.result !== "done").length;
   const missingStudents = subjectCode
-    ? students.filter((s) => !scriptMap.has(`${s.regNo}|${subjectCode}`) && !bulk.some((b) => b.include && b.regNo === s.regNo))
+    ? students.filter((s) => !scriptMap.has(`${s.regNo}|${subjectCode}`) && !absentSet.has(`${s.regNo}|${subjectCode}`)
+        && !bulk.some((b) => b.include && b.regNo === s.regNo))
     : [];
 
   const uploadBulk = async () => {
@@ -223,6 +247,7 @@ export const AnswerScripts: React.FC = () => {
       try {
         const saved = await answerScriptsApi.upload(params(b.regNo, subjectCode), b.file);
         setScripts((prev) => [...prev.filter((x) => !(x.regNo === saved.regNo && x.subjectCode === saved.subjectCode)), saved]);
+        setAbsences((prev) => prev.filter((x) => !(x.regNo === saved.regNo && x.subjectCode === saved.subjectCode)));
         setBulk((prev) => prev.map((x, k) => (k === i ? { ...x, result: "done", error: undefined } : x)));
         done++;
       } catch (err) {
@@ -397,9 +422,21 @@ export const AnswerScripts: React.FC = () => {
                   </table>
                 </div>
                 {missingStudents.length > 0 && (
-                  <p className="text-[11px] text-amber-800 font-semibold">
-                    No PDF yet for {missingStudents.length} student{missingStudents.length === 1 ? "" : "s"}: {missingStudents.map((x) => `${x.regNo} ${x.studentName}`).join(", ")}
-                  </p>
+                  <div className="rounded-xl border border-amber-300 bg-white p-3 space-y-2">
+                    <p className="text-[11px] text-amber-800 font-bold">
+                      No PDF for {missingStudents.length} student{missingStudents.length === 1 ? "" : "s"}. If they were absent, mark them absent
+                      (faculty will not see them in mark entry and publication will not wait for their marks).
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {missingStudents.map((x) => (
+                        <span key={x.regNo} className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-semibold">
+                          {x.regNo} · {x.studentName}
+                          <button onClick={() => setAbsent(x.regNo, subjectCode, true)} disabled={bulkBusy || busyCell === `${x.regNo}|${subjectCode}`}
+                            className="px-2 py-0.5 rounded-md bg-red-600 text-white text-[10px] font-extrabold disabled:opacity-50">Mark absent</button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 )}
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {bulkProblems > 0 && <span className="text-[11px] font-bold text-red-700">Fix the {bulkProblems} red row{bulkProblems === 1 ? "" : "s"} (or untick them) to upload.</span>}
@@ -470,10 +507,22 @@ export const AnswerScripts: React.FC = () => {
                                 </button>
                               </div>
                             </div>
+                          ) : absentSet.has(cell) ? (
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-300 text-[10px] font-extrabold">ABSENT</span>
+                              <button onClick={() => setAbsent(st.regNo, sub.code, false)} className="px-2 py-0.5 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-800 text-[10px] font-bold">
+                                Undo
+                              </button>
+                            </div>
                           ) : (
-                            <button onClick={() => chooseFile(st.regNo, sub.code)} className="px-2.5 py-1.5 rounded-lg border border-dashed border-[#B08014] text-[#8A6410] hover:bg-[#D4A72C]/10 text-[10px] font-extrabold inline-flex items-center gap-1">
-                              <Upload size={11} /> Upload PDF
-                            </button>
+                            <div className="flex flex-col items-center gap-1">
+                              <button onClick={() => chooseFile(st.regNo, sub.code)} className="px-2.5 py-1.5 rounded-lg border border-dashed border-[#B08014] text-[#8A6410] hover:bg-[#D4A72C]/10 text-[10px] font-extrabold inline-flex items-center gap-1">
+                                <Upload size={11} /> Upload PDF
+                              </button>
+                              <button onClick={() => setAbsent(st.regNo, sub.code, true)} className="text-[10px] font-bold text-red-600 hover:underline">
+                                Mark absent
+                              </button>
+                            </div>
                           )}
                         </td>
                       );

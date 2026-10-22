@@ -11,6 +11,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.PutMapping;
 import java.util.Locale;
 import java.util.Set;
 import org.springframework.http.ContentDisposition;
@@ -71,6 +74,72 @@ public class AnswerScriptController {
                 .list();
     }
 
+    /** One student marked absent for a subject and assessment. */
+    public record Absence(String regNo, String subjectCode, String markedBy, String markedAt) {
+    }
+
+    public record AbsenceRequest(String dept, String semester, String subject, String regNo, String assessment,
+                                 boolean absent) {
+    }
+
+    @GetMapping("/absences")
+    List<Absence> absences(@RequestParam String dept, @RequestParam String semester, @RequestParam String assessment) {
+        String deptKey = departments.key(dept);
+        return db.sql("""
+                        SELECT reg_no, subject_code, marked_by, marked_at FROM script_absences
+                        WHERE dept_key = ? AND semester = ? AND assessment_type = ? ORDER BY reg_no, subject_code
+                        """)
+                .params(deptKey, Semesters.parse(semester), assessment(assessment))
+                .query((rs, n) -> new Absence(rs.getString("reg_no"), rs.getString("subject_code"),
+                        rs.getString("marked_by"), Semesters.display(rs.getObject("marked_at", OffsetDateTime.class))))
+                .list();
+    }
+
+    /** Marks a student absent (or present again) for one subject and assessment; an uploaded script must be removed first. */
+    @PutMapping("/absences")
+    @Transactional
+    Map<String, Object> setAbsent(@RequestBody AbsenceRequest r, HttpServletRequest http) {
+        Target t = target(r.dept(), r.semester(), r.subject(), r.regNo(), r.assessment());
+        CurrentUser user = CurrentUser.get();
+        if (r.absent()) {
+            if (exists(t)) {
+                throw ApiException.conflict(t.regNo + " has an uploaded answer script for " + t.code
+                        + ". Remove the script first to mark the student absent.");
+            }
+            if (db.sql("""
+                            SELECT count(*) FROM marks WHERE dept_key = ? AND semester = ? AND subject_code = ? AND reg_no = ?
+                              AND assessment_type = ?
+                            """).params(t.deptKey, t.sem, t.code, t.regNo, t.assessment).query(Integer.class).single() > 0) {
+                throw ApiException.conflict(t.regNo + " already has " + t.assessment + " marks for " + t.code + ".");
+            }
+            db.sql("""
+                            INSERT INTO script_absences (dept_key, semester, subject_code, reg_no, assessment_type, marked_by)
+                            VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING
+                            """).params(t.deptKey, t.sem, t.code, t.regNo, t.assessment, user.name()).update();
+        } else {
+            clearAbsence(t);
+        }
+        audit.record(user.username(), user.name(), r.absent() ? "MARKED_ABSENT" : "CLEARED_ABSENT",
+                t.regNo + " " + t.code + " " + t.assessment,
+                (r.absent() ? "Marked the student absent" : "Marked the student present again") + " for " + t.code + " ("
+                        + t.assessment + ").", http.getRemoteAddr());
+        return Map.of("regNo", t.regNo, "subjectCode", t.code, "absent", r.absent());
+    }
+
+    private boolean exists(Target t) {
+        return db.sql("""
+                        SELECT count(*) FROM answer_scripts
+                        WHERE dept_key = ? AND semester = ? AND subject_code = ? AND reg_no = ? AND assessment_type = ?
+                        """).params(t.deptKey, t.sem, t.code, t.regNo, t.assessment).query(Integer.class).single() > 0;
+    }
+
+    private void clearAbsence(Target t) {
+        db.sql("""
+                        DELETE FROM script_absences
+                        WHERE dept_key = ? AND semester = ? AND subject_code = ? AND reg_no = ? AND assessment_type = ?
+                        """).params(t.deptKey, t.sem, t.code, t.regNo, t.assessment).update();
+    }
+
     /** Uploads (or replaces) one student's script for one subject and assessment. */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Transactional
@@ -96,6 +165,8 @@ public class AnswerScriptController {
                         """)
                 .params(t.deptKey, t.sem, t.code, t.regNo, t.assessment, name, content.length, content, user.name())
                 .update();
+        // A script for the student means they were present
+        clearAbsence(t);
         audit.record(user.username(), user.name(), "UPLOADED_ANSWER_SCRIPT", t.regNo + " " + t.code + " " + t.assessment,
                 "Uploaded the scanned answer script (" + name + ", " + content.length / 1024 + " KB).",
                 http.getRemoteAddr());

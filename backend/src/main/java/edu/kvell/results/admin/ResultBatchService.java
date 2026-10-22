@@ -490,11 +490,14 @@ public class ResultBatchService {
                                         JOIN students s ON s.reg_no = m.reg_no
                                                        AND s.dept_key = j.dept_key AND s.semester = j.semester
                                         WHERE m.dept_key = j.dept_key AND m.semester = j.semester
-                                          AND m.subject_code = j.code AND m.assessment_type = ?) AS missing
+                                          AND m.subject_code = j.code AND m.assessment_type = ?)
+                                     - (SELECT count(*) FROM script_absences a
+                                        WHERE a.dept_key = j.dept_key AND a.semester = j.semester
+                                          AND a.subject_code = j.code AND a.assessment_type = ?) AS missing
                         FROM subjects j WHERE j.dept_key = ? AND j.semester = ?
                         ORDER BY j.code
                         """)
-                .params(assessment, deptKey, semester)
+                .params(assessment, assessment, deptKey, semester)
                 .query((rs, n) -> new MissingMarks(rs.getString("code"), rs.getInt("missing")))
                 .list().stream().filter(m -> m.students() > 0).toList();
         if (missing.isEmpty()) return;

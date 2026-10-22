@@ -143,7 +143,13 @@ public class FacultyController {
                                          @RequestParam String assessment) {
         // Faculty evaluate anonymously: dummy numbers in a shuffled order
         String dept = CurrentUser.get().deptKey();
-        return anonymous.mask(marks.roster(dept, semester, subject, assessment), dept);
+        java.util.Set<String> absent = new java.util.HashSet<>(db.sql("""
+                        SELECT reg_no FROM script_absences WHERE dept_key = ? AND semester = ? AND subject_code = ?
+                          AND assessment_type = ?
+                        """).params(dept, edu.kvell.results.common.Semesters.parse(semester),
+                        subject.trim().toUpperCase(java.util.Locale.ROOT), assessment.trim()).query(String.class).list());
+        return anonymous.mask(marks.roster(dept, semester, subject, assessment).stream()
+                .filter(m -> !absent.contains(m.regNo())).toList(), dept);
     }
 
     @PutMapping("/marks")
@@ -151,6 +157,14 @@ public class FacultyController {
         CurrentUser user = CurrentUser.get();
         // regNo is the script's dummy number
         String reg = anonymous.resolve(user.deptKey(), r.semester(), r.subjectCode(), r.assessmentType(), r.regNo());
+        if (db.sql("""
+                        SELECT count(*) FROM script_absences WHERE dept_key = ? AND semester = ? AND subject_code = ?
+                          AND reg_no = ? AND assessment_type = ?
+                        """).params(user.deptKey(), edu.kvell.results.common.Semesters.parse(r.semester()),
+                        r.subjectCode().trim().toUpperCase(java.util.Locale.ROOT), reg, r.assessmentType().trim())
+                .query(Integer.class).single() > 0) {
+            throw edu.kvell.results.common.ApiException.conflict("This student was marked absent by the COE");
+        }
         MarkService.MarkRequest own = new MarkService.MarkRequest(user.deptKey(), r.semester(), r.subjectCode(),
                 reg, r.assessmentType(), r.partA(), r.partBC(), r.examinerName(), r.examinerDesignation(),
                 r.expectedVersion());

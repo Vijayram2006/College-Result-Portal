@@ -642,7 +642,20 @@ export interface AnswerScriptInfo {
   uploadedAt: string;
 }
 
+export interface AbsenceInfo {
+  regNo: string;
+  subjectCode: string;
+  markedBy: string;
+  markedAt: string;
+}
+
 export const answerScriptsApi = {
+  async absences(dept: string, semester: string, assessment: string): Promise<AbsenceInfo[]> {
+    return (await apiClient.get<AbsenceInfo[]>("/admin/answer-scripts/absences", { params: { dept, semester, assessment } })).data;
+  },
+  async setAbsent(p: { dept: string; semester: string; subject: string; regNo: string; assessment: string }, absent: boolean): Promise<void> {
+    await apiClient.put("/admin/answer-scripts/absences", { ...p, absent });
+  },
   async list(dept: string, semester: string, assessment: string): Promise<AnswerScriptInfo[]> {
     const res = await apiClient.get<AnswerScriptInfo[]>("/admin/answer-scripts", { params: { dept, semester, assessment } });
     return res.data;
