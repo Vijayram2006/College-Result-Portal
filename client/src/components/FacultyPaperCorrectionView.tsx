@@ -583,18 +583,8 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
           <span className="text-[10px] font-extrabold uppercase text-[#D4A72C] tracking-wider block mb-1">
             Logged-In Evaluating Faculty
           </span>
-          <div className="relative">
-            <select
-              value={selectedFacultyName}
-              onChange={(e) => setSelectedFacultyName(e.target.value)}
-              className="w-full bg-[#081322] text-white font-bold text-xs py-2 px-3 rounded-xl border border-[#D4A72C]/40 focus:outline-none focus:ring-2 focus:ring-[#D4A72C] cursor-pointer"
-            >
-              {allAssignedFacultyNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
+          <div className="w-full bg-[#081322] text-white font-bold text-xs py-2 px-3 rounded-xl border border-[#D4A72C]/40">
+            {selectedFacultyName}
           </div>
           <span className="text-[10px] text-slate-400 mt-1 block">
             Role: <strong className="text-white">{activeStaffSlot?.role || "Examiner"}</strong> •{" "}

@@ -75,6 +75,27 @@ public class WorkflowDocumentController {
                 .list();
     }
 
+    /** One evaluator the Dean can allot scripts to: a faculty or HOD account of the college. */
+    public record Staff(String id, String name, String dept, String role) {
+    }
+
+    @GetMapping("/staff")
+    List<Staff> staff() {
+        CurrentUser user = CurrentUser.get();
+        if (user.role() != Role.DEAN && user.role() != Role.ADMIN) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Not available to this account");
+        }
+        return db.sql("""
+                        SELECT u.username, u.display_name, d.code, u.role FROM users u
+                        JOIN departments d ON d.dept_key = u.dept_key
+                        WHERE u.role IN ('FACULTY', 'HOD') AND u.enabled AND d.college_key = ?
+                        ORDER BY d.code, u.role DESC, u.display_name
+                        """).param(departments.college())
+                .query((rs, n) -> new Staff(rs.getString(1), rs.getString(2), rs.getString(3),
+                        "HOD".equals(rs.getString(4)) ? "Chief Evaluator" : "Internal Examiner"))
+                .list();
+    }
+
     @PutMapping("/{key}")
     Map<String, Object> save(@PathVariable String key, @RequestBody SaveRequest req, HttpServletRequest http) {
         CurrentUser user = CurrentUser.get();

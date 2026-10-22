@@ -3495,7 +3495,7 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
       case "paper-correction":
         return (
           <FacultyPaperCorrectionView
-            currentFacultyName={facultyCollege?.facultyName || meta.name}
+            currentFacultyName={authApi.currentUser()?.name || meta.name}
             onToast={setToast}
           />
         );

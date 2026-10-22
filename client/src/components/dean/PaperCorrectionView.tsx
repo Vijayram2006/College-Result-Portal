@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { apiClient } from "../../services/api";
 import {
   PenLine,
   BookOpen,
@@ -126,7 +127,7 @@ export interface PaperCorrectionAllocation {
 }
 
 // Available faculties for 1-click auto-suggestion
-const PRESET_FACULTY_POOL = [
+const PRESET_FACULTY_POOL: { name: string; id: string; dept: string; role: "Chief Evaluator" | "Internal Examiner" | "External Examiner" }[] = [
   { name: "Prof. K. Venkatesh", id: "FAC-ENG-104", dept: "AI&DS", role: "Internal Examiner" as const },
   { name: "Dr. S. Mohan", id: "FAC-ENG-101", dept: "AI&DS", role: "Chief Evaluator" as const },
   { name: "Dr. Ananya Menon", id: "FAC-ENG-202", dept: "CSE", role: "Internal Examiner" as const },
@@ -673,6 +674,18 @@ interface PaperCorrectionViewProps {
 }
 
 export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToast }) => {
+  // The college's real evaluators (faculty and HOD sign-ins) replace the built-in sample names
+  const [, setStaffLoaded] = useState(0);
+  useEffect(() => {
+    apiClient.get<{ id: string; name: string; dept: string; role: "Chief Evaluator" | "Internal Examiner" }[]>("/workflow-docs/staff")
+      .then((r) => {
+        if (r.data.length) {
+          PRESET_FACULTY_POOL.splice(0, PRESET_FACULTY_POOL.length, ...r.data);
+          setStaffLoaded((n) => n + 1);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
   // Filters
   const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>("2026-2027");
   const [selectedSemester, setSelectedSemester] = useState<string>("Semester I");
@@ -1730,18 +1743,25 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                       {/* Quick Pick Faculty Recommendations */}
                       <div className="pt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mr-1">
-                          Quick Pick:
+                          Choose evaluator:
                         </span>
-                        {PRESET_FACULTY_POOL.slice(0, 5).map((cand) => (
-                          <button
-                            key={cand.id}
-                            type="button"
-                            onClick={() => handleApplyPresetFaculty(idx, cand)}
-                            className="px-2 py-0.5 rounded-lg bg-gray-100 hover:bg-[#D4A72C]/20 hover:text-[#0B192C] text-gray-600 font-semibold text-[10px] transition cursor-pointer"
-                          >
-                            {cand.name} ({cand.dept})
-                          </button>
-                        ))}
+                        {/* Every faculty and HOD sign-in of the college; the evaluator then sees the bundle on their Paper Correction page */}
+                        <select
+                          value={evaluatorInputs[idx]?.facultyId || ""}
+                          onChange={(e) => {
+                            const cand = PRESET_FACULTY_POOL.find((c) => c.id === e.target.value);
+                            if (cand) handleApplyPresetFaculty(idx, cand);
+                          }}
+                          aria-label={`Evaluator for packet ${idx + 1}`}
+                          className="h-8 px-2 rounded-lg border border-gray-300 bg-white text-[11px] font-semibold min-w-[260px]"
+                        >
+                          <option value="">Select a faculty member</option>
+                          {PRESET_FACULTY_POOL.map((cand) => (
+                            <option key={cand.id} value={cand.id}>
+                              {cand.name} ({cand.dept}) · {cand.id}
+                            </option>
+                          ))}
+                        </select>
                       </div>
 
                       {/* Live Faculty Overall Allocation & Mark Average Preview */}
