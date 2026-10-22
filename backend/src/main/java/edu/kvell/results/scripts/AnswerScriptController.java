@@ -61,6 +61,7 @@ public class AnswerScriptController {
         return db.sql("""
                         SELECT reg_no, subject_code, assessment_type, file_name, size_bytes, uploaded_by, uploaded_at
                         FROM answer_scripts WHERE dept_key = ? AND semester = ? AND assessment_type = ?
+                        ORDER BY reg_no, subject_code
                         """)
                 .params(deptKey, sem, assessment(assessment))
                 .query((rs, n) -> new ScriptInfo(rs.getString("reg_no"), rs.getString("subject_code"),

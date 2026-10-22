@@ -29,22 +29,38 @@ public class FacultyController {
     private final AnswerScriptController scripts;
     private final org.springframework.jdbc.core.simple.JdbcClient db;
 
+    private final edu.kvell.results.marks.AnonymousEvaluation anonymous;
+
     public FacultyController(SubjectService subjects, MarkService marks, ResultBatchService results,
-                             AnswerScriptController scripts, org.springframework.jdbc.core.simple.JdbcClient db) {
+                             AnswerScriptController scripts, org.springframework.jdbc.core.simple.JdbcClient db,
+                             edu.kvell.results.marks.AnonymousEvaluation anonymous) {
         this.db = db;
+        this.anonymous = anonymous;
         this.subjects = subjects;
         this.marks = marks;
         this.results = results;
         this.scripts = scripts;
     }
 
-    /** A student's scanned answer script, shown beside the marks form (read-only; the COE uploads them). */
+    /**
+     * A student's scanned answer script, shown beside the marks form (read-only; the COE uploads them). regNo is the
+     * script's dummy number; the cover page with the student's details is replaced by a blank page.
+     */
     @GetMapping("/answer-scripts/file")
     org.springframework.http.ResponseEntity<byte[]> answerScript(@RequestParam String semester,
                                                                  @RequestParam String subject,
                                                                  @RequestParam String regNo,
                                                                  @RequestParam String assessment) {
-        return scripts.file(CurrentUser.get().deptKey(), semester, subject, regNo, assessment);
+        String dept = CurrentUser.get().deptKey();
+        String reg = anonymous.resolve(dept, semester, subject, assessment, regNo);
+        org.springframework.http.ResponseEntity<byte[]> pdf = scripts.file(dept, semester, subject, reg, assessment);
+        String code = regNo.trim().toUpperCase(java.util.Locale.ROOT);
+        return org.springframework.http.ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + code + ".pdf\"")
+                .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "no-store")
+                .header("X-Content-Type-Options", "nosniff")
+                .body(anonymous.withoutCover(pdf.getBody(), code));
     }
 
     /** One subject on the faculty dashboard, with live progress from the entered marks. */
@@ -125,24 +141,33 @@ public class FacultyController {
     @GetMapping("/marks")
     List<MarkService.StudentMark> roster(@RequestParam String semester, @RequestParam String subject,
                                          @RequestParam String assessment) {
-        return marks.roster(CurrentUser.get().deptKey(), semester, subject, assessment);
+        // Faculty evaluate anonymously: dummy numbers in a shuffled order
+        String dept = CurrentUser.get().deptKey();
+        return anonymous.mask(marks.roster(dept, semester, subject, assessment), dept);
     }
 
     @PutMapping("/marks")
     MarkService.StudentMark save(@RequestBody MarkService.MarkRequest r, HttpServletRequest http) {
         CurrentUser user = CurrentUser.get();
+        // regNo is the script's dummy number
+        String reg = anonymous.resolve(user.deptKey(), r.semester(), r.subjectCode(), r.assessmentType(), r.regNo());
         MarkService.MarkRequest own = new MarkService.MarkRequest(user.deptKey(), r.semester(), r.subjectCode(),
-                r.regNo(), r.assessmentType(), r.partA(), r.partBC(), r.examinerName(), r.examinerDesignation(),
+                reg, r.assessmentType(), r.partA(), r.partBC(), r.examinerName(), r.examinerDesignation(),
                 r.expectedVersion());
-        return marks.save(own, user, http.getRemoteAddr());
+        return anonymous.mask(marks.save(own, user, http.getRemoteAddr()), user.deptKey());
     }
 
     /** Forward one subject's marks to the COE for verification. */
     @PostMapping("/forward")
     ResultBatchService.ResultBatch forward(@RequestBody ResultBatchService.ForwardRequest r, HttpServletRequest http) {
         CurrentUser user = CurrentUser.get();
-        return results.forward(new ResultBatchService.ForwardRequest(user.deptKey(), r.semester(), r.subjectCode(),
-                r.academicYear(), r.assessmentType()), user, http.getRemoteAddr());
+        ResultBatchService.ResultBatch b = results.forward(new ResultBatchService.ForwardRequest(user.deptKey(),
+                r.semester(), r.subjectCode(), r.academicYear(), r.assessmentType()), user, http.getRemoteAddr());
+        // The students' names and register numbers stay hidden from faculty
+        return new ResultBatchService.ResultBatch(b.id(), b.batchTitle(), b.departmentKey(), b.departmentName(),
+                b.semester(), b.semesterNumber(), b.academicYear(), b.examMonthYear(), b.subjectCode(), b.subjectTitle(),
+                b.uploadDate(), b.uploadedBy(), b.totalStudents(), b.passedStudents(), b.passPercentage(),
+                b.publicationStatus(), b.publishedAt(), b.publishedBy(), List.of(), b.assessmentType());
     }
 
     /** Published results of the faculty member's own department, with every student's marks, for download. */

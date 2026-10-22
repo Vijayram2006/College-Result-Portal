@@ -1076,9 +1076,8 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
               <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-extrabold tracking-wider sticky top-0 z-20">
                 <tr>
                   <th className="p-3.5 text-center w-12">Select</th>
-                  <th className="p-3.5">Registration Number</th>
-                  <th className="p-3.5">Student Name</th>
-                  <th className="p-3.5">Date of Birth (DOB)</th>
+                  <th className="p-3.5">Dummy Number</th>
+                  <th className="p-3.5">Answer Script</th>
                   <th className="p-3.5 text-center">Part A Total</th>
                   <th className="p-3.5 text-center">Part B+C Total</th>
                   <th className="p-3.5 text-center">Grand Total</th>
@@ -1121,7 +1120,6 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                         )}
                       </td>
                       <td className="p-3.5 font-bold text-gray-900">{student.name}</td>
-                      <td className="p-3.5 font-mono text-gray-600">{student.dob || "—"}</td>
                       <td className="p-3.5 text-center font-semibold">
                         {student.hasMarks ? student.partATotal : "—"}
                       </td>
@@ -1328,7 +1326,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                   </span>
                 )}
                 <span className="text-xs font-mono font-bold text-[#8A6410]">
-                  REG: {selectedStudent.regNo}
+                  DUMMY NO: {selectedStudent.regNo}
                 </span>
               </div>
               <button
