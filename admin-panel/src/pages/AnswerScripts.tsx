@@ -14,6 +14,35 @@ import { getStoredDepartments } from "./Departments";
 const SEMESTERS = ["Semester I", "Semester II", "Semester III", "Semester IV", "Semester V", "Semester VI", "Semester VII", "Semester VIII"];
 const ASSESSMENTS = ["IAT-1", "IAT-2", "End Semester"] as const;
 
+const MAX_BYTES = 15 * 1024 * 1024;
+const letters = (v: string) => v.toUpperCase().replace(/[^A-Z]/g, "");
+
+/** One chosen PDF and the student it will be uploaded for. */
+type BulkItem = { file: File; regNo: string; how: string; include: boolean; result?: "done" | "error"; error?: string };
+
+/**
+ * Finds the student a scanned PDF belongs to from its file name: the register number (exact), a mistyped
+ * register number (its last 6 digits, when only one student has them), or the student's name.
+ */
+function matchFile(name: string, students: StudentRecord[]): { regNo: string; how: string } {
+  const base = name.replace(/\.pdf$/i, "");
+  const digits = base.match(/\d{10,15}/)?.[0];
+  if (digits) {
+    if (students.some((s) => s.regNo === digits)) return { regNo: digits, how: "Register number" };
+    const bySuffix = students.filter((s) => s.regNo.endsWith(digits.slice(-6)));
+    if (bySuffix.length === 1) return { regNo: bySuffix[0].regNo, how: `Corrected from ${digits} — check` };
+  }
+  const word = letters(base.split(/[-_]/)[0]);
+  if (word.length >= 4) {
+    const byName = students.filter((s) => {
+      const n = letters(s.studentName);
+      return n === word || n.includes(word) || word.includes(n);
+    });
+    if (byName.length === 1) return { regNo: byName[0].regNo, how: "Student name — check" };
+  }
+  return { regNo: "", how: "No match — choose the student" };
+}
+
 const kb = (bytes: number) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
 
 /**
@@ -33,6 +62,10 @@ export const AnswerScripts: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [busyCell, setBusyCell] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [subjectCode, setSubjectCode] = useState("");
+  const [bulk, setBulk] = useState<BulkItem[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const bulkInput = useRef<HTMLInputElement>(null);
 
   // One hidden file input, pointed at whichever cell's Upload / Replace was clicked
   const fileInput = useRef<HTMLInputElement>(null);
@@ -151,12 +184,58 @@ export const AnswerScripts: React.FC = () => {
     }
   };
 
+  // ---- Bulk upload: many PDFs for one subject, each matched to a student
+  const chooseBulk = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).filter((f) => f.name.toLowerCase().endsWith(".pdf"));
+    e.target.value = "";
+    if (!files.length) return;
+    const items = files
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+      .map((file) => ({ file, ...matchFile(file.name, students), include: file.size <= MAX_BYTES }));
+    setBulk(items);
+  };
+  const setBulkStudent = (i: number, regNo: string) =>
+    setBulk((prev) => prev.map((b, k) => (k === i ? { ...b, regNo, how: regNo ? "Chosen by you" : "No match — choose the student", result: undefined } : b)));
+  const toggleBulk = (i: number) => setBulk((prev) => prev.map((b, k) => (k === i ? { ...b, include: !b.include } : b)));
+  const bulkCount = (regNo: string) => bulk.filter((b) => b.include && b.regNo === regNo).length;
+  const bulkProblems = bulk.filter((b) => b.include && !b.result && (!b.regNo || b.file.size > MAX_BYTES || bulkCount(b.regNo) > 1)).length;
+  const bulkReady = bulk.filter((b) => b.include && b.regNo && b.result !== "done").length;
+  const missingStudents = subjectCode
+    ? students.filter((s) => !scriptMap.has(`${s.regNo}|${subjectCode}`) && !bulk.some((b) => b.include && b.regNo === s.regNo))
+    : [];
+
+  const uploadBulk = async () => {
+    if (!subjectCode || bulkProblems > 0) return;
+    setBulkBusy(true);
+    let done = 0;
+    let failed = 0;
+    for (let i = 0; i < bulk.length; i++) {
+      const b = bulk[i];
+      if (!b.include || !b.regNo || b.result === "done") continue;
+      try {
+        const saved = await answerScriptsApi.upload(params(b.regNo, subjectCode), b.file);
+        setScripts((prev) => [...prev.filter((x) => !(x.regNo === saved.regNo && x.subjectCode === saved.subjectCode)), saved]);
+        setBulk((prev) => prev.map((x, k) => (k === i ? { ...x, result: "done", error: undefined } : x)));
+        done++;
+      } catch (err) {
+        setBulk((prev) => prev.map((x, k) => (k === i ? { ...x, result: "error", error: apiErrorMessage(err, "Upload failed") } : x)));
+        failed++;
+      }
+    }
+    setBulkBusy(false);
+    setMessage(failed
+      ? { type: "error", text: `${done} answer scripts uploaded for ${subjectCode}; ${failed} failed (see the list).` }
+      : { type: "success", text: `${done} answer scripts uploaded for ${subjectCode} (${assessment}).` });
+  };
+
+  const shownSubjects = subjectCode ? subjects.filter((x) => x.code === subjectCode) : subjects;
   const uploadedFor = (code: string) => scripts.filter((s) => s.subjectCode === code).length;
   const deptName = departments.find((d) => d.key === deptKey)?.name ?? deptKey.toUpperCase();
 
   return (
     <div className="space-y-6 w-full">
       <input ref={fileInput} type="file" accept="application/pdf,.pdf" className="hidden" onChange={onFileChosen} />
+      <input ref={bulkInput} type="file" accept="application/pdf,.pdf" multiple className="hidden" onChange={chooseBulk} />
 
       <div className="bg-[#0B192C] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-[#D4A72C]/30">
         <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-widest inline-block mb-2">
@@ -188,7 +267,7 @@ export const AnswerScripts: React.FC = () => {
       )}
 
       <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-sm p-5 sm:p-6 space-y-5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-xs items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 text-xs items-end">
           <label className="block">
             <span className="block text-[10px] font-extrabold uppercase text-gray-500 mb-1">Department</span>
             <select value={deptKey} onChange={(e) => setDeptKey(e.target.value)} className="w-full h-9 px-3 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] font-bold text-[#0B192C]">
@@ -219,6 +298,17 @@ export const AnswerScripts: React.FC = () => {
             </select>
           </label>
           <label className="block">
+            <span className="block text-[10px] font-extrabold uppercase text-gray-500 mb-1">Subject</span>
+            <select value={subjectCode} onChange={(e) => { setSubjectCode(e.target.value); setBulk([]); }} className="w-full h-9 px-3 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] font-bold text-[#0B192C]">
+              <option value="">All subjects</option>
+              {subjects.map((x) => (
+                <option key={x.code} value={x.code}>
+                  {x.code} · {x.title}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
             <span className="block text-[10px] font-extrabold uppercase text-gray-500 mb-1">Search student</span>
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -235,6 +325,79 @@ export const AnswerScripts: React.FC = () => {
           {students.length * subjects.length} scripts uploaded.
         </p>
 
+        {subjectCode && students.length > 0 && (
+          <div className="rounded-2xl border-2 border-dashed border-[#D4A72C] bg-[#FFFBEB] p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-black text-[#0B192C]">Bulk upload · {subjectCode} · {assessment}</p>
+                <p className="text-[11px] text-gray-600">
+                  Choose all the scanned PDFs of this subject at once. Each file is matched to a student by the register number in its
+                  file name (or the student's name). Check the matches, then upload. One PDF per student; uploading replaces an earlier one.
+                </p>
+              </div>
+              <button onClick={() => bulkInput.current?.click()} disabled={bulkBusy} className="h-9 px-4 rounded-xl bg-[#0B192C] text-white text-xs font-extrabold inline-flex items-center gap-2 disabled:opacity-60">
+                <Upload size={14} /> Choose PDFs
+              </button>
+            </div>
+            {bulk.length > 0 && (
+              <>
+                <div className="overflow-auto max-h-[50vh] rounded-xl border border-[#E5E1D8] bg-white">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#0B192C] text-white text-[10px] uppercase sticky top-0">
+                      <tr><th className="p-2">Upload</th><th className="p-2">File</th><th className="p-2">Size</th><th className="p-2">Student</th><th className="p-2">Matched by</th><th className="p-2">Status</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#E5E1D8]">
+                      {bulk.map((b, i) => {
+                        const tooBig = b.file.size > MAX_BYTES;
+                        const dup = b.include && !!b.regNo && bulkCount(b.regNo) > 1;
+                        const exists = !!b.regNo && scriptMap.has(`${b.regNo}|${subjectCode}`) && !b.result;
+                        const bad = b.result === "error" || (b.include && !b.result && (!b.regNo || tooBig || dup));
+                        return (
+                          <tr key={i} className={b.result === "done" ? "bg-emerald-50" : bad ? "bg-red-50" : ""}>
+                            <td className="p-2"><input type="checkbox" checked={b.include} disabled={bulkBusy || b.result === "done"} onChange={() => toggleBulk(i)} aria-label={`Upload ${b.file.name}`} /></td>
+                            <td className="p-2 font-mono text-[11px] break-all">{b.file.name}</td>
+                            <td className={`p-2 whitespace-nowrap ${tooBig ? "text-red-700 font-bold" : ""}`}>{kb(b.file.size)}</td>
+                            <td className="p-2">
+                              <select value={b.regNo} disabled={bulkBusy || b.result === "done"} onChange={(e) => setBulkStudent(i, e.target.value)} className="h-8 px-2 rounded-lg border border-[#E5E1D8] text-xs font-semibold max-w-[260px]" aria-label={`Student for ${b.file.name}`}>
+                                <option value="">— choose student —</option>
+                                {students.map((x) => <option key={x.regNo} value={x.regNo}>{x.regNo} · {x.studentName}</option>)}
+                              </select>
+                            </td>
+                            <td className={`p-2 text-[11px] ${/check|No match|Chosen/.test(b.how) ? "text-amber-700 font-bold" : "text-gray-600"}`}>{b.how}</td>
+                            <td className="p-2 text-[11px] font-bold">
+                              {b.result === "done" ? <span className="text-emerald-700">Uploaded</span>
+                                : b.result === "error" ? <span className="text-red-700">{b.error}</span>
+                                : !b.include ? <span className="text-gray-400">Skipped</span>
+                                : tooBig ? <span className="text-red-700">Larger than 15 MB</span>
+                                : !b.regNo ? <span className="text-red-700">Choose the student</span>
+                                : dup ? <span className="text-red-700">Same student as another file</span>
+                                : exists ? <span className="text-amber-700">Replaces the uploaded PDF</span>
+                                : <span className="text-gray-500">Ready</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {missingStudents.length > 0 && (
+                  <p className="text-[11px] text-amber-800 font-semibold">
+                    No PDF yet for {missingStudents.length} student{missingStudents.length === 1 ? "" : "s"}: {missingStudents.map((x) => `${x.regNo} ${x.studentName}`).join(", ")}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {bulkProblems > 0 && <span className="text-[11px] font-bold text-red-700">Fix the {bulkProblems} red row{bulkProblems === 1 ? "" : "s"} (or untick them) to upload.</span>}
+                  <button onClick={() => setBulk([])} disabled={bulkBusy} className="h-9 px-4 rounded-xl bg-gray-100 text-xs font-bold disabled:opacity-60">Clear</button>
+                  <button onClick={uploadBulk} disabled={bulkBusy || bulkProblems > 0 || bulkReady === 0} className="h-9 px-4 rounded-xl bg-[#D4A72C] text-[#0B192C] text-xs font-extrabold inline-flex items-center gap-2 disabled:opacity-50">
+                    {bulkBusy ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
+                    {bulkBusy ? `Uploading… ${bulk.filter((b) => b.result === "done").length}/${bulk.filter((b) => b.include).length}` : `Upload ${bulkReady} PDF${bulkReady === 1 ? "" : "s"}`}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {subjects.length === 0 && !loading ? (
           <div className="p-8 text-center text-xs text-gray-500 border-2 border-dashed border-[#E5E1D8] rounded-2xl">
             No subjects for {deptName} in {semester}. Add them on the Subjects page first.
@@ -247,7 +410,7 @@ export const AnswerScripts: React.FC = () => {
                   <th className="p-3 sticky left-0 bg-[#0B192C] z-10">Register Number</th>
                   <th className="p-3">Student Name</th>
                   <th className="p-3">DOB</th>
-                  {subjects.map((s) => (
+                  {shownSubjects.map((s) => (
                     <th key={s.code} className="p-3 text-center min-w-[150px]" title={s.title}>
                       <span className="block">{s.code}</span>
                       <span className="block text-[9px] font-semibold normal-case text-white/60 truncate max-w-[150px]">{s.title}</span>
@@ -264,7 +427,7 @@ export const AnswerScripts: React.FC = () => {
                     <td className="p-3 font-mono font-bold text-[#0B192C] sticky left-0 bg-white">{st.regNo}</td>
                     <td className="p-3 font-bold text-gray-900">{st.studentName}</td>
                     <td className="p-3 font-mono text-gray-600">{st.dob || "—"}</td>
-                    {subjects.map((sub) => {
+                    {shownSubjects.map((sub) => {
                       const cell = `${st.regNo}|${sub.code}`;
                       const info = scriptMap.get(cell);
                       const busy = busyCell === cell;
