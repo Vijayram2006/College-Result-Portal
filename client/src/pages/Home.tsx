@@ -19,7 +19,14 @@ import { INITIAL_QUESTION_PAPERS, QuestionPaperReviewView, safeLoadQuestionPaper
 import { FacultyQuestionPaperView } from "../components/FacultyQuestionPaperView";
 import { MarkApprovalsView } from "../components/MarkApprovalsView";
 import { PortalShell } from "../components/PortalShell";
+import { FacultyPaperCorrectionView } from "../components/FacultyPaperCorrectionView";
 import { HodQuestionPaperScrutinyView } from "../components/HodQuestionPaperScrutinyView";
+import {
+  safeLoadNotifications,
+  DeanExamNotification,
+} from "../components/dean/ExamTimetableNotificationView";
+import { FacultyExamNotificationsView } from "../components/FacultyExamNotificationsView";
+import { HodExamNotificationsView } from "../components/HodExamNotificationsView";
 import type { LucideIcon } from "lucide-react";
 import { HodAnalytics } from "../components/hodAnalytics/HodAnalytics";
 import { CoAssessment } from "../components/CoAssessment";
@@ -123,6 +130,7 @@ type PageKey =
   | "verification"
   | "noticeboard"
   | "internal-marks"
+  | "paper-correction"
   | "question-paper";
 
 interface NavItem {
@@ -187,12 +195,15 @@ const roleNav: Record<Role, NavItem[]> = {
   ],
   Faculty: [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "noticeboard", label: "Exam Notifications", icon: Bell },
     { key: "marks", label: "Marks Entry", icon: PenLine },
     { key: "internal-marks", label: "Internal Marks", icon: ClipboardCheck },
+    { key: "paper-correction", label: "Paper Correction", icon: FileText },
     { key: "question-paper", label: "Question Papers", icon: FileCheck },
   ],
   HOD: [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "noticeboard", label: "Exam Notifications", icon: Bell },
     { key: "question-paper", label: "Question Papers", icon: FileCheck },
     { key: "faculty", label: "Faculty", icon: GraduationCap },
     { key: "students", label: "Students", icon: UsersRound },
@@ -593,6 +604,19 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
   const [searchQuery, setSearchQuery] = useState("");
   const [showRosterModal, setShowRosterModal] = useState(false);
   const [showGradeAnalyticsModal, setShowGradeAnalyticsModal] = useState(false);
+  const [examNotifs, setExamNotifs] = useState<DeanExamNotification[]>(() => safeLoadNotifications());
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setExamNotifs(safeLoadNotifications());
+    };
+    window.addEventListener("kvell_exam_notification_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener("kvell_exam_notification_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
 
   // Dynamic Functional Metrics
   // Each student takes every subject of their semester, so count them once per semester (not once per subject)
@@ -1338,7 +1362,9 @@ function HodPortalDashboard({
   department?: string;
 }) {
   const kvellSealLogo = "/kvell-logo.png";
-  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "internals" | "studentResult" | "questionPapers" | "markApprovals">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "internals" | "studentResult" | "questionPapers" | "markApprovals" | "notifications">("dashboard");
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [deanBroadcastNotifs, setDeanBroadcastNotifs] = useState<DeanExamNotification[]>(() => safeLoadNotifications());
   const [pendingFacultyQpCount, setPendingFacultyQpCount] = useState<number>(() => {
     try {
       const list = safeLoadQuestionPapers();
@@ -1354,11 +1380,14 @@ function HodPortalDashboard({
         const list = safeLoadQuestionPapers();
         setPendingFacultyQpCount(list.filter((p: any) => p.status === "PENDING_HOD_REVIEW").length);
       } catch {}
+      setDeanBroadcastNotifs(safeLoadNotifications());
     };
     window.addEventListener("kvell_qp_updated", updateCount);
+    window.addEventListener("kvell_exam_notification_updated", updateCount);
     window.addEventListener("storage", updateCount);
     return () => {
       window.removeEventListener("kvell_qp_updated", updateCount);
+      window.removeEventListener("kvell_exam_notification_updated", updateCount);
       window.removeEventListener("storage", updateCount);
     };
   }, []);
@@ -1394,6 +1423,7 @@ function HodPortalDashboard({
         { key: "studentResult", label: "Student Result", icon: Users },
         { key: "questionPapers", label: "Question Papers", icon: FileCheck, badge: pendingFacultyQpCount },
         { key: "markApprovals", label: "Mark Approvals", icon: CheckSquare },
+        { key: "notifications", label: "Exam Notifications", icon: Bell, badge: deanBroadcastNotifs.length },
       ]}
       active={activeTab}
       onNavigate={(k) => setActiveTab(k as typeof activeTab)}
@@ -1454,6 +1484,87 @@ function HodPortalDashboard({
         {/* Tab 1: Main HOD Dashboard (Analytics & Pass Graph) */}
         {activeTab === "dashboard" ? (
           <div className="space-y-6">
+            {/* WORKFLOW STEP 6 & 7: DEAN BROADCAST EXAM NOTIFICATIONS HERO BANNER FOR HOD */}
+            {deanBroadcastNotifs.length > 0 && deanBroadcastNotifs[0].status === "ACTIVE" && (
+              <div className="bg-[#0B192C] text-white rounded-3xl border-2 border-[#D4A72C] p-6 shadow-2xl relative overflow-hidden space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-[#D4A72C] text-[#0B192C] flex items-center justify-center font-bold shrink-0 shadow-md">
+                      <Bell size={24} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded font-mono font-black text-[10px] bg-[#D4A72C] text-[#0B192C] tracking-widest uppercase">
+                          OFFICIAL DEAN BROADCAST CIRCULAR
+                        </span>
+                        <span className="font-mono text-xs text-amber-400 font-bold">
+                          {deanBroadcastNotifs[0].refNo}
+                        </span>
+                      </div>
+                      <h2 className="text-base sm:text-lg font-black text-white mt-1">
+                        {deanBroadcastNotifs[0].title}
+                      </h2>
+                      <p className="text-xs text-slate-300 font-medium">
+                        Issued by <strong>{deanBroadcastNotifs[0].senderName}</strong> ({deanBroadcastNotifs[0].senderRole}) &bull; Date: {deanBroadcastNotifs[0].issueDate}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="bg-red-500/20 border border-red-500/50 px-3.5 py-1.5 rounded-xl text-right">
+                      <span className="text-[10px] font-black uppercase text-red-300 block">
+                        DAC Scrutiny Deadline
+                      </span>
+                      <span className="font-mono font-black text-xs text-white">
+                        {deanBroadcastNotifs[0].deadline}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/10 space-y-2 text-xs">
+                  <p className="text-slate-200 leading-relaxed font-medium">
+                    {deanBroadcastNotifs[0].message}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10 text-[11px] text-amber-300 font-mono">
+                    <span className="font-bold text-white">Target Streams:</span>
+                    {deanBroadcastNotifs[0].targetDepartments.map((deptCode) => (
+                      <span key={deptCode} className="px-2 py-0.5 rounded bg-white/10 border border-white/15">
+                        {deptCode}
+                      </span>
+                    ))}
+                    <span className="ml-auto text-slate-400">
+                      Delivered: {deanBroadcastNotifs[0].deliveredAt}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <span className="text-xs text-slate-400 font-medium">
+                    Dean directive requires HOD to ensure 2 sets (Set A &amp; Set B) per course with DAC compliance.
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("notifications")}
+                      className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition border border-white/20 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <FileText size={14} className="text-[#D4A72C]" />
+                      <span>View Full Memorandum ({deanBroadcastNotifs.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("questionPapers")}
+                      className="px-4 py-2 rounded-xl bg-[#D4A72C] hover:bg-[#b08014] text-[#0B192C] font-black text-xs transition flex items-center gap-1.5 cursor-pointer shadow-md"
+                    >
+                      <span>Stage 2 DAC Scrutiny</span>
+                      <ArrowRight size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Stage 2 DAC Scrutiny Banner if Faculty submissions pending */}
             {pendingFacultyQpCount > 0 && (
               <div
@@ -1633,6 +1744,13 @@ function HodPortalDashboard({
         ) : activeTab === "markApprovals" ? (
           /* Tab: forwarded marks waiting for the HOD's approval (when the Chief COE requires it) */
           <MarkApprovalsView role="hod" />
+        ) : activeTab === "notifications" ? (
+          /* Tab: the Dean's exam notifications (QP submission, timetable, valuation) */
+          <HodExamNotificationsView
+            department={department}
+            hodName={hodName}
+            onNavigateQP={() => setActiveTab("questionPapers")}
+          />
         ) : (
           /* Tab: question papers submitted by the department's faculty */
           <HodQuestionPapersView department={department} hodName={hodName} />
@@ -3373,6 +3491,13 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
         return <FacultyMarkEntry onToast={setToast} />;
       case "internal-marks":
         return <CoAssessment mode="faculty" onToast={setToast} />;
+      case "paper-correction":
+        return (
+          <FacultyPaperCorrectionView
+            currentFacultyName={facultyCollege?.facultyName || meta.name}
+            onToast={setToast}
+          />
+        );
       case "question-paper":
         if (role === "Faculty")
           return (
@@ -3394,6 +3519,26 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
         return <QuestionPaperReviewView onToast={setToast} />;
       case "verification":
       case "noticeboard":
+        if (role === "Faculty") {
+          return (
+            <FacultyExamNotificationsView
+              onNavigateToQuestionPaper={() => navigate("question-paper")}
+              onToast={setToast}
+              facultyName={facultyCollege?.facultyName || meta.name}
+              department={facultyCollege?.collegeName || meta.department}
+            />
+          );
+        }
+        if (role === "HOD") {
+          return (
+            <HodExamNotificationsView
+              department={meta.department || "Computer Science & Engineering"}
+              hodName={meta.name || "Dr. Jayapradha"}
+              onNavigateQP={() => navigate("question-paper")}
+              onToast={setToast}
+            />
+          );
+        }
         return <FacultyDashboard onNavigate={navigate} />;
       case "performance":
         if (role === "Faculty") return <FacultyDashboard onNavigate={navigate} />;

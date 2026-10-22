@@ -12,6 +12,14 @@ import {
   Building2,
   Calendar,
   Users,
+  ShieldCheck,
+  Share2,
+  FileCheck,
+  Lock,
+  Sparkles,
+  Award,
+  ChevronRight,
+  ArrowRight,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { aidsSem1Students } from "../../data/aidsStudents";
@@ -27,6 +35,14 @@ export interface ResultBatchItem {
   totalStudents: number;
   passPercentage: number;
   publicationStatus: "PUBLISHED" | "AWAITING DEAN PUBLISH";
+  auditStatus?: "PENDING_AUDIT" | "AUDITED_BY_DEAN";
+  auditedBy?: string;
+  auditedAt?: string;
+  forwardStatus?: "NOT_FORWARDED" | "FORWARDED_TO_COE";
+  forwardedToCollege?: string;
+  forwardRef?: string;
+  forwardedAt?: string;
+  forwardedBy?: string;
 }
 
 const INITIAL_BATCHES: ResultBatchItem[] = [
@@ -120,6 +136,18 @@ export const PublishedResultsView: React.FC = () => {
   const [publishConfirmBatch, setPublishConfirmBatch] = useState<ResultBatchItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Step 5: Dean Academic Result Audit Modal state
+  const [auditBatchModal, setAuditBatchModal] = useState<ResultBatchItem | null>(null);
+
+  // Step 5: AD Forward Result to COE of specific college state
+  const [forwardCoeBatchModal, setForwardCoeBatchModal] = useState<ResultBatchItem | null>(null);
+  const [targetCollege, setTargetCollege] = useState<string>(
+    "Karpaga Vinayaga College of Engineering and Technology (Engineering)"
+  );
+  const [forwardRemarks, setForwardRemarks] = useState<string>(
+    "Official audited semester examination results dossier forwarded by Associate Dean (Academics) to Controller of Examinations (Engineering) for final gazette release."
+  );
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
@@ -130,6 +158,64 @@ export const PublishedResultsView: React.FC = () => {
     try {
       localStorage.setItem("kvell_dean_published_batches", JSON.stringify(list));
     } catch {}
+  };
+
+  // Step 5 Handler: Dean signs off on academic result audit
+  const handleApproveAudit = (batchId: string) => {
+    const timestamp = new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const updated = batches.map((b) =>
+      b.id === batchId
+        ? {
+            ...b,
+            auditStatus: "AUDITED_BY_DEAN" as const,
+            auditedBy: "Dr. K. R. Ramanathan (Dean of Academics)",
+            auditedAt: timestamp,
+          }
+        : b
+    );
+    persistBatches(updated);
+    if (auditBatchModal && auditBatchModal.id === batchId) {
+      setAuditBatchModal({
+        ...auditBatchModal,
+        auditStatus: "AUDITED_BY_DEAN",
+        auditedBy: "Dr. K. R. Ramanathan (Dean of Academics)",
+        auditedAt: timestamp,
+      });
+    }
+    showToast("Dean Academic Audit certified and digitally signed!");
+  };
+
+  // Step 5 Handler: Associate Dean forwards result dossier to COE
+  const handleConfirmForwardToCoe = (batchId: string) => {
+    const dispatchRef = `COE-FWD-ENG-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const timestamp = new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const updated = batches.map((b) =>
+      b.id === batchId
+        ? {
+            ...b,
+            forwardStatus: "FORWARDED_TO_COE" as const,
+            forwardedToCollege: targetCollege,
+            forwardRef: dispatchRef,
+            forwardedAt: timestamp,
+            forwardedBy: "Dr. V. Rajesh (Associate Dean - Academics)",
+          }
+        : b
+    );
+    persistBatches(updated);
+    setForwardCoeBatchModal(null);
+    showToast(`Transmitted result dossier to COE (${targetCollege}) • Dispatch ID: ${dispatchRef}`);
   };
 
   const handleExportBatchExcel = (dept: string, assessment: string) => {
@@ -382,29 +468,74 @@ export const PublishedResultsView: React.FC = () => {
                     <td className="py-3.5 px-4 text-center font-black text-emerald-600">{b.passPercentage}%</td>
 
                     <td className="py-3.5 px-4 text-center">
-                      <span
-                        className={`px-3 py-1 rounded-full text-[10px] font-extrabold inline-block ${
-                          b.publicationStatus === "PUBLISHED"
-                            ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                            : "bg-amber-100 text-amber-900 border border-amber-300 animate-pulse"
-                        }`}
-                      >
-                        {b.publicationStatus}
-                      </span>
+                      <div className="flex flex-col items-center gap-1">
+                        <span
+                          className={`px-3 py-0.5 rounded-full text-[10px] font-extrabold inline-block ${
+                            b.publicationStatus === "PUBLISHED"
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                              : "bg-amber-100 text-amber-900 border border-amber-300 animate-pulse"
+                          }`}
+                        >
+                          {b.publicationStatus}
+                        </span>
+                        {b.auditStatus === "AUDITED_BY_DEAN" && (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-purple-100 text-purple-900 border border-purple-300 inline-flex items-center gap-1 shadow-2xs">
+                            <ShieldCheck size={10} className="text-purple-700" />
+                            AUDITED BY DEAN
+                          </span>
+                        )}
+                        {b.forwardStatus === "FORWARDED_TO_COE" && (
+                          <span
+                            className="px-2 py-0.5 rounded-full text-[9px] font-black bg-blue-100 text-blue-900 border border-blue-300 inline-flex items-center gap-1 shadow-2xs"
+                            title={`Handover Ref: ${b.forwardRef} • ${b.forwardedToCollege}`}
+                          >
+                            <Share2 size={10} className="text-blue-700" />
+                            FORWARDED TO COE
+                          </span>
+                        )}
+                      </div>
                     </td>
 
-                    <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
+                    <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
                       <button
                         onClick={() => setSelectedBatchModal(b)}
-                        className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-[11px] transition inline-flex items-center gap-1 cursor-pointer"
+                        className="px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-[11px] transition inline-flex items-center gap-1 cursor-pointer"
                       >
                         <Eye size={12} /> View
+                      </button>
+
+                      {/* Step 5: Dean Academic Result Audit */}
+                      <button
+                        onClick={() => setAuditBatchModal(b)}
+                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition inline-flex items-center gap-1 cursor-pointer ${
+                          b.auditStatus === "AUDITED_BY_DEAN"
+                            ? "bg-purple-50 text-purple-900 border border-purple-300 hover:bg-purple-100"
+                            : "bg-[#0B192C] text-[#D4A72C] hover:bg-[#152a48] shadow-xs"
+                        }`}
+                        title="Dean Result Audit & Candidate De-Masking Verification"
+                      >
+                        <ShieldCheck size={12} />
+                        <span>{b.auditStatus === "AUDITED_BY_DEAN" ? "Audited" : "Dean Audit"}</span>
+                      </button>
+
+                      {/* Step 5: Associate Dean Forward to COE (Engineering) */}
+                      <button
+                        onClick={() => setForwardCoeBatchModal(b)}
+                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition inline-flex items-center gap-1 cursor-pointer ${
+                          b.forwardStatus === "FORWARDED_TO_COE"
+                            ? "bg-blue-50 text-blue-900 border border-blue-300 hover:bg-blue-100"
+                            : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs"
+                        }`}
+                        title="Associate Dean (AD) Forward Audited Results to College COE"
+                      >
+                        <Share2 size={12} />
+                        <span>{b.forwardStatus === "FORWARDED_TO_COE" ? "COE Dossier" : "Forward to COE"}</span>
                       </button>
 
                       {b.publicationStatus !== "PUBLISHED" && (
                         <button
                           onClick={() => setPublishConfirmBatch(b)}
-                          className="px-3 py-1.5 rounded-lg bg-[#10B981] hover:bg-emerald-600 text-white font-extrabold text-[11px] transition shadow-xs inline-flex items-center gap-1 cursor-pointer"
+                          className="px-2.5 py-1.5 rounded-lg bg-[#10B981] hover:bg-emerald-600 text-white font-extrabold text-[11px] transition shadow-xs inline-flex items-center gap-1 cursor-pointer"
                         >
                           <Send size={12} /> PUBLISH
                         </button>
@@ -412,10 +543,10 @@ export const PublishedResultsView: React.FC = () => {
 
                       <button
                         onClick={() => handleDeleteBatch(b.id, b.batchTitle)}
-                        className="px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-bold text-[11px] transition inline-flex items-center gap-1 border border-red-200 cursor-pointer"
+                        className="px-2 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-bold text-[11px] transition inline-flex items-center gap-1 border border-red-200 cursor-pointer"
                         title="Delete Result Batch"
                       >
-                        <Trash2 size={12} /> Delete
+                        <Trash2 size={12} />
                       </button>
                     </td>
                   </tr>
@@ -531,6 +662,368 @@ export const PublishedResultsView: React.FC = () => {
               >
                 <Send size={13} />
                 <span>Endorse &amp; Publish</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* STEP 5 MODAL 1: DEAN ACADEMIC RESULT AUDIT & DE-MASKING VERIFICATION DESK */}
+      {/* ========================================================================= */}
+      {auditBatchModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-gray-200 shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-[#0B192C] text-white shrink-0">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-[#EAB308] text-[#0B192C] flex items-center justify-center font-black shadow-md shrink-0">
+                  <ShieldCheck size={24} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase text-[#D4A72C] tracking-widest block">
+                      STEP 5 · DEAN ACADEMIC AUDIT DESK
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[9px] font-extrabold bg-white/10 text-white border border-white/20">
+                      Central COE Key De-Masking
+                    </span>
+                  </div>
+                  <h3 className="font-display font-black text-lg text-white">
+                    Dean Result Audit — {auditBatchModal.batchTitle}
+                  </h3>
+                  <p className="text-[11px] text-slate-300">
+                    Candidate-by-candidate de-masking audit linking blind evaluation marks back to student registers
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAuditBatchModal(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-5 bg-[#FAF8F5]">
+              {/* Top Workflow Explanation Card */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 text-white border border-blue-700/50 shadow-md">
+                <span className="text-[10px] font-black uppercase text-[#EAB308] tracking-widest block mb-1">
+                  COE CENTRAL MASTER KEY RE-LINK PROTOCOL
+                </span>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
+                  <div className="p-2.5 rounded-xl bg-white/10 border border-white/10">
+                    <span className="text-[10px] text-gray-400 block font-bold">1. FACULTY VALUATION (BLIND)</span>
+                    <span className="font-mono font-black text-amber-400 block mt-0.5">DMY-84291: 84 / 100</span>
+                    <span className="text-[10px] text-gray-300">Part A = 18 &bull; Part B = 66</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/10 border border-white/10">
+                    <span className="text-[10px] text-gray-400 block font-bold">2. COE DB RE-LINK JOIN</span>
+                    <span className="font-mono font-bold text-white block mt-0.5">DMY-84291 &rarr; SCR-001</span>
+                    <span className="text-[10px] text-emerald-300">&check; Authenticated Master Key</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white/10 border border-white/10">
+                    <span className="text-[10px] text-gray-400 block font-bold">3. DE-MASKED IN DEAN PORTAL</span>
+                    <span className="font-mono font-black text-emerald-400 block mt-0.5">20260110226001 (ABI T)</span>
+                    <span className="text-[10px] text-gray-300">Result: 84 / 100 &bull; Grade: A+</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Candidate Roster with De-Masked Marks */}
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+                <div className="p-3.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                  <span className="font-display font-extrabold text-xs text-[#0B192C]">
+                    De-Masked Student Candidate Mark Audit Roster (Sample Batch)
+                  </span>
+                  <span className="text-[10px] font-bold text-gray-500 font-mono">
+                    Total: {auditBatchModal.totalStudents} Candidates &bull; Pass Rate: {auditBatchModal.passPercentage}%
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto max-h-72">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-bold tracking-wider sticky top-0 z-10">
+                      <tr>
+                        <th className="py-2.5 px-3">Reg Number</th>
+                        <th className="py-2.5 px-3">Student Name</th>
+                        <th className="py-2.5 px-3">Dummy Barcode</th>
+                        <th className="py-2.5 px-2 text-center">Part A (20)</th>
+                        <th className="py-2.5 px-2 text-center">Part B (80)</th>
+                        <th className="py-2.5 px-2 text-center">Total (100)</th>
+                        <th className="py-2.5 px-2 text-center">Grade</th>
+                        <th className="py-2.5 px-3 text-center">Audit Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 font-medium">
+                      {/* Row 1: Candidate ABI T matching exact user's prompt */}
+                      <tr className="bg-amber-50/50 hover:bg-amber-50 transition">
+                        <td className="py-2.5 px-3 font-mono font-black text-[#0B192C]">20260110226001</td>
+                        <td className="py-2.5 px-3 font-bold text-[#0B192C]">
+                          ABI T <span className="text-[10px] text-amber-700 font-semibold">(Target Candidate)</span>
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-[11px] font-bold text-blue-900 bg-blue-50/50 px-2 rounded">
+                          DMY-84291
+                        </td>
+                        <td className="py-2.5 px-2 text-center font-mono font-bold text-gray-800">18</td>
+                        <td className="py-2.5 px-2 text-center font-mono font-bold text-gray-800">66</td>
+                        <td className="py-2.5 px-2 text-center font-mono font-black text-emerald-800 text-sm">84</td>
+                        <td className="py-2.5 px-2 text-center font-mono font-black text-purple-900">A+</td>
+                        <td className="py-2.5 px-3 text-center">
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-100 text-emerald-800 inline-flex items-center gap-1">
+                            &check; De-Masked Verified
+                          </span>
+                        </td>
+                      </tr>
+
+                      {/* Additional students from sample roster */}
+                      {aidsSem1Students.slice(1, 8).map((s, idx) => {
+                        const dummyCode = `DMY-${84292 + idx}`;
+                        const partA = 17 + ((idx * 2) % 4);
+                        const partB = 60 + ((idx * 7) % 18);
+                        const total = partA + partB;
+                        const grade = total >= 90 ? "O" : total >= 80 ? "A+" : total >= 70 ? "A" : "B+";
+                        return (
+                          <tr key={s.regNo} className="hover:bg-slate-50 transition">
+                            <td className="py-2 px-3 font-mono text-gray-700">{s.regNo}</td>
+                            <td className="py-2 px-3 text-gray-800 font-medium">{s.name}</td>
+                            <td className="py-2 px-3 font-mono text-[11px] text-blue-900">{dummyCode}</td>
+                            <td className="py-2 px-2 text-center font-mono text-gray-700">{partA}</td>
+                            <td className="py-2 px-2 text-center font-mono text-gray-700">{partB}</td>
+                            <td className="py-2 px-2 text-center font-mono font-bold text-emerald-700">{total}</td>
+                            <td className="py-2 px-2 text-center font-mono font-bold text-gray-800">{grade}</td>
+                            <td className="py-2 px-3 text-center">
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-gray-100 text-gray-700">
+                                Verified
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Dean Audit Verification Sign-off Box */}
+              <div className="p-4 rounded-2xl bg-white border border-gray-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck size={18} className="text-purple-700" />
+                    <span className="font-display font-extrabold text-xs text-[#0B192C]">
+                      Dean of Academics Audit Certification
+                    </span>
+                  </div>
+                  {auditBatchModal.auditStatus === "AUDITED_BY_DEAN" ? (
+                    <span className="px-3 py-1 rounded-full text-[10px] font-black bg-purple-100 text-purple-900 border border-purple-300 flex items-center gap-1">
+                      &check; AUDITED BY DEAN
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900">
+                      Awaiting Dean Signature
+                    </span>
+                  )}
+                </div>
+
+                <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-200 text-xs text-purple-950 space-y-1">
+                  <p className="font-semibold">
+                    I hereby certify that the candidate examination scripts evaluated blindly under COE dummy codes have been audited, mathematically reconciled, and verified compliant with Autonomous Academic Regulations.
+                  </p>
+                  {auditBatchModal.auditedAt && (
+                    <p className="text-[11px] text-purple-800 font-mono pt-1">
+                      Signed: <strong>{auditBatchModal.auditedBy || "Dean of Academics"}</strong> &bull; Timestamp: {auditBatchModal.auditedAt}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="p-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between shrink-0">
+              <button
+                type="button"
+                onClick={() => setAuditBatchModal(null)}
+                className="px-4 py-2 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-xs transition cursor-pointer"
+              >
+                Close Audit Desk
+              </button>
+
+              <div className="flex items-center gap-2">
+                {auditBatchModal.auditStatus !== "AUDITED_BY_DEAN" ? (
+                  <button
+                    type="button"
+                    onClick={() => handleApproveAudit(auditBatchModal.id)}
+                    className="px-5 py-2 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-[#D4A72C] font-black text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <ShieldCheck size={14} />
+                    <span>Approve &amp; Sign Dean Academic Audit</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForwardCoeBatchModal(auditBatchModal);
+                      setAuditBatchModal(null);
+                    }}
+                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Share2 size={14} />
+                    <span>Proceed to Forward to COE &rarr;</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* STEP 5 MODAL 2: ASSOCIATE DEAN FORWARD RESULTS TO COE OF SPECIFIC COLLEGE */}
+      {/* ========================================================================= */}
+      {forwardCoeBatchModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-gray-200 shadow-2xl max-w-2xl w-full flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-[#0B192C] to-[#152a48] text-white shrink-0">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-indigo-500 text-white flex items-center justify-center font-black shadow-md shrink-0">
+                  <Share2 size={22} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase text-[#D4A72C] tracking-widest block">
+                      STEP 5 · ASSOCIATE DEAN (AD) DISPATCH
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[9px] font-extrabold bg-white/10 text-white border border-white/20">
+                      Official College Handover
+                    </span>
+                  </div>
+                  <h3 className="font-display font-black text-lg text-white">
+                    Forward Result Dossier to COE
+                  </h3>
+                  <p className="text-[11px] text-slate-300">
+                    Transmission of Dean-audited examination results to the Controller of Examinations
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setForwardCoeBatchModal(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4 bg-[#FAF8F5]">
+              {/* Batch Overview Card */}
+              <div className="p-4 rounded-2xl bg-white border border-gray-200 shadow-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold uppercase text-gray-500">EXAMINATION DOSSIER</span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-900">
+                    &check; Dean Audited
+                  </span>
+                </div>
+                <h4 className="font-display font-bold text-sm text-[#0B192C]">
+                  {forwardCoeBatchModal.batchTitle}
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-gray-600 pt-1 border-t border-gray-100">
+                  <div>
+                    <span className="text-[10px] text-gray-400 block">Department</span>
+                    <span className="font-bold text-[#0B192C]">{forwardCoeBatchModal.departmentName}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-gray-400 block">Candidates</span>
+                    <span className="font-bold text-[#0B192C]">{forwardCoeBatchModal.totalStudents} Students</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-gray-400 block">Pass Rate</span>
+                    <span className="font-black text-emerald-700">{forwardCoeBatchModal.passPercentage}%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Specific College Target Selection matching user's requirement */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-black uppercase tracking-wider text-gray-700">
+                  Select Specific College COE Destination
+                </label>
+                <select
+                  value={targetCollege}
+                  onChange={(e) => setTargetCollege(e.target.value)}
+                  className="w-full py-2.5 px-3.5 rounded-xl border border-gray-300 bg-white text-xs font-bold text-[#0B192C] focus:ring-2 focus:ring-indigo-600 focus:outline-none cursor-pointer"
+                >
+                  <option value="Karpaga Vinayaga College of Engineering and Technology (Engineering)">
+                    Karpaga Vinayaga College of Engineering and Technology (Engineering Wing)
+                  </option>
+                  <option value="Karpaga Vinayaga Institute of Medical Sciences">
+                    Karpaga Vinayaga Institute of Medical Sciences (Medical Wing)
+                  </option>
+                  <option value="Karpaga Vinayaga College of Nursing">
+                    Karpaga Vinayaga College of Nursing (Nursing Wing)
+                  </option>
+                  <option value="Karpaga Vinayaga College of Pharmacy">
+                    Karpaga Vinayaga College of Pharmacy (Pharmacy Wing)
+                  </option>
+                </select>
+                <span className="text-[11px] text-gray-500 block">
+                  The Associate Dean forwards result dossiers to the specific Controller of Examinations of that college.
+                </span>
+              </div>
+
+              {/* Handover Official Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="p-3 bg-white rounded-xl border border-gray-200">
+                  <span className="text-[10px] text-gray-400 font-bold block uppercase">RECIPIENT COE OFFICER</span>
+                  <span className="font-bold text-[#0B192C] block mt-0.5">Dr. S. Karthikeyan</span>
+                  <span className="text-[10px] text-gray-500">Controller of Examinations (Engineering)</span>
+                </div>
+                <div className="p-3 bg-white rounded-xl border border-gray-200">
+                  <span className="text-[10px] text-gray-400 font-bold block uppercase">FORWARDED BY</span>
+                  <span className="font-bold text-[#0B192C] block mt-0.5">Dr. V. Rajesh</span>
+                  <span className="text-[10px] text-gray-500">Associate Dean - Academics (Engineering)</span>
+                </div>
+              </div>
+
+              {/* Handover Remarks */}
+              <div className="space-y-1">
+                <label className="block text-xs font-black uppercase tracking-wider text-gray-700">
+                  Official Handover Remarks &amp; Gazette Reference
+                </label>
+                <textarea
+                  rows={3}
+                  value={forwardRemarks}
+                  onChange={(e) => setForwardRemarks(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-gray-300 bg-white text-xs font-medium text-gray-800 focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                />
+              </div>
+
+              {/* Handover Seal Box */}
+              <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 text-xs text-blue-950 flex items-center gap-3">
+                <Lock size={18} className="text-blue-700 shrink-0" />
+                <span className="text-[11px] leading-relaxed">
+                  Upon forwarding, this result dossier is locked under official COE custody. Results will be queued for formal gazette notification and student marksheet release.
+                </span>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between shrink-0">
+              <button
+                type="button"
+                onClick={() => setForwardCoeBatchModal(null)}
+                className="px-4 py-2 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-xs transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConfirmForwardToCoe(forwardCoeBatchModal.id)}
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer"
+              >
+                <Share2 size={14} />
+                <span>Confirm &amp; Forward Result to COE</span>
               </button>
             </div>
           </div>

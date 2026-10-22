@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   SEMESTER_OPTIONS,
   academicYearNow,
@@ -53,6 +53,10 @@ import {
   SAMPLE_QP_PDF_DATA,
   safeLoadQuestionPapers,
 } from "./dean/QuestionPaperReviewView";
+import {
+  safeLoadNotifications,
+  DeanExamNotification,
+} from "./dean/ExamTimetableNotificationView";
 
 
 interface FacultyQuestionPaperViewProps {
@@ -78,6 +82,17 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
   const [paperToRevise, setPaperToRevise] = useState<QuestionPaperItem | null>(null);
   const [previewPaper, setPreviewPaper] = useState<QuestionPaperItem | null>(null);
   const [hierarchyPaper, setHierarchyPaper] = useState<QuestionPaperItem | null>(null);
+
+  const [examNotifs, setExamNotifs] = useState<DeanExamNotification[]>(() => safeLoadNotifications());
+  useEffect(() => {
+    const load = () => setExamNotifs(safeLoadNotifications());
+    window.addEventListener("kvell_exam_notification_updated", load);
+    window.addEventListener("storage", load);
+    return () => {
+      window.removeEventListener("kvell_exam_notification_updated", load);
+      window.removeEventListener("storage", load);
+    };
+  }, []);
 
   // Filter papers for this Faculty member or department with safe optional chaining
   const facultyPapers = useMemo(() => {
@@ -290,6 +305,106 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
           </button>
         </div>
       </div>
+
+      {/* WORKFLOW STEP 6 & 7: DEAN EXAM NOTIFICATION BANNER */}
+      {examNotifs.length > 0 && examNotifs[0].status === "ACTIVE" && (
+        <div className="bg-[#0B192C] text-white rounded-2xl border-2 border-[#D4A72C] p-5 shadow-xl relative overflow-hidden space-y-3">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-white/10 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#D4A72C] text-[#0B192C] flex items-center justify-center font-bold shrink-0">
+                <Send size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-wider">
+                    WORKFLOW STEP 6 · OFFICIAL NOTIFICATION FROM DEAN
+                  </span>
+                  <span className="font-mono text-xs text-[#D4A72C] font-bold">
+                    {examNotifs[0].refNo}
+                  </span>
+                </div>
+                <h3 className="font-display font-extrabold text-sm sm:text-base text-white mt-0.5">
+                  {examNotifs[0].title}
+                </h3>
+              </div>
+            </div>
+
+            <div className="text-right shrink-0">
+              <span className="text-[10px] text-white/60 uppercase tracking-wider block font-bold">
+                SUBMISSION DEADLINE
+              </span>
+              <span className="text-xs font-mono font-black text-rose-400 bg-rose-950/60 border border-rose-800 px-2 py-0.5 rounded">
+                {examNotifs[0].deadline}
+              </span>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-200 leading-relaxed bg-white/5 p-3 rounded-xl border border-white/10">
+            {examNotifs[0].message}
+          </p>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 text-xs">
+            <span className="text-[11px] text-[#D4A72C] font-semibold">
+              Signatory: {examNotifs[0].senderName} ({examNotifs[0].senderRole})
+            </span>
+            <button
+              onClick={() => openDraftModal()}
+              className="px-4 py-2 rounded-xl bg-[#D4A72C] hover:bg-[#e2b435] text-[#0B192C] font-black text-xs transition shadow flex items-center justify-center gap-2 cursor-pointer shrink-0"
+            >
+              <span>Faculty Prepares Question Paper (Step 7)</span>
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* WORKFLOW: REJECTION NOTIFICATION CARD (If any paper returned by Dean/HOD) */}
+      {papers.some((p) => p.status === "RETURNED_TO_FACULTY") && (
+        <div className="bg-rose-50 border-2 border-rose-300 rounded-2xl p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center font-bold">
+                <AlertCircle size={18} />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase text-rose-800 tracking-wider">
+                  WORKFLOW: REJECTION NOTIFICATION FROM DEAN / DAC SCRUTINY
+                </span>
+                <h4 className="font-extrabold text-sm text-rose-950">
+                  Question Paper Returned for Revision
+                </h4>
+              </div>
+            </div>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-200 text-rose-900">
+              Action Required
+            </span>
+          </div>
+
+          {papers
+            .filter((p) => p.status === "RETURNED_TO_FACULTY")
+            .map((p) => (
+              <div
+                key={p.id}
+                className="bg-white p-3.5 rounded-xl border border-rose-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+              >
+                <div>
+                  <span className="font-mono font-black text-rose-900">{p.subjectCode}</span>
+                  <span className="font-bold text-gray-800 ml-2">{p.subjectTitle}</span>
+                  <p className="text-[11px] text-rose-700 mt-1 italic">
+                    Scrutiny Remarks: &ldquo;{p.adRemarks || "Bloom's taxonomy distribution in Part B requires alignment with syllabus Unit IV"}&rdquo;
+                  </p>
+                </div>
+                <button
+                  onClick={() => openDraftModal(p)}
+                  className="px-3.5 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition shadow flex items-center gap-1.5 shrink-0 cursor-pointer"
+                >
+                  <RotateCcw size={13} />
+                  <span>Revise &amp; Re-upload (Step 7 &amp; 8)</span>
+                </button>
+              </div>
+            ))}
+        </div>
+      )}
 
       {/* 5 Hierarchy Steps Quick Infographic */}
       <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs">

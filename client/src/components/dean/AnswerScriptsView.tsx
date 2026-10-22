@@ -15,6 +15,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { aidsSem1Students } from "../../data/aidsStudents";
+import { SplitScreenEvaluationModal } from "../common/SplitScreenEvaluationModal";
 
 interface AnswerScriptItem {
   regNo: string;
@@ -52,6 +53,13 @@ export const AnswerScriptsView: React.FC = () => {
     subject: { code: string; title: string };
     assessment: string;
     page: number;
+  } | null>(null);
+
+  // Split-Screen Evaluation Script Modal (Left: Written Script, Right: Mark Entry)
+  const [splitScreenEvalTarget, setSplitScreenEvalTarget] = useState<{
+    student: AnswerScriptItem;
+    subject: { code: string; title: string };
+    assessment: string;
   } | null>(null);
 
   const studentList: AnswerScriptItem[] = useMemo(() => {
@@ -200,24 +208,42 @@ export const AnswerScriptsView: React.FC = () => {
                   <td className="py-3 px-4 font-bold text-[#0B192C] whitespace-nowrap">{s.name}</td>
                   <td className="py-3 px-3.5 text-gray-500 font-mono text-[11px] whitespace-nowrap">{s.dob}</td>
 
-                  {/* Subject Action Cells with "View PDF" instead of Upload */}
+                  {/* Subject Action Cells with Evaluation Desk & View PDF */}
                   {SUBJECT_COLUMNS.map((col) => (
-                    <td key={col.code} className="py-2.5 px-2 text-center">
-                      <button
-                        onClick={() =>
-                          setActiveScriptModal({
-                            student: s,
-                            subject: col,
-                            assessment: selectedAssessment,
-                            page: 1,
-                          })
-                        }
-                        className="w-full py-1.5 px-2 rounded-lg border border-amber-300/80 bg-amber-50/70 hover:bg-amber-100 text-[#0B192C] text-[11px] font-extrabold transition flex items-center justify-center gap-1 shadow-2xs group cursor-pointer"
-                        title={`View evaluated script for ${s.name} (${col.code})`}
-                      >
-                        <Eye size={13} className="text-[#B08014] group-hover:scale-110 transition" />
-                        <span>View PDF</span>
-                      </button>
+                    <td key={col.code} className="py-2 px-1.5 text-center">
+                      <div className="flex flex-col gap-1 items-stretch max-w-[140px] mx-auto">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSplitScreenEvalTarget({
+                              student: s,
+                              subject: col,
+                              assessment: selectedAssessment,
+                            })
+                          }
+                          className="py-1 px-2 rounded-lg border border-red-900/50 bg-red-50/80 hover:bg-red-100 text-red-950 text-[10px] font-black transition flex items-center justify-center gap-1 shadow-2xs group cursor-pointer"
+                          title={`Open Split-Screen Evaluation Script for ${s.name} (${col.code})`}
+                        >
+                          <FileText size={11} className="text-red-900 group-hover:scale-110 transition" />
+                          <span>Evaluation Desk</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActiveScriptModal({
+                              student: s,
+                              subject: col,
+                              assessment: selectedAssessment,
+                              page: 1,
+                            })
+                          }
+                          className="py-0.5 px-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-[9px] font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                          title={`View scanned PDF photocopy for ${s.name} (${col.code})`}
+                        >
+                          <Eye size={10} className="text-gray-500" />
+                          <span>Photocopy</span>
+                        </button>
+                      </div>
                     </td>
                   ))}
                 </tr>
@@ -399,6 +425,25 @@ export const AnswerScriptsView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Official Split-Screen Evaluation Desk Modal */}
+      {splitScreenEvalTarget && (
+        <SplitScreenEvaluationModal
+          isOpen={Boolean(splitScreenEvalTarget)}
+          onClose={() => setSplitScreenEvalTarget(null)}
+          studentRegNo={splitScreenEvalTarget.student.regNo}
+          studentName={splitScreenEvalTarget.student.name}
+          isBlindValuation={false}
+          subjectCode={splitScreenEvalTarget.subject.code}
+          subjectTitle={splitScreenEvalTarget.subject.title}
+          semester={selectedSemester}
+          department={selectedDept}
+          assessmentType={selectedAssessment as any}
+          onSaveMarks={(result) => {
+            alert(`Verified marks for ${splitScreenEvalTarget.student.name} (${splitScreenEvalTarget.student.regNo}): ${result.grandTotal}/100 - Grade: ${result.grade}`);
+          }}
+        />
       )}
     </div>
   );
