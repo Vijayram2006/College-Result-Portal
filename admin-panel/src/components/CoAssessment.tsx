@@ -162,10 +162,13 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
 
   const csv = () => {
     if (!att) return;
+    const integrated = att.courseType === "INTEGRATED";
     const head = ["Sl No", "Student Name", "Reg No", ...COS.flatMap((c) => c === "CO6"
-      ? [`${c} IAT %`, `${c} Activity %`, `${c} Total`] : [`${c} IAT %`, `${c} Assignment %`, `${c} ${att.courseType === "INTEGRATED" ? "Lab" : "Quiz"} %`, `${c} Total`])];
+      ? [`${c} IAT %`, `${c} Activity %`, `${c} Total`]
+      : integrated ? [`${c} IAT %`, `${c} Lab %`, `${c} Total`] : [`${c} IAT %`, `${c} Assignment %`, `${c} Quiz %`, `${c} Total`])];
     const rows = att.students.map((s, i) => [i + 1, s.name, s.regNo, ...COS.flatMap((c) => c === "CO6"
-      ? [s.iat[c], s.activity, s.total[c]] : [s.iat[c], s.assignment[c], s.quizOrLab[c], s.total[c]]).map((v) => f(v))]);
+      ? [s.iat[c], s.activity, s.total[c]]
+      : integrated ? [s.iat[c], s.quizOrLab[c], s.total[c]] : [s.iat[c], s.assignment[c], s.quizOrLab[c], s.total[c]]).map((v) => f(v))]);
     const lines = [head, ...rows, [], ["", "Attainment", "", ...COS.map((c) => att.internal[c].level)]]
       .map((r) => r.map((x) => `"${String(x ?? "").replace(/"/g, '""')}"`).join(","));
     const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
@@ -316,7 +319,7 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
 
           {tab === "IAT" && (
             <div className="overflow-auto max-h-[70vh]">
-              <p className="px-4 pt-3 text-[11px] text-slate-500">Read-only. These are the {sheet.cycle} marks entered against the answer scripts (each choice = sum of its parts).</p>
+              <p className="px-4 pt-3 text-[11px] text-slate-500">Read-only. These are the {sheet.cycle} marks entered against the answer scripts. Only the answered choice of each question counts (the better one, if both were filled), up to the question's maximum.</p>
               <table className="border-collapse min-w-full mt-2">
                 <thead className="sticky top-0 bg-white">
                   <tr><th className={th} rowSpan={2}>Sl No</th><th className={`${th} text-left`} rowSpan={2}>Student Name</th><th className={th} rowSpan={2}>Reg. No</th>
@@ -327,7 +330,7 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
                   {sheet.students.map((row, r) => (
                     <tr key={row.regNo}>
                       <td className={td}>{r + 1}</td><td className={`${td} text-left font-semibold whitespace-nowrap`}>{row.name}</td><td className={`${td} font-mono`}>{row.regNo}</td>
-                      {sheet.iatColumns.map((c, i) => <td key={c.label} className={td}>{row.iat ? f(row.iat[i]) : <span className="text-slate-300">—</span>}</td>)}
+                      {sheet.iatColumns.map((c, i) => <td key={c.label} className={`${td} ${row.iat && row.iat[i] >= c.max && c.max > 2 ? "font-bold" : ""}`}>{row.iat ? f(row.iat[i]) : <span className="text-slate-300">—</span>}</td>)}
                     </tr>
                   ))}
                 </tbody>
@@ -347,22 +350,22 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
                     <table className="border-collapse min-w-full">
                       <thead>
                         <tr><th className={th} rowSpan={2}>Sl No</th><th className={`${th} text-left`} rowSpan={2}>Student Name</th>
-                          {COS.map((c) => <th key={c} className={`${th} bg-slate-50`} colSpan={c === "CO6" ? 2 : 3}>{c}</th>)}
+                          {COS.map((c) => <th key={c} className={`${th} bg-slate-50`} colSpan={c === "CO6" || att.courseType === "INTEGRATED" ? 2 : 3}>{c}</th>)}
                           <th className={`${th} bg-amber-50`} colSpan={6}>Total CO Marks (%)</th></tr>
-                        <tr>{COS.flatMap((c) => (c === "CO6" ? ["IAT", "Activity"] : ["IAT", "Assignment", att.courseType === "INTEGRATED" ? "Lab" : "Quiz"]).map((x) => <th key={c + x} className={th}>{x}</th>))}
+                        <tr>{COS.flatMap((c) => (c === "CO6" ? ["IAT", "Activity"] : att.courseType === "INTEGRATED" ? ["IAT", "Lab"] : ["IAT", "Assignment", "Quiz"]).map((x) => <th key={c + x} className={th}>{x}</th>))}
                           {COS.map((c) => <th key={c} className={`${th} bg-amber-50`}>{c}</th>)}</tr>
                       </thead>
                       <tbody>
                         {att.students.map((s, i) => (
                           <tr key={s.regNo}>
                             <td className={td}>{i + 1}</td><td className={`${td} text-left whitespace-nowrap font-semibold`}>{s.name}</td>
-                            {COS.flatMap((c) => (c === "CO6" ? [s.iat[c], s.activity] : [s.iat[c], s.assignment[c], s.quizOrLab[c]]).map((v, k) => <td key={c + k} className={td}>{f(v)}</td>))}
+                            {COS.flatMap((c) => (c === "CO6" ? [s.iat[c], s.activity] : att.courseType === "INTEGRATED" ? [s.iat[c], s.quizOrLab[c]] : [s.iat[c], s.assignment[c], s.quizOrLab[c]]).map((v, k) => <td key={c + k} className={td}>{f(v)}</td>))}
                             {COS.map((c) => <td key={c} className={`${td} bg-amber-50/50 font-bold ${s.total[c] >= 50 ? "text-emerald-700" : "text-red-700"}`}>{f(s.total[c])}</td>)}
                           </tr>
                         ))}
                         {[["Total No. of students", (l: Level) => l.students], ["No. of students scoring >= 50%", (l: Level) => l.above], ["% of students scoring >=50", (l: Level) => f(l.percent)], ["Attainment", (l: Level) => l.level]].map(([label, get]) => (
                           <tr key={label as string} className="bg-slate-50 font-bold">
-                            <td className={`${td} text-right`} colSpan={19}>{label as string}</td>
+                            <td className={`${td} text-right`} colSpan={att.courseType === "INTEGRATED" ? 14 : 19}>{label as string}</td>
                             {COS.map((c) => <td key={c} className={td}>{(get as (l: Level) => any)(att.internal[c])}</td>)}
                           </tr>
                         ))}

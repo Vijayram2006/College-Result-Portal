@@ -257,6 +257,12 @@ public class MarkService {
             if (sumA > 0 && sumB > 0) {
                 throw ApiException.badRequest("Question " + q + ": enter marks for either (a) or (b), not both");
             }
+            // R2026 pattern: Q11-15 carry 13 marks, Q16 carries 15
+            int questionMax = q == LAST_BC_QUESTION ? 15 : 13;
+            if (Math.max(sumA, sumB) > questionMax) {
+                throw ApiException.badRequest("Question " + q + ": the marks add up to " + Math.max(sumA, sumB)
+                        + ", more than the question's " + questionMax);
+            }
         }
         return out;
     }

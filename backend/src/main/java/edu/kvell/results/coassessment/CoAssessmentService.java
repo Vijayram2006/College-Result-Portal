@@ -30,7 +30,8 @@ import tools.jackson.databind.ObjectMapper;
  * <li>Assignment: 5 questions of 10 marks per assignment; CO1 = A1 Q1-2, CO2 = A1 Q3-4, CO3 = A1 Q5 + A2 Q1,
  * CO4 = A2 Q2-3, CO5 = A2 Q4-5 (each out of 20).</li>
  * <li>Activity: 5 activities of 50 marks, all CO6 (out of 250).</li>
- * <li>Internal attainment: CO1-5 = AVERAGE(IAT %, Assignment %, Quiz or Lab %), CO6 = AVERAGE(IAT %, Activity %);
+ * <li>Integrated courses have no assignment (the college's decision): there CO1-5 = AVERAGE(IAT %, Lab %).</li>
+ * <li>Internal attainment: CO1-5 = AVERAGE(IAT %, Assignment %, Quiz %), CO6 = AVERAGE(IAT %, Activity %);
  * students with &gt;= 50 are counted; level = IF(%&gt;60,3,IF(%&gt;40,2,IF(%&gt;30,1,0))).</li>
  * <li>University exam: grade point (S 10, A+ 9, A 8, B+ 7, B 6, C 5, U 0, anything else 0) / 6 for every CO, as a
  * percentage of 10/6; level as above but 1 when below 30.</li>
@@ -56,9 +57,9 @@ public class CoAssessmentService {
                 items(25, 1, i -> i <= 10 ? "CO1" : i <= 20 ? "CO2" : "CO3", "Q")));
         COMPONENTS.put("QUIZ2", new Component("QUIZ2", "Technical Quiz II", "IAT-2", "THEORY",
                 items(25, 1, i -> i <= 5 ? "CO3" : i <= 15 ? "CO4" : "CO5", "Q")));
-        COMPONENTS.put("ASSIGN1", new Component("ASSIGN1", "Assignment 1", "IAT-1", null,
+        COMPONENTS.put("ASSIGN1", new Component("ASSIGN1", "Assignment 1", "IAT-1", "THEORY",
                 items(5, 10, i -> i <= 2 ? "CO1" : i <= 4 ? "CO2" : "CO3", "Q")));
-        COMPONENTS.put("ASSIGN2", new Component("ASSIGN2", "Assignment II", "IAT-2", null,
+        COMPONENTS.put("ASSIGN2", new Component("ASSIGN2", "Assignment II", "IAT-2", "THEORY",
                 items(5, 10, i -> i == 1 ? "CO3" : i <= 3 ? "CO4" : "CO5", "Q")));
         COMPONENTS.put("PRACTICAL", new Component("PRACTICAL", "Continuous Assessment (Laboratory)", null, "INTEGRATED",
                 items(10, 10, i -> "CO" + ((i + 1) / 2), "Expt ")));
@@ -287,7 +288,8 @@ public class CoAssessmentService {
             Map<String, Double> total = new LinkedHashMap<>();
             for (int i = 0; i < 5; i++) {
                 String co = COS.get(i);
-                total.put(co, (iat.get(co) + assignment.get(co) + third.get(co)) / 3);
+                total.put(co, "INTEGRATED".equals(type) ? (iat.get(co) + third.get(co)) / 2
+                        : (iat.get(co) + assignment.get(co) + third.get(co)) / 3);
             }
             total.put("CO6", (iat.get("CO6") + activity) / 2);
 
@@ -408,9 +410,14 @@ public class CoAssessmentService {
                     double[] partA = doubles(rs.getArray("part_a")), bc = doubles(rs.getArray("part_bc"));
                     List<Double> cols = new ArrayList<>();
                     for (int i = 0; i < 10; i++) cols.add(i < partA.length ? partA[i] : 0.0);
+                    // A question is answered as (a) OR (b): only the better choice counts (as in grading), capped at
+                    // the question's maximum (13, Q16 15), so a mistaken second choice is not added to the CO
                     for (int q = 0; q < 6; q++) {
-                        cols.add(at(bc, q * 6) + at(bc, q * 6 + 1) + at(bc, q * 6 + 2));
-                        cols.add(at(bc, q * 6 + 3) + at(bc, q * 6 + 4) + at(bc, q * 6 + 5));
+                        double a = at(bc, q * 6) + at(bc, q * 6 + 1) + at(bc, q * 6 + 2);
+                        double b = at(bc, q * 6 + 3) + at(bc, q * 6 + 4) + at(bc, q * 6 + 5);
+                        double max = q == 5 ? 15 : 13;
+                        cols.add(a >= b ? Math.min(a, max) : 0.0);
+                        cols.add(a >= b ? 0.0 : Math.min(b, max));
                     }
                     return out.put(rs.getString("reg_no"), cols);
                 }).list();
