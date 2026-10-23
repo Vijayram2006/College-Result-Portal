@@ -1,3 +1,4 @@
+import { AnswerScriptPane } from "../AnswerScriptPane";
 import React, { useState, useEffect } from "react";
 import {
   FileText,
@@ -45,6 +46,8 @@ export interface SplitScreenEvaluationModalProps {
   packetId?: string;
   initialPartA?: number[];
   initialPartB?: Record<number, QuestionData>;
+  /** Loads the real (anonymised) answer script PDF; when given it replaces the sample booklet. */
+  pdfLoader?: () => Promise<Blob>;
   onSaveMarks: (result: {
     partATotal: number;
     partBTotal: number;
@@ -71,6 +74,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
   packetId = "PKT-A",
   initialPartA,
   initialPartB,
+  pdfLoader,
   onSaveMarks,
 }) => {
   if (!isOpen) return null;
@@ -83,18 +87,16 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
   // Part A: Questions 1 to 10 (Max 2 marks each, total 20)
   const [partAMarks, setPartAMarks] = useState<number[]>(() => {
     if (initialPartA && initialPartA.length === 10) return initialPartA;
-    return [2, 2, 2, 1, 2, 2, 1.5, 2, 1.5, 2];
+    return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
   });
 
   // Part B: Questions 11 to 15 (Max 16 marks per question, total 80)
   const [partBCMarks, setPartBCMarks] = useState<Record<number, QuestionData>>(() => {
-    if (initialPartB && Object.keys(initialPartB).length >= 5) return initialPartB;
+    if (initialPartB && Object.keys(initialPartB).length >= 6) return initialPartB;
+    const z = () => ({ a: { i: 0, ii: 0, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } });
     return {
-      11: { a: { i: 8, ii: 6, iii: 0 }, b: { i: 5, ii: 0, iii: 0 }, co: "CO1" },
-      12: { a: { i: 7, ii: 7, iii: 0 }, b: { i: 0, ii: 0, iii: 0 }, co: "CO1" },
-      13: { a: { i: 8, ii: 6, iii: 0 }, b: { i: 0, ii: 0, iii: 0 }, co: "CO2" },
-      14: { a: { i: 6, ii: 8, iii: 0 }, b: { i: 0, ii: 0, iii: 0 }, co: "CO2" },
-      15: { a: { i: 7, ii: 7, iii: 0 }, b: { i: 0, ii: 0, iii: 0 }, co: "CO3" },
+      11: { ...z(), co: "CO1" }, 12: { ...z(), co: "CO1" }, 13: { ...z(), co: "CO2" },
+      14: { ...z(), co: "CO2" }, 15: { ...z(), co: "CO3" }, 16: { ...z(), co: "CO6" },
     };
   });
 
@@ -109,16 +111,16 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
     return Math.min(16, (Number(sub.i) || 0) + (Number(sub.ii) || 0) + (Number(sub.iii) || 0));
   };
 
-  const calculateQTotal = (q: QuestionData) => {
+  const calculateQTotal = (q: QuestionData, qNum?: number) => {
     const totalA = calculateSubTotal(q.a);
     const totalB = calculateSubTotal(q.b);
-    return Math.max(totalA, totalB); // Best of a or b
+    return Math.min(qNum === 16 ? 15 : 13, Math.max(totalA, totalB)); // the answered choice, up to the question's marks
   };
 
   // Calculate Part B Total (Questions 11 to 15)
-  const partBTotal = [11, 12, 13, 14, 15].reduce((sum, qNum) => {
+  const partBTotal = [11, 12, 13, 14, 15, 16].reduce((sum, qNum) => {
     const qData = partBCMarks[qNum];
-    return sum + (qData ? calculateQTotal(qData) : 0);
+    return sum + (qData ? calculateQTotal(qData, qNum) : 0);
   }, 0);
 
   // Grand Total & Grade Calculation
@@ -259,7 +261,11 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
 
             {/* Left Body Area */}
             <div className="flex-1 overflow-y-auto p-4 bg-[#081322] flex items-center justify-center">
-              {viewMode === "pdf_placeholder" ? (
+              {pdfLoader ? (
+                <div className="w-full h-full">
+                  <AnswerScriptPane fetchPdf={pdfLoader} scriptKey={displayReg} label={`${displayReg} • ${subjectCode} • ${assessmentType}`} />
+                </div>
+              ) : viewMode === "pdf_placeholder" ? (
                 /* EXACT Placeholder matching user's screenshot */
                 <div className="bg-[#FAF8F5] rounded-2xl p-8 sm:p-12 w-full max-w-lg text-center border border-gray-200 shadow-inner space-y-4 my-auto">
                   <div className="w-16 h-16 rounded-2xl bg-gray-200 text-gray-400 flex items-center justify-center mx-auto">
@@ -598,9 +604,9 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-red-900/30">
-                          {[11, 12, 13, 14, 15].map((qNum) => {
+                          {[11, 12, 13, 14, 15, 16].map((qNum) => {
                             const qData = partBCMarks[qNum];
-                            const qTotal = calculateQTotal(qData);
+                            const qTotal = calculateQTotal(qData, qNum);
                             return (
                               <React.Fragment key={qNum}>
                                 {/* Sub-division a */}

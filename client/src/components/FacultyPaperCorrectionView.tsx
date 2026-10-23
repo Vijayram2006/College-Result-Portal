@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { apiErrorMessage, authApi, facultyApi, type StudentMarkDTO } from "../services/api";
 import {
   FileText,
   CheckCircle2,
@@ -303,9 +304,38 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
     return matched || activeAllocation.assignedStaff[0];
   }, [activeAllocation, selectedFacultyName]);
 
+  // The real answer scripts of the allotted subject, under the COE's dummy numbers (already shuffled by the server)
+  const assessmentOf = (a?: PaperCorrectionAllocation) =>
+    !a ? "End Semester" : /IAT-?2/i.test(a.examSession) ? "IAT-2" : /IAT-?1/i.test(a.examSession) ? "IAT-1" : "End Semester";
+  const [realRoster, setRealRoster] = useState<StudentMarkDTO[] | null>(null);
+  const loadRoster = React.useCallback(() => {
+    if (!activeAllocation) return;
+    facultyApi.roster(activeAllocation.semester, activeAllocation.subjectCode, assessmentOf(activeAllocation))
+      .then((r) => setRealRoster(r.length ? r : null))
+      .catch(() => setRealRoster(null));
+  }, [activeAllocation?.id]);
+  useEffect(() => { loadRoster(); }, [loadRoster]);
+
   // Generate the discrete list of assigned scripts for this staff's packet (Strict Blind Valuation)
   const assignedScriptsList: EvaluatedScriptItem[] = useMemo(() => {
     if (!activeAllocation || !activeStaffSlot) return [];
+    if (realRoster) {
+      // This evaluator's bundle: their slot range of the shuffled real scripts
+      const bundle = realRoster.slice(Math.max(0, activeStaffSlot.scriptRangeStart - 1), activeStaffSlot.scriptRangeEnd);
+      return bundle.map((m, i) => ({
+        scriptId: m.regNo,
+        slotNumber: i + 1,
+        dummyCode: m.regNo,
+        barcodeNumber: m.regNo,
+        packetId: activeStaffSlot.bundlePacketId,
+        subjectCode: activeAllocation.subjectCode,
+        partAMarks: m.partATotal,
+        partBCMarks: m.partBCTotal,
+        totalMarks: m.grandTotal,
+        grade: m.grade || "—",
+        status: m.hasMarks ? "EVALUATED" : "PENDING",
+      }));
+    }
 
     const { scriptRangeStart, scriptRangeEnd, bundlePacketId } = activeStaffSlot;
     const count = scriptRangeEnd - scriptRangeStart + 1;
@@ -349,7 +379,7 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
     }
 
     return list;
-  }, [activeAllocation, activeStaffSlot, evaluatedScriptsMap]);
+  }, [activeAllocation, activeStaffSlot, evaluatedScriptsMap, realRoster]);
 
   // Filtered scripts (Searchable by dummy barcode or script slot)
   const filteredScripts = useMemo(() => {
@@ -1328,7 +1358,36 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
           department={activeAllocation.department}
           assessmentType={activeAllocation.examSession?.includes("IAT-2") ? "IAT-2" : "IAT-1"}
           packetId={evaluatingScript.packetId || activeStaffSlot?.bundlePacketId || "PKT-A"}
-          onSaveMarks={(result) => {
+          pdfLoader={realRoster ? () => facultyApi.answerScript({ semester: activeAllocation.semester, subject: activeAllocation.subjectCode, regNo: evaluatingScript.dummyCode, assessment: assessmentOf(activeAllocation) }) : undefined}
+          onSaveMarks={async (result) => {
+            if (realRoster) {
+              // Saved to the real marks (the server checks the limits and maps the dummy number to the student)
+              const sub = (x: { i: number; ii: number; iii: number }) => ({ i: x.i || 0, ii: x.ii || 0, iii: x.iii || 0 });
+              const partBC: Record<string, { a: { i: number; ii: number; iii: number }; b: { i: number; ii: number; iii: number } }> = {};
+              for (const q of [11, 12, 13, 14, 15, 16]) {
+                const d = result.partBCMarks[q];
+                partBC[String(q)] = { a: sub(d ? d.a : { i: 0, ii: 0, iii: 0 }), b: sub(d ? d.b : { i: 0, ii: 0, iii: 0 }) };
+              }
+              const current = realRoster.find((m) => m.regNo === evaluatingScript.dummyCode);
+              try {
+                await facultyApi.save({
+                  semester: activeAllocation.semester,
+                  subjectCode: activeAllocation.subjectCode,
+                  regNo: evaluatingScript.dummyCode,
+                  assessmentType: assessmentOf(activeAllocation),
+                  partA: result.partAMarks,
+                  partBC,
+                  examinerName: authApi.currentUser()?.name || selectedFacultyName,
+                  examinerDesignation: activeStaffSlot?.role || "Internal Examiner",
+                  expectedVersion: current?.version,
+                } as any);
+                notify(`Marks saved for ${evaluatingScript.dummyCode}.`);
+                loadRoster();
+              } catch (e) {
+                notify(apiErrorMessage(e, "The marks could not be saved."));
+              }
+              return;
+            }
             const updatedMap: Record<string, EvaluatedScriptItem> = {
               ...evaluatedScriptsMap,
               [evaluatingScript.scriptId]: {
