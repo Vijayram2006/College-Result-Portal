@@ -16,11 +16,14 @@ public class StudentController {
     private final edu.kvell.results.common.ResultsCache cache;
 
     private final edu.kvell.results.coassessment.CoAssessmentService survey;
+    private final edu.kvell.results.coassessment.QuizService quizzes;
 
     public StudentController(StudentResultService results, GovernanceService governance,
                              edu.kvell.results.common.ResultsCache cache,
-                             edu.kvell.results.coassessment.CoAssessmentService survey) {
+                             edu.kvell.results.coassessment.CoAssessmentService survey,
+                             edu.kvell.results.coassessment.QuizService quizzes) {
         this.survey = survey;
+        this.quizzes = quizzes;
         this.results = results;
         this.governance = governance;
         this.cache = cache;
@@ -36,6 +39,22 @@ public class StudentController {
     }
 
     public record SurveyInput(String subjectCode, java.util.List<Double> ratings) {
+    }
+
+    public record QuizAnswers(java.util.List<Integer> answers) {
+    }
+
+    /** Online quizzes of the student's semester (questions only while open; never the correct options). */
+    @GetMapping("/quizzes")
+    java.util.List<edu.kvell.results.coassessment.QuizService.Quiz> quizzes() {
+        return quizzes.forStudent(CurrentUser.get().regNo());
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/quizzes/{id}")
+    edu.kvell.results.coassessment.QuizService.Quiz answerQuiz(
+            @org.springframework.web.bind.annotation.PathVariable long id,
+            @org.springframework.web.bind.annotation.RequestBody QuizAnswers in, jakarta.servlet.http.HttpServletRequest http) {
+        return quizzes.submit(CurrentUser.get().regNo(), id, in == null ? null : in.answers(), http.getRemoteAddr());
     }
 
     /** The course exit survey of the student's own semester (it feeds the CO attainment automatically). */

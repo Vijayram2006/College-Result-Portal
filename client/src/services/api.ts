@@ -454,8 +454,9 @@ export const facultyApi = {
     return (await apiClient.get<FacultySubjectDTO[]>("/faculty/subjects")).data;
   },
 
-  async roster(semester: string, subject: string, assessment: string): Promise<StudentMarkDTO[]> {
-    return (await apiClient.get<StudentMarkDTO[]>("/faculty/marks", { params: { semester, subject, assessment } })).data;
+  /** dept: another department's subject the Dean allotted for paper correction (blank = own department). */
+  async roster(semester: string, subject: string, assessment: string, dept?: string): Promise<StudentMarkDTO[]> {
+    return (await apiClient.get<StudentMarkDTO[]>("/faculty/marks", { params: { semester, subject, assessment, dept } })).data;
   },
 
   /** Saves one answer script; the server recomputes totals and grade. */
@@ -469,6 +470,7 @@ export const facultyApi = {
     examinerName: string;
     examinerDesignation: string;
     expectedVersion?: number;
+    deptKey?: string;
   }): Promise<StudentMarkDTO> {
     return (await apiClient.put<StudentMarkDTO>("/faculty/marks", payload)).data;
   },
@@ -488,7 +490,7 @@ export const facultyApi = {
   },
 
   /** A student's scanned answer script (PDF) for the marks form; 404 when none is uploaded. */
-  async answerScript(p: { semester: string; subject: string; regNo: string; assessment: string }): Promise<Blob> {
+  async answerScript(p: { semester: string; subject: string; regNo: string; assessment: string; dept?: string }): Promise<Blob> {
     return (await apiClient.get("/faculty/answer-scripts/file", { params: p, responseType: "blob", timeout: 120000 })).data;
   },
 

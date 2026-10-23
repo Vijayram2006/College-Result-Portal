@@ -62,7 +62,6 @@ import {
   DeanAnalyticsView,
   DeanAnswerScriptsView,
   DeanDepartmentsView,
-  DeanFacultyView,
   DeanInternalMarksView,
   DeanOverview,
   DeanResultsView,
@@ -83,6 +82,8 @@ import { ExamTimetableNotificationView } from "./dean/ExamTimetableNotificationV
 import { ExamCellClassroomAllocationView } from "./dean/ExamCellClassroomAllocationView";
 import { WorkflowChartTrackerView } from "./dean/WorkflowChartTrackerView";
 import { AnalyticsView } from "./dean/AnalyticsView";
+import { HodAnalytics } from "./hodAnalytics/HodAnalytics";
+import { DeanFacultyManager } from "./dean/DeanFacultyManager";
 import { Calendar, GitFork } from "lucide-react";
 
 export interface AssociateDeanDashboardProps {
@@ -772,7 +773,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
       >
         <div>
           {/* Top Brand Header */}
-          <div className="px-5 h-[5.5rem] lg:h-[7.5rem] box-border border-b-4 border-[#D4A72C] flex items-center justify-between">
+          <div className="px-5 h-[6.75rem] box-border border-b-4 border-[#D4A72C] flex items-center justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <img
                 src="/kvell-logo.png"
@@ -1303,7 +1304,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
               }`}
             >
               <UserCheck size={17} />
-              <span>Faculty & HODs</span>
+              <span>Faculty Master</span>
             </button>
           </nav>
         </div>
@@ -1533,7 +1534,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
           {activeNav === "subjects" && <DeanSubjectsView />}
 
           {/* QUESTION PAPER REVIEW VIEW (Dedicated Component in AD Panel) */}
-          {activeNav === "faculty" && <DeanFacultyView />}
+          {activeNav === "faculty" && <DeanFacultyManager />}
           {activeNav === "mark-approvals" && <MarkApprovalsView role="dean" />}
           {activeNav === "question-paper-review" && (
             <QuestionPaperErrorBoundary
@@ -1553,18 +1554,20 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
           )}
 
           {/* ASSESSMENT ANALYTICS VIEW (Subject-wise, Common vs Core, 4 Subcomponents) */}
+          {/* The HOD's result analytics for the whole college, per assessment (with the bell-curve tab) */}
           {(activeNav.startsWith("analytics") || activeNav === "analytics") && (
+            <HodAnalytics
+              scope="dean"
+              assessment={
+                activeNav === "analytics-iat1" ? "IAT-1" : activeNav === "analytics-iat2" ? "IAT-2" : "End Semester"
+              }
+            />
+          )}
+          {/* Revaluation: the analytics above (end semester) plus the revaluation comparison */}
+          {activeNav === "analytics-revaluation" && (
             <AnalyticsView
               onToast={showToast}
-              activeSubComponent={
-                activeNav === "analytics-iat1"
-                  ? "IAT-1"
-                  : activeNav === "analytics-iat2"
-                  ? "IAT-2"
-                  : activeNav === "analytics-revaluation"
-                  ? "REVALUATION"
-                  : "END-SEM"
-              }
+              activeSubComponent="REVALUATION"
               onSubComponentChange={(sub) => {
                 if (sub === "IAT-1") setActiveNav("analytics-iat1");
                 else if (sub === "IAT-2") setActiveNav("analytics-iat2");

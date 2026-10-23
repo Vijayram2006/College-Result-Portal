@@ -28,6 +28,7 @@ import {
 import { FacultyExamNotificationsView } from "../components/FacultyExamNotificationsView";
 import { HodExamNotificationsView } from "../components/HodExamNotificationsView";
 import type { LucideIcon } from "lucide-react";
+import { StudentQuizzes } from "../components/QuizEditor";
 import { HodAnalytics } from "../components/hodAnalytics/HodAnalytics";
 import { CoAssessment } from "../components/CoAssessment";
 import { StudentExitSurvey } from "../components/StudentExitSurvey";
@@ -1364,7 +1365,7 @@ function HodPortalDashboard({
   department?: string;
 }) {
   const kvellSealLogo = "/kvell-logo.png";
-  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "internals" | "studentResult" | "questionPapers" | "markApprovals" | "notifications">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "markEntry" | "internals" | "studentResult" | "questionPapers" | "markApprovals" | "notifications">("dashboard");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [deanBroadcastNotifs, setDeanBroadcastNotifs] = useState<DeanExamNotification[]>(() => safeLoadNotifications());
   const [pendingFacultyQpCount, setPendingFacultyQpCount] = useState<number>(() => {
@@ -1421,7 +1422,8 @@ function HodPortalDashboard({
       navItems={[
         { key: "dashboard", label: "Dashboard", icon: BarChart3 },
         { key: "analytics", label: "Analytics", icon: PieChart },
-        { key: "internals", label: "Internals", icon: ClipboardCheck },
+        { key: "markEntry", label: "Mark Entry", icon: PenLine },
+        { key: "internals", label: "Internal Mark Entry", icon: ClipboardCheck },
         { key: "studentResult", label: "Student Result", icon: Users },
         { key: "questionPapers", label: "Question Papers", icon: FileCheck, badge: pendingFacultyQpCount },
         { key: "markApprovals", label: "Mark Approvals", icon: CheckSquare },
@@ -1711,8 +1713,11 @@ function HodPortalDashboard({
             </div>
           </div>
           </div>
+        ) : activeTab === "markEntry" ? (
+          /* Tab: the HOD enters answer-script marks like the faculty (any subject of the department) */
+          <FacultyMarkEntry />
         ) : activeTab === "internals" ? (
-          /* Tab: internal marks of the department (view only, with change history) */
+          /* Tab: the HOD enters and corrects the department's internal (CO sheet) marks */
           <CoAssessment mode="hod" />
         ) : activeTab === "analytics" ? (
           /* Tab 2: the department's full result analytics (same as the COE's, for this department only) */
@@ -3577,7 +3582,7 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className={cn("flex shrink-0 items-center justify-between px-5 box-border", role === "Faculty" ? "h-[5.5rem] lg:h-[7.5rem] border-b-4 border-[#D4A72C]" : "h-[78px] border-b border-white/10")}>
+        <div className={cn("flex shrink-0 items-center justify-between px-5 box-border", role === "Faculty" ? "h-[6.75rem] border-b-4 border-[#D4A72C]" : "h-[78px] border-b border-white/10")}>
           <div className="flex items-center gap-3">
             <img
               src="/kvell-logo.png"
@@ -4263,7 +4268,7 @@ function StudentDashboard({
   initialSemester?: number;
   onLogout: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "result" | "internals" | "subjects">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "result" | "internals" | "quizzes" | "subjects">("dashboard");
   const [currentSemesterNum, setCurrentSemesterNum] = useState<number>(initialSemester);
 
   useEffect(() => {
@@ -4558,6 +4563,7 @@ function StudentDashboard({
         { key: "result", label: "Result", icon: FileText },
         { key: "subjects", label: "My Subjects", icon: BookOpen },
         { key: "internals", label: "Course Exit Survey", icon: ClipboardCheck },
+        { key: "quizzes", label: "Online Quiz", icon: CheckSquare },
       ]}
       active={activeTab}
       onNavigate={(k) => setActiveTab(k as typeof activeTab)}
@@ -4706,6 +4712,9 @@ function StudentDashboard({
         ) : activeTab === "internals" ? (
           /* Course exit survey: the student rates each course outcome; it feeds the CO attainment */
           <StudentExitSurvey />
+        ) : activeTab === "quizzes" ? (
+          /* Online quizzes opened by the subject faculty; the score fills the CO sheet */
+          <StudentQuizzes />
         ) : activeTab === "subjects" ? (
           /* My Subjects Module: Enlarged View */
           <div className="w-full max-w-7xl space-y-6">

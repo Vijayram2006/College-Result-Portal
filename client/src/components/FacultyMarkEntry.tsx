@@ -4,6 +4,7 @@ import { SEMESTER_OPTIONS } from "../utils/semesters";
 import { AnswerScriptPane } from "./AnswerScriptPane";
 import { useSystemConfig } from "../utils/systemConfig";
 import { partACo, partBCCo } from "../utils/coMapping";
+import { fitSub, questionCap } from "../utils/markCaps";
 import {
   Eye,
   Users,
@@ -561,15 +562,15 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
   const partATotal = partAMarks.reduce((acc, curr) => acc + (Number(curr) || 0), 0);
 
   // Calculate Part B + C Total
-  const calculateQTotal = (q: QuestionBC) => {
+  const calculateQTotal = (q: QuestionBC, qNum = 11) => {
     const aTotal = (Number(q.a.i) || 0) + (Number(q.a.ii) || 0) + (Number(q.a.iii) || 0);
     const bTotal = (Number(q.b.i) || 0) + (Number(q.b.ii) || 0) + (Number(q.b.iii) || 0);
-    return Math.max(aTotal, bTotal); // Exam rules: maximum of choice 'a' or 'b'
+    return Math.min(questionCap(qNum), Math.max(aTotal, bTotal)); // the answered choice, never above the question's marks
   };
 
-  const partBCTotal = Object.values(partBCMarks).reduce((acc, q) => acc + calculateQTotal(q), 0);
-  const partBTotal = [11, 12, 13, 14, 15].reduce((acc, q) => acc + calculateQTotal(partBCMarks[q]), 0);
-  const partCTotal = calculateQTotal(partBCMarks[16]);
+  const partBCTotal = Object.entries(partBCMarks).reduce((acc, [k, q]) => acc + calculateQTotal(q, Number(k)), 0);
+  const partBTotal = [11, 12, 13, 14, 15].reduce((acc, q) => acc + calculateQTotal(partBCMarks[q], q), 0);
+  const partCTotal = calculateQTotal(partBCMarks[16], 16);
 
   // Grand Total (A + B + C)
   const grandTotal = Math.min(100, Math.round(partATotal + partBCTotal));
@@ -1536,7 +1537,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                       <tbody className="divide-y divide-red-900/30">
                         {[11, 12, 13, 14, 15].map((qNum) => {
                           const qData = partBCMarks[qNum];
-                          const qTotal = calculateQTotal(qData);
+                          const qTotal = calculateQTotal(qData, qNum);
                           return (
                             <React.Fragment key={qNum}>
                               {/* Sub-division a */}
@@ -1552,7 +1553,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                   <input
                                     type="number"
                                     min="0"
-                                    max="16"
+                                    max={qNum === 16 ? 15 : 13}
                                     disabled={isFacultyPortalLocked || !allowExternal}
                                     value={qData.a.i === 0 ? "" : qData.a.i}
                                     placeholder="0"
@@ -1562,7 +1563,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         ...partBCMarks,
                                         [qNum]: {
                                           ...qData,
-                                          a: { ...qData.a, i: Math.min(16, Math.max(0, val)) },
+                                          a: { ...qData.a, i: fitSub(qData.a, "i", val, qNum) },
                                         },
                                       });
                                     }}
@@ -1577,7 +1578,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                   <input
                                     type="number"
                                     min="0"
-                                    max="16"
+                                    max={qNum === 16 ? 15 : 13}
                                     disabled={isFacultyPortalLocked || !allowExternal}
                                     value={qData.a.ii === 0 ? "" : qData.a.ii}
                                     placeholder="0"
@@ -1587,7 +1588,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         ...partBCMarks,
                                         [qNum]: {
                                           ...qData,
-                                          a: { ...qData.a, ii: Math.min(16, Math.max(0, val)) },
+                                          a: { ...qData.a, ii: fitSub(qData.a, "ii", val, qNum) },
                                         },
                                       });
                                     }}
@@ -1602,7 +1603,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                   <input
                                     type="number"
                                     min="0"
-                                    max="16"
+                                    max={qNum === 16 ? 15 : 13}
                                     disabled={isFacultyPortalLocked || !allowExternal}
                                     value={qData.a.iii === 0 ? "" : qData.a.iii}
                                     placeholder="0"
@@ -1612,7 +1613,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         ...partBCMarks,
                                         [qNum]: {
                                           ...qData,
-                                          a: { ...qData.a, iii: Math.min(16, Math.max(0, val)) },
+                                          a: { ...qData.a, iii: fitSub(qData.a, "iii", val, qNum) },
                                         },
                                       });
                                     }}
@@ -1638,7 +1639,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                   <input
                                     type="number"
                                     min="0"
-                                    max="16"
+                                    max={qNum === 16 ? 15 : 13}
                                     disabled={isFacultyPortalLocked || !allowExternal}
                                     value={qData.b.i === 0 ? "" : qData.b.i}
                                     placeholder="0"
@@ -1648,7 +1649,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         ...partBCMarks,
                                         [qNum]: {
                                           ...qData,
-                                          b: { ...qData.b, i: Math.min(16, Math.max(0, val)) },
+                                          b: { ...qData.b, i: fitSub(qData.b, "i", val, qNum) },
                                         },
                                       });
                                     }}
@@ -1663,7 +1664,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                   <input
                                     type="number"
                                     min="0"
-                                    max="16"
+                                    max={qNum === 16 ? 15 : 13}
                                     disabled={isFacultyPortalLocked || !allowExternal}
                                     value={qData.b.ii === 0 ? "" : qData.b.ii}
                                     placeholder="0"
@@ -1673,7 +1674,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         ...partBCMarks,
                                         [qNum]: {
                                           ...qData,
-                                          b: { ...qData.b, ii: Math.min(16, Math.max(0, val)) },
+                                          b: { ...qData.b, ii: fitSub(qData.b, "ii", val, qNum) },
                                         },
                                       });
                                     }}
@@ -1688,7 +1689,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                   <input
                                     type="number"
                                     min="0"
-                                    max="16"
+                                    max={qNum === 16 ? 15 : 13}
                                     disabled={isFacultyPortalLocked || !allowExternal}
                                     value={qData.b.iii === 0 ? "" : qData.b.iii}
                                     placeholder="0"
@@ -1698,7 +1699,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         ...partBCMarks,
                                         [qNum]: {
                                           ...qData,
-                                          b: { ...qData.b, iii: Math.min(16, Math.max(0, val)) },
+                                          b: { ...qData.b, iii: fitSub(qData.b, "iii", val, qNum) },
                                         },
                                       });
                                     }}
@@ -1750,7 +1751,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                       <tbody className="divide-y divide-red-900/30">
                         {[16].map((qNum) => {
                           const qData = partBCMarks[qNum];
-                          const qTotal = calculateQTotal(qData);
+                          const qTotal = calculateQTotal(qData, qNum);
                           return (
                             <React.Fragment key={qNum}>
                               {/* Sub-division a */}
@@ -1766,7 +1767,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                   <input
                                     type="number"
                                     min="0"
-                                    max="16"
+                                    max={qNum === 16 ? 15 : 13}
                                     value={qData.a.i === 0 ? "" : qData.a.i}
                                     placeholder="0"
                                     onChange={(e) => {
@@ -1775,7 +1776,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         ...partBCMarks,
                                         [qNum]: {
                                           ...qData,
-                                          a: { ...qData.a, i: Math.min(16, Math.max(0, val)) },
+                                          a: { ...qData.a, i: fitSub(qData.a, "i", val, qNum) },
                                         },
                                       });
                                     }}
@@ -1786,7 +1787,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                   <input
                                     type="number"
                                     min="0"
-                                    max="16"
+                                    max={qNum === 16 ? 15 : 13}
                                     value={qData.a.ii === 0 ? "" : qData.a.ii}
                                     placeholder="0"
                                     onChange={(e) => {
@@ -1795,7 +1796,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         ...partBCMarks,
                                         [qNum]: {
                                           ...qData,
-                                          a: { ...qData.a, ii: Math.min(16, Math.max(0, val)) },
+                                          a: { ...qData.a, ii: fitSub(qData.a, "ii", val, qNum) },
                                         },
                                       });
                                     }}
@@ -1806,7 +1807,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                   <input
                                     type="number"
                                     min="0"
-                                    max="16"
+                                    max={qNum === 16 ? 15 : 13}
                                     value={qData.a.iii === 0 ? "" : qData.a.iii}
                                     placeholder="0"
                                     onChange={(e) => {
@@ -1815,7 +1816,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         ...partBCMarks,
                                         [qNum]: {
                                           ...qData,
-                                          a: { ...qData.a, iii: Math.min(16, Math.max(0, val)) },
+                                          a: { ...qData.a, iii: fitSub(qData.a, "iii", val, qNum) },
                                         },
                                       });
                                     }}
@@ -1837,7 +1838,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                   <input
                                     type="number"
                                     min="0"
-                                    max="16"
+                                    max={qNum === 16 ? 15 : 13}
                                     value={qData.b.i === 0 ? "" : qData.b.i}
                                     placeholder="0"
                                     onChange={(e) => {
@@ -1846,7 +1847,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         ...partBCMarks,
                                         [qNum]: {
                                           ...qData,
-                                          b: { ...qData.b, i: Math.min(16, Math.max(0, val)) },
+                                          b: { ...qData.b, i: fitSub(qData.b, "i", val, qNum) },
                                         },
                                       });
                                     }}
@@ -1857,7 +1858,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                   <input
                                     type="number"
                                     min="0"
-                                    max="16"
+                                    max={qNum === 16 ? 15 : 13}
                                     value={qData.b.ii === 0 ? "" : qData.b.ii}
                                     placeholder="0"
                                     onChange={(e) => {
@@ -1866,7 +1867,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         ...partBCMarks,
                                         [qNum]: {
                                           ...qData,
-                                          b: { ...qData.b, ii: Math.min(16, Math.max(0, val)) },
+                                          b: { ...qData.b, ii: fitSub(qData.b, "ii", val, qNum) },
                                         },
                                       });
                                     }}
@@ -1877,7 +1878,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                   <input
                                     type="number"
                                     min="0"
-                                    max="16"
+                                    max={qNum === 16 ? 15 : 13}
                                     value={qData.b.iii === 0 ? "" : qData.b.iii}
                                     placeholder="0"
                                     onChange={(e) => {
@@ -1886,7 +1887,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                         ...partBCMarks,
                                         [qNum]: {
                                           ...qData,
-                                          b: { ...qData.b, iii: Math.min(16, Math.max(0, val)) },
+                                          b: { ...qData.b, iii: fitSub(qData.b, "iii", val, qNum) },
                                         },
                                       });
                                     }}

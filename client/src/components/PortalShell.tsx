@@ -75,7 +75,7 @@ export const PortalShell: React.FC<PortalShellProps> = ({
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex shrink-0 items-center justify-between px-5 box-border h-[5.5rem] lg:h-[7.5rem] border-b-4 border-[#D4A72C]">
+        <div className="flex shrink-0 items-center justify-between px-5 box-border h-[6.75rem] border-b-4 border-[#D4A72C]">
           <div className="flex min-w-0 items-center gap-3">
             <img
               src="/kvell-logo.png"

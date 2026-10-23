@@ -33,9 +33,10 @@ public class MarkController {
         return marks.allEntered();
     }
 
-    /** "Confirm Mark" for one student's answer script. */
+    /** Marks are entered by the subject's faculty (or the HOD); the COE only views them. */
     @PutMapping
     MarkService.StudentMark save(@RequestBody MarkService.MarkRequest request, HttpServletRequest http) {
-        return marks.save(request, CurrentUser.get(), http.getRemoteAddr());
+        throw new edu.kvell.results.common.ApiException(org.springframework.http.HttpStatus.FORBIDDEN,
+                "Marks are entered by the faculty; the COE views them only");
     }
 }

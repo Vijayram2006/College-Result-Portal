@@ -32,7 +32,7 @@ import { getStoredDepartments, Department } from "./Departments";
 import { aidsSem1Students } from "../data/aidsStudents";
 import { cseSem1Students, bmeSem1Students, seedDummyMarksForDepts, generateStudentMarkDetail, ensureDummyMarksLoaded } from "../data/dummyMarksData";
 import { departmentSubjectsCatalog } from "../data/curriculumSubjects";
-import { getScopedKey, getActiveCollege, getActiveCollegeKey, isEngineeringCollege, isSuperAdmin } from "../utils/rbac";
+import { getScopedKey, getActiveCollege, getActiveCollegeKey, isEngineeringCollege } from "../utils/rbac";
 import { getSystemConfig, SystemConfig } from "../utils/systemConfig";
 
 // Department & Subject Catalog (Includes AIDS & MA8201 from examination paper)
@@ -164,8 +164,8 @@ export const ResultsValidation: React.FC = () => {
   }, []);
 
   const activeCollegeKey = getActiveCollegeKey();
-  // The Chief COE only views marks; the college's COE and faculty enter them (the server enforces this too)
-  const chiefViewOnly = isSuperAdmin();
+  // Marks are entered by the subject's faculty (or the HOD); every COE only views them (the server enforces this too)
+  const chiefViewOnly = true;
   const isCollegeLocked =
     systemConfig.systemMode === "EMERGENCY_LOCK" ||
     systemConfig.institutionalLocks[activeCollegeKey]?.locked === true ||
@@ -608,7 +608,7 @@ export const ResultsValidation: React.FC = () => {
       {chiefViewOnly && (
         <div className="p-4 rounded-2xl bg-sky-50 border border-sky-200 text-sky-900 text-xs font-semibold flex items-center gap-2">
           <Lock size={15} className="shrink-0" />
-          View only: the Chief COE can see entered marks here (use View on a row). Marks are entered and forwarded by the college's faculty and Controller of Examinations.
+          View only: the COE sees the entered marks here (use View on a row). Marks are entered and forwarded by the subject's faculty or the HOD.
         </div>
       )}
 

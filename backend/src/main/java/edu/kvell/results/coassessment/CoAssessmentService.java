@@ -164,6 +164,12 @@ public class CoAssessmentService {
         if ("EXIT_SURVEY".equals(comp.key())) {
             throw ApiException.badRequest("The course exit survey is filled by the students in the student portal");
         }
+        if (comp.key().startsWith("QUIZ") && db.sql("""
+                        SELECT count(*) FROM quizzes WHERE dept_key = ? AND semester = ? AND subject_code = ? AND cycle = ?
+                        """).params(s.dept, s.sem, s.code, "QUIZ2".equals(comp.key()) ? "IAT-2" : "IAT-1")
+                .query(Integer.class).single() > 0) {
+            throw ApiException.badRequest("This quiz is answered online by the students; its marks fill in automatically");
+        }
         String type = courseType(req.courseType());
         String stored = storedType(s);
         if (stored != null && !stored.equals(type)) {

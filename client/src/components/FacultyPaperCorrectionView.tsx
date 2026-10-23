@@ -268,19 +268,17 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
   }, [allocations]);
 
   // Find allocations assigned to the selected faculty
-  const myAllocations = useMemo(() => {
-    if (!selectedFacultyName) return allocations;
+  // Only the bundles the Dean allotted to this sign-in (by staff ID, or by name for older allotments)
+  const myUsername = (authApi.currentUser()?.username || "").toUpperCase();
+  const isMine = React.useCallback((staff: EvaluatorStaff) => {
+    if (myUsername && (staff.facultyId || "").toUpperCase() === myUsername) return true;
     const q = selectedFacultyName.toLowerCase().trim();
-    const matches = allocations.filter((alloc) =>
-      alloc.assignedStaff.some(
-        (staff) =>
-          staff.name.toLowerCase().includes(q) ||
-          q.includes(staff.name.toLowerCase()) ||
-          selectedFacultyName === "ALL_FACULTIES"
-      )
-    );
-    return matches.length > 0 ? matches : allocations;
-  }, [allocations, selectedFacultyName]);
+    return !!q && staff.name.toLowerCase().trim() === q;
+  }, [myUsername, selectedFacultyName]);
+  const myAllocations = useMemo(
+    () => allocations.filter((alloc) => alloc.assignedStaff.some(isMine)),
+    [allocations, isMine]
+  );
 
   // Set default active allocation if none selected
   useEffect(() => {
@@ -291,26 +289,24 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
 
   // Currently active allocation object
   const activeAllocation = useMemo(() => {
-    return allocations.find((a) => a.id === selectedAllocationId) || myAllocations[0] || allocations[0];
-  }, [allocations, selectedAllocationId, myAllocations]);
+    return myAllocations.find((a) => a.id === selectedAllocationId) || myAllocations[0];
+  }, [selectedAllocationId, myAllocations]);
 
   // Currently active staff slot for this faculty in the selected allocation
   const activeStaffSlot = useMemo(() => {
     if (!activeAllocation) return null;
-    const q = selectedFacultyName.toLowerCase().trim();
-    const matched = activeAllocation.assignedStaff.find(
-      (s) => s.name.toLowerCase().includes(q) || q.includes(s.name.toLowerCase())
-    );
-    return matched || activeAllocation.assignedStaff[0];
-  }, [activeAllocation, selectedFacultyName]);
+    return activeAllocation.assignedStaff.find(isMine) || null;
+  }, [activeAllocation, isMine]);
 
   // The real answer scripts of the allotted subject, under the COE's dummy numbers (already shuffled by the server)
   const assessmentOf = (a?: PaperCorrectionAllocation) =>
     !a ? "End Semester" : /IAT-?2/i.test(a.examSession) ? "IAT-2" : /IAT-?1/i.test(a.examSession) ? "IAT-1" : "End Semester";
+  // The allotted subject's department (an ECE paper can be allotted to a CSE faculty member)
+  const deptOf = (a?: PaperCorrectionAllocation) => (a?.deptKey && a.deptKey !== "all" ? a.deptKey : undefined);
   const [realRoster, setRealRoster] = useState<StudentMarkDTO[] | null>(null);
   const loadRoster = React.useCallback(() => {
     if (!activeAllocation) return;
-    facultyApi.roster(activeAllocation.semester, activeAllocation.subjectCode, assessmentOf(activeAllocation))
+    facultyApi.roster(activeAllocation.semester, activeAllocation.subjectCode, assessmentOf(activeAllocation), deptOf(activeAllocation))
       .then((r) => setRealRoster(r.length ? r : null))
       .catch(() => setRealRoster(null));
   }, [activeAllocation?.id]);
@@ -583,6 +579,20 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
     );
     notify(`Exported blind valuation marksheet for Packet ${activeStaffSlot.bundlePacketId}`);
   };
+
+  // The correction window opens only for evaluators the Dean has allotted answer-script bundles to
+  if (myAllocations.length === 0) {
+    return (
+      <div className="w-full max-w-4xl bg-white rounded-3xl border border-slate-200 p-8 shadow-sm text-center space-y-2">
+        <FileText size={28} className="mx-auto text-[#D4A72C]" />
+        <h2 className="text-lg font-black text-[#0B192C]">No answer scripts allotted to you</h2>
+        <p className="text-xs text-slate-600">
+          The Associate Dean allots answer-script bundles (IAT-1, IAT-2 and End Semester) to evaluators. Once a bundle is
+          allotted to your staff ID, its correction window opens here.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-7">
@@ -1358,7 +1368,7 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
           department={activeAllocation.department}
           assessmentType={activeAllocation.examSession?.includes("IAT-2") ? "IAT-2" : "IAT-1"}
           packetId={evaluatingScript.packetId || activeStaffSlot?.bundlePacketId || "PKT-A"}
-          pdfLoader={realRoster ? () => facultyApi.answerScript({ semester: activeAllocation.semester, subject: activeAllocation.subjectCode, regNo: evaluatingScript.dummyCode, assessment: assessmentOf(activeAllocation) }) : undefined}
+          pdfLoader={realRoster ? () => facultyApi.answerScript({ semester: activeAllocation.semester, subject: activeAllocation.subjectCode, regNo: evaluatingScript.dummyCode, assessment: assessmentOf(activeAllocation), dept: deptOf(activeAllocation) }) : undefined}
           onSaveMarks={async (result) => {
             if (realRoster) {
               // Saved to the real marks (the server checks the limits and maps the dummy number to the student)
@@ -1380,6 +1390,7 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
                   examinerName: authApi.currentUser()?.name || selectedFacultyName,
                   examinerDesignation: activeStaffSlot?.role || "Internal Examiner",
                   expectedVersion: current?.version,
+                  deptKey: deptOf(activeAllocation),
                 } as any);
                 notify(`Marks saved for ${evaluatingScript.dummyCode}.`);
                 loadRoster();

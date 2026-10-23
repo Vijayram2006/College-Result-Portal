@@ -1,3 +1,4 @@
+import { QuizEditor } from "./QuizEditor";
 import React, { useEffect, useMemo, useState } from "react";
 import { Download, RefreshCw, Save } from "lucide-react";
 import { apiClient, apiErrorMessage } from "../services/api";
@@ -109,7 +110,9 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
 
   const comp = sheet?.components.find((c) => c.key === tab) ?? null;
   // The course exit survey is answered by the students in their portal; staff only see the answers
-  const canEdit = canEditSheet && comp?.key !== "EXIT_SURVEY";
+  // An online quiz fills its column from the students' answers, so the column is then read-only
+  const [quizOnline, setQuizOnline] = useState(false);
+  const canEdit = canEditSheet && comp?.key !== "EXIT_SURVEY" && !(comp?.key.startsWith("QUIZ") && quizOnline);
   const valueOf = (row: StudentRow, c: Component, i: number) => {
     const e = edits[c.key]?.[row.regNo];
     return e ? e[i] : row.marks[c.key]?.[i] ?? null;
@@ -274,6 +277,10 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
 
           {comp?.key === "EXIT_SURVEY" && (
             <SurveyWindowPanel sheet={sheet} editable={canEditSheet} base={base} onSaved={() => load(true)} onToast={onToast} />
+          )}
+          {comp?.key.startsWith("QUIZ") && mode !== "admin" && (
+            <QuizEditor mode={mode} semester={sheet.semester} subjectCode={sheet.subjectCode} cycle={sheet.cycle}
+              onLoaded={setQuizOnline} onToast={onToast} />
           )}
           {comp && (
             <div className="overflow-auto max-h-[70vh]">

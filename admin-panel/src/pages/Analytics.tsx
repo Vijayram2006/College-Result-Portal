@@ -16,6 +16,8 @@ import { getActiveCollege } from "../utils/rbac";
 import { SEMESTER_OPTIONS } from "../utils/semesters";
 import { Department, getStoredDepartments, refreshDepartments } from "./Departments";
 import * as A from "../utils/analytics";
+import { BellCurveAnalytics } from "../components/analytics/BellCurve";
+import { Activity } from "lucide-react";
 import {
   ASSESSMENT_COLORS, AssessmentDot, AXIS, Card, ChartTooltip, Column, CRITICAL, DataTable, Drawer, ExportButtons,
   GRADE_COLORS, GradeChip, GRID, Kpi, PctBar, ResultChip, SERIES,
@@ -42,6 +44,7 @@ const TABS = [
   { id: "questions", label: "Questions & COs", icon: Target },
   { id: "examiners", label: "Examiner-wise", icon: PenLine },
   { id: "students", label: "Students", icon: Users },
+  { id: "bellcurve", label: "Bell Curve", icon: Activity },
   { id: "data", label: "All Marks", icon: ClipboardList },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -270,6 +273,7 @@ export const AnalyticsPage: React.FC = () => {
       case "examiners": return [A.sheets.examiners(examT)];
       case "students": return [A.sheets.students(studT), A.sheets.risk(riskT), A.sheets.toppers(toppers)];
       case "data": return [A.sheets.raw(rows)];
+      case "bellcurve": return [A.sheets.raw(rows)];
     }
   };
   const downloadEverything = () =>
@@ -858,6 +862,8 @@ export const AnalyticsPage: React.FC = () => {
               </Card>
             </div>
           )}
+
+          {tab === "bellcurve" && <BellCurveAnalytics rows={rows} />}
 
           {tab === "data" && (
             <Card

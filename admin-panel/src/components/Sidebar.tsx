@@ -193,7 +193,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
                     }`}
                   >
                     <PenLine size={14} />
-                    <span>{isSuper ? "Marks (View)" : "Mark Entry"}</span>
+                    <span>Marks (View)</span>
                   </Link>
 
                   <Link
@@ -206,7 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
                     }`}
                   >
                     <ClipboardCheck size={14} />
-                    <span>{isSuper ? "Internal Marks (View)" : "Internal Marks"}</span>
+                    <span>Internal Marks (View)</span>
                   </Link>
 
                   <Link

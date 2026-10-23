@@ -7,7 +7,8 @@ import {
   FilterX, GraduationCap, SlidersHorizontal, Layers, Lightbulb, ListChecks, PenLine, RefreshCw, Sigma, Target, TrendingDown,
   TrendingUp, Trophy, UserCheck, Users,
 } from "lucide-react";
-import { apiErrorMessage, hodApi } from "../../services/api";
+import { apiClient, apiErrorMessage, hodApi } from "../../services/api";
+import { BellCurveAnalytics } from "./BellCurve";
 import type { ResultBatchRecord, StudentMarkRecord, StudentRecord, SubjectRecord } from "./types";
 import { SEMESTER_OPTIONS } from "../../utils/semesters";
 import * as A from "./analytics";
@@ -41,6 +42,7 @@ const TABS = [
   { id: "questions", label: "Questions & COs", icon: Target },
   { id: "examiners", label: "Examiner-wise", icon: PenLine },
   { id: "students", label: "Students", icon: Users },
+  { id: "bellcurve", label: "Bell Curve", icon: Sigma },
   { id: "data", label: "All Marks", icon: ClipboardList },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -72,8 +74,13 @@ const fmtDate = () => {
 const selectCls =
   "w-full px-2.5 py-2 rounded-xl border border-[#E5E1D8] bg-white font-bold text-[#0B192C] text-xs focus:outline-none focus:ring-2 focus:ring-[#D4A72C]/50";
 
-export const HodAnalytics: React.FC = () => {
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+/**
+ * scope "dean": the same analytics for the whole college (the Associate Dean), with a department filter; assessment
+ * presets the assessment filter (the Dean's IAT-1 / IAT-2 / End Semester / Revaluation sub-tabs).
+ */
+export const HodAnalytics: React.FC<{ scope?: "hod" | "dean"; assessment?: string }> = ({ scope = "hod", assessment }) => {
+  const [filters, setFilters] = useState<Filters>({ ...DEFAULT_FILTERS, assess: assessment ?? "all" });
+  useEffect(() => { setFilters((f) => ({ ...f, assess: assessment ?? "all" })); }, [assessment]);
   const [tab, setTab] = useState<TabId>("overview");
 
   const [marks, setMarks] = useState<StudentMarkRecord[]>([]);
@@ -94,9 +101,18 @@ export const HodAnalytics: React.FC = () => {
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setRefreshing(true);
     try {
-      const data = await hodApi.getAnalytics();
-      setMarks(data.marks); setBatches(data.batches); setSubjects(data.subjects); setStudents(data.students);
-      setDepartments([{ key: data.departmentKey, name: data.departmentName, code: data.departmentCode }]);
+      if (scope === "dean") {
+        const get = async <T,>(path: string) => (await apiClient.get<T>(path, { timeout: 60000 })).data;
+        const [m, b, sj, st, d] = await Promise.all([
+          get<StudentMarkRecord[]>("/admin/marks/all"), get<ResultBatchRecord[]>("/admin/results"),
+          get<SubjectRecord[]>("/admin/subjects"), get<StudentRecord[]>("/admin/students"), get<Department[]>("/admin/departments"),
+        ]);
+        setMarks(m); setBatches(b); setSubjects(sj); setStudents(st); setDepartments(d);
+      } else {
+        const data = await hodApi.getAnalytics();
+        setMarks(data.marks); setBatches(data.batches); setSubjects(data.subjects); setStudents(data.students);
+        setDepartments([{ key: data.departmentKey, name: data.departmentName, code: data.departmentCode }]);
+      }
       setUpdatedAt(new Date().toLocaleTimeString("en-IN"));
       setError("");
     } catch (err) {
@@ -105,7 +121,7 @@ export const HodAnalytics: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [scope]);
 
   useEffect(() => {
     load();
@@ -246,6 +262,7 @@ export const HodAnalytics: React.FC = () => {
       case "examiners": return [A.sheets.examiners(examT)];
       case "students": return [A.sheets.students(studT), A.sheets.risk(riskT), A.sheets.toppers(toppers)];
       case "data": return [A.sheets.raw(rows)];
+      case "bellcurve": return [A.sheets.raw(rows)];
     }
   };
   const downloadEverything = () =>
@@ -346,6 +363,17 @@ export const HodAnalytics: React.FC = () => {
             </button>
           )}
         </div>
+
+        {departments.length > 1 && (
+          <FilterRow label="Department">
+            <Pill active={filters.dept === "all"} onClick={() => setFilter("dept", "all")} count={total(counts.dept)}>All</Pill>
+            {departments.map((d) => (
+              <Pill key={d.key} active={filters.dept === d.key} onClick={() => setFilter("dept", d.key)} count={counts.dept.get(d.key) ?? 0} title={d.name}>
+                {(d.code || d.key).toUpperCase().replace(/^AI&?DS$|^AIDS$/, "ADS")}
+              </Pill>
+            ))}
+          </FilterRow>
+        )}
 
         <FilterRow label="Assessment">
           <Pill active={filters.assess === "all"} onClick={() => setFilter("assess", "all")} count={total(counts.assess)}>All</Pill>
@@ -822,6 +850,8 @@ export const HodAnalytics: React.FC = () => {
               </Card>
             </div>
           )}
+
+          {tab === "bellcurve" && <BellCurveAnalytics rows={rows} />}
 
           {tab === "data" && (
             <Card

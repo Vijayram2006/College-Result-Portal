@@ -1,4 +1,5 @@
 import { AnswerScriptPane } from "../AnswerScriptPane";
+import { fitSub } from "../../utils/markCaps";
 import React, { useState, useEffect } from "react";
 import {
   FileText,
@@ -622,7 +623,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                     <input
                                       type="number"
                                       min="0"
-                                      max="16"
+                                      max={qNum === 16 ? 15 : 13}
                                       value={qData.a.i === 0 ? "" : qData.a.i}
                                       placeholder="0"
                                       onChange={(e) => {
@@ -631,7 +632,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                           ...partBCMarks,
                                           [qNum]: {
                                             ...qData,
-                                            a: { ...qData.a, i: Math.min(16, Math.max(0, val)) },
+                                            a: { ...qData.a, i: fitSub(qData.a, "i", val, qNum) },
                                           },
                                         });
                                       }}
@@ -642,7 +643,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                     <input
                                       type="number"
                                       min="0"
-                                      max="16"
+                                      max={qNum === 16 ? 15 : 13}
                                       value={qData.a.ii === 0 ? "" : qData.a.ii}
                                       placeholder="0"
                                       onChange={(e) => {
@@ -651,7 +652,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                           ...partBCMarks,
                                           [qNum]: {
                                             ...qData,
-                                            a: { ...qData.a, ii: Math.min(16, Math.max(0, val)) },
+                                            a: { ...qData.a, ii: fitSub(qData.a, "ii", val, qNum) },
                                           },
                                         });
                                       }}
@@ -662,7 +663,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                     <input
                                       type="number"
                                       min="0"
-                                      max="16"
+                                      max={qNum === 16 ? 15 : 13}
                                       value={qData.a.iii === 0 ? "" : qData.a.iii}
                                       placeholder="0"
                                       onChange={(e) => {
@@ -671,7 +672,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                           ...partBCMarks,
                                           [qNum]: {
                                             ...qData,
-                                            a: { ...qData.a, iii: Math.min(16, Math.max(0, val)) },
+                                            a: { ...qData.a, iii: fitSub(qData.a, "iii", val, qNum) },
                                           },
                                         });
                                       }}
@@ -699,7 +700,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                     <input
                                       type="number"
                                       min="0"
-                                      max="16"
+                                      max={qNum === 16 ? 15 : 13}
                                       value={qData.b.i === 0 ? "" : qData.b.i}
                                       placeholder="0"
                                       onChange={(e) => {
@@ -708,7 +709,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                           ...partBCMarks,
                                           [qNum]: {
                                             ...qData,
-                                            b: { ...qData.b, i: Math.min(16, Math.max(0, val)) },
+                                            b: { ...qData.b, i: fitSub(qData.b, "i", val, qNum) },
                                           },
                                         });
                                       }}
@@ -719,7 +720,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                     <input
                                       type="number"
                                       min="0"
-                                      max="16"
+                                      max={qNum === 16 ? 15 : 13}
                                       value={qData.b.ii === 0 ? "" : qData.b.ii}
                                       placeholder="0"
                                       onChange={(e) => {
@@ -728,7 +729,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                           ...partBCMarks,
                                           [qNum]: {
                                             ...qData,
-                                            b: { ...qData.b, ii: Math.min(16, Math.max(0, val)) },
+                                            b: { ...qData.b, ii: fitSub(qData.b, "ii", val, qNum) },
                                           },
                                         });
                                       }}
@@ -739,7 +740,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                     <input
                                       type="number"
                                       min="0"
-                                      max="16"
+                                      max={qNum === 16 ? 15 : 13}
                                       value={qData.b.iii === 0 ? "" : qData.b.iii}
                                       placeholder="0"
                                       onChange={(e) => {
@@ -748,7 +749,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                           ...partBCMarks,
                                           [qNum]: {
                                             ...qData,
-                                            b: { ...qData.b, iii: Math.min(16, Math.max(0, val)) },
+                                            b: { ...qData.b, iii: fitSub(qData.b, "iii", val, qNum) },
                                           },
                                         });
                                       }}

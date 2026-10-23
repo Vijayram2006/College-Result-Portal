@@ -689,6 +689,8 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
   // Filters
   const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>("2026-2027");
   const [selectedSemester, setSelectedSemester] = useState<string>("Semester I");
+  // The Dean allots the evaluators for IAT-1, IAT-2 and the end semester examination
+  const [selectedAssessment, setSelectedAssessment] = useState<"IAT-1" | "IAT-2" | "End Semester">("End Semester");
   const [selectedDepartment, setSelectedDepartment] = useState<string>("Artificial Intelligence & Data Science");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
@@ -1123,7 +1125,9 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
       semester: selectedSemester,
       academicYear: selectedAcademicYear,
       regulation: "R-2023 Autonomous",
-      examSession: `${selectedSemester.toUpperCase()} END SEMESTER EXAMINATIONS`,
+      examSession: selectedAssessment === "End Semester"
+        ? `${selectedSemester.toUpperCase()} END SEMESTER EXAMINATIONS`
+        : `${selectedSemester.toUpperCase()} ${selectedAssessment} INTERNAL ASSESSMENT TEST`,
       qpMasterCode: `QP-${selectedAcademicYear.slice(0, 4)}-${selectedSubject.code}-VERIFIED`,
       totalAnswerScripts: calculatedMapping.totalScripts,
       numberOfStaff: calculatedMapping.staffCount,
@@ -1141,7 +1145,10 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
       status: "ALLOCATED",
     };
 
-    const updated = [newAllocation, ...allocations.filter((a) => a.subjectCode !== selectedSubject.code)];
+    const sameSession = (a: PaperCorrectionAllocation) =>
+      a.subjectCode === selectedSubject.code && a.semester === selectedSemester &&
+      (/IAT-?1/i.test(a.examSession) ? "IAT-1" : /IAT-?2/i.test(a.examSession) ? "IAT-2" : "End Semester") === selectedAssessment;
+    const updated = [newAllocation, ...allocations.filter((a) => !sameSession(a))];
     saveAllocations(updated);
     notify(
       `Successfully mapped ${calculatedMapping.totalScripts} scripts of ${selectedSubject.code} equally across ${calculatedMapping.staffCount} faculties!`
@@ -1265,7 +1272,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
             </div>
 
             {/* Filter Controls Bar */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Academic Year */}
               <div>
                 <label className="block text-[10px] font-extrabold uppercase text-gray-500 mb-1.5 tracking-wider">
@@ -1283,6 +1290,23 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                     <option value="2024-2025">2024-2025</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Assessment */}
+              <div>
+                <label className="block text-[10px] font-extrabold uppercase text-gray-500 mb-1.5 tracking-wider">
+                  Assessment
+                </label>
+                <select
+                  value={selectedAssessment}
+                  onChange={(e) => setSelectedAssessment(e.target.value as typeof selectedAssessment)}
+                  aria-label="Assessment"
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-[#0B192C] focus:ring-2 focus:ring-[#D4A72C] focus:outline-none bg-white cursor-pointer"
+                >
+                  <option value="IAT-1">IAT-1</option>
+                  <option value="IAT-2">IAT-2</option>
+                  <option value="End Semester">End Semester</option>
+                </select>
               </div>
 
               {/* Semester */}

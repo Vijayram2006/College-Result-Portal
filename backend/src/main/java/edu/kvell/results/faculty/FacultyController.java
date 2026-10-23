@@ -30,10 +30,12 @@ public class FacultyController {
     private final org.springframework.jdbc.core.simple.JdbcClient db;
 
     private final edu.kvell.results.marks.AnonymousEvaluation anonymous;
+    private final FacultyAccess access;
 
     public FacultyController(SubjectService subjects, MarkService marks, ResultBatchService results,
                              AnswerScriptController scripts, org.springframework.jdbc.core.simple.JdbcClient db,
-                             edu.kvell.results.marks.AnonymousEvaluation anonymous) {
+                             edu.kvell.results.marks.AnonymousEvaluation anonymous, FacultyAccess access) {
+        this.access = access;
         this.db = db;
         this.anonymous = anonymous;
         this.subjects = subjects;
@@ -50,8 +52,9 @@ public class FacultyController {
     org.springframework.http.ResponseEntity<byte[]> answerScript(@RequestParam String semester,
                                                                  @RequestParam String subject,
                                                                  @RequestParam String regNo,
-                                                                 @RequestParam String assessment) {
-        String dept = CurrentUser.get().deptKey();
+                                                                 @RequestParam String assessment,
+                                                                 @RequestParam(required = false) String dept) {
+        dept = access.deptFor(dept, semester, subject);
         String reg = anonymous.resolve(dept, semester, subject, assessment, regNo);
         org.springframework.http.ResponseEntity<byte[]> pdf = scripts.file(dept, semester, subject, reg, assessment);
         String code = regNo.trim().toUpperCase(java.util.Locale.ROOT);
@@ -135,14 +138,21 @@ public class FacultyController {
 
     @GetMapping("/subjects")
     List<SubjectService.SubjectItem> subjects() {
-        return subjects.list(CurrentUser.get().deptKey());
+        CurrentUser user = CurrentUser.get();
+        List<SubjectService.SubjectItem> all = subjects.list(user.deptKey());
+        if (user.role() != CurrentUser.Role.FACULTY) return all;
+        // A faculty member with assigned handling subjects sees only those
+        List<String> mine = access.handling(user.id());
+        if (mine.isEmpty()) return all;
+        return all.stream().filter(x -> mine.stream().anyMatch(h -> h.endsWith("|" + x.code()))).toList();
     }
 
     @GetMapping("/marks")
     List<MarkService.StudentMark> roster(@RequestParam String semester, @RequestParam String subject,
-                                         @RequestParam String assessment) {
+                                         @RequestParam String assessment,
+                                         @RequestParam(required = false) String dept) {
         // Faculty evaluate anonymously: dummy numbers in a shuffled order
-        String dept = CurrentUser.get().deptKey();
+        dept = access.deptFor(dept, semester, subject);
         java.util.Set<String> absent = new java.util.HashSet<>(db.sql("""
                         SELECT reg_no FROM script_absences WHERE dept_key = ? AND semester = ? AND subject_code = ?
                           AND assessment_type = ?
@@ -155,20 +165,22 @@ public class FacultyController {
     @PutMapping("/marks")
     MarkService.StudentMark save(@RequestBody MarkService.MarkRequest r, HttpServletRequest http) {
         CurrentUser user = CurrentUser.get();
+        // An allotted evaluator may mark another department's scripts (r.dept()); otherwise their own department
+        String dept = access.deptFor(r.deptKey(), r.semester(), r.subjectCode());
         // regNo is the script's dummy number
-        String reg = anonymous.resolve(user.deptKey(), r.semester(), r.subjectCode(), r.assessmentType(), r.regNo());
+        String reg = anonymous.resolve(dept, r.semester(), r.subjectCode(), r.assessmentType(), r.regNo());
         if (db.sql("""
                         SELECT count(*) FROM script_absences WHERE dept_key = ? AND semester = ? AND subject_code = ?
                           AND reg_no = ? AND assessment_type = ?
-                        """).params(user.deptKey(), edu.kvell.results.common.Semesters.parse(r.semester()),
+                        """).params(dept, edu.kvell.results.common.Semesters.parse(r.semester()),
                         r.subjectCode().trim().toUpperCase(java.util.Locale.ROOT), reg, r.assessmentType().trim())
                 .query(Integer.class).single() > 0) {
             throw edu.kvell.results.common.ApiException.conflict("This student was marked absent by the COE");
         }
-        MarkService.MarkRequest own = new MarkService.MarkRequest(user.deptKey(), r.semester(), r.subjectCode(),
+        MarkService.MarkRequest own = new MarkService.MarkRequest(dept, r.semester(), r.subjectCode(),
                 reg, r.assessmentType(), r.partA(), r.partBC(), r.examinerName(), r.examinerDesignation(),
                 r.expectedVersion());
-        return anonymous.mask(marks.save(own, user, http.getRemoteAddr()), user.deptKey());
+        return anonymous.mask(marks.save(own, user, http.getRemoteAddr()), dept);
     }
 
     /** Forward one subject's marks to the COE for verification. */
