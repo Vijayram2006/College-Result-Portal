@@ -50,26 +50,79 @@ function cohortOf(rows: MarkRow[], cohort: Cohort) {
 const btn = (on: boolean) =>
   `px-3 py-1.5 rounded-lg text-[11px] font-bold border transition ${on ? "bg-[#0B192C] text-white border-[#0B192C]" : "bg-white text-[#0B192C] border-[#E5E1D8] hover:bg-amber-50"}`;
 
+/** Performance zones on the class's own curve (z = standard deviations from the mean); red to green via dark yellow. */
+export const ZONES = [
+  { key: "z0", label: "Low to non performers", from: -Infinity, to: -1.28, color: "#DC2626" },
+  { key: "z1", label: "Below average", from: -1.28, to: -0.5, color: "#EA580C" },
+  { key: "z2", label: "Average", from: -0.5, to: 0.5, color: "#CA8A04" },
+  { key: "z3", label: "Above average", from: 0.5, to: 0.84, color: "#65A30D" },
+  { key: "z4", label: "High performers", from: 0.84, to: Infinity, color: "#16A34A" },
+] as const;
+
+const zoneOf = (z: number) => ZONES.findIndex((zn) => z >= zn.from && z < zn.to);
+
+/** The performance bell curve: one smooth curve, shaded by zone, with a fixed centre line at the mean. */
+const PerformanceCurve: React.FC<{ rows: MarkRow[]; height: number; st: ReturnType<typeof curveStats> }> = ({ rows, height, st }) => {
+  const data = useMemo(() => {
+    const pts: Record<string, number | null>[] = [];
+    if (st.sd <= 0) return pts;
+    for (let x = 0; x <= 100; x += 0.5) {
+      const y = round(normal(x, st.mean, st.sd) * st.n * 5);
+      const z = (x - st.mean) / st.sd;
+      const pt: Record<string, number | null> = { x };
+      ZONES.forEach((zn, i) => {
+        // each zone also takes its edge points so the coloured areas meet without a gap
+        const zPrev = (x - 0.5 - st.mean) / st.sd;
+        const zNext = (x + 0.5 - st.mean) / st.sd;
+        pt[zn.key] = zoneOf(z) === i || zoneOf(zPrev) === i || zoneOf(zNext) === i ? y : null;
+      });
+      pts.push(pt);
+    }
+    return pts;
+  }, [st.mean, st.sd, st.n]);
+  const shares = ZONES.map((_, i) => rows.filter((r) => zoneOf(st.sd > 0 ? (r.total - st.mean) / st.sd : 0) === i).length);
+  const pctOf = (c: number) => (rows.length ? Math.round((c * 1000) / rows.length) / 10 : 0);
+  if (st.sd <= 0) return <p className="py-10 text-center text-xs text-slate-500">All marks are the same; there is no spread to draw.</p>;
+  return (
+    <>
+      <ResponsiveContainer width="100%" height={height}>
+        <ComposedChart data={data} margin={{ top: 18, right: 12, left: -10, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#EEE9DE" vertical={false} />
+          <XAxis dataKey="x" type="number" domain={[0, 100]} ticks={[0, 20, 40, 60, 80, 100]} tick={{ fontSize: 10 }} />
+          <YAxis hide />
+          <Tooltip formatter={(v: number) => [v, "Expected students per 5 marks"]} labelFormatter={(x) => `${x} marks`} />
+          {ZONES.map((zn) => (
+            <Area key={zn.key} type="monotone" dataKey={zn.key} stroke={zn.color} strokeWidth={2} fill={zn.color}
+              fillOpacity={0.85} dot={false} activeDot={false} connectNulls={false} isAnimationActive={false} />
+          ))}
+          <ReferenceLine x={st.mean} stroke="#0B192C" strokeWidth={2.5}
+            label={{ value: `Average μ ${st.mean}`, fontSize: 11, fontWeight: 800, fill: "#0B192C", position: "top" }} />
+        </ComposedChart>
+      </ResponsiveContainer>
+      <div className="grid grid-cols-5 gap-1 mt-2">
+        {ZONES.map((zn, i) => (
+          <div key={zn.key} className="rounded-lg px-1.5 py-1.5 text-center border" style={{ borderColor: zn.color, background: `${zn.color}14` }}>
+            <p className="text-[9px] font-black uppercase leading-tight" style={{ color: zn.color }}>{zn.label}</p>
+            <p className="text-base font-black text-[#0B192C]">{pctOf(shares[i])}%</p>
+            <p className="text-[10px] font-bold text-slate-500">{shares[i]} students</p>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+};
+
 const Curve: React.FC<{ title: string; rows: MarkRow[]; axis: Axis; height?: number }> = ({ title, rows, axis, height = 240 }) => {
   const st = curveStats(rows.map((r) => r.total));
   const data = useMemo(() => {
-    if (axis === "grades") {
-      // Grades on the axis: counts per grade with the expected count from the curve at each grade's mid-mark
-      const mids: Record<string, number> = { O: 95, "A+": 85, A: 75, "B+": 65, B: 55, C: 50, RA: 25 };
-      return GRADE_AXIS.map((g) => ({
-        x: g,
-        count: rows.filter((r) => gradeOf(r) === g).length,
-        curve: round(normal(mids[g], st.mean, st.sd) * st.n * 10),
-      }));
-    }
-    // Absolute marks: a smooth curve every 2 marks with the count of each 10-mark bin
-    const pts = [];
-    for (let x = 0; x <= 100; x += 5) {
-      const count = rows.filter((r) => r.total >= x - 2.5 && r.total < x + 2.5).length;
-      pts.push({ x, count, curve: round(normal(x, st.mean, st.sd) * st.n * 5) });
-    }
-    return pts;
-  }, [rows, axis, st.mean, st.sd, st.n]);
+    // Grades on the axis: counts per grade with the expected count from the curve at each grade's mid-mark
+    const mids: Record<string, number> = { O: 95, "A+": 85, A: 75, "B+": 65, B: 55, C: 50, RA: 25 };
+    return GRADE_AXIS.map((g) => ({
+      x: g,
+      count: rows.filter((r) => gradeOf(r) === g).length,
+      curve: round(normal(mids[g], st.mean, st.sd) * st.n * 10),
+    }));
+  }, [rows, st.mean, st.sd, st.n]);
   return (
     <div className="rounded-2xl border border-[#E5E1D8] bg-white p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
@@ -80,23 +133,24 @@ const Curve: React.FC<{ title: string; rows: MarkRow[]; axis: Axis; height?: num
       </div>
       {st.n === 0 ? (
         <p className="py-10 text-center text-xs text-slate-500">No marks for this selection.</p>
+      ) : st.n < 20 && axis === "bands" ? (
+        <>
+          <p className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 mb-2">
+            Only {st.n} students: the curve is indicative only.
+          </p>
+          <PerformanceCurve rows={rows} height={height} st={st} />
+        </>
+      ) : axis === "bands" ? (
+        <PerformanceCurve rows={rows} height={height} st={st} />
       ) : (
         <ResponsiveContainer width="100%" height={height}>
           <ComposedChart data={data} margin={{ top: 10, right: 12, left: -10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#EEE9DE" />
-            <XAxis dataKey="x" type={axis === "bands" ? "number" : "category"} domain={axis === "bands" ? [0, 100] : undefined}
-              ticks={axis === "bands" ? [0, 20, 40, 60, 80, 100] : undefined} tick={{ fontSize: 10 }} />
+            <XAxis dataKey="x" type="category" tick={{ fontSize: 10 }} />
             <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
             <Tooltip formatter={(v: number, n: string) => [v, n === "curve" ? "Normal curve" : "Students"]} />
-            <Bar dataKey="count" fill="#D4A72C" fillOpacity={0.55} radius={[4, 4, 0, 0]} barSize={axis === "bands" ? 14 : 28} />
-            <Area type="monotone" dataKey="curve" stroke="#2563EB" strokeWidth={2.5} fill="#2563EB" fillOpacity={0.08} dot={false} />
-            {axis === "bands" && st.sd > 0 && (
-              <>
-                <ReferenceLine x={st.mean} stroke="#DC2626" strokeDasharray="4 3" label={{ value: "μ", fontSize: 11, fill: "#DC2626", position: "top" }} />
-                <ReferenceLine x={Math.max(0, st.mean - st.sd)} stroke="#64748B" strokeDasharray="3 3" label={{ value: "-1σ", fontSize: 10, position: "top" }} />
-                <ReferenceLine x={Math.min(100, st.mean + st.sd)} stroke="#64748B" strokeDasharray="3 3" label={{ value: "+1σ", fontSize: 10, position: "top" }} />
-              </>
-            )}
+            <Bar dataKey="count" fill="#CA8A04" fillOpacity={0.6} radius={[4, 4, 0, 0]} barSize={28} />
+            <Area type="monotone" dataKey="curve" stroke="#16A34A" strokeWidth={2.5} fill="#16A34A" fillOpacity={0.08} dot={false} />
           </ComposedChart>
         </ResponsiveContainer>
       )}
@@ -137,7 +191,7 @@ export const BellCurveAnalytics: React.FC<{ rows: MarkRow[] }> = ({ rows }) => {
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[10px] font-black uppercase text-slate-500 mr-1">Axis</span>
-            <button className={btn(axis === "bands")} onClick={() => setAxis("bands")}>Mark bands</button>
+            <button className={btn(axis === "bands")} onClick={() => setAxis("bands")}>Performance curve</button>
             <button className={btn(axis === "grades")} onClick={() => setAxis("grades")}>Letter grades</button>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
