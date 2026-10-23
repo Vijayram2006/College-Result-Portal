@@ -1388,7 +1388,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                 {/* Rightmost: Kyro Elephant Mascot */}
                 <div className="w-full md:w-1/4 flex items-center justify-center md:justify-end">
                   <img
-                    src="/kyro-mascot.png"
+                    src="/kyro-crossed.png"
                     alt="Kyro Mascot"
                     className="h-24 sm:h-28 w-auto object-contain transition-transform duration-200 hover:scale-105"
                   />

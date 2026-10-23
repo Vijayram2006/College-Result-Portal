@@ -30,6 +30,7 @@ import { HodExamNotificationsView } from "../components/HodExamNotificationsView
 import type { LucideIcon } from "lucide-react";
 import { HodAnalytics } from "../components/hodAnalytics/HodAnalytics";
 import { CoAssessment } from "../components/CoAssessment";
+import { StudentExitSurvey } from "../components/StudentExitSurvey";
 import { startSharedStore } from "../services/sharedStore";
 import {
   Activity,
@@ -4556,6 +4557,7 @@ function StudentDashboard({
         { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
         { key: "result", label: "Result", icon: FileText },
         { key: "subjects", label: "My Subjects", icon: BookOpen },
+        { key: "internals", label: "Course Exit Survey", icon: ClipboardCheck },
       ]}
       active={activeTab}
       onNavigate={(k) => setActiveTab(k as typeof activeTab)}
@@ -4702,10 +4704,8 @@ function StudentDashboard({
 
           </div>
         ) : activeTab === "internals" ? (
-          /* Internal marks: quiz, activity, assignment, attendance and IATs, live from the faculty's entries */
-          <div className="w-full max-w-7xl">
-            null
-          </div>
+          /* Course exit survey: the student rates each course outcome; it feeds the CO attainment */
+          <StudentExitSurvey />
         ) : activeTab === "subjects" ? (
           /* My Subjects Module: Enlarged View */
           <div className="w-full max-w-7xl space-y-6">

@@ -15,8 +15,12 @@ public class StudentController {
 
     private final edu.kvell.results.common.ResultsCache cache;
 
+    private final edu.kvell.results.coassessment.CoAssessmentService survey;
+
     public StudentController(StudentResultService results, GovernanceService governance,
-                             edu.kvell.results.common.ResultsCache cache) {
+                             edu.kvell.results.common.ResultsCache cache,
+                             edu.kvell.results.coassessment.CoAssessmentService survey) {
+        this.survey = survey;
         this.results = results;
         this.governance = governance;
         this.cache = cache;
@@ -29,6 +33,22 @@ public class StudentController {
         StudentResultService.StudentResults mine = cache.get("results:" + me.regNo(), () -> results.resultsFor(me.regNo()));
         // Results the Super Admin is withholding never leave the server
         return governance.resultsWithheld(me.collegeKey()) ? mine.withheldCopy() : mine;
+    }
+
+    public record SurveyInput(String subjectCode, java.util.List<Double> ratings) {
+    }
+
+    /** The course exit survey of the student's own semester (it feeds the CO attainment automatically). */
+    @GetMapping("/exit-survey")
+    java.util.List<edu.kvell.results.coassessment.CoAssessmentService.SurveySubject> exitSurvey() {
+        return survey.studentSurvey(CurrentUser.get().regNo());
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/exit-survey")
+    edu.kvell.results.coassessment.CoAssessmentService.SurveySubject saveExitSurvey(
+            @org.springframework.web.bind.annotation.RequestBody SurveyInput in, jakarta.servlet.http.HttpServletRequest http) {
+        if (in == null) throw edu.kvell.results.common.ApiException.badRequest("Ratings are required");
+        return survey.saveStudentSurvey(CurrentUser.get().regNo(), in.subjectCode(), in.ratings(), http.getRemoteAddr());
     }
 
     /** COE-finalized subjects of the student's own department and semester. */

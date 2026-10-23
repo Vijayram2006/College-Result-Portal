@@ -123,7 +123,7 @@ public class CoAssessmentService {
     /** Everything the entry screen shows for one subject and IAT cycle. */
     public record Sheet(String deptKey, String deptName, String semester, String subjectCode, String subjectTitle,
                         String courseType, boolean courseTypeLocked, String cycle, List<Component> components,
-                        List<IatColumn> iatColumns, List<StudentRow> students) {
+                        List<IatColumn> iatColumns, List<StudentRow> students, SurveyWindow surveyWindow) {
     }
 
     public Sheet sheet(String dept, String semester, String subject, String cycle, String courseType) {
@@ -144,7 +144,7 @@ public class CoAssessmentService {
             return new StudentRow(st[0], st[1], mine, iat.get(st[0]));
         }).toList();
         return new Sheet(s.dept, departments.name(s.dept), Semesters.label(s.sem), s.code, s.title, type, stored != null,
-                c, comps, iatColumns(c), rows);
+                c, comps, iatColumns(c), rows, window(s));
     }
 
     public record SaveRequest(String semester, String subjectCode, String courseType, String component,
@@ -161,6 +161,9 @@ public class CoAssessmentService {
         Subject s = subject(dept, req.semester(), req.subjectCode());
         Component comp = COMPONENTS.get(req.component() == null ? "" : req.component().trim().toUpperCase(Locale.ROOT));
         if (comp == null) throw ApiException.badRequest("Unknown component");
+        if ("EXIT_SURVEY".equals(comp.key())) {
+            throw ApiException.badRequest("The course exit survey is filled by the students in the student portal");
+        }
         String type = courseType(req.courseType());
         String stored = storedType(s);
         if (stored != null && !stored.equals(type)) {
@@ -210,6 +213,112 @@ public class CoAssessmentService {
                 "Saved " + comp.title() + " marks of " + saved + " students (" + s.code + ", " + Semesters.label(s.sem)
                         + ").", ip);
         return saved;
+    }
+
+    // ----------------------------------------------------------------------------- the students' exit survey
+
+    /** One subject of the student's semester with the student's ratings (1-5) of CO1-CO6, null when not given yet. */
+    public record SurveySubject(String subjectCode, String subjectTitle, List<Double> ratings, SurveyWindow window) {
+    }
+
+    /** When students may answer a subject's exit survey; open = now is inside the window. */
+    public record SurveyWindow(java.time.OffsetDateTime opensAt, java.time.OffsetDateTime closesAt, String setBy, boolean open) {
+    }
+
+    private SurveyWindow window(Subject s) {
+        return db.sql("""
+                        SELECT opens_at, closes_at, set_by, now() BETWEEN opens_at AND closes_at AS open
+                        FROM exit_survey_windows WHERE dept_key = ? AND semester = ? AND subject_code = ?
+                        """).params(s.dept, s.sem, s.code)
+                .query((rs, n) -> new SurveyWindow(rs.getObject(1, java.time.OffsetDateTime.class),
+                        rs.getObject(2, java.time.OffsetDateTime.class), rs.getString(3), rs.getBoolean(4)))
+                .optional().orElse(null);
+    }
+
+    public record WindowRequest(String semester, String subjectCode, java.time.OffsetDateTime opensAt,
+                                java.time.OffsetDateTime closesAt) {
+    }
+
+    /** The subject's faculty or HOD opens the exit survey to students for a period (closesAt null: closes it now). */
+    @Transactional
+    public SurveyWindow setWindow(String dept, WindowRequest r, CurrentUser user, String ip) {
+        if (r == null) throw ApiException.badRequest("Choose the survey period");
+        Subject s = subject(dept, r.semester(), r.subjectCode());
+        if (r.opensAt() == null || r.closesAt() == null || !r.closesAt().isAfter(r.opensAt())) {
+            throw ApiException.badRequest("The survey must close after it opens");
+        }
+        if (r.closesAt().isAfter(r.opensAt().plusDays(60))) {
+            throw ApiException.badRequest("A survey period can be at most 60 days");
+        }
+        db.sql("""
+                        INSERT INTO exit_survey_windows (dept_key, semester, subject_code, opens_at, closes_at, set_by)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        ON CONFLICT (dept_key, semester, subject_code) DO UPDATE SET opens_at = EXCLUDED.opens_at,
+                            closes_at = EXCLUDED.closes_at, set_by = EXCLUDED.set_by, updated_at = now()
+                        """).params(s.dept, s.sem, s.code, r.opensAt(), r.closesAt(), user.name()).update();
+        audit.record(user.username(), user.name(), "SET_EXIT_SURVEY_WINDOW", s.code,
+                "Opened the course exit survey of " + s.code + " to students from " + r.opensAt() + " to " + r.closesAt() + ".", ip);
+        return window(s);
+    }
+
+    public List<SurveySubject> studentSurvey(String regNo) {
+        Map<String, Object> st = studentRow(regNo);
+        String dept = (String) st.get("dept_key");
+        int sem = ((Number) st.get("semester")).intValue();
+        Map<String, List<Double>> mine = new HashMap<>();
+        db.sql("SELECT subject_code, marks FROM co_entries WHERE dept_key = ? AND semester = ? AND component = 'EXIT_SURVEY' AND reg_no = ?")
+                .params(dept, sem, regNo)
+                .query((rs, n) -> mine.put(rs.getString(1), json.readValue(rs.getString(2), new TypeReference<List<Double>>() { })))
+                .list();
+        // Only the subjects whose survey the faculty has opened (and not yet closed for good) are shown
+        return db.sql("""
+                        SELECT j.code, j.title, w.opens_at, w.closes_at, w.set_by, now() BETWEEN w.opens_at AND w.closes_at AS open
+                        FROM subjects j JOIN exit_survey_windows w
+                          ON w.dept_key = j.dept_key AND w.semester = j.semester AND w.subject_code = j.code
+                        WHERE j.dept_key = ? AND j.semester = ? AND w.closes_at > now() - interval '7 days'
+                        ORDER BY j.code
+                        """)
+                .params(dept, sem)
+                .query((rs, n) -> new SurveySubject(rs.getString(1), rs.getString(2), mine.get(rs.getString(1)),
+                        new SurveyWindow(rs.getObject(3, java.time.OffsetDateTime.class),
+                                rs.getObject(4, java.time.OffsetDateTime.class), rs.getString(5), rs.getBoolean(6))))
+                .list();
+    }
+
+    /** A student rates how well each course outcome (CO1-CO6) of a subject was achieved: 1 (poor) to 5 (excellent). */
+    @Transactional
+    public SurveySubject saveStudentSurvey(String regNo, String subjectCode, List<Double> ratings, String ip) {
+        Map<String, Object> st = studentRow(regNo);
+        String dept = (String) st.get("dept_key");
+        int sem = ((Number) st.get("semester")).intValue();
+        Subject s = subject(dept, Semesters.label(sem), subjectCode);
+        SurveyWindow w = window(s);
+        if (w == null || !w.open()) {
+            throw ApiException.conflict("The exit survey of " + s.code + " is not open now");
+        }
+        if (ratings == null || ratings.size() != 6 || ratings.stream().anyMatch(v -> v == null || v < 1 || v > 5 || v != Math.floor(v))) {
+            throw ApiException.badRequest("Rate every course outcome from 1 to 5");
+        }
+        db.sql("""
+                        INSERT INTO co_entries (dept_key, semester, subject_code, component, reg_no, marks, updated_by)
+                        VALUES (?, ?, ?, 'EXIT_SURVEY', ?, CAST(? AS JSONB), ?)
+                        ON CONFLICT (dept_key, semester, subject_code, component, reg_no) DO UPDATE SET
+                            marks = EXCLUDED.marks, updated_by = EXCLUDED.updated_by, updated_at = now()
+                        """).params(s.dept, s.sem, s.code, regNo, json.writeValueAsString(ratings), "Student " + regNo).update();
+        audit.record(regNo, (String) st.get("name"), "SUBMITTED_EXIT_SURVEY", s.code,
+                "Submitted the course exit survey for " + s.code + ".", ip);
+        return new SurveySubject(s.code, s.title, ratings, w);
+    }
+
+    private Map<String, Object> studentRow(String regNo) {
+        return db.sql("SELECT reg_no, name, dept_key, semester FROM students WHERE reg_no = ?").param(regNo)
+                .query((rs, n) -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("dept_key", rs.getString("dept_key"));
+                    m.put("semester", rs.getInt("semester"));
+                    m.put("name", rs.getString("name"));
+                    return m;
+                }).optional().orElseThrow(() -> ApiException.notFound("Student not found"));
     }
 
     // ------------------------------------------------------------------------------------------- the attainment

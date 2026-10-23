@@ -36,6 +36,12 @@ public class CoAssessmentController {
         return Map.of("saved", co.save(user.deptKey(), req, user, http.getRemoteAddr()));
     }
 
+    @PutMapping({"/api/faculty/co-assessment/survey-window", "/api/hod/co-assessment/survey-window"})
+    CoAssessmentService.SurveyWindow surveyWindow(@RequestBody CoAssessmentService.WindowRequest req, HttpServletRequest http) {
+        CurrentUser user = CurrentUser.get();
+        return co.setWindow(user.deptKey(), req, user, http.getRemoteAddr());
+    }
+
     @GetMapping({"/api/faculty/co-assessment/attainment", "/api/hod/co-assessment/attainment"})
     CoAssessmentService.Attainment attainment(@RequestParam String semester, @RequestParam String subject,
                                               @RequestParam(required = false) String courseType) {

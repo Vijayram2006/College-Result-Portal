@@ -59,7 +59,7 @@ export interface ValuationProcedureRecord {
   dummyBarcode: string;
   packetId: string;
 
-  // PROCEDURE 1: First Valuation (Regular Faculty Examiner)
+  // EXAMINER 1: First Valuation (Regular Faculty Examiner)
   proc1: {
     examinerName: string;
     examinerId: string;
@@ -88,7 +88,7 @@ export interface ValuationProcedureRecord {
       | "RATIFIED";
   };
 
-  // PROCEDURE 2: Re-evaluation (Second Independent Examiner)
+  // EXAMINER 2: Re-evaluation (Second Independent Examiner)
   proc2: {
     allotmentStatus: "PENDING_ALLOTMENT" | "ALLOTTED" | "EVALUATED";
     examinerName?: string;
@@ -108,7 +108,7 @@ export interface ValuationProcedureRecord {
   markDifference?: number;
   isThirdValuationTriggered: boolean; // true if markDifference > 10
 
-  // PROCEDURE 3: Third Valuation (Triggered only when markDifference > 10)
+  // EXAMINER 3: Third Valuation (Triggered only when markDifference > 10)
   proc3?: {
     allotmentStatus: "NOT_REQUIRED" | "PENDING_ALLOTMENT" | "ALLOTTED" | "EVALUATED";
     examinerName?: string;
@@ -235,7 +235,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
       evaluatedDate: "2026-10-19",
       remarks: "Question 14 algorithm steps completely valid; Part B awarded +10 marks.",
     },
-    markDifference: 14, // |42 - 56| = 14 > 10 -> PROCEDURE 3 TRIGGERED!
+    markDifference: 14, // |42 - 56| = 14 > 10 -> EXAMINER 3 TRIGGERED!
     isThirdValuationTriggered: true,
     proc3: {
       allotmentStatus: "EVALUATED",
@@ -307,7 +307,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
       evaluatedDate: "2026-10-19",
       remarks: "Slightly more generous on intermediate reduction steps; awarded +6 marks.",
     },
-    markDifference: 6, // |62 - 68| = 6 <= 10 -> PROCEDURE 3 NOT NEEDED!
+    markDifference: 6, // |62 - 68| = 6 <= 10 -> EXAMINER 3 NOT NEEDED!
     isThirdValuationTriggered: false,
     proc3: {
       allotmentStatus: "NOT_REQUIRED",
@@ -367,7 +367,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
       evaluatedDate: "2026-10-20",
       remarks: "Student logic is correct; initial examiner marked strictly on syntax formatting.",
     },
-    markDifference: 17, // |36 - 53| = 17 > 10 -> PROCEDURE 3 TRIGGERED!
+    markDifference: 17, // |36 - 53| = 17 > 10 -> EXAMINER 3 TRIGGERED!
     isThirdValuationTriggered: true,
     proc3: {
       allotmentStatus: "EVALUATED",
@@ -439,7 +439,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
       evaluatedDate: "2026-10-20",
       remarks: "NMR spectroscopy diagram drawn with high precision; awarded +3 marks.",
     },
-    markDifference: 3, // |74 - 77| = 3 <= 10 -> PROCEDURE 3 NOT NEEDED
+    markDifference: 3, // |74 - 77| = 3 <= 10 -> EXAMINER 3 NOT NEEDED
     isThirdValuationTriggered: false,
     proc3: {
       allotmentStatus: "NOT_REQUIRED",
@@ -454,7 +454,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
     },
   },
 
-  // 5. CSE - Procedure 3 resolved
+  // 5. CSE - Examiner 3 resolved
   {
     id: "REV-2026-005",
     studentRegNo: "20260110226005",
@@ -499,7 +499,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
       evaluatedDate: "2026-10-20",
       remarks: "Python multiple inheritance solution is valid under Python 3.10 C3 MRO rules.",
     },
-    markDifference: 15, // |43 - 58| = 15 > 10 -> PROCEDURE 3 TRIGGERED!
+    markDifference: 15, // |43 - 58| = 15 > 10 -> EXAMINER 3 TRIGGERED!
     isThirdValuationTriggered: true,
     proc3: {
       allotmentStatus: "EVALUATED",
@@ -571,7 +571,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
       evaluatedDate: "2026-10-20",
       remarks: "Polar coordinate transformation credited; +8 marks.",
     },
-    markDifference: 8, // |52 - 60| = 8 <= 10 -> PROCEDURE 3 NOT NEEDED
+    markDifference: 8, // |52 - 60| = 8 <= 10 -> EXAMINER 3 NOT NEEDED
     isThirdValuationTriggered: false,
     proc3: {
       allotmentStatus: "NOT_REQUIRED",
@@ -586,7 +586,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
     },
   },
 
-  // 7. BME - PROCEDURE 3 PENDING DEAN ALLOTMENT! (Δ = 13 > 10)
+  // 7. BME - EXAMINER 3 PENDING DEAN ALLOTMENT! (Δ = 13 > 10)
   {
     id: "REV-2026-007",
     studentRegNo: "20260110226007",
@@ -631,7 +631,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
       evaluatedDate: "2026-10-20",
       remarks: "Action potential graph accurately labeled; substantial rubric credit awarded.",
     },
-    markDifference: 13, // |48 - 61| = 13 > 10 -> PROCEDURE 3 TRIGGERED!
+    markDifference: 13, // |48 - 61| = 13 > 10 -> EXAMINER 3 TRIGGERED!
     isThirdValuationTriggered: true,
     proc3: {
       allotmentStatus: "PENDING_ALLOTMENT", // DEAN MUST ALLOT EXAMINER 3!
@@ -690,7 +690,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
       evaluatedDate: "2026-10-20",
       remarks: "Slight totaling oversight in Question 4 corrected; awarded +2 marks.",
     },
-    markDifference: 2, // |71 - 73| = 2 <= 10 -> PROCEDURE 3 NOT NEEDED
+    markDifference: 2, // |71 - 73| = 2 <= 10 -> EXAMINER 3 NOT NEEDED
     isThirdValuationTriggered: false,
     proc3: {
       allotmentStatus: "NOT_REQUIRED",
@@ -705,7 +705,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
     },
   },
 
-  // 9. Biotechnology - PROCEDURE 2 PENDING DEAN ALLOTMENT!
+  // 9. Biotechnology - EXAMINER 2 PENDING DEAN ALLOTMENT!
   {
     id: "REV-2026-009",
     studentRegNo: "20260110226009",
@@ -752,7 +752,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
     },
   },
 
-  // 10. Biotechnology - Procedure 2 Allotted (In-Progress)
+  // 10. Biotechnology - Examiner 2 Allotted (In-Progress)
   {
     id: "REV-2026-010",
     studentRegNo: "20260110226010",
@@ -804,7 +804,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
     },
   },
 
-  // 11. ECE - PROCEDURE 3 PENDING DEAN ALLOTMENT! (Δ = 16 > 10)
+  // 11. ECE - EXAMINER 3 PENDING DEAN ALLOTMENT! (Δ = 16 > 10)
   {
     id: "REV-2026-011",
     studentRegNo: "20260110226011",
@@ -849,7 +849,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
       evaluatedDate: "2026-10-21",
       remarks: "FSM Verilog code compiles without syntax defect and meets synthesis specifications.",
     },
-    markDifference: 16, // |39 - 55| = 16 > 10 -> PROCEDURE 3 TRIGGERED!
+    markDifference: 16, // |39 - 55| = 16 > 10 -> EXAMINER 3 TRIGGERED!
     isThirdValuationTriggered: true,
     proc3: {
       allotmentStatus: "PENDING_ALLOTMENT", // DEAN MUST ALLOT EXAMINER 3!
@@ -908,7 +908,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
       evaluatedDate: "2026-10-21",
       remarks: "Don't care conditions in 4-variable K-map correctly grouped; +6 marks.",
     },
-    markDifference: 6, // |58 - 64| = 6 <= 10 -> PROCEDURE 3 NOT NEEDED
+    markDifference: 6, // |58 - 64| = 6 <= 10 -> EXAMINER 3 NOT NEEDED
     isThirdValuationTriggered: false,
     proc3: {
       allotmentStatus: "NOT_REQUIRED",
@@ -923,7 +923,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
     },
   },
 
-  // 13. Mechanical Engineering - PROCEDURE 2 PENDING DEAN ALLOTMENT!
+  // 13. Mechanical Engineering - EXAMINER 2 PENDING DEAN ALLOTMENT!
   {
     id: "REV-2026-013",
     studentRegNo: "20260110226013",
@@ -1015,7 +1015,7 @@ const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
       evaluatedDate: "2026-10-21",
       remarks: "Specific heat ratio variation appropriately accounted for; awarded +4 marks.",
     },
-    markDifference: 4, // |70 - 74| = 4 <= 10 -> PROCEDURE 3 NOT NEEDED
+    markDifference: 4, // |70 - 74| = 4 <= 10 -> EXAMINER 3 NOT NEEDED
     isThirdValuationTriggered: false,
     proc3: {
       allotmentStatus: "NOT_REQUIRED",
@@ -1382,16 +1382,16 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
     return [
       {
         range: "Δ 0–5 M",
-        label: "Normal Variance (0-5)",
+        label: "Small difference (0-5)",
         count: range0_5,
-        status: "Procedure 1 vs 2 Consistent",
+        status: "Examiner 1 vs 2 Consistent",
         color: "#10B981", // emerald
       },
       {
         range: "Δ 6–10 M",
         label: "Moderate Shift (6-10)",
         count: range6_10,
-        status: "Procedure 2 Accepted",
+        status: "Examiner 2 Accepted",
         color: "#3B82F6", // blue
       },
       {
@@ -1508,7 +1508,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
       const diff = Math.abs(allotExaminer2Record.proc1.totalMarks - simulatedM2Score);
       if (diff > 10) {
         notify(
-          `Examiner 2 evaluated: ${simulatedM2Score}M. Discrepancy Δ = ${diff} marks (>10M)! Mandatory Procedure 3 escalation triggered for Dean allotment.`
+          `Examiner 2 evaluated: ${simulatedM2Score}M. Discrepancy Δ = ${diff} marks (>10M)! Mandatory Examiner 3 escalation triggered for Dean allotment.`
         );
       } else {
         notify(
@@ -1626,13 +1626,13 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
     setAllotExaminer3Record(null);
 
     if (andResolve) {
-      notify(`Procedure 3 ratified by Senior Examiner (${examinerName})! Final mark published.`);
+      notify(`Examiner 3 ratified by Senior Examiner (${examinerName})! Final mark published.`);
     } else {
       notify(`Dean successfully allotted Examiner 3 (${examinerName}) for candidate ${allotExaminer3Record.dummyBarcode}!`);
     }
   };
 
-  // Export Complete 3-Procedure Audit Sheet to Excel
+  // Export Complete 3-Examiner Audit Sheet to Excel
   const handleExportAuditExcel = () => {
     const rows = filteredRecords.map((r, idx) => ({
       "Sl No": idx + 1,
@@ -1644,11 +1644,11 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
       "Subject Title": r.subjectTitle,
       "Dummy Barcode": r.dummyBarcode,
       "Packet ID": r.packetId,
-      // Procedure 1
+      // Examiner 1
       "Proc 1 Examiner": r.proc1.examinerName,
       "Proc 1 Marks (M1)": r.proc1.totalMarks,
       "Proc 1 Grade": r.proc1.grade,
-      // Procedure 2
+      // Examiner 2
       "Proc 2 Allotment": r.proc2.allotmentStatus,
       "Proc 2 Examiner": r.proc2.examinerName || "Pending Allotment",
       "Proc 2 Marks (M2)": r.proc2.totalMarks ?? "Pending",
@@ -1656,7 +1656,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
       // Delta
       "Mark Difference (|M1 - M2|)": r.markDifference ?? "Pending",
       "Third Valuation Required (>10)": r.isThirdValuationTriggered ? "YES" : "NO",
-      // Procedure 3
+      // Examiner 3
       "Proc 3 Allotment": r.proc3?.allotmentStatus || "NOT_REQUIRED",
       "Proc 3 Chief Examiner": r.proc3?.examinerName || "N/A",
       "Proc 3 Marks (M3)": r.proc3?.totalMarks ?? "N/A",
@@ -1678,16 +1678,13 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
       Department: d.department,
       "Sample Size (N)": d.sampleSize,
       "Mean Score (μ)": d.mean,
-      "Standard Deviation (σ)": d.std,
-      "Variance (σ²)": d.variance,
-      "Normal Spread Band": `[${d.spreadLower} - ${d.spreadUpper}]`,
       "Avg Mark Difference (Δ)": d.avgDelta,
       "Proc 3 Triggered (>10)": d.proc3Count,
       "Escrow Escalation Rate": `${d.escrowRate}%`,
       "Valuation Consistency": d.consistencyRating,
     }));
     const wsDept = XLSX.utils.json_to_sheet(deptRows);
-    XLSX.utils.book_append_sheet(wb, wsDept, "Department_StdDev_Analysis");
+    XLSX.utils.book_append_sheet(wb, wsDept, "Department_Analysis");
 
     // Add Subject-wise Stats Sheet
     const subjRows = subjectStatsData.map((s) => ({
@@ -1696,20 +1693,17 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
       Department: s.dept,
       "Sample Size (N)": s.sampleSize,
       "Mean Score (μ)": s.mean,
-      "Standard Deviation (σ)": s.std,
-      "Variance (σ²)": s.variance,
-      "Normal Spread Band": `[${s.spreadLower} - ${s.spreadUpper}]`,
       "Proc 3 Triggered (>10)": s.proc3Count,
       "Valuation Consistency": s.consistencyRating,
     }));
     const wsSubj = XLSX.utils.json_to_sheet(subjRows);
-    XLSX.utils.book_append_sheet(wb, wsSubj, "Subject_StdDev_Analysis");
+    XLSX.utils.book_append_sheet(wb, wsSubj, "Subject_Analysis");
 
     XLSX.writeFile(
       wb,
-      `KVELL_Revaluation_Dept_Subject_StdDev_Audit_${new Date().toISOString().slice(0, 10)}.xlsx`
+      `KVELL_Revaluation_Dept_Subject_Audit_${new Date().toISOString().slice(0, 10)}.xlsx`
     );
-    notify("Exported comprehensive 3-Procedure valuation audit & Department/Subject standard deviation sheets!");
+    notify("Exported comprehensive 3-Examiner valuation audit & Department/Subject standard deviation sheets!");
   };
 
   return (
@@ -1732,7 +1726,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
           <p className="text-xs text-slate-600 mt-1 leading-relaxed">
             When a student applies for re-evaluation, the <strong>Dean only allots Examiner 2</strong>. If the mark difference{" "}
             <strong className="text-amber-400 font-mono">&Delta; = |M1 - M2| &gt; 10 marks</strong>, the paper mandatory encounters{" "}
-            <strong>Procedure 3</strong> where the <strong>Dean only allots Examiner 3</strong> (Senior Valuer). All dispersion analytics are tracked via Department-wise and Subject-wise standard deviation graphs.
+            <strong>Examiner 3</strong> where the <strong>Dean only allots Examiner 3</strong> (Senior Valuer). All dispersion analytics are tracked via Department-wise and Subject-wise standard deviation graphs.
           </p>
         </div>
 
@@ -1782,7 +1776,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
           <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-gray-200 relative">
             <div className="flex items-center justify-between mb-2">
               <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-[#0B192C] text-[#D4A72C] font-mono">
-                PROCEDURE 1
+                EXAMINER 1
               </span>
               <span className="text-[10px] font-bold text-gray-500">Initial Valuation</span>
             </div>
@@ -1796,7 +1790,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
           <div className="p-4 rounded-2xl bg-blue-50/70 border-2 border-blue-300 relative">
             <div className="flex items-center justify-between mb-2">
               <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-900 text-white font-mono">
-                PROCEDURE 2 (DEAN ALLOTS)
+                EXAMINER 2 (DEAN ALLOTS)
               </span>
               <span className="text-[10px] font-bold text-blue-800 font-black">Dean Action #1</span>
             </div>
@@ -1810,7 +1804,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
           <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-400 relative">
             <div className="flex items-center justify-between mb-2">
               <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-slate-950 font-mono">
-                PROCEDURE 3 (&Delta; &gt; 10M)
+                EXAMINER 3 (&Delta; &gt; 10M)
               </span>
               <span className="text-[10px] font-black text-amber-900">Dean Action #2 (If Necessary)</span>
             </div>
@@ -1922,7 +1916,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
           </div>
         </div>
 
-        {/* Card 3: Procedure 3 Escrow Triggered (> 10 Marks) */}
+        {/* Card 3: Examiner 3 Escrow Triggered (> 10 Marks) */}
         <div
           onClick={() => {
             setActiveTab("roster");
@@ -1932,7 +1926,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
             setTimeout(() => {
               document.getElementById("valuation-roster-section")?.scrollIntoView({ behavior: "smooth" });
             }, 50);
-            notify("Displaying pending Procedure 3 items awaiting Examiner 3 Dean allotment.");
+            notify("Displaying pending Examiner 3 items awaiting Examiner 3 Dean allotment.");
           }}
           className={`bg-white p-5 rounded-3xl border transition-all flex items-center justify-between cursor-pointer group hover:shadow-md ${
             statusFilter === "PENDING_EXAMINER_3" && activeTab === "roster"
@@ -1941,12 +1935,12 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
           }`}
           role="button"
           tabIndex={0}
-          title="Click to view pending Procedure 3 work awaiting Examiner 3 allotment"
+          title="Click to view pending Examiner 3 work awaiting Examiner 3 allotment"
         >
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-black uppercase text-amber-600 tracking-wider block">
-                PROCEDURE 3 ESCROW (&Delta; &gt; 10)
+                EXAMINER 3 ESCROW (&Delta; &gt; 10)
               </span>
               <span className="text-[9px] font-bold text-red-600 opacity-0 group-hover:opacity-100 transition">
                 &bull; Click to view pending
@@ -2002,7 +1996,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            <BarChart3 size={15} /> Department &amp; Subject Standard Deviation Graph
+            <BarChart3 size={15} /> Department &amp; Subject Marks Graph
           </button>
           <button
             onClick={() => setActiveTab("escrow")}
@@ -2012,7 +2006,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            <AlertTriangle size={15} /> Procedure 3 Escrow Desk ({globalStats.thirdValuationCount})
+            <AlertTriangle size={15} /> Examiner 3 Escrow Desk ({globalStats.thirdValuationCount})
           </button>
         </div>
 
@@ -2046,7 +2040,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                 </div>
                 <div>
                   <div className="font-extrabold text-[#0B192C]">
-                    Procedure 3 Escrow Desk &bull; Pending Examiner 3 Allotment ({filteredRecords.length} Case{filteredRecords.length === 1 ? "" : "s"})
+                    Examiner 3 Escrow Desk &bull; Pending Examiner 3 Allotment ({filteredRecords.length} Case{filteredRecords.length === 1 ? "" : "s"})
                   </div>
                   <div className="text-[11px] text-red-700 font-medium">
                     Mark discrepancy &gt; 10 marks between Examiner 1 and Examiner 2. The Dean must allot Examiner 3 to ratify and complete evaluation.
@@ -2070,7 +2064,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                 </div>
                 <div>
                   <div className="font-extrabold text-[#0B192C]">
-                    Procedure 2 Queue &bull; Pending Examiner 2 Allotment ({filteredRecords.length} Case{filteredRecords.length === 1 ? "" : "s"})
+                    Examiner 2 Queue &bull; Pending Examiner 2 Allotment ({filteredRecords.length} Case{filteredRecords.length === 1 ? "" : "s"})
                   </div>
                   <div className="text-[11px] text-blue-700 font-medium">
                     Student re-evaluation applications awaiting Dean allotment of independent Examiner 2.
@@ -2159,11 +2153,11 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                   <th className="py-3.5 px-3">Candidate / Dummy Barcode</th>
                   <th className="py-3.5 px-3">Department &amp; Subject</th>
                   <th className="py-3.5 px-3 text-center bg-slate-800">
-                    <div>PROCEDURE 1</div>
+                    <div>EXAMINER 1</div>
                     <div className="text-[9px] font-normal text-gray-300">Examiner 1 (M1)</div>
                   </th>
                   <th className="py-3.5 px-3 text-center bg-blue-950">
-                    <div>PROCEDURE 2</div>
+                    <div>EXAMINER 2</div>
                     <div className="text-[9px] font-normal text-blue-200">Examiner 2 (Dean Allots)</div>
                   </th>
                   <th className="py-3.5 px-3 text-center bg-amber-900">
@@ -2171,7 +2165,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                     <div className="text-[9px] font-normal text-amber-200">|M1 - M2|</div>
                   </th>
                   <th className="py-3.5 px-3 text-center bg-red-950">
-                    <div>PROCEDURE 3</div>
+                    <div>EXAMINER 3</div>
                     <div className="text-[9px] font-normal text-red-200">Examiner 3 (Dean Allots if &Delta;&gt;10)</div>
                   </th>
                   <th className="py-3.5 px-3 text-center bg-emerald-950">
@@ -2207,7 +2201,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                         <span className="text-[10px] font-bold text-slate-500 block">{r.department}</span>
                       </td>
 
-                      {/* Procedure 1: Examiner 1 */}
+                      {/* Examiner 1 */}
                       <td className="py-3 px-3 text-center bg-slate-50">
                         <span className="font-mono font-black text-sm text-[#0B192C] block">
                           {r.proc1.totalMarks} / 100
@@ -2220,7 +2214,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                         </span>
                       </td>
 
-                      {/* Procedure 2: Examiner 2 (Dean Allotment) */}
+                      {/* Examiner 2 (Dean Allotment) */}
                       <td className="py-3 px-3 text-center bg-blue-50/40">
                         {r.proc2.allotmentStatus === "PENDING_ALLOTMENT" ? (
                           <div className="space-y-1">
@@ -2299,7 +2293,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                         )}
                       </td>
 
-                      {/* Procedure 3: Examiner 3 (Dean Allotment If Delta > 10) */}
+                      {/* Examiner 3 (Dean Allotment If Delta > 10) */}
                       <td className="py-3 px-3 text-center bg-red-50/30">
                         {!r.isThirdValuationTriggered ? (
                           <span className="text-[11px] text-gray-400 font-medium italic">
@@ -2405,7 +2399,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                 </span>
                 <h2 className="font-display font-black text-xl text-[#0B192C] mt-0.5 flex items-center gap-2">
                   <BarChart3 className="text-[#D4A72C]" size={22} />
-                  Standard Deviation (&sigma;) &amp; Marks Average (&mu;) Graph
+                  Marks Average (&mu;) Graph
                 </h2>
                 <p className="text-xs text-gray-500 mt-1">
                   Analysis of re-evaluation marking variance based on <strong>Department-wise</strong> and{" "}
@@ -2463,15 +2457,6 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                 </span>
               </div>
 
-              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200">
-                <span className="text-[10px] font-extrabold text-amber-700 uppercase block">Benchmark Std Dev (&sigma;)</span>
-                <span className="font-display font-black text-2xl text-amber-950 mt-1 block font-mono">
-                  &plusmn;{globalStats.stdDelta} <span className="text-xs font-normal text-amber-600">marks</span>
-                </span>
-                <span className="text-[11px] text-amber-800 font-mono font-bold mt-0.5 block">
-                  Autonomous Target: &plusmn;8.5&sigma;
-                </span>
-              </div>
 
               <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200">
                 <span className="text-[10px] font-extrabold text-emerald-700 uppercase block">Escrow Escalation Rate</span>
@@ -2512,8 +2497,8 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                 <h3 className="font-display font-bold text-base text-[#0B192C] flex items-center gap-2">
                   <Layers size={18} className="text-[#D4A72C]" />
                   {statsGrouping === "department"
-                    ? "Department-wise Standard Deviation Dispersion Matrix"
-                    : "Subject-wise Standard Deviation Dispersion Matrix"}
+                    ? "Department-wise Marks Summary"
+                    : "Subject-wise Marks Summary"}
                 </h3>
                 <p className="text-xs text-gray-500">
                   Comprehensive audit of mean (&mu;), standard deviation (&sigma;), variance (&sigma;&sup2;), and 1&sigma; normal spread band.
@@ -2534,9 +2519,6 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                     </th>
                     <th className="py-3 px-3 text-center">Cohort (N)</th>
                     <th className="py-3 px-3 text-center bg-blue-950">Mean Mark (&mu;)</th>
-                    <th className="py-3 px-3 text-center bg-amber-950">Std Dev (&sigma;)</th>
-                    <th className="py-3 px-3 text-center">Variance (&sigma;&sup2;)</th>
-                    <th className="py-3 px-3 text-center">1&sigma; Normal Spread Band</th>
                     <th className="py-3 px-3 text-center">3rd Val Escalations</th>
                     <th className="py-3 px-3 text-center">Evaluation Consistency</th>
                   </tr>
@@ -2561,19 +2543,6 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                         {item.mean} <span className="text-[10px] font-normal text-blue-700">/ 100</span>
                       </td>
 
-                      <td className="py-3 px-3 text-center font-mono font-black text-sm text-amber-900 bg-amber-50/30">
-                        &plusmn;{item.std}
-                      </td>
-
-                      <td className="py-3 px-3 text-center font-mono text-gray-600">
-                        {item.variance}
-                      </td>
-
-                      <td className="py-3 px-3 text-center font-mono">
-                        <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-800 font-bold border border-gray-200">
-                          [{item.spreadLower} - {item.spreadUpper}] M
-                        </span>
-                      </td>
 
                       <td className="py-3 px-3 text-center">
                         <span
@@ -2616,7 +2585,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                   Mark Difference (&Delta; = |M1 - M2|) Bracket Distribution
                 </h3>
                 <p className="text-xs text-gray-500">
-                  Distribution of variance between First Valuation (M1) and Second Re-evaluation (M2). Scripts exceeding 10 marks trigger Procedure 3.
+                  Distribution of variance between First Valuation (M1) and Second Re-evaluation (M2). Scripts exceeding 10 marks trigger Examiner 3.
                 </p>
               </div>
 
@@ -2668,7 +2637,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                 </span>
               </div>
               <h2 className="font-display font-black text-xl text-[#0B192C] mt-1">
-                Procedure 3: Third Examiner Valuation Queue (&Delta; &gt; 10 Marks)
+                Examiner 3: Third Examiner Valuation Queue (&Delta; &gt; 10 Marks)
               </h2>
               <p className="text-xs text-gray-500 mt-0.5">
                 Under autonomous college regulations, when the mark awarded by the re-evaluator differs by more than 10 marks from the first valuation, the <strong>Dean only allots Examiner 3</strong> (Senior Subject Specialist / Valuation Chairman) to ratify the result.
@@ -2677,7 +2646,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
 
             <button
               onClick={() => {
-                notify("All Procedure 3 Chief Examiner recommendations have been ratified!");
+                notify("All Examiner 3 Chief Examiner recommendations have been ratified!");
               }}
               className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs transition flex items-center gap-2 cursor-pointer shadow-md"
             >
@@ -2732,12 +2701,12 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                     </div>
                   </div>
 
-                  {/* 3-Procedure Comparison Row */}
+                  {/* 3-Examiner Comparison Row */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {/* Proc 1 */}
                     <div className="p-3 bg-white rounded-xl border border-gray-200">
                       <span className="text-[10px] font-extrabold uppercase text-gray-500 block">
-                        Procedure 1 (First Examiner)
+                        Examiner 1 (First Examiner)
                       </span>
                       <p className="font-bold text-xs text-[#0B192C] mt-1">{r.proc1.examinerName}</p>
                       <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100 text-xs">
@@ -2751,7 +2720,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                     {/* Proc 2 */}
                     <div className="p-3 bg-white rounded-xl border border-blue-200">
                       <span className="text-[10px] font-extrabold uppercase text-blue-700 block">
-                        Procedure 2 (Second Re-evaluator)
+                        Examiner 2 (Second Re-evaluator)
                       </span>
                       <p className="font-bold text-xs text-blue-950 mt-1">
                         {r.proc2.examinerName || "Allotted"}
@@ -2767,7 +2736,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                     {/* Proc 3 */}
                     <div className="p-3 bg-white rounded-xl border-2 border-red-300">
                       <span className="text-[10px] font-extrabold uppercase text-red-700 block">
-                        Procedure 3 (Chief Examiner Resolution)
+                        Examiner 3 (Chief Examiner Resolution)
                       </span>
                       <p className="font-bold text-xs text-red-950 mt-1">
                         {r.proc3?.examinerName || (
@@ -2856,7 +2825,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                 <span className="font-bold text-gray-900 block">{allotExaminer2Record.department}</span>
               </div>
               <div>
-                <span className="text-[10px] text-gray-400 uppercase font-bold block">Procedure 1 Marks (M1)</span>
+                <span className="text-[10px] text-gray-400 uppercase font-bold block">Examiner 1 Marks (M1)</span>
                 <span className="font-mono font-black text-sm text-gray-900 block">
                   {allotExaminer2Record.proc1.totalMarks} / 100 (Grade: {allotExaminer2Record.proc1.grade})
                 </span>
@@ -2932,7 +2901,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                 </span>
                 <span className="font-bold">
                   {Math.abs(allotExaminer2Record.proc1.totalMarks - simulatedM2Score) > 10 ? (
-                    <span className="text-red-600">&gt; 10M: Triggers Procedure 3</span>
+                    <span className="text-red-600">&gt; 10M: Triggers Examiner 3</span>
                   ) : (
                     <span className="text-emerald-700">&le; 10M: Direct Resolution</span>
                   )}
@@ -2980,7 +2949,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                 </div>
                 <div>
                   <span className="text-[10px] font-black uppercase text-red-600 tracking-widest block">
-                    MANDATORY PROCEDURE 3 ESCALATION (&Delta; &gt; 10M)
+                    MANDATORY EXAMINER 3 ESCALATION (&Delta; &gt; 10M)
                   </span>
                   <h3 className="font-display font-black text-lg text-[#0B192C]">
                     Dean Allotment: Examiner 3 (Senior Valuer)
@@ -3001,8 +2970,8 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
             {/* Discrepancy Alert Banner */}
             <div className="p-3.5 bg-red-50 rounded-2xl border border-red-200 text-xs text-red-950 space-y-1">
               <div className="flex items-center justify-between font-mono font-bold">
-                <span>Procedure 1 (M1): {allotExaminer3Record.proc1.totalMarks} Marks</span>
-                <span>Procedure 2 (M2): {allotExaminer3Record.proc2.totalMarks} Marks</span>
+                <span>Examiner 1 (M1): {allotExaminer3Record.proc1.totalMarks} Marks</span>
+                <span>Examiner 2 (M2): {allotExaminer3Record.proc2.totalMarks} Marks</span>
                 <span className="text-red-700 font-black">
                   &Delta; = {allotExaminer3Record.markDifference} Marks (&gt; 10M)
                 </span>
@@ -3116,7 +3085,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                     AUTONOMOUS EXAMINATION CELL &bull; VALUATION AUDIT DOSSIER
                   </span>
                   <h3 className="font-display font-black text-lg text-[#0B192C]">
-                    3-Procedure Re-evaluation Inspection Slip &bull; {inspectModalRecord.id}
+                    3-Examiner Re-evaluation Inspection Slip &bull; {inspectModalRecord.id}
                   </h3>
                   <p className="text-xs text-gray-500 font-mono">
                     Candidate: {inspectModalRecord.studentName} ({inspectModalRecord.studentRegNo}) &bull; Barcode:{" "}
@@ -3160,12 +3129,12 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                   &Delta; {inspectModalRecord.markDifference ?? "Pending"} Marks
                 </span>
                 <span className="text-[10px] text-gray-500 block">
-                  {inspectModalRecord.isThirdValuationTriggered ? "Procedure 3 Invoked" : "Normal Resolution"}
+                  {inspectModalRecord.isThirdValuationTriggered ? "Examiner 3 Invoked" : "Normal Resolution"}
                 </span>
               </div>
             </div>
 
-            {/* Step-by-Step 3 Procedure Breakdown Table */}
+            {/* Step-by-Step 3 Examiner Breakdown Table */}
             <div className="space-y-3">
               <h4 className="font-extrabold text-xs text-gray-700 uppercase tracking-wider">
                 Sequential Examiner Rubrics &amp; Marks Trajectory
@@ -3188,7 +3157,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                     <tr>
                       <td className="py-2.5 px-3 font-bold text-gray-900">
                         <span className="px-2 py-0.5 rounded bg-gray-100 font-mono text-[10px] block w-fit">
-                          Procedure 1
+                          Examiner 1
                         </span>
                         Initial Evaluation
                       </td>
@@ -3210,7 +3179,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                     <tr className="bg-blue-50/30">
                       <td className="py-2.5 px-3 font-bold text-blue-900">
                         <span className="px-2 py-0.5 rounded bg-blue-100 font-mono text-[10px] block w-fit text-blue-900">
-                          Procedure 2 (Dean Allots)
+                          Examiner 2 (Dean Allots)
                         </span>
                         Re-evaluation
                       </td>
@@ -3242,7 +3211,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                       <tr className="bg-red-50/40">
                         <td className="py-2.5 px-3 font-bold text-red-900">
                           <span className="px-2 py-0.5 rounded bg-red-100 font-mono text-[10px] block w-fit text-red-900 font-bold">
-                            Procedure 3
+                            Examiner 3
                           </span>
                           Third Valuation (&Delta; &gt; 10)
                         </td>

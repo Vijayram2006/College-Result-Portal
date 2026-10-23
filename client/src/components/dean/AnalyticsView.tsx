@@ -466,28 +466,17 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         isCommonSubject ? "Department" : "Cohort Section",
         "Cohort Sample (N)",
         "Mean Marks (μ)",
-        "Std Dev (σ)",
-        "Variance (σ²)",
-        "1σ Spread Lower",
-        "1σ Spread Upper",
         "Pass Rate (%)",
-        "Grading Consistency",
       ],
       ...activeDataset.map((row) => [
         row.name,
         row.sampleSize,
         row.mean,
-        row.std,
-        row.variance,
-        row.spreadLower,
-        row.spreadUpper,
         `${row.passRate}%`,
-        row.consistencyRating,
       ]),
       [],
       ["Institutional Summary"],
       ["Weighted Mean (μ):", summaryMetrics.overallMean],
-      ["Benchmark Std Dev (σ):", summaryMetrics.overallStd],
       ["Total Evaluated Cohort:", summaryMetrics.totalCohort],
       ["Autonomous Pass Percentage:", `${summaryMetrics.passPct}%`],
     ];
@@ -518,7 +507,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             </div>
             <h1 className="font-display font-black text-2xl text-[#0B192C] mt-1 flex items-center gap-2.5">
               <BarChart3 className="text-[#D4A72C]" size={26} />
-              Dean Academic Performance &amp; Standard Deviation Analytics
+              Dean Academic Performance Analytics
             </h1>
             <p className="text-xs text-gray-500 mt-1 max-w-3xl leading-relaxed">
               Dean first selects any curriculum subject. <strong>Common subjects</strong> display unified comparative graphs across all departments. <strong>Core papers</strong> show focused analysis for their departmental cohorts across <strong>IAT-1</strong>, <strong>IAT-2</strong>, <strong>END-SEM</strong>, and <strong>REVALUATION</strong>.
@@ -796,30 +785,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200">
-            <span className="text-[10px] font-extrabold text-amber-700 uppercase block">
-              Standard Deviation (&sigma;) Spread
-            </span>
-            <span className="font-display font-black text-2xl text-amber-950 mt-1 block font-mono">
-              &plusmn;{summaryMetrics.overallStd} <span className="text-xs font-normal text-amber-600">marks</span>
-            </span>
-            <span className="text-[11px] text-amber-800 font-mono font-bold mt-0.5 block">
-              Autonomous Benchmark: &plusmn;8.5&sigma;
-            </span>
-          </div>
 
-          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200">
-            <span className="text-[10px] font-extrabold text-emerald-700 uppercase block">
-              Grading Consistency Score
-            </span>
-            <span className="font-display font-black text-2xl text-emerald-950 mt-1 block font-mono">
-              {summaryMetrics.highConsistencyCount} / {activeDataset.length}{" "}
-              <span className="text-xs font-normal text-emerald-600">Streams</span>
-            </span>
-            <span className="text-[11px] text-emerald-800 font-mono font-bold mt-0.5 block">
-              {summaryMetrics.overallStd <= 8.5 ? "High Congruence (Within Tolerance)" : "Variance Under Audit"}
-            </span>
-          </div>
         </div>
       </div>
 
@@ -838,12 +804,11 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             <h2 className="font-display font-bold text-lg text-[#0B192C] flex items-center gap-2 mt-1">
               <TrendingUp size={20} className="text-[#D4A72C]" />
               {isCommonSubject
-                ? `Department-wise Standard Deviation (σ) & Average Marks (μ) — ${activeSubComponent}`
-                : `${currentSubject.department} Cohort Standard Deviation (σ) & Average Marks (μ) — ${activeSubComponent}`}
+                ? `Department-wise Average Marks (μ) — ${activeSubComponent}`
+                : `${currentSubject.department} Cohort Average Marks (μ) — ${activeSubComponent}`}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Left Axis: Marks Average (&mu;, 0-100) &bull; Right Axis: Standard Deviation Spread (&sigma;, 0-20). Lower &sigma; denotes high grading consistency.
-            </p>
+              Average marks (&mu;, 0-100) of each group for the selected assessment.</p>
           </div>
 
           {/* Legends matching user image */}
@@ -852,10 +817,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
               <span className="h-3 w-3 rounded-sm bg-[#1E3A8A] inline-block" /> Average Marks (&mu;)
             </span>
             <span className="flex items-center gap-1.5 text-amber-700 font-bold">
-              <span className="h-2.5 w-2.5 rounded-full bg-[#D97706] inline-block" /> Standard Deviation (&sigma;)
             </span>
             <span className="flex items-center gap-1 text-red-600 font-bold">
-              <span className="h-0.5 w-4 bg-red-500 inline-block" /> Benchmark (8.5&sigma;)
             </span>
           </div>
         </div>
@@ -892,22 +855,6 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   fill: "#1E3A8A",
                 }}
               />
-              {/* Right Axis: Standard Deviation (0 - 20) */}
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                domain={[0, 20]}
-                stroke="#D97706"
-                fontSize={11}
-                unit="σ"
-                label={{
-                  value: "Standard Deviation Spread (σ, 0-20)",
-                  angle: 90,
-                  position: "insideRight",
-                  fontSize: 10,
-                  fill: "#D97706",
-                }}
-              />
               <ChartTooltip
                 content={({ active, payload }) => {
                   if (!active || !payload || !payload.length) return null;
@@ -927,18 +874,6 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                           <span className="font-bold text-white">{d.mean} / 100</span>
                         </div>
                         <div className="flex justify-between gap-4">
-                          <span className="text-gray-300">Standard Deviation (&sigma;):</span>
-                          <span className="font-bold text-amber-400">&plusmn;{d.std}</span>
-                        </div>
-                        <div className="flex justify-between gap-4">
-                          <span className="text-gray-300">Variance (&sigma;&sup2;):</span>
-                          <span className="font-bold text-gray-200">{d.variance}</span>
-                        </div>
-                        <div className="flex justify-between gap-4">
-                          <span className="text-gray-300">1&sigma; Normal Spread Band:</span>
-                          <span className="font-bold text-blue-300">[{d.spreadLower} - {d.spreadUpper}] M</span>
-                        </div>
-                        <div className="flex justify-between gap-4">
                           <span className="text-gray-300">Evaluated Cohort (N):</span>
                           <span className="font-bold text-white">{d.sampleSize} papers</span>
                         </div>
@@ -946,31 +881,9 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                           <span className="text-gray-300">Pass Rate:</span>
                           <span className="font-bold text-emerald-400">{d.passRate}%</span>
                         </div>
-                        <div className="flex justify-between gap-4 pt-1 border-t border-gray-800">
-                          <span className="text-gray-400">Consistency Index:</span>
-                          <span
-                            className={`font-bold font-sans ${
-                              d.std <= 8.5 ? "text-emerald-400" : "text-amber-400"
-                            }`}
-                          >
-                            {d.consistencyRating}
-                          </span>
-                        </div>
                       </div>
                     </div>
                   );
-                }}
-              />
-              <ReferenceLine
-                yAxisId="right"
-                y={8.5}
-                stroke="#EF4444"
-                strokeDasharray="4 4"
-                label={{
-                  value: "Threshold Benchmark (8.5σ)",
-                  fill: "#EF4444",
-                  fontSize: 10,
-                  position: "insideTopRight",
                 }}
               />
               {/* Bars for Marks Average */}
@@ -989,33 +902,11 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   />
                 ))}
               </Bar>
-              {/* Line for Standard Deviation */}
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="std"
-                name="Standard Deviation (σ)"
-                stroke="#D97706"
-                strokeWidth={3}
-                dot={{ r: 5, fill: "#F59E0B", stroke: "#78350F", strokeWidth: 2 }}
-                activeDot={{ r: 7, fill: "#F59E0B" }}
-              />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
 
         {/* Formula bar matching bottom bar in user's image */}
-        <div className="p-3 bg-[#FAF8F5] rounded-xl text-xs text-gray-600 flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-mono border border-gray-200">
-          <span>
-            Standard Deviation Formula: &sigma; = &radic;[&Sigma;(x - &mu;)&sup2; / N] &bull; Mode:{" "}
-            <strong className="text-gray-900">
-              {isCommonSubject ? "All-Departments Comparative" : `${currentSubject.department} Cohort`}
-            </strong>
-          </span>
-          <span className="font-bold text-amber-900">
-            Lower &sigma; = High Grading Consistency &bull; Higher &sigma; = Wider Divergence Across Evaluators
-          </span>
-        </div>
       </div>
 
       {/* 3. DETAILED STATISTICAL DISPERSION MATRIX TABLE */}
@@ -1025,11 +916,11 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             <h3 className="font-display font-bold text-base text-[#0B192C] flex items-center gap-2">
               <Layers size={18} className="text-[#D4A72C]" />
               {isCommonSubject
-                ? `Department-wise Standard Deviation Dispersion Matrix — ${activeSubComponent}`
-                : `Departmental Cohort Dispersion Matrix — ${activeSubComponent}`}
+                ? `Department-wise Marks Summary — ${activeSubComponent}`
+                : `Departmental Cohort Marks Summary — ${activeSubComponent}`}
             </h3>
             <p className="text-xs text-gray-500">
-              Comprehensive audit of mean (&mu;), standard deviation (&sigma;), variance (&sigma;&sup2;), and 1&sigma; normal spread band for {currentSubject.code}.
+              Average marks and pass rate for {currentSubject.code}.
             </p>
           </div>
 
@@ -1047,12 +938,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                 </th>
                 <th className="py-3 px-3 text-center">Cohort (N)</th>
                 <th className="py-3 px-3 text-center bg-blue-950">Mean Mark (&mu;)</th>
-                <th className="py-3 px-3 text-center bg-amber-950">Std Dev (&sigma;)</th>
-                <th className="py-3 px-3 text-center">Variance (&sigma;&sup2;)</th>
-                <th className="py-3 px-3 text-center">1&sigma; Normal Spread Band</th>
-                <th className="py-3 px-3 text-center">Pass Rate (%)</th>
-                <th className="py-3 px-3 text-center">Evaluation Consistency</th>
-              </tr>
+                                                                <th className="py-3 px-3 text-center">Pass Rate (%)</th>
+                              </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 font-medium bg-white">
               {activeDataset.map((item, idx) => (
@@ -1074,37 +961,13 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                     {item.mean} <span className="text-[10px] font-normal text-blue-700">/ 100</span>
                   </td>
 
-                  <td className="py-3 px-3 text-center font-mono font-black text-sm text-amber-900 bg-amber-50/30">
-                    &plusmn;{item.std}
-                  </td>
 
-                  <td className="py-3 px-3 text-center font-mono text-gray-600">
-                    {item.variance}
-                  </td>
 
-                  <td className="py-3 px-3 text-center font-mono text-blue-900 font-bold bg-slate-50/50">
-                    [{item.spreadLower} - {item.spreadUpper}] M
-                  </td>
 
                   <td className="py-3 px-3 text-center font-mono font-bold text-emerald-800">
                     {item.passRate}%
                   </td>
 
-                  <td className="py-3 px-3 text-center">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-black inline-block font-mono ${
-                        item.consistencyRating === "High"
-                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                          : item.consistencyRating === "Good"
-                          ? "bg-blue-100 text-blue-800 border border-blue-300"
-                          : item.consistencyRating === "Moderate"
-                          ? "bg-amber-100 text-amber-800 border border-amber-300"
-                          : "bg-red-100 text-red-800 border border-red-300 animate-pulse"
-                      }`}
-                    >
-                      {item.consistencyRating} Consistency
-                    </span>
-                  </td>
                 </tr>
               ))}
             </tbody>

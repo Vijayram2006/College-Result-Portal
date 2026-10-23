@@ -721,7 +721,6 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
                 <span className="font-black text-base text-white block">
                   {sub.averageMarks} <span className="text-[10px] font-normal text-slate-300">/ 100</span>
                 </span>
-                <span className="text-[9px] text-emerald-300 block">&plusmn;{sub.stdDev}&sigma;</span>
               </div>
             </div>
           ))}

@@ -18,6 +18,7 @@ type Sheet = {
   deptKey: string; deptName: string; semester: string; subjectCode: string; subjectTitle: string;
   courseType: "THEORY" | "INTEGRATED"; courseTypeLocked: boolean; cycle: string;
   components: Component[]; iatColumns: IatColumn[]; students: StudentRow[];
+  surveyWindow: { opensAt: string; closesAt: string; setBy: string; open: boolean } | null;
 };
 type Level = { students: number; above: number; percent: number | null; level: number };
 type StudentAttainment = {
@@ -40,7 +41,7 @@ const f = (v: number | null | undefined, d = 2) => (v == null || Number.isNaN(v)
 
 export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void }> = ({ mode, onToast }) => {
   const base = mode === "admin" ? "/admin/co-assessment" : `/${mode}/co-assessment`;
-  const canEdit = mode !== "admin";
+  const canEditSheet = mode !== "admin";
   const [departments, setDepartments] = useState<{ key: string; name: string }[]>([]);
   const [dept, setDept] = useState("");
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
@@ -107,6 +108,8 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
   }, [tab, sheet]);
 
   const comp = sheet?.components.find((c) => c.key === tab) ?? null;
+  // The course exit survey is answered by the students in their portal; staff only see the answers
+  const canEdit = canEditSheet && comp?.key !== "EXIT_SURVEY";
   const valueOf = (row: StudentRow, c: Component, i: number) => {
     const e = edits[c.key]?.[row.regNo];
     return e ? e[i] : row.marks[c.key]?.[i] ?? null;
@@ -188,7 +191,7 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
         <span className="text-[10px] font-black uppercase tracking-widest text-[#D4A72C]">R2026 · Direct CO assessment</span>
         <h2 className="text-xl sm:text-2xl font-black mt-1">Internal Marks · CO Attainment Sheet</h2>
         <p className="text-xs text-slate-600 mt-1 max-w-3xl">
-          {canEdit
+          {canEditSheet
             ? "Choose the subject and IAT cycle, then enter each sheet question-wise. IAT marks come from the answer-script mark entry. The CO of every question and all calculations follow the college's R2026 CO attainment workbook."
             : "View the question-wise internal marks and the CO attainment of any subject (read-only)."}
         </p>
@@ -269,6 +272,9 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
             ))}
           </div>
 
+          {comp?.key === "EXIT_SURVEY" && (
+            <SurveyWindowPanel sheet={sheet} editable={canEditSheet} base={base} onSaved={() => load(true)} onToast={onToast} />
+          )}
           {comp && (
             <div className="overflow-auto max-h-[70vh]">
               <table className="text-left border-collapse min-w-full">
@@ -406,6 +412,69 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
           )}
         </div>
       )}
+    </div>
+  );
+};
+
+/** The period in which students may answer this subject's exit survey (set by the faculty or the HOD). */
+const SurveyWindowPanel: React.FC<{ sheet: Sheet; editable: boolean; base: string; onSaved: () => void; onToast?: (m: string) => void }> = ({ sheet, editable, base, onSaved, onToast }) => {
+  const local = (iso?: string) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  };
+  const w = sheet.surveyWindow;
+  const [opens, setOpens] = useState(local(w?.opensAt) || local(new Date().toISOString()));
+  const [closes, setCloses] = useState(local(w?.closesAt) || local(new Date(Date.now() + 7 * 864e5).toISOString()));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const save = async (closeNow = false) => {
+    setBusy(true);
+    setError("");
+    try {
+      const opensAt = closeNow ? new Date(Date.now() - 60000).toISOString() : new Date(opens).toISOString();
+      const closesAt = closeNow ? new Date().toISOString() : new Date(closes).toISOString();
+      await apiClient.put(`${base}/survey-window`, { semester: sheet.semester, subjectCode: sheet.subjectCode, opensAt: closeNow && w ? w.opensAt : opensAt, closesAt });
+      onToast?.(closeNow ? `Exit survey of ${sheet.subjectCode} closed.` : `Exit survey of ${sheet.subjectCode} opened to students.`);
+      onSaved();
+    } catch (e) {
+      setError(apiErrorMessage(e, "Could not save the survey period."));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const fmt = (iso: string) => new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+  return (
+    <div className="mx-4 mt-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 space-y-3">
+      <p className="text-[11px] font-semibold text-slate-700">
+        Students answer the course exit survey in the student portal; their ratings feed the indirect CO attainment automatically.
+        {" "}{w ? (
+          <span className={`font-black ${w.open ? "text-emerald-700" : "text-slate-700"}`}>
+            {w.open ? "Open now" : new Date(w.closesAt) < new Date() ? "Closed" : "Scheduled"}: {fmt(w.opensAt)} – {fmt(w.closesAt)} (set by {w.setBy})
+          </span>
+        ) : <span className="font-black text-red-700">Not opened to students yet.</span>}
+      </p>
+      {editable && (
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-[11px] font-bold text-slate-600 space-y-1 block">
+            <span className="block">Opens</span>
+            <input type="datetime-local" value={opens} onChange={(e) => setOpens(e.target.value)} className="h-9 px-2 rounded-lg border border-slate-300 text-xs" />
+          </label>
+          <label className="text-[11px] font-bold text-slate-600 space-y-1 block">
+            <span className="block">Closes</span>
+            <input type="datetime-local" value={closes} onChange={(e) => setCloses(e.target.value)} className="h-9 px-2 rounded-lg border border-slate-300 text-xs" />
+          </label>
+          <button onClick={() => save(false)} disabled={busy || !opens || !closes} className="h-9 px-4 rounded-xl bg-[#0B192C] text-white text-xs font-black disabled:opacity-50">
+            {w ? "Update survey period" : "Open survey to students"}
+          </button>
+          {w?.open && (
+            <button onClick={() => save(true)} disabled={busy} className="h-9 px-4 rounded-xl border border-red-300 text-red-700 text-xs font-black disabled:opacity-50">
+              Close now
+            </button>
+          )}
+        </div>
+      )}
+      {error && <p className="text-xs font-semibold text-red-700">{error}</p>}
     </div>
   );
 };

@@ -899,7 +899,6 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
       "Allotted Scripts": sub.assignedScripts,
       "Evaluated Scripts": sub.evaluatedScripts,
       "Respective Mark Average (μ)": sub.averageMarks,
-      "Std Dev (σ)": sub.stdDev,
       "Pass Rate %": `${Math.round((sub.passCount / sub.assignedScripts) * 100)}%`,
       "Camp Venue": sub.campVenue,
       "Deadline": sub.deadlineDate,
@@ -1997,9 +1996,6 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                                 <span className="font-mono font-black text-base text-blue-950 block">
                                   {staff.averageMarks ?? 68.4} <span className="text-[10px] font-normal text-gray-500">/ 100</span>
                                 </span>
-                                <span className="text-[9px] font-mono text-amber-800 font-bold block">
-                                  &sigma;: &plusmn;{staff.stdDev ?? 6.8}
-                                </span>
                               </div>
                             </div>
                           ))}
@@ -2036,10 +2032,6 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                               <span className="font-mono font-black text-sm text-blue-950">
                                 {staff.averageMarks ?? 68.4} / 100
                               </span>
-                            </div>
-                            <div className="flex items-center justify-between text-[11px] font-mono text-gray-600">
-                              <span>Std Dev Spread (&sigma;):</span>
-                              <span className="font-bold text-amber-900">&plusmn;{staff.stdDev ?? 6.8}</span>
                             </div>
                             <div className="flex items-center justify-between text-[11px] font-mono text-gray-600">
                               <span>Valuation Pass Rate:</span>
@@ -2375,15 +2367,6 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                 {/* Metric 3: Overall Dispersion */}
                 <div className="p-5 rounded-3xl bg-white border-2 border-emerald-200/90 shadow-sm flex flex-col justify-between">
                   <div className="flex items-start justify-between">
-                    <div>
-                      <span className="text-[10px] font-black uppercase text-emerald-700 tracking-wider block">
-                        STANDARD DEVIATION (&sigma;)
-                      </span>
-                      <span className="font-display font-black text-3xl sm:text-4xl text-emerald-950 mt-1 block font-mono">
-                        &plusmn;{selectedFacultyStats.overallStdDev}
-                        <span className="text-sm font-normal text-gray-500 ml-1">Marks</span>
-                      </span>
-                    </div>
                     <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-900 flex items-center justify-center shrink-0 shadow-2xs">
                       <TrendingUp size={20} />
                     </div>
@@ -2495,8 +2478,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                         <th className="py-3 px-4">Packet ID</th>
                         <th className="py-3 px-4 text-center">Allotted Scripts</th>
                         <th className="py-3 px-4 text-center bg-blue-950">Respective Avg (&mu;)</th>
-                        <th className="py-3 px-4 text-center">Std Dev (&sigma;)</th>
-                        <th className="py-3 px-4 text-center">Pass Rate</th>
+                                                <th className="py-3 px-4 text-center">Pass Rate</th>
                         <th className="py-3 px-4">Valuation Camp</th>
                         <th className="py-3 px-4">Deadline</th>
                         <th className="py-3 px-4 text-center">Action</th>
@@ -2520,9 +2502,6 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                           </td>
                           <td className="py-3 px-4 text-center font-mono font-black text-base text-blue-950 bg-blue-50/40">
                             {sub.averageMarks} <span className="text-[10px] font-normal text-gray-500">/ 100</span>
-                          </td>
-                          <td className="py-3 px-4 text-center font-mono font-bold text-amber-900">
-                            &plusmn;{sub.stdDev}
                           </td>
                           <td className="py-3 px-4 text-center">
                             <span className="px-2 py-0.5 rounded font-mono font-bold text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-200">
@@ -3308,7 +3287,6 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                             <th className="py-2 px-3">Packet ID</th>
                             <th className="py-2 px-3 text-center">Allotted Papers</th>
                             <th className="py-2 px-3 text-center bg-blue-950">Respective Avg (&mu;)</th>
-                            <th className="py-2 px-3 text-center">Std Dev (&sigma;)</th>
                             <th className="py-2 px-3">Deadline</th>
                             <th className="py-2 px-3 text-center">Valuation Status</th>
                           </tr>
@@ -3333,9 +3311,6 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                               </td>
                               <td className="py-2 px-3 text-center font-mono font-black text-sm text-blue-950 bg-blue-50/50">
                                 {sub.averageMarks} / 100
-                              </td>
-                              <td className="py-2 px-3 text-center font-mono font-bold text-amber-900">
-                                &plusmn;{sub.stdDev}
                               </td>
                               <td className="py-2 px-3 font-mono text-red-600 font-bold">{sub.deadlineDate}</td>
                               <td className="py-2 px-3 text-center">

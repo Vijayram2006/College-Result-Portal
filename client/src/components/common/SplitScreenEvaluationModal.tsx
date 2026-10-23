@@ -473,7 +473,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                   {/* Rightmost: Kyro Mascot */}
                   <div className="w-full md:w-1/4 flex items-center justify-center md:justify-end">
                     <img
-                      src="/kyro-mascot.png"
+                      src="/kyro-crossed.png"
                       alt="Kyro Mascot"
                       className="h-20 sm:h-24 w-auto object-contain drop-shadow-sm select-none pointer-events-none"
                     />
