@@ -68,9 +68,9 @@ public class SuperAdminService {
             "pharmacy", "Karpaga Vinayaga Institute for Pharmaceutical Sciences");
     private static final Set<String> OFFICER_ROLES =
             Set.of("SUPER_ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY", "DEPUTY_COE", "ASSOCIATE_DEAN",
-                    "DEAN", "ADMISSION_OFFICER");
+                    "DEAN");
     /** Officer kinds that belong to one chosen college (the COE kinds carry the college in their name). */
-    private static final Set<String> COLLEGE_CHOSEN = Set.of("DEPUTY_COE", "ASSOCIATE_DEAN", "DEAN", "ADMISSION_OFFICER");
+    private static final Set<String> COLLEGE_CHOSEN = Set.of("DEPUTY_COE", "ASSOCIATE_DEAN", "DEAN");
     /** Tables shown on the storage tab (fixed list, so the names can be used in SQL). */
     private static final Map<String, String> TABLES = new LinkedHashMap<>();
 
@@ -180,7 +180,6 @@ public class SuperAdminService {
         String dbRole = switch (role) {
             case "SUPER_ADMIN" -> "SUPER_ADMIN";
             case "ASSOCIATE_DEAN", "DEAN" -> "DEAN";
-            case "ADMISSION_OFFICER" -> "ADMISSION";
             default -> "ADMIN";
         };
         String college = "SUPER_ADMIN".equals(role) ? null

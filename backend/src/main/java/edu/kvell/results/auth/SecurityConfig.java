@@ -61,7 +61,6 @@ public class SecurityConfig {
                                 // the faculty list only; a faculty member's full record (with Aadhaar) stays with the COE
                                 "/api/admin/faculty-master").hasAnyRole("ADMIN", "DEAN")
                         .requestMatchers("/api/dean/**").hasRole("DEAN")
-                        .requestMatchers("/api/admission/**").hasAnyRole("ADMISSION", "SUPER_ADMIN")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/hod/**").hasRole("HOD")
                         .requestMatchers("/api/student/**").hasRole("STUDENT")

@@ -5,7 +5,6 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite --host",
-    "admission": "npm --prefix admission-cell run dev",
     "build": "vite build",
     "preview": "vite preview --host",
     "check": "tsc --noEmit",

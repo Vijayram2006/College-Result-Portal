@@ -32,7 +32,6 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final String pharmacyCoePassword;
     private final String superAdminPassword;
     private final String deanPassword;
-    private final String admissionPassword;
 
     public DemoDataSeeder(JdbcClient db, PasswordEncoder encoder,
                           @Value("${app.seed.enabled}") boolean enabled,
@@ -42,8 +41,7 @@ public class DemoDataSeeder implements ApplicationRunner {
                           @Value("${app.seed.nursing-coe-password}") String nursingCoePassword,
                           @Value("${app.seed.pharmacy-coe-password}") String pharmacyCoePassword,
                           @Value("${app.seed.super-admin-password:}") String superAdminPassword,
-                          @Value("${app.seed.dean-password:}") String deanPassword,
-                          @Value("${app.seed.admission-password:}") String admissionPassword) {
+                          @Value("${app.seed.dean-password:}") String deanPassword) {
         this.db = db;
         this.encoder = encoder;
         this.enabled = enabled;
@@ -54,7 +52,6 @@ public class DemoDataSeeder implements ApplicationRunner {
         this.pharmacyCoePassword = pharmacyCoePassword;
         this.superAdminPassword = superAdminPassword;
         this.deanPassword = deanPassword;
-        this.admissionPassword = admissionPassword;
     }
 
     @Override
@@ -65,12 +62,10 @@ public class DemoDataSeeder implements ApplicationRunner {
         createCoe("ADMIN", "Dr. Controller of Examinations (Engineering)", "engineering", adminPassword);
         createCoe("COE_NURSING", "Dr. Controller of Examinations (Nursing)", "nursing", nursingCoePassword);
         createCoe("COE_PHARMACY", "Dr. Controller of Examinations (Pharmacy)", "pharmacy", pharmacyCoePassword);
-        // Associate Dean and admission officer of each college (only when their demo passwords are configured)
+        // Associate Dean of each college (only when the demo password is configured)
         for (String[] c : new String[][] {{"ENG", "engineering", "Engineering"}, {"NUR", "nursing", "Nursing"},
                 {"PHARM", "pharmacy", "Pharmacy"}}) {
             createOfficer("ADEAN_" + c[0], "Associate Dean (" + c[2] + ")", "DEAN", "ASSOCIATE_DEAN", c[1], deanPassword);
-            createOfficer("ADMISSION_" + c[0], "Admission Officer (" + c[2] + ")", "ADMISSION", null, c[1],
-                    admissionPassword);
         }
         List<String> depts = db.sql("SELECT dept_key FROM departments ORDER BY dept_key").query(String.class).list();
         depts.forEach(this::createDepartmentLogins);

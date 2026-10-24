@@ -484,7 +484,6 @@ public class AuthService {
             case "faculty" -> Role.FACULTY;
             case "student" -> Role.STUDENT;
             case "dean" -> Role.DEAN;
-            case "admission" -> Role.ADMISSION;
             default -> null;
         };
     }

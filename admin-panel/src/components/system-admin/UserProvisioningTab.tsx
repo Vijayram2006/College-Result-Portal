@@ -36,7 +36,7 @@ const RevealButton: React.FC<{ shown: boolean; onToggle: () => void }> = ({ show
 
 /**
  * For a chosen college: the college COE, a Deputy COE, the Associate Dean or Dean (question paper review, approval
- * of forwarded marks, read-only results) or the admission officer; "All colleges" makes a Super Admin.
+ * of forwarded marks, read-only results); "All colleges" makes a Super Admin.
  */
 type OfficerKind = "COE" | "DEPUTY_COE" | "ASSOCIATE_DEAN" | "DEAN" | "ADMISSION_OFFICER";
 
@@ -408,7 +408,6 @@ export const UserProvisioningTab: React.FC = () => {
                         <option value="DEPUTY_COE">Deputy COE</option>
                         <option value="ASSOCIATE_DEAN">Associate Dean</option>
                         <option value="DEAN">Dean</option>
-                        <option value="ADMISSION_OFFICER">Admission Officer</option>
                       </>
                     )}
                   </select>
