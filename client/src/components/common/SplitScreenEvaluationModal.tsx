@@ -49,6 +49,10 @@ export interface SplitScreenEvaluationModalProps {
   initialPartB?: Record<number, QuestionData>;
   /** Loads the real (anonymised) answer script PDF; when given it replaces the sample booklet. */
   pdfLoader?: () => Promise<Blob>;
+  /** REQ-03: the script must stay open this many seconds before its marks can be submitted (0 = no wait). */
+  minSeconds?: number;
+  /** REQ-04: remarks already saved ("overall", "q1".."q16"). */
+  initialRemarks?: Record<string, string>;
   onSaveMarks: (result: {
     partATotal: number;
     partBTotal: number;
@@ -56,6 +60,7 @@ export interface SplitScreenEvaluationModalProps {
     grade: string;
     partAMarks: number[];
     partBCMarks: Record<number, QuestionData>;
+    remarks: Record<string, string>;
   }) => void;
 }
 
@@ -76,8 +81,21 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
   initialPartA,
   initialPartB,
   pdfLoader,
+  minSeconds = 0,
+  initialRemarks,
   onSaveMarks,
 }) => {
+  // REQ-04 remarks and the REQ-03 minimum evaluation time (the server checks the time too)
+  const [remarks, setRemarks] = useState<Record<string, string>>(() => ({ ...(initialRemarks ?? {}) }));
+  const [remarkKey, setRemarkKey] = useState("overall");
+  const [openedAt] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (minSeconds <= 0) return;
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, [minSeconds]);
+  const waitLeft = Math.max(0, Math.ceil(minSeconds - (now - openedAt) / 1000));
   if (!isOpen) return null;
 
   const [assessmentType, setAssessmentType] = useState<"IAT-1" | "IAT-2" | "End Semester">(initialAssessment);
@@ -159,6 +177,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
       grade: currentGrade,
       partAMarks,
       partBCMarks,
+      remarks: Object.fromEntries(Object.entries(remarks).filter(([, v]) => v.trim())),
     });
     onClose();
   };
@@ -805,6 +824,32 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                   </div>
                 </div>
 
+                {/* REQ-04: evaluation remarks, per question or overall; the student sees them after publication */}
+                <div className="rounded-xl border border-slate-300 bg-white p-3 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-[#0B192C]">Evaluation remarks &amp; comments</span>
+                    <select value={remarkKey} onChange={(e) => setRemarkKey(e.target.value)} aria-label="Remark for"
+                      className="h-8 rounded-lg border border-slate-300 px-2 text-xs font-bold text-[#0B192C]">
+                      <option value="overall">Overall</option>
+                      {Array.from({ length: 16 }, (_, i) => <option key={i} value={`q${i + 1}`}>Question {i + 1}</option>)}
+                    </select>
+                  </div>
+                  <textarea value={remarks[remarkKey] ?? ""} maxLength={500} rows={2}
+                    onChange={(e) => setRemarks((r) => ({ ...r, [remarkKey]: e.target.value }))}
+                    placeholder={remarkKey === "overall" ? "Overall comment on the script" : `Comment on question ${remarkKey.slice(1)}`}
+                    className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs text-[#0B192C]" />
+                  {Object.entries(remarks).filter(([, v]) => v.trim()).length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {Object.entries(remarks).filter(([, v]) => v.trim()).map(([k]) => (
+                        <button key={k} type="button" onClick={() => setRemarkKey(k)}
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-black border ${k === remarkKey ? "bg-[#0B192C] text-[#D4A72C] border-[#0B192C]" : "bg-amber-50 border-amber-200 text-[#0B192C]"}`}>
+                          {k === "overall" ? "Overall" : `Q${k.slice(1)}`}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {/* MODAL ACTION BUTTONS */}
                 <div className="flex items-center justify-between pt-2">
                   <button
@@ -815,17 +860,26 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                     Cancel
                   </button>
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleAutoFillSample}
-                      className="px-3.5 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold text-xs transition cursor-pointer"
-                    >
-                      Reset / Sample Marks
-                    </button>
+                    {!pdfLoader && (
+                      <button
+                        type="button"
+                        onClick={handleAutoFillSample}
+                        className="px-3.5 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold text-xs transition cursor-pointer"
+                      >
+                        Reset / Sample Marks
+                      </button>
+                    )}
+                    {waitLeft > 0 && (
+                      <span className="text-[11px] font-bold text-amber-300" role="timer">
+                        Minimum evaluation time: {Math.floor(waitLeft / 60)}:{String(waitLeft % 60).padStart(2, "0")} left
+                      </span>
+                    )}
                     <button
                       type="button"
                       onClick={handleSave}
-                      className="px-6 py-2 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-[#D4A72C] font-black text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer"
+                      disabled={waitLeft > 0}
+                      title={waitLeft > 0 ? "Read the whole script first; submitting unlocks when the minimum evaluation time is over" : undefined}
+                      className="px-6 py-2 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-[#D4A72C] font-black text-xs transition shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <Save size={15} /> Save &amp; Submit Evaluation
                     </button>

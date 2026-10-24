@@ -19,18 +19,22 @@ type Sheet = {
   courseType: "THEORY" | "INTEGRATED"; courseTypeLocked: boolean; cycle: string;
   components: Component[]; iatColumns: IatColumn[]; students: StudentRow[];
   surveyWindow: { opensAt: string; closesAt: string; setBy: string; open: boolean } | null;
+  /** REQ-13: who entered each mark register, and the IAT evaluators. */
+  enteredBy?: Record<string, string>; iatExaminers?: string | null;
 };
 type Level = { students: number; above: number; percent: number | null; level: number };
 type StudentAttainment = {
   regNo: string; name: string; iat: Record<string, number>; assignment: Record<string, number>;
   quizOrLab: Record<string, number>; activity: number; total: Record<string, number>;
   grade: string | null; gradePoint: number; seePercent: number; survey: (number | null)[] | null;
+  iatScore?: Record<string, number>;
 };
 type Attainment = {
   deptName: string; semester: string; subjectCode: string; subjectTitle: string; courseType: string;
   students: StudentAttainment[]; internal: Record<string, Level>; university: Record<string, Level>;
   survey: { co: string; excellent: number; veryGood: number; good: number; satisfactory: number; poor: number; total: number; excellentOrVeryGood: number; percent: number | null; level: number }[];
   overall: { co: string; iat: number; see: number; direct: number; directNinety: number; exit: number; exitTen: number; total: number; percent: number }[];
+  threshold?: number; coMax?: number[];
 };
 type SubjectOption = { code: string; title: string; semester: string; deptKey?: string };
 
@@ -104,7 +108,7 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
     }
   };
   useEffect(() => {
-    if (tab === "ATTAINMENT" && sheet) void loadAttainment();
+    if ((tab === "ATTAINMENT" || tab === "CONSOLIDATED") && sheet) void loadAttainment();
   }, [tab, sheet]);
 
   const comp = sheet?.components.find((c) => c.key === tab) ?? null;
@@ -264,7 +268,7 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
           </div>
 
           <div role="tablist" className="flex gap-1 p-2 bg-slate-50 border-b border-slate-100 overflow-x-auto">
-            {[...sheet.components.map((c) => ({ key: c.key, label: c.title })), { key: "IAT", label: `${sheet.cycle} (answer scripts)` }, { key: "ATTAINMENT", label: "CO Attainment" }].map((t) => (
+            {[...sheet.components.map((c) => ({ key: c.key, label: c.title })), { key: "IAT", label: `${sheet.cycle} (answer scripts)` }, { key: "CONSOLIDATED", label: "Consolidated CO Marks" }, { key: "ATTAINMENT", label: "CO Attainment" }].map((t) => (
               <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
                 className={`px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap ${tab === t.key ? "bg-[#0B192C] text-white" : "text-slate-600 hover:bg-white"}`}>
                 {t.label}
@@ -272,6 +276,50 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
             ))}
           </div>
 
+          {/* REQ-13: the evaluator identity beside each mark register, for cross-auditing */}
+          {(comp && sheet.enteredBy?.[comp.key]) || (tab === "IAT" && sheet.iatExaminers) ? (
+            <p className="px-4 pt-3 text-[11px] font-semibold text-slate-600">
+              {tab === "IAT" ? `Evaluated by: ${sheet.iatExaminers}` : `Entered by: ${sheet.enteredBy?.[comp!.key]}`}
+            </p>
+          ) : null}
+          {tab === "CONSOLIDATED" && (
+            <div className="p-4 overflow-auto">
+              {!att ? <p className="text-xs text-slate-500">{busy ? "Calculating..." : "No data."}</p> : (
+                <>
+                  <h3 className="text-sm font-black text-[#0B192C] mb-2">CONSOLIDATED CO MARKS IN INTERNAL ASSESSMENT TEST</h3>
+                  <table className="border-collapse min-w-full">
+                    <thead>
+                      <tr>
+                        <th className={th} rowSpan={2}>Sl No</th>
+                        <th className={`${th} text-left`} rowSpan={2}>Student Name</th>
+                        {COS.map((c, i) => <th key={c} className={`${th} bg-slate-50`} colSpan={3}>{c} (Max {att.coMax?.[i] ?? (c === "CO6" ? 30 : 34)})</th>)}
+                      </tr>
+                      <tr>{COS.flatMap((c) => ["Sc", "Mx", "%"].map((x) => <th key={c + x} className={th}>{x}</th>))}</tr>
+                    </thead>
+                    <tbody>
+                      {att.students.map((s, i) => (
+                        <tr key={s.regNo}>
+                          <td className={td}>{i + 1}</td>
+                          <td className={`${td} text-left whitespace-nowrap`}>{s.name}</td>
+                          {COS.flatMap((c, k) => {
+                            const mx = att.coMax?.[k] ?? (c === "CO6" ? 30 : 34);
+                            const sc = s.iatScore?.[c] ?? (s.iat[c] * mx) / 100;
+                            const pct = (sc / mx) * 100;
+                            return [
+                              <td key={c + "sc"} className={td}>{f(sc)}</td>,
+                              <td key={c + "mx"} className={td}>{mx}</td>,
+                              <td key={c + "p"} className={`${td} font-bold ${pct >= (att.threshold ?? 50) ? "text-emerald-700" : "text-red-700"}`}>{pct.toFixed(2)}</td>,
+                            ];
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="mt-2 text-[11px] text-slate-500">Percentage = Scored / Max x 100. A CO is attained when the percentage is at least the threshold ({att.threshold ?? 50}% of marks).</p>
+                </>
+              )}
+            </div>
+          )}
           {comp?.key === "EXIT_SURVEY" && (
             <SurveyWindowPanel sheet={sheet} editable={canEditSheet} base={base} onSaved={() => load(true)} onToast={onToast} />
           )}
@@ -348,7 +396,9 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
             <div className="p-4 space-y-6">
               {!att ? <p className="text-xs text-slate-500">{busy ? "Calculating..." : "No data."}</p> : (
                 <>
-                  <div className="flex justify-end">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <ThresholdControl value={att.threshold ?? 50} editable={canEditSheet} base={base} semester={sheet.semester}
+                      subjectCode={sheet.subjectCode} onSaved={() => void loadAttainment()} onToast={onToast} />
                     <button onClick={csv} className="h-9 px-4 rounded-xl border border-slate-300 text-xs font-bold flex items-center gap-2 hover:bg-slate-50"><Download size={14} /> Download (CSV)</button>
                   </div>
                   <section className="overflow-auto">
@@ -366,10 +416,10 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
                           <tr key={s.regNo}>
                             <td className={td}>{i + 1}</td><td className={`${td} text-left whitespace-nowrap font-semibold`}>{s.name}</td>
                             {COS.flatMap((c) => (c === "CO6" ? [s.iat[c], s.activity] : att.courseType === "INTEGRATED" ? [s.iat[c], s.quizOrLab[c]] : [s.iat[c], s.assignment[c], s.quizOrLab[c]]).map((v, k) => <td key={c + k} className={td}>{f(v)}</td>))}
-                            {COS.map((c) => <td key={c} className={`${td} bg-amber-50/50 font-bold ${s.total[c] >= 50 ? "text-emerald-700" : "text-red-700"}`}>{f(s.total[c])}</td>)}
+                            {COS.map((c) => <td key={c} className={`${td} bg-amber-50/50 font-bold ${s.total[c] >= (att.threshold ?? 50) ? "text-emerald-700" : "text-red-700"}`}>{f(s.total[c])}</td>)}
                           </tr>
                         ))}
-                        {[["Total No. of students", (l: Level) => l.students], ["No. of students scoring >= 50%", (l: Level) => l.above], ["% of students scoring >=50", (l: Level) => f(l.percent)], ["Attainment", (l: Level) => l.level]].map(([label, get]) => (
+                        {[["Total No. of students", (l: Level) => l.students], [`No. of students scoring >= ${att.threshold ?? 50}%`, (l: Level) => l.above], [`% of students scoring >= ${att.threshold ?? 50}`, (l: Level) => f(l.percent)], ["Attainment", (l: Level) => l.level]].map(([label, get]) => (
                           <tr key={label as string} className="bg-slate-50 font-bold">
                             <td className={`${td} text-right`} colSpan={att.courseType === "INTEGRATED" ? 14 : 19}>{label as string}</td>
                             {COS.map((c) => <td key={c} className={td}>{(get as (l: Level) => any)(att.internal[c])}</td>)}
@@ -417,6 +467,37 @@ export const CoAssessment: React.FC<{ mode: Mode; onToast?: (m: string) => void 
 };
 
 /** The period in which students may answer this subject's exit survey (set by the faculty or the HOD). */
+/** REQ-02/18: the attainment threshold (default 50% of marks), set per subject by its faculty or the HOD. */
+const ThresholdControl: React.FC<{ value: number; editable: boolean; base: string; semester: string; subjectCode: string; onSaved: () => void; onToast?: (m: string) => void }> = ({ value, editable, base, semester, subjectCode, onSaved, onToast }) => {
+  const [v, setV] = useState(String(value));
+  const [err, setErr] = useState("");
+  useEffect(() => setV(String(value)), [value]);
+  const save = async () => {
+    setErr("");
+    try {
+      await apiClient.put(`${base}/threshold`, { semester, subjectCode, threshold: Number(v) });
+      onToast?.(`Threshold of ${subjectCode} set to ${v}% of marks.`);
+      onSaved();
+    } catch (e) {
+      setErr(apiErrorMessage(e, "Could not save the threshold."));
+    }
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      <span className="font-black text-[#0B192C]">Threshold value</span>
+      {editable ? (
+        <>
+          <input type="number" min={1} max={100} value={v} onChange={(e) => setV(e.target.value)} aria-label="Threshold percentage"
+            className="h-9 w-20 rounded-lg border border-slate-300 px-2 font-bold" />
+          <span className="text-slate-600">% of marks</span>
+          <button onClick={save} disabled={Number(v) === value} className="h-9 px-3 rounded-lg bg-[#0B192C] text-white font-bold disabled:opacity-40">Set</button>
+        </>
+      ) : <span className="text-slate-700">(threshold value) {value}% of marks</span>}
+      {err && <span role="alert" className="text-red-700 font-semibold">{err}</span>}
+    </div>
+  );
+};
+
 const SurveyWindowPanel: React.FC<{ sheet: Sheet; editable: boolean; base: string; onSaved: () => void; onToast?: (m: string) => void }> = ({ sheet, editable, base, onSaved, onToast }) => {
   const local = (iso?: string) => {
     if (!iso) return "";

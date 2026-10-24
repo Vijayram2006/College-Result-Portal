@@ -69,12 +69,12 @@ export const ExamCellClassroomAllocationView: React.FC<ExamCellClassroomAllocati
   // For 2026-10-24 FN: AI&DS (AI602 = 50), CSE (CS601 = 20), BME (BM603 = 28) -> Total 98 students
   const activeExams = [
     {
-      deptCode: "AIDS",
+      deptCode: "ADS",
       deptName: "Artificial Intelligence & Data Science",
       subjectCode: "AI602",
       subjectTitle: "Deep Learning & Neural Architectures",
       candidateCount: 50,
-      students: aidsSem1Students.map((s) => ({ regNo: s.regNo, name: s.name, deptCode: "AIDS", subjectCode: "AI602" })),
+      students: aidsSem1Students.map((s) => ({ regNo: s.regNo, name: s.name, deptCode: "ADS", subjectCode: "AI602" })),
       qpSet: "Set A & Set B Sealed",
       qpStatus: "FORWARDED_TO_EXAM_CELL",
       deanApprovalRef: "DEAN/QP-VERIF/2026/014",
@@ -166,7 +166,7 @@ export const ExamCellClassroomAllocationView: React.FC<ExamCellClassroomAllocati
         maxCapacity: 40,
         allocatedCount: 18,
         invigilatorName: "Prof. K. Venkatesh",
-        invigilatorDept: "AI&DS",
+        invigilatorDept: "ADS",
         invigilatorPhone: "+91 97903 45678",
         invigilatorDutyId: "INV-2026-303",
         assignedStudents: allCandidates.slice(80, 98).map((st, idx) => {

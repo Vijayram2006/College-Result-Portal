@@ -21,8 +21,10 @@ public class StudentResultService {
     }
 
     /** internal = Part A total, external = Part B + C total. */
+    /** remarks: the evaluator's comments ("overall", "q1".."q16"), shown once the result is published (REQ-04). */
     public record Subject(String code, String title, int credits, BigDecimal internal, BigDecimal external,
-                          int total, String grade, int gradePoints, String status, String publishedAt) {
+                          int total, String grade, int gradePoints, String status, String publishedAt,
+                          Map<String, String> remarks) {
     }
 
     /**
@@ -32,7 +34,7 @@ public class StudentResultService {
     public record SemesterResult(int semester, String semesterLabel, String assessmentType, boolean internalAssessment,
                                  String examMonthYear, String academicYear, BigDecimal sgpa, int totalCredits,
                                  int earnedCredits, String result, int totalMarks, int maxMarks,
-                                 List<Subject> subjects) {
+                                 List<Subject> subjects, String withheldCode, String withheldReason) {
     }
 
     /** withheld: the Super Admin is holding back this college's results, so no marks are sent. */
@@ -90,8 +92,12 @@ public class StudentResultService {
         List<Row> rows = db.sql("""
                         SELECT b.semester, b.exam_month_year, b.academic_year, b.subject_code, b.subject_title,
                                b.published_at, r.credits, r.part_a_total, r.part_bc_total, r.total, r.grade,
-                               r.grade_points, r.passed, coalesce(r.assessment_type, 'End Semester') AS assessment_type
+                               r.grade_points, r.passed, coalesce(r.assessment_type, 'End Semester') AS assessment_type,
+                               m.remarks::text AS remarks
                         FROM result_records r JOIN result_batches b ON b.id = r.batch_id
+                        LEFT JOIN marks m ON m.dept_key = b.dept_key AND m.semester = b.semester
+                             AND m.subject_code = b.subject_code AND m.reg_no = r.reg_no
+                             AND m.assessment_type = coalesce(r.assessment_type, 'End Semester')
                         WHERE r.reg_no = ? AND b.status = 'PUBLISHED'
                         ORDER BY b.semester, b.subject_code
                         """)
@@ -103,7 +109,8 @@ public class StudentResultService {
                                 rs.getBigDecimal("part_a_total"), rs.getBigDecimal("part_bc_total"),
                                 rs.getInt("total"), rs.getString("grade"), rs.getInt("grade_points"),
                                 rs.getBoolean("passed") ? "PASS" : "FAIL",
-                                Semesters.display(rs.getObject("published_at", java.time.OffsetDateTime.class)))))
+                                Semesters.display(rs.getObject("published_at", java.time.OffsetDateTime.class)),
+                                edu.kvell.results.marks.MarkService.remarksOf(rs.getString("remarks")))))
                 .list();
 
         // One entry per semester and assessment, in order: IAT-1, IAT-2, End Semester
@@ -114,8 +121,21 @@ public class StudentResultService {
         List<SemesterResult> semesters = new ArrayList<>();
         List<CreditPoints> endSemester = new ArrayList<>();
         int arrears = 0;
+        // REQ-15: results the COE has withheld (WH1 malpractice, WH2 fee dues, WH3 attendance shortage)
+        Map<String, String[]> withheld = new java.util.HashMap<>();
+        db.sql("SELECT semester, assessment_type, code, reason FROM result_withholds WHERE reg_no = ?").param(regNo)
+                .query((rs, n) -> withheld.put(rs.getInt(1) + "|" + rs.getString(2),
+                        new String[] {rs.getString(3), rs.getString(4)})).list();
         for (List<Row> group : groups.values()) {
             Row first = group.getFirst();
+            String[] wh = withheld.get(first.semester() + "|" + first.assessment());
+            if (wh != null) {
+                // A withheld result is listed without any marks
+                semesters.add(new SemesterResult(first.semester(), Semesters.label(first.semester()), first.assessment(),
+                        !"End Semester".equals(first.assessment()), first.exam(), first.academicYear(), null, 0, 0,
+                        "WITHHELD", 0, 0, List.of(), wh[0], wh[1]));
+                continue;
+            }
             boolean internal = !"End Semester".equals(first.assessment());
             List<Subject> subjects = group.stream().map(Row::subject).toList();
             List<CreditPoints> points = subjects.stream()
@@ -131,7 +151,7 @@ public class StudentResultService {
             semesters.add(new SemesterResult(first.semester(), Semesters.label(first.semester()), first.assessment(),
                     internal, internal ? first.assessment() + " (Internal Assessment Test)" : first.exam(),
                     first.academicYear(), internal ? null : GradeCalculator.gpa(points), totalCredits, earned,
-                    failed == 0 ? "PASS" : "FAIL", totalMarks, subjects.size() * 100, subjects));
+                    failed == 0 ? "PASS" : "FAIL", totalMarks, subjects.size() * 100, subjects, null, null));
         }
         // The CGPA comes from End Semester results only; internal assessments never count towards it
         BigDecimal cgpa = endSemester.isEmpty() ? null : GradeCalculator.gpa(endSemester);

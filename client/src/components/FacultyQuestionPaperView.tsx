@@ -390,9 +390,34 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
                 <div>
                   <span className="font-mono font-black text-rose-900">{p.subjectCode}</span>
                   <span className="font-bold text-gray-800 ml-2">{p.subjectTitle}</span>
-                  <p className="text-[11px] text-rose-700 mt-1 italic">
-                    Scrutiny Remarks: &ldquo;{p.adRemarks || "Bloom's taxonomy distribution in Part B requires alignment with syllabus Unit IV"}&rdquo;
-                  </p>
+                  {(() => {
+                    // The reviewer's mandatory feedback (REQ-01) and the paper's revision history
+                    const trail = p.hierarchyTrail ?? [];
+                    const returned = [...trail].reverse().find((t) => t.status === "RETURNED");
+                    return (
+                      <>
+                        <p className="text-[11px] text-rose-700 mt-1">
+                          <span className="font-black">Feedback from {returned?.stageRole ?? "the reviewer"}{returned?.officerName ? ` (${returned.officerName})` : ""}:</span>{" "}
+                          <span className="italic">&ldquo;{returned?.remarks || p.adRemarks || "See the reviewer's comments"}&rdquo;</span>
+                          {returned?.timestamp && <span className="text-rose-500"> · {returned.timestamp}</span>}
+                        </p>
+                        <details className="mt-1.5">
+                          <summary className="cursor-pointer text-[10px] font-black uppercase text-rose-800">Revision history ({trail.filter((t) => t.status !== "PENDING").length} steps)</summary>
+                          <ol className="mt-1 space-y-0.5 text-[10.5px] text-slate-700">
+                            {trail.filter((t) => t.status !== "PENDING").map((t, i) => (
+                              <li key={i}>
+                                <span className={`font-black ${t.status === "RETURNED" ? "text-rose-700" : t.status === "CURRENT" ? "text-amber-700" : "text-emerald-700"}`}>
+                                  {t.status === "RETURNED" ? "Returned" : t.status === "CURRENT" ? "Waiting" : "Done"}
+                                </span>{" "}
+                                · Stage {t.stageNumber} {t.stageRole}{t.officerName ? ` (${t.officerName})` : ""}{t.timestamp ? ` · ${t.timestamp}` : ""}
+                                {t.remarks ? <span className="italic"> · &ldquo;{t.remarks}&rdquo;</span> : null}
+                              </li>
+                            ))}
+                          </ol>
+                        </details>
+                      </>
+                    );
+                  })()}
                 </div>
                 <button
                   onClick={() => openDraftModal(p)}

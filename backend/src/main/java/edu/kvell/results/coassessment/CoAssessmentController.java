@@ -52,6 +52,13 @@ public class CoAssessmentController {
         return co.setWindow(dept(req.semester(), req.subjectCode()), req, user, http.getRemoteAddr());
     }
 
+    @PutMapping({"/api/faculty/co-assessment/threshold", "/api/hod/co-assessment/threshold"})
+    Map<String, Double> threshold(@RequestBody CoAssessmentService.ThresholdRequest req, HttpServletRequest http) {
+        if (req == null) throw edu.kvell.results.common.ApiException.badRequest("Threshold is required");
+        return Map.of("threshold", co.setThreshold(dept(req.semester(), req.subjectCode()), req, CurrentUser.get(),
+                http.getRemoteAddr()));
+    }
+
     // ---- online quizzes: the subject's faculty writes them and opens them to the students
 
     @GetMapping({"/api/faculty/quizzes", "/api/hod/quizzes"})

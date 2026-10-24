@@ -128,8 +128,8 @@ export interface PaperCorrectionAllocation {
 
 // Available faculties for 1-click auto-suggestion
 const PRESET_FACULTY_POOL: { name: string; id: string; dept: string; role: "Chief Evaluator" | "Internal Examiner" | "External Examiner" }[] = [
-  { name: "Prof. K. Venkatesh", id: "FAC-ENG-104", dept: "AI&DS", role: "Internal Examiner" as const },
-  { name: "Dr. S. Mohan", id: "FAC-ENG-101", dept: "AI&DS", role: "Chief Evaluator" as const },
+  { name: "Prof. K. Venkatesh", id: "FAC-ENG-104", dept: "ADS", role: "Internal Examiner" as const },
+  { name: "Dr. S. Mohan", id: "FAC-ENG-101", dept: "ADS", role: "Chief Evaluator" as const },
   { name: "Dr. Ananya Menon", id: "FAC-ENG-202", dept: "CSE", role: "Internal Examiner" as const },
   { name: "Dr. Jayapradha", id: "FAC-ENG-201", dept: "CSE", role: "Chief Evaluator" as const },
   { name: "Dr. Meenakshi S.", id: "FAC-ENG-302", dept: "BME", role: "Internal Examiner" as const },
@@ -140,7 +140,7 @@ const PRESET_FACULTY_POOL: { name: string; id: string; dept: string; role: "Chie
   { name: "Dr. T. Balakrishnan", id: "FAC-ENG-501", dept: "ECE", role: "Chief Evaluator" as const },
   { name: "Prof. Arjun Rao", id: "FAC-ENG-208", dept: "CSE", role: "Internal Examiner" as const },
   { name: "Prof. Vikram Shah", id: "FAC-ENG-209", dept: "CSE", role: "Internal Examiner" as const },
-  { name: "Prof. S. Nandhini", id: "FAC-ENG-108", dept: "AI&DS", role: "Internal Examiner" as const },
+  { name: "Prof. S. Nandhini", id: "FAC-ENG-108", dept: "ADS", role: "Internal Examiner" as const },
   { name: "Dr. Meganathan", id: "FAC-VAL-001", dept: "Evaluation Wing", role: "External Examiner" as const },
 ];
 
@@ -218,7 +218,7 @@ const INITIAL_ALLOCATIONS: PaperCorrectionAllocation[] = [
         id: "STAFF-1",
         name: "Prof. K. Venkatesh",
         facultyId: "FAC-ENG-104",
-        department: "AI&DS",
+        department: "ADS",
         role: "Chief Evaluator",
         assignedScripts: 25,
         evaluatedScripts: 25,
@@ -237,7 +237,7 @@ const INITIAL_ALLOCATIONS: PaperCorrectionAllocation[] = [
         id: "STAFF-2",
         name: "Dr. S. Mohan",
         facultyId: "FAC-ENG-101",
-        department: "AI&DS",
+        department: "ADS",
         role: "Internal Examiner",
         assignedScripts: 25,
         evaluatedScripts: 25,
@@ -395,7 +395,7 @@ const INITIAL_ALLOCATIONS: PaperCorrectionAllocation[] = [
         id: "STAFF-AI4-1",
         name: "Prof. K. Venkatesh",
         facultyId: "FAC-ENG-104",
-        department: "AI&DS",
+        department: "ADS",
         role: "Chief Evaluator",
         assignedScripts: 20,
         evaluatedScripts: 20,
@@ -414,7 +414,7 @@ const INITIAL_ALLOCATIONS: PaperCorrectionAllocation[] = [
         id: "STAFF-AI4-2",
         name: "Prof. S. Nandhini",
         facultyId: "FAC-ENG-108",
-        department: "AI&DS",
+        department: "ADS",
         role: "Internal Examiner",
         assignedScripts: 20,
         evaluatedScripts: 20,
@@ -713,8 +713,8 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
   const [evaluatorInputs, setEvaluatorInputs] = useState<
     { name: string; facultyId: string; department: string; role: EvaluatorStaff["role"] }[]
   >([
-    { name: "Prof. K. Venkatesh", facultyId: "FAC-ENG-104", department: "AI&DS", role: "Chief Evaluator" },
-    { name: "Dr. S. Mohan", facultyId: "FAC-ENG-101", department: "AI&DS", role: "Internal Examiner" },
+    { name: "Prof. K. Venkatesh", facultyId: "FAC-ENG-104", department: "ADS", role: "Chief Evaluator" },
+    { name: "Dr. S. Mohan", facultyId: "FAC-ENG-101", department: "ADS", role: "Internal Examiner" },
   ]);
 
   // Persisted Allocations (ensure full multi-subject dataset is loaded)
@@ -2164,7 +2164,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
 
               {/* Department Quick Filter Pills */}
               <div className="flex flex-wrap items-center gap-1.5 bg-[#FAF8F5] p-1 rounded-xl border border-gray-200">
-                {["ALL", "AI&DS", "CSE", "BME", "Biotech", "ECE", "Mathematics"].map((dept) => (
+                {["ALL", "ADS", "CSE", "BME", "Biotech", "ECE", "Mathematics"].map((dept) => (
                   <button
                     key={dept}
                     type="button"

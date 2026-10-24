@@ -26,7 +26,7 @@ export const initialEngineeringDepts: DepartmentItem[] = [
   {
     key: "aids",
     name: "Artificial Intelligence & Data Science",
-    code: "AIDS",
+    code: "ADS",
     headName: "Not assigned",
     totalStudents: 50,
     status: "ACTIVE",

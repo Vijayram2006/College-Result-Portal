@@ -104,7 +104,7 @@ export const HodExamNotificationsView: React.FC<HodExamNotificationsViewProps> =
   const deptCode = department.toLowerCase().includes("comp") || department.toLowerCase().includes("cse")
     ? "CSE"
     : department.toLowerCase().includes("ai") || department.toLowerCase().includes("data")
-    ? "AIDS"
+    ? "ADS"
     : department.toLowerCase().includes("bio") || department.toLowerCase().includes("bme")
     ? "BME"
     : department.toLowerCase().includes("tech") || department.toLowerCase().includes("bt")

@@ -123,7 +123,8 @@ public class CoAssessmentService {
     /** Everything the entry screen shows for one subject and IAT cycle. */
     public record Sheet(String deptKey, String deptName, String semester, String subjectCode, String subjectTitle,
                         String courseType, boolean courseTypeLocked, String cycle, List<Component> components,
-                        List<IatColumn> iatColumns, List<StudentRow> students, SurveyWindow surveyWindow) {
+                        List<IatColumn> iatColumns, List<StudentRow> students, SurveyWindow surveyWindow,
+                        Map<String, String> enteredBy, String iatExaminers) {
     }
 
     public Sheet sheet(String dept, String semester, String subject, String cycle, String courseType) {
@@ -143,8 +144,19 @@ public class CoAssessmentService {
             for (Component comp : comps) mine.put(comp.key(), entries.getOrDefault(comp.key(), Map.of()).get(st[0]));
             return new StudentRow(st[0], st[1], mine, iat.get(st[0]));
         }).toList();
+        // REQ-13: who entered each mark register (for cross-auditing), and the IAT evaluators
+        Map<String, String> enteredBy = new LinkedHashMap<>();
+        db.sql("""
+                        SELECT component, string_agg(DISTINCT updated_by, ', ') FROM co_entries
+                        WHERE dept_key = ? AND semester = ? AND subject_code = ? GROUP BY component
+                        """).params(s.dept, s.sem, s.code)
+                .query((rs, n) -> enteredBy.put(rs.getString(1), rs.getString(2))).list();
+        String examiners = db.sql("""
+                        SELECT string_agg(DISTINCT examiner_name || ' (' || examiner_designation || ')', ', ') FROM marks
+                        WHERE dept_key = ? AND semester = ? AND subject_code = ? AND assessment_type = ?
+                        """).params(s.dept, s.sem, s.code, c).query(String.class).optional().orElse(null);
         return new Sheet(s.dept, departments.name(s.dept), Semesters.label(s.sem), s.code, s.title, type, stored != null,
-                c, comps, iatColumns(c), rows, window(s));
+                c, comps, iatColumns(c), rows, window(s), enteredBy, examiners);
     }
 
     public record SaveRequest(String semester, String subjectCode, String courseType, String component,
@@ -329,9 +341,11 @@ public class CoAssessmentService {
 
     // ------------------------------------------------------------------------------------------- the attainment
 
+    /** iatScore: the IAT marks scored per CO over both cycles (out of 34, CO6 out of 30) for the consolidated sheet. */
     public record StudentAttainment(String regNo, String name, Map<String, Double> iat, Map<String, Double> assignment,
                                     Map<String, Double> quizOrLab, Double activity, Map<String, Double> total,
-                                    String grade, Double gradePoint, Double seePercent, List<Double> survey) {
+                                    String grade, Double gradePoint, Double seePercent, List<Double> survey,
+                                    Map<String, Double> iatScore) {
     }
 
     public record Level(int students, int above, Double percent, int level) {
@@ -347,7 +361,33 @@ public class CoAssessmentService {
 
     public record Attainment(String deptKey, String deptName, String semester, String subjectCode, String subjectTitle,
                              String courseType, List<StudentAttainment> students, Map<String, Level> internal,
-                             Map<String, Level> university, List<SurveyRow> survey, List<OverallRow> overall) {
+                             Map<String, Level> university, List<SurveyRow> survey, List<OverallRow> overall,
+                             double threshold, List<Double> coMax) {
+    }
+
+    /** REQ-02/18: the attainment threshold of a subject (percentage of marks; 50 unless the faculty changed it). */
+    public double threshold(String dept, int sem, String code) {
+        return db.sql("SELECT threshold FROM co_thresholds WHERE dept_key = ? AND semester = ? AND subject_code = ?")
+                .params(dept, sem, code).query(Double.class).optional().orElse(50.0);
+    }
+
+    public record ThresholdRequest(String semester, String subjectCode, Double threshold) {
+    }
+
+    @Transactional
+    public double setThreshold(String dept, ThresholdRequest r, CurrentUser user, String ip) {
+        if (r == null || r.threshold() == null || r.threshold() < 1 || r.threshold() > 100) {
+            throw ApiException.badRequest("The threshold is a percentage from 1 to 100");
+        }
+        Subject s = subject(dept, r.semester(), r.subjectCode());
+        db.sql("""
+                        INSERT INTO co_thresholds (dept_key, semester, subject_code, threshold, updated_by) VALUES (?, ?, ?, ?, ?)
+                        ON CONFLICT (dept_key, semester, subject_code) DO UPDATE SET threshold = EXCLUDED.threshold,
+                            updated_by = EXCLUDED.updated_by, updated_at = now()
+                        """).params(s.dept, s.sem, s.code, r.threshold(), user.name()).update();
+        audit.record(user.username(), user.name(), "SET_CO_THRESHOLD", s.code,
+                "Set the CO attainment threshold of " + s.code + " to " + fmt(r.threshold()) + "% of marks.", ip);
+        return r.threshold();
     }
 
     public Attainment attainment(String dept, String semester, String subject, String courseType) {
@@ -375,8 +415,11 @@ public class CoAssessmentService {
                     sum(b, 2, 6) + sum(b, 12, 16),                      // CO4: Q3-6, 12a,12b,13a,13b
                     sum(b, 6, 10) + sum(b, 16, 20),                     // CO5: Q7-10, 14a,14b,15a,15b
                     sum(a, 20, 22) + sum(b, 20, 22)};                   // CO6: 16a,16b of both
-            Map<String, Double> iat = new LinkedHashMap<>();
-            for (int i = 0; i < 6; i++) iat.put(COS.get(i), iatScored[i] / IAT_CO_MAX[i] * 100);
+            Map<String, Double> iat = new LinkedHashMap<>(), iatScore = new LinkedHashMap<>();
+            for (int i = 0; i < 6; i++) {
+                iat.put(COS.get(i), iatScored[i] / IAT_CO_MAX[i] * 100);
+                iatScore.put(COS.get(i), iatScored[i]);
+            }
 
             List<Double> a1 = mark(e, "ASSIGN1", reg), a2 = mark(e, "ASSIGN2", reg);
             Map<String, Double> assignment = new LinkedHashMap<>();
@@ -412,16 +455,17 @@ public class CoAssessmentService {
             double gp = gradePoint(grade);
             double see = (gp / 6) / (10.0 / 6) * 100;
             rows.add(new StudentAttainment(reg, st[1], iat, assignment, third, activity, total, grade, gp, see,
-                    mark(e, "EXIT_SURVEY", reg)));
+                    mark(e, "EXIT_SURVEY", reg), iatScore));
         }
+        double threshold = threshold(s.dept, s.sem, s.code);
 
         Map<String, Level> internal = new LinkedHashMap<>(), university = new LinkedHashMap<>();
         for (String co : COS) {
             int n = rows.size();
-            int above = (int) rows.stream().filter(r -> r.total().get(co) >= 50).count();
+            int above = (int) rows.stream().filter(r -> r.total().get(co) >= threshold).count();
             Double pct = n == 0 ? null : (double) above / n * 100;
             internal.put(co, new Level(n, above, pct, level(pct, 60, 40, 30, 0)));
-            int seeAbove = (int) rows.stream().filter(r -> r.seePercent() >= 50).count();
+            int seeAbove = (int) rows.stream().filter(r -> r.seePercent() >= threshold).count();
             Double seePct = n == 0 ? null : (double) seeAbove / n * 100;
             university.put(co, new Level(n, seeAbove, seePct, level(seePct, 60, 40, 30, 1)));
         }
@@ -447,7 +491,8 @@ public class CoAssessmentService {
             overall.add(new OverallRow(co, iatLevel, seeLevel, direct, b, exit, d, total, total / 3 * 100));
         }
         return new Attainment(s.dept, departments.name(s.dept), Semesters.label(s.sem), s.code, s.title, type, rows,
-                internal, university, survey, overall);
+                internal, university, survey, overall, threshold,
+                java.util.Arrays.stream(IAT_CO_MAX).boxed().toList());
     }
 
     /** The workbook's level rule: IF(%>t3,3,IF(%>t2,2,IF(%>t1,1,fallback))). */

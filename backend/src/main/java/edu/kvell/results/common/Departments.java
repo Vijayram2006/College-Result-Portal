@@ -30,7 +30,7 @@ public class Departments {
         String college = CurrentUser.collegeOrNull();
         return db.sql("""
                         SELECT dept_key FROM departments
-                        WHERE (dept_key = :v OR lower(name) = :v OR lower(name) LIKE :prefix)
+                        WHERE (dept_key = :v OR lower(name) = :v OR lower(code) = :v OR lower(name) LIKE :prefix)
                           AND (CAST(:college AS VARCHAR) IS NULL OR college_key = :college)
                         ORDER BY (dept_key = :v) DESC, (lower(name) = :v) DESC LIMIT 1
                         """)

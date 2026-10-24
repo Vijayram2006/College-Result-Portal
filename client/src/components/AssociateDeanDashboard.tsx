@@ -79,10 +79,10 @@ import { FacultyBanner } from "./FacultyBanner";
 import { PaperCorrectionView } from "./dean/PaperCorrectionView";
 import { RevaluationThreeTierReviewView } from "./dean/RevaluationThreeTierReviewView";
 import { ExamTimetableNotificationView } from "./dean/ExamTimetableNotificationView";
-import { ExamCellClassroomAllocationView } from "./dean/ExamCellClassroomAllocationView";
 import { WorkflowChartTrackerView } from "./dean/WorkflowChartTrackerView";
 import { AnalyticsView } from "./dean/AnalyticsView";
 import { HodAnalytics } from "./hodAnalytics/HodAnalytics";
+import { HallPlansView } from "./HallPlansView";
 import { DeanFacultyManager } from "./dean/DeanFacultyManager";
 import { Calendar, GitFork } from "lucide-react";
 
@@ -104,7 +104,7 @@ export interface DepartmentInfo {
 const INITIAL_DEPARTMENTS: DepartmentInfo[] = [
   {
     key: "aids",
-    code: "AIDS",
+    code: "ADS",
     name: "Artificial Intelligence & Data Science",
     headName: "Not assigned",
     studentCount: 50,
@@ -499,7 +499,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
       list.push({
         regNo: s.regNo,
         name: s.name,
-        deptCode: "AIDS",
+        deptCode: "ADS",
         deptName: "Artificial Intelligence & Data Science",
         category: idx % 6 === 0 ? "Hosteller" : idx % 10 === 0 ? "Lateral" : "Regular",
         sem: "Sem I",
@@ -1503,12 +1503,8 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
           )}
 
           {/* EXAM CELL CLASSROOM & FACULTY ALLOCATION VIEW (Workflow Steps 13-20) */}
-          {activeNav === "classroom-allocation" && (
-            <ExamCellClassroomAllocationView
-              onToast={showToast}
-              onNavigateToPaperCorrection={() => setActiveNav("paper-correction")}
-            />
-          )}
+          {/* REQ-06: hall allotment is the COE's; the Associate Dean oversees the published allotments (view only) */}
+          {activeNav === "classroom-allocation" && <HallPlansView mode="dean" />}
 
           {/* STUDENT DATA VIEW (Matching Image 1) */}
           {activeNav === "student-data" && <DeanStudentsView />}
@@ -1626,7 +1622,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
               </div>
 
               <div className="flex items-center gap-1.5 overflow-x-auto py-1">
-                {["all", "AIDS", "BME", "BT", "CSE", "ECE", "MECH", "IT"].map((dept) => (
+                {["all", "ADS", "BME", "BT", "CSE", "ECE", "MECH", "IT"].map((dept) => (
                   <button
                     key={dept}
                     onClick={() => setSelectedDeptFilter(dept)}
@@ -1775,8 +1771,8 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
 
             <div className="flex-1 overflow-y-auto p-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[
-                { name: "Dr. S. Mohan", role: "HOD", dept: "AI&DS", exp: "14 Years" },
-                { name: "Prof. K. Venkatesh", role: "Associate Professor", dept: "AI&DS", exp: "9 Years" },
+                { name: "Dr. S. Mohan", role: "HOD", dept: "ADS", exp: "14 Years" },
+                { name: "Prof. K. Venkatesh", role: "Associate Professor", dept: "ADS", exp: "9 Years" },
                 { name: "Dr. Jayapradha", role: "HOD", dept: "CSE", exp: "16 Years" },
                 { name: "Dr. Ananya Menon", role: "Professor", dept: "CSE", exp: "11 Years" },
                 { name: "Dr. R. Natarajan", role: "HOD", dept: "BME", exp: "15 Years" },
@@ -1852,9 +1848,9 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
 
             <div className="flex-1 overflow-y-auto p-5 space-y-2.5">
               {[
-                { code: "AI601", title: "Artificial Intelligence Foundations", dept: "AIDS", credits: 4 },
-                { code: "AI602", title: "Deep Learning & Neural Architectures", dept: "AIDS", credits: 4 },
-                { code: "AI603", title: "Natural Language Processing", dept: "AIDS", credits: 3 },
+                { code: "AI601", title: "Artificial Intelligence Foundations", dept: "ADS", credits: 4 },
+                { code: "AI602", title: "Deep Learning & Neural Architectures", dept: "ADS", credits: 4 },
+                { code: "AI603", title: "Natural Language Processing", dept: "ADS", credits: 3 },
                 { code: "CS601", title: "Data Structures & Algorithms", dept: "CSE", credits: 4 },
                 { code: "CS602", title: "Database Management Systems", dept: "CSE", credits: 4 },
                 { code: "CS603", title: "Operating Systems Principles", dept: "CSE", credits: 3 },

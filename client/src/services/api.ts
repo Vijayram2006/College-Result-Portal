@@ -100,6 +100,8 @@ export interface SubjectResultDTO {
   gradePoints: number;
   status: "PASS" | "FAIL";
   publishedAt?: string;
+  /** The evaluator's remarks ("overall", "q1".."q16"). */
+  remarks?: Record<string, string>;
 }
 
 /** One published assessment of a semester. IAT-1 / IAT-2 are internal tests: no SGPA (null). */
@@ -113,10 +115,13 @@ export interface SemesterResultDTO {
   sgpa: number | null;
   totalCredits: number;
   earnedCredits: number;
-  result: "PASS" | "FAIL";
+  result: "PASS" | "FAIL" | "WITHHELD";
   totalMarks: number;
   maxMarks: number;
   subjects: SubjectResultDTO[];
+  /** WH1 malpractice, WH2 fee dues, WH3 attendance shortage (no marks are sent then). */
+  withheldCode?: string | null;
+  withheldReason?: string | null;
 }
 
 export interface StudentResultsDTO {
@@ -404,6 +409,8 @@ export interface StudentMarkDTO {
   examinerDesignation?: string;
   /** Edit version, sent back as expectedVersion. */
   version?: number;
+  /** Evaluator remarks ("overall", "q1".."q16"). */
+  remarks?: Record<string, string>;
 }
 
 /** Forwarding / publication state of one subject (NOT_FORWARDED, FORWARDED, PUBLISHED, OUT_OF_DATE, NO_MARKS). */
@@ -471,12 +478,13 @@ export const facultyApi = {
     examinerDesignation: string;
     expectedVersion?: number;
     deptKey?: string;
+    remarks?: Record<string, string>;
   }): Promise<StudentMarkDTO> {
     return (await apiClient.put<StudentMarkDTO>("/faculty/marks", payload)).data;
   },
 
   /** Forwards the subject's entered marks to the Controller of Examinations for verification. */
-  async forward(payload: { semester: string; subjectCode: string; academicYear: string; assessmentType: string }): Promise<{
+  async forward(payload: { semester: string; subjectCode: string; academicYear: string; assessmentType: string; deptKey?: string }): Promise<{
     id: string;
     totalStudents: number;
     publicationStatus: string;

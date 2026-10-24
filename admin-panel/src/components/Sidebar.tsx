@@ -27,6 +27,7 @@ import {
   RotateCcw,
   ClipboardCheck,
   FileCheck,
+  LayoutGrid,
 } from "lucide-react";
 import { adminAuthApi } from "../services/api";
 import { getActiveCollege, isSuperAdmin, SUPER_ADMIN_CONFIG } from "../utils/rbac";
@@ -220,6 +221,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
                   >
                     <FileText size={14} />
                     <span>Answer Scripts</span>
+                  </Link>
+
+                  <Link
+                    href="/admin/hall-allotment"
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                      isActive("/admin/hall-allotment")
+                        ? "bg-[#D4A72C] text-[#0B192C] font-bold"
+                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <LayoutGrid size={14} />
+                    <span>Hall Allotment</span>
+                  </Link>
+
+                  <Link
+                    href="/admin/results/withheld"
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                      isActive("/admin/results/withheld")
+                        ? "bg-[#D4A72C] text-[#0B192C] font-bold"
+                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <ShieldAlert size={14} />
+                    <span>Withheld Results</span>
                   </Link>
 
                   <Link

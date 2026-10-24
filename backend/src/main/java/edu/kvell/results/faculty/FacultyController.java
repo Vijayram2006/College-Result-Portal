@@ -32,6 +32,19 @@ public class FacultyController {
     private final edu.kvell.results.marks.AnonymousEvaluation anonymous;
     private final FacultyAccess access;
 
+    /**
+     * REQ-03 anti-rushing gate: a script's first marks are accepted only after the evaluator has had the script open
+     * for this many seconds (recorded on the server when the PDF is fetched, so it cannot be skipped in the browser).
+     */
+    @org.springframework.beans.factory.annotation.Value("${kvell.evaluation.min-seconds:180}")
+    private long minEvaluationSeconds;
+    private final java.util.Map<String, java.time.Instant> openedAt = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static String openKey(String user, String dept, String semester, String subject, String assessment, String code) {
+        return String.join("|", user, dept, String.valueOf(edu.kvell.results.common.Semesters.parse(semester)),
+                subject.trim().toUpperCase(java.util.Locale.ROOT), assessment.trim(), code.trim().toUpperCase(java.util.Locale.ROOT));
+    }
+
     public FacultyController(SubjectService subjects, MarkService marks, ResultBatchService results,
                              AnswerScriptController scripts, org.springframework.jdbc.core.simple.JdbcClient db,
                              edu.kvell.results.marks.AnonymousEvaluation anonymous, FacultyAccess access) {
@@ -58,6 +71,8 @@ public class FacultyController {
         String reg = anonymous.resolve(dept, semester, subject, assessment, regNo);
         org.springframework.http.ResponseEntity<byte[]> pdf = scripts.file(dept, semester, subject, reg, assessment);
         String code = regNo.trim().toUpperCase(java.util.Locale.ROOT);
+        openedAt.putIfAbsent(openKey(CurrentUser.get().username(), dept, semester, subject, assessment, code),
+                java.time.Instant.now());
         return org.springframework.http.ResponseEntity.ok()
                 .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + code + ".pdf\"")
@@ -177,9 +192,32 @@ public class FacultyController {
                 .query(Integer.class).single() > 0) {
             throw edu.kvell.results.common.ApiException.conflict("This student was marked absent by the COE");
         }
+        boolean firstEntry = db.sql("""
+                        SELECT count(*) FROM marks WHERE dept_key = ? AND semester = ? AND subject_code = ? AND reg_no = ?
+                          AND assessment_type = ?
+                        """).params(dept, edu.kvell.results.common.Semesters.parse(r.semester()),
+                        r.subjectCode().trim().toUpperCase(java.util.Locale.ROOT), reg, r.assessmentType().trim())
+                .query(Integer.class).single() == 0;
+        boolean hasScript = db.sql("""
+                        SELECT count(*) FROM answer_scripts WHERE dept_key = ? AND semester = ? AND subject_code = ?
+                          AND reg_no = ? AND assessment_type = ?
+                        """).params(dept, edu.kvell.results.common.Semesters.parse(r.semester()),
+                        r.subjectCode().trim().toUpperCase(java.util.Locale.ROOT), reg, r.assessmentType().trim())
+                .query(Integer.class).single() > 0;
+        if (firstEntry && hasScript && minEvaluationSeconds > 0) {
+            java.time.Instant opened = openedAt.get(openKey(user.username(), dept, r.semester(), r.subjectCode(),
+                    r.assessmentType(), r.regNo()));
+            long spent = opened == null ? 0 : java.time.Duration.between(opened, java.time.Instant.now()).toSeconds();
+            if (spent < minEvaluationSeconds) {
+                throw edu.kvell.results.common.ApiException.conflict(opened == null
+                        ? "Open and read the answer script before entering its marks"
+                        : "Evaluate the script for at least " + (minEvaluationSeconds / 60) + " minutes before submitting ("
+                                + (minEvaluationSeconds - spent) + " seconds left)");
+            }
+        }
         MarkService.MarkRequest own = new MarkService.MarkRequest(dept, r.semester(), r.subjectCode(),
                 reg, r.assessmentType(), r.partA(), r.partBC(), r.examinerName(), r.examinerDesignation(),
-                r.expectedVersion());
+                r.expectedVersion(), r.remarks());
         return anonymous.mask(marks.save(own, user, http.getRemoteAddr()), dept);
     }
 
@@ -187,7 +225,9 @@ public class FacultyController {
     @PostMapping("/forward")
     ResultBatchService.ResultBatch forward(@RequestBody ResultBatchService.ForwardRequest r, HttpServletRequest http) {
         CurrentUser user = CurrentUser.get();
-        ResultBatchService.ResultBatch b = results.forward(new ResultBatchService.ForwardRequest(user.deptKey(),
+        // An allotted evaluator forwards the subject of whichever department the Dean allotted it from
+        String dept = access.deptFor(r.deptKey(), r.semester(), r.subjectCode());
+        ResultBatchService.ResultBatch b = results.forward(new ResultBatchService.ForwardRequest(dept,
                 r.semester(), r.subjectCode(), r.academicYear(), r.assessmentType()), user, http.getRemoteAddr());
         // The students' names and register numbers stay hidden from faculty
         return new ResultBatchService.ResultBatch(b.id(), b.batchTitle(), b.departmentKey(), b.departmentName(),

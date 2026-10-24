@@ -65,6 +65,19 @@ function useGet<T>(path: string | null, params?: Record<string, string>): { data
   return state;
 }
 
+/** REQ-05: the revaluation's Examiner 2 of a student's subject, from the three-tier revaluation records. */
+function secondExaminer(regNo: string, subjectCode: string): string {
+  try {
+    const list = JSON.parse(localStorage.getItem("kvell_revaluation_3tier_records_v3") || "[]") as {
+      regNo?: string; subjectCode?: string; proc2?: { examinerName?: string; allotmentStatus?: string };
+    }[];
+    const r = list.find((x) => x.regNo === regNo && x.subjectCode === subjectCode && x.proc2?.examinerName);
+    return r?.proc2?.examinerName ?? "";
+  } catch {
+    return "";
+  }
+}
+
 function useDepartments() {
   return useGet<Department[]>("/admin/departments");
 }
@@ -493,7 +506,7 @@ export function DeanAnswerScriptsView() {
               <Printer size={14} className="text-[#D4A72C]" /> Print statement of marks
             </button>
           </div>
-          <Table head={["S.No", "Register No.", "Name", "Answer script", "Total", "Status", ""]}>
+          <Table head={["S.No", "Register No.", "Name", "Answer script", "Total", "Examiner 1", "Examiner 2", "Status", ""]}>
             {rows.map((r, i) => (
               <tr key={r.regNo}>
                 <td className="px-4 py-3">{i + 1}</td>
@@ -501,6 +514,9 @@ export function DeanAnswerScriptsView() {
                 <td className="px-4 py-3 font-semibold text-[#0B192C]">{r.name}</td>
                 <td className="px-4 py-3">{uploaded.has(r.regNo) ? "Uploaded" : <span className="text-gray-400">Not uploaded</span>}</td>
                 <td className="px-4 py-3 font-bold">{r.hasMarks ? `${r.grandTotal} / 100` : "—"}</td>
+                {/* REQ-05: who evaluated the script, and the revaluation examiner if there is one */}
+                <td className="px-4 py-3">{r.examinerName ? <span className="font-semibold">{r.examinerName}</span> : "—"}</td>
+                <td className="px-4 py-3">{secondExaminer(r.regNo, subject) || "—"}</td>
                 <td className="px-4 py-3">{r.hasMarks ? "Evaluated" : <span className="text-gray-400">Not evaluated</span>}</td>
                 <td className="px-4 py-3 text-right">
                   <button onClick={() => setOpenIndex(i)}

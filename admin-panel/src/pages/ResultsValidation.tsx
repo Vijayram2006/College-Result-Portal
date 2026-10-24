@@ -148,6 +148,18 @@ interface StudentMarkData {
   version?: number;
 }
 
+/** REQ-05: the revaluation's Examiner 2 of a student's subject (three-tier revaluation records). */
+function secondExaminer(regNo: string, subjectCode: string): string {
+  try {
+    const list = JSON.parse(localStorage.getItem("kvell_revaluation_3tier_records_v3") || "[]") as {
+      regNo?: string; subjectCode?: string; proc2?: { examinerName?: string };
+    }[];
+    return list.find((x) => x.regNo === regNo && x.subjectCode === subjectCode && x.proc2?.examinerName)?.proc2?.examinerName ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export const ResultsValidation: React.FC = () => {
   const [, navigate] = useLocation();
 
@@ -867,6 +879,8 @@ export const ResultsValidation: React.FC = () => {
                   <th className="p-3.5 text-center">Part A Total</th>
                   <th className="p-3.5 text-center">Part B+C Total</th>
                   <th className="p-3.5 text-center">Grand Total</th>
+                  <th className="p-3.5">Examiner 1</th>
+                  <th className="p-3.5">Examiner 2</th>
                   <th className="p-3.5 text-center">Status</th>
                   <th className="p-3.5 text-right">Action</th>
                 </tr>
@@ -920,6 +934,9 @@ export const ResultsValidation: React.FC = () => {
                           <span className="text-gray-400">—</span>
                         )}
                       </td>
+                      {/* REQ-05: Examiner 1 (the evaluator) and Examiner 2 (revaluation), for the consolidated summary */}
+                      <td className="p-3.5 font-semibold text-gray-800">{student.examinerName || "—"}</td>
+                      <td className="p-3.5 text-gray-700">{secondExaminer(student.regNo, effectiveSubjectCode) || "—"}</td>
                       <td className="p-3.5 text-center">
                         {student.hasMarks ? (
                           <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1">

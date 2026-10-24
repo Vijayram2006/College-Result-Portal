@@ -30,6 +30,8 @@ const SuperAdminControlPage = lazy(() => import("./pages/SuperAdminControl").the
 const RevaluationRequestsPage = lazy(() => import("./pages/RevaluationRequests").then((m) => ({ default: m.RevaluationRequestsPage })));
 const FacultyMasterPage = lazy(() => import("./pages/FacultyMaster").then((m) => ({ default: m.FacultyMasterPage })));
 const InternalMarksPage = lazy(() => import("./components/CoAssessment").then((m) => ({ default: () => <m.CoAssessment mode="admin" /> })));
+const HallAllotmentPage = lazy(() => import("./pages/HallAllotment").then((m) => ({ default: m.HallAllotmentPage })));
+const WithheldResultsPage = lazy(() => import("./pages/WithheldResults").then((m) => ({ default: m.WithheldResultsPage })));
 const QuestionPapersPage = lazy(() => import("./pages/QuestionPapers").then((m) => ({ default: m.QuestionPapersPage })));
 
 const pageTitles: Record<string, string> = {
@@ -38,6 +40,8 @@ const pageTitles: Record<string, string> = {
   "/admin/dashboard": "University Admin Dashboard",
   "/admin/departments": "University Department Directory & Management",
   "/admin/question-papers": "Question Paper Logistics & Master Release Hub",
+  "/admin/hall-allotment": "Examination Classroom Allotment",
+  "/admin/results/withheld": "Withheld Results",
   "/admin/results": "Result Management Hub",
   "/admin/results/upload": "Student Data",
   "/admin/results/validation": "Student Mark Entry",
@@ -233,6 +237,22 @@ export const App: React.FC = () => {
         {() => (
           <AdminLayout>
             <ProtectedRoute component={SubjectsPage} />
+          </AdminLayout>
+        )}
+      </Route>
+
+      <Route path="/admin/hall-allotment">
+        {() => (
+          <AdminLayout>
+            <ProtectedRoute component={HallAllotmentPage} />
+          </AdminLayout>
+        )}
+      </Route>
+
+      <Route path="/admin/results/withheld">
+        {() => (
+          <AdminLayout>
+            <ProtectedRoute component={WithheldResultsPage} />
           </AdminLayout>
         )}
       </Route>

@@ -79,7 +79,7 @@ export const initialDefaultDepts: Department[] = [
   {
     key: "aids",
     name: "Artificial Intelligence & Data Science",
-    code: "AIDS",
+    code: "ADS",
     headName: "Dr. HOD AIDS",
     totalStudents: 50,
     status: "ACTIVE",

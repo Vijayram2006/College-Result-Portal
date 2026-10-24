@@ -41,7 +41,8 @@ public class MarkService {
 
     public record MarkRequest(String deptKey, String semester, String subjectCode, String regNo,
                               String assessmentType, List<Double> partA, Map<String, Question> partBC,
-                              String examinerName, String examinerDesignation, Integer expectedVersion) {
+                              String examinerName, String examinerDesignation, Integer expectedVersion,
+                              Map<String, String> remarks) {
     }
 
     /** One row of the Mark Entry roster; matches the admin panel's StudentMarkData. */
@@ -50,7 +51,31 @@ public class MarkService {
                               String resultStatus, List<Double> partA, Map<String, Question> partBC,
                               String assessmentType, String deptKey, String deptName, String semester,
                               String subjectCode, String subjectTitle, String examinerName,
-                              String examinerDesignation, int version) {
+                              String examinerDesignation, int version, Map<String, String> remarks) {
+    }
+
+    private static final tools.jackson.databind.ObjectMapper JSON = new tools.jackson.databind.ObjectMapper();
+
+    /** Evaluator remarks (REQ-04): "overall" and per question ("q1".."q16"), each up to 500 characters. */
+    static Map<String, String> cleanRemarks(Map<String, String> in) {
+        Map<String, String> out = new LinkedHashMap<>();
+        if (in == null) return out;
+        in.forEach((k, v) -> {
+            if (k == null || v == null || v.isBlank()) return;
+            if (!k.equals("overall") && !k.matches("q([1-9]|1[0-6])")) throw ApiException.badRequest("Unknown remark " + k);
+            if (v.length() > 500) throw ApiException.badRequest("A remark can be at most 500 characters");
+            out.put(k, v.trim());
+        });
+        return out;
+    }
+
+    public static Map<String, String> remarksOf(String json) {
+        return readRemarks(json);
+    }
+
+    static Map<String, String> readRemarks(String json) {
+        if (json == null || json.isBlank()) return Map.of();
+        return JSON.readValue(json, new tools.jackson.core.type.TypeReference<LinkedHashMap<String, String>>() { });
     }
 
     private static final Set<String> ASSESSMENTS = Set.of("IAT-1", "IAT-2", "End Semester");
@@ -73,7 +98,7 @@ public class MarkService {
         return db.sql("""
                         SELECT s.reg_no, s.name, s.dob, s.category, m.assessment_type, m.part_a, m.part_bc,
                                m.part_a_total, m.part_bc_total, m.grand_total, m.grade, m.passed,
-                               m.examiner_name, m.examiner_designation, m.version,
+                               m.examiner_name, m.examiner_designation, m.version, m.remarks::text AS remarks,
                                m.dept_key, d.name AS dept_name, m.semester, m.subject_code, m.subject_title
                         FROM marks m
                         JOIN students s ON s.reg_no = m.reg_no
@@ -91,7 +116,7 @@ public class MarkService {
         return db.sql("""
                         SELECT s.reg_no, s.name, CAST(NULL AS DATE) AS dob, s.category, m.assessment_type, m.part_a, m.part_bc,
                                m.part_a_total, m.part_bc_total, m.grand_total, m.grade, m.passed,
-                               m.examiner_name, m.examiner_designation, m.version,
+                               m.examiner_name, m.examiner_designation, m.version, m.remarks::text AS remarks,
                                m.dept_key, d.name AS dept_name, m.semester, m.subject_code, m.subject_title
                         FROM marks m
                         JOIN students s ON s.reg_no = m.reg_no
@@ -116,7 +141,7 @@ public class MarkService {
         return db.sql("""
                         SELECT s.reg_no, s.name, s.dob, s.category, m.assessment_type, m.part_a, m.part_bc,
                                m.part_a_total, m.part_bc_total, m.grand_total, m.grade, m.passed,
-                               m.examiner_name, m.examiner_designation, m.version
+                               m.examiner_name, m.examiner_designation, m.version, m.remarks::text AS remarks
                         FROM students s
                         LEFT JOIN marks m ON m.reg_no = s.reg_no AND m.dept_key = s.dept_key
                                          AND m.semester = s.semester AND m.subject_code = :code
@@ -177,20 +202,22 @@ public class MarkService {
         db.sql("""
                         INSERT INTO marks (dept_key, semester, subject_code, subject_title, reg_no, assessment_type,
                                            part_a, part_bc, part_a_total, part_bc_total, grand_total, grade, passed,
-                                           examiner_name, examiner_designation, entered_by)
-                        VALUES (?, ?, ?, ?, ?, ?, CAST(? AS NUMERIC[]), CAST(? AS NUMERIC[]), ?, ?, ?, ?, ?, ?, ?, ?)
+                                           examiner_name, examiner_designation, entered_by, remarks)
+                        VALUES (?, ?, ?, ?, ?, ?, CAST(? AS NUMERIC[]), CAST(? AS NUMERIC[]), ?, ?, ?, ?, ?, ?, ?, ?,
+                                CAST(? AS JSONB))
                         ON CONFLICT (dept_key, semester, subject_code, reg_no, assessment_type) DO UPDATE SET
                             subject_title = EXCLUDED.subject_title,
                             part_a = EXCLUDED.part_a, part_bc = EXCLUDED.part_bc,
                             part_a_total = EXCLUDED.part_a_total, part_bc_total = EXCLUDED.part_bc_total,
                             grand_total = EXCLUDED.grand_total, grade = EXCLUDED.grade, passed = EXCLUDED.passed,
                             examiner_name = EXCLUDED.examiner_name,
-                            examiner_designation = EXCLUDED.examiner_designation,
+                            examiner_designation = EXCLUDED.examiner_designation, remarks = EXCLUDED.remarks,
                             entered_by = EXCLUDED.entered_by, entered_at = now(), version = marks.version + 1
                         """)
                 .params(deptKey, sem, code, title, regNo, assessment, pgArray(partA), pgArray(partBC),
                         BigDecimal.valueOf(partATotal), BigDecimal.valueOf(partBCTotal), grade.total(),
-                        grade.letter(), grade.passed(), examiner, designation, user.username())
+                        grade.letter(), grade.passed(), examiner, designation, user.username(),
+                        JSON.writeValueAsString(cleanRemarks(req.remarks())))
                 .update();
         audit.record(user.username(), user.name(), "ENTERED_STUDENT_MARKS", regNo + " (" + studentName + ")",
                 "Entered " + assessment + " marks in " + code + " " + title + ": total " + grade.total()
@@ -298,7 +325,7 @@ public class MarkService {
         if (assessment == null) {
             return new StudentMark(regNo, rs.getString("name"), dob, rs.getString("category"), false, 0, 0, 0, "—",
                     "FAIL", zeros(PART_A_QUESTIONS), emptyBC(), null, deptKey, deptName, Semesters.label(sem), code,
-                    title, null, null, 0);
+                    title, null, null, 0, Map.of());
         }
         // A row saved with the wrong number of values (an older or outside writer) must not break the whole roster:
         // missing values read as 0 and extra ones are ignored, so the COE can open the student and save it again.
@@ -315,7 +342,8 @@ public class MarkService {
                 rs.getBigDecimal("part_a_total").doubleValue(), rs.getBigDecimal("part_bc_total").doubleValue(),
                 rs.getInt("grand_total"), rs.getString("grade"), rs.getBoolean("passed") ? "PASS" : "FAIL", partA,
                 partBC, assessment, deptKey, deptName, Semesters.label(sem), code, title,
-                rs.getString("examiner_name"), rs.getString("examiner_designation"), rs.getInt("version"));
+                rs.getString("examiner_name"), rs.getString("examiner_designation"), rs.getInt("version"),
+                readRemarks(rs.getString("remarks")));
     }
 
     /** The list padded with zeros, or cut, to exactly length values. */

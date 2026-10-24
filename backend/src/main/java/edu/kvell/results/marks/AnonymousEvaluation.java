@@ -63,7 +63,7 @@ public class AnonymousEvaluation {
         return new MarkService.StudentMark(code, "Answer script " + code, "", "", m.hasMarks(), m.partATotal(),
                 m.partBCTotal(), m.grandTotal(), m.grade(), m.resultStatus(), m.partA(), m.partBC(), m.assessmentType(),
                 m.deptKey(), m.deptName(), m.semester(), m.subjectCode(), m.subjectTitle(), m.examinerName(),
-                m.examinerDesignation(), m.version());
+                m.examinerDesignation(), m.version(), m.remarks());
     }
 
     /** The register number behind a dummy number of this department, semester, subject and assessment. */

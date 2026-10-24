@@ -36,7 +36,7 @@ public class WorkflowDocumentController {
     static final Map<String, Set<Role>> WRITERS = Map.of(
             "kvell_exam_timetable", Set.of(Role.DEAN, Role.ADMIN),
             "kvell_exam_notifications", Set.of(Role.DEAN, Role.ADMIN),
-            "kvell_classroom_allocations", Set.of(Role.DEAN, Role.ADMIN),
+            "kvell_classroom_allocations", Set.of(Role.ADMIN), // REQ-06: the COE only; the Associate Dean reads it
             "kvell_paper_correction_assignments", Set.of(Role.DEAN, Role.ADMIN, Role.FACULTY, Role.HOD),
             "kvell_faculty_evaluated_scripts", Set.of(Role.DEAN, Role.ADMIN, Role.FACULTY, Role.HOD),
             "kvell_revaluation_3tier_records_v3", Set.of(Role.DEAN, Role.ADMIN));

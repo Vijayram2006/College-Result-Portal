@@ -29,6 +29,8 @@ import { FacultyExamNotificationsView } from "../components/FacultyExamNotificat
 import { HodExamNotificationsView } from "../components/HodExamNotificationsView";
 import type { LucideIcon } from "lucide-react";
 import { StudentQuizzes } from "../components/QuizEditor";
+import { HallPlansView } from "../components/HallPlansView";
+import { StudentResultNotes, StudentSeatingCards } from "../components/StudentExtras";
 import { HodAnalytics } from "../components/hodAnalytics/HodAnalytics";
 import { CoAssessment } from "../components/CoAssessment";
 import { StudentExitSurvey } from "../components/StudentExitSurvey";
@@ -119,6 +121,7 @@ type PageKey =
   | "dashboard"
   | "subjects"
   | "marks"
+  | "hall-allotment"
   | "performance"
   | "students"
   | "reports"
@@ -199,9 +202,9 @@ const roleNav: Record<Role, NavItem[]> = {
   Faculty: [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { key: "noticeboard", label: "Exam Notifications", icon: Bell },
-    { key: "marks", label: "Marks Entry", icon: PenLine },
     { key: "internal-marks", label: "Internal Marks", icon: ClipboardCheck },
     { key: "paper-correction", label: "Paper Correction", icon: FileText },
+    { key: "hall-allotment", label: "Hall Allotment", icon: LayoutDashboard },
     { key: "question-paper", label: "Question Papers", icon: FileCheck },
   ],
   HOD: [
@@ -291,7 +294,7 @@ const facultyRows = [
 ];
 
 const departments: Array<{ name: string; short: string; faculty: number; students: number; average: number; improvement: string; risk: number; status: string }> = [
-  { name: "Artificial Intelligence & Data Science", short: "AIDS", faculty: 12, students: 50, average: 86, improvement: "+4.2%", risk: 2, status: "Healthy" },
+  { name: "Artificial Intelligence & Data Science", short: "ADS", faculty: 12, students: 50, average: 86, improvement: "+4.2%", risk: 2, status: "Healthy" },
   { name: "Computer Science and Engineering", short: "CSE", faculty: 18, students: 20, average: 88, improvement: "+5.1%", risk: 1, status: "Healthy" },
   { name: "Biomedical Engineering", short: "BME", faculty: 10, students: 15, average: 84, improvement: "+3.8%", risk: 1, status: "Healthy" },
   { name: "Automobile Engineering", short: "AUTO", faculty: 8, students: 0, average: 78, improvement: "+1.2%", risk: 0, status: "Healthy" },
@@ -499,7 +502,7 @@ const FACULTY_COLLEGES: Record<FacultyCollege, FacultyCollegeProfile> = {
         code: "AI3401",
         title: "Artificial Intelligence & Neural Networks",
         department: "Artificial Intelligence & Data Science",
-        deptShort: "AIDS",
+        deptShort: "ADS",
         semester: "Semester I",
         section: "Section A",
         type: "Theory",
@@ -1365,7 +1368,7 @@ function HodPortalDashboard({
   department?: string;
 }) {
   const kvellSealLogo = "/kvell-logo.png";
-  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "markEntry" | "internals" | "studentResult" | "questionPapers" | "markApprovals" | "notifications">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "markEntry" | "internals" | "hallAllotment" | "studentResult" | "questionPapers" | "markApprovals" | "notifications">("dashboard");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [deanBroadcastNotifs, setDeanBroadcastNotifs] = useState<DeanExamNotification[]>(() => safeLoadNotifications());
   const [pendingFacultyQpCount, setPendingFacultyQpCount] = useState<number>(() => {
@@ -1427,6 +1430,7 @@ function HodPortalDashboard({
         { key: "studentResult", label: "Student Result", icon: Users },
         { key: "questionPapers", label: "Question Papers", icon: FileCheck, badge: pendingFacultyQpCount },
         { key: "markApprovals", label: "Mark Approvals", icon: CheckSquare },
+        { key: "hallAllotment", label: "Hall Allotment", icon: LayoutDashboard },
         { key: "notifications", label: "Exam Notifications", icon: Bell, badge: deanBroadcastNotifs.length },
       ]}
       active={activeTab}
@@ -1725,6 +1729,9 @@ function HodPortalDashboard({
         ) : activeTab === "studentResult" ? (
           /* Tab: student result search */
           <StudentResultView students={overview?.students ?? []} />
+        ) : activeTab === "hallAllotment" ? (
+          /* Tab: the COE's hall allotment for the department; the HOD validates it for the faculty */
+          <HallPlansView mode="hod" deptKey={authApi.currentUser()?.departmentKey} />
         ) : activeTab === "markApprovals" ? (
           /* Tab: forwarded marks waiting for the HOD's approval (when the Chief COE requires it) */
           <MarkApprovalsView role="hod" />
@@ -3472,7 +3479,14 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
         if (role === "Faculty") return <FacultyDashboard onNavigate={navigate} />;
         return <SubjectsPage onToast={setToast} />;
       case "marks":
-        return <FacultyMarkEntry onToast={setToast} />;
+        // Faculty evaluate in Paper Correction (the bundles the Dean allots); the HOD keeps Mark Entry
+        return role === "Faculty" ? (
+          <FacultyPaperCorrectionView currentFacultyName={authApi.currentUser()?.name || meta.name} onToast={setToast} />
+        ) : (
+          <FacultyMarkEntry onToast={setToast} />
+        );
+      case "hall-allotment":
+        return <HallPlansView mode="faculty" deptKey={authApi.currentUser()?.departmentKey} onToast={setToast} />;
       case "internal-marks":
         return <CoAssessment mode="faculty" onToast={setToast} />;
       case "paper-correction":
@@ -4594,6 +4608,7 @@ function StudentDashboard({
         {activeTab === "dashboard" ? (
           /* Dashboard Module: Enlarged Credentials Card */
           <div className="w-full max-w-7xl space-y-6">
+            <StudentSeatingCards />
 
             <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
 
@@ -4984,6 +4999,8 @@ function StudentDashboard({
           </div>
         ) : (
           /* Result Module: Enlarged Official Statement of Marks */
+          <>
+          <StudentResultNotes result={latestSemester} />
           <div className="w-full max-w-7xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
 
             {/* Card Dark Header with Grade Sheet Download Control */}
@@ -5318,6 +5335,7 @@ function StudentDashboard({
             </div>
 
           </div>
+          </>
         )}
       </div>
     </PortalShell>

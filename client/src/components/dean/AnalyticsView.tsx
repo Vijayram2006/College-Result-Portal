@@ -217,7 +217,7 @@ const ALL_DEPARTMENTS_DATA: Record<
   }[]
 > = {
   "IAT-1": [
-    { deptCode: "AI&DS", deptName: "AI & Data Science", mean: 68.4, std: 6.8, variance: 46.2, spreadLower: 61.6, spreadUpper: 75.2, sampleSize: 50, passRate: 94.0, consistencyRating: "High" },
+    { deptCode: "ADS", deptName: "AI & Data Science", mean: 68.4, std: 6.8, variance: 46.2, spreadLower: 61.6, spreadUpper: 75.2, sampleSize: 50, passRate: 94.0, consistencyRating: "High" },
     { deptCode: "CSE", deptName: "Computer Science", mean: 71.2, std: 7.4, variance: 54.8, spreadLower: 63.8, spreadUpper: 78.6, sampleSize: 20, passRate: 95.0, consistencyRating: "High" },
     { deptCode: "BME", deptName: "Biomedical Engg", mean: 64.8, std: 6.1, variance: 37.2, spreadLower: 58.7, spreadUpper: 70.9, sampleSize: 28, passRate: 92.8, consistencyRating: "High" },
     { deptCode: "Biotech", deptName: "Biotechnology", mean: 62.0, std: 8.9, variance: 79.2, spreadLower: 53.1, spreadUpper: 70.9, sampleSize: 25, passRate: 96.0, consistencyRating: "Good" },
@@ -226,7 +226,7 @@ const ALL_DEPARTMENTS_DATA: Record<
     { deptCode: "IT", deptName: "Information Tech", mean: 67.0, std: 6.5, variance: 42.3, spreadLower: 60.5, spreadUpper: 73.5, sampleSize: 10, passRate: 90.0, consistencyRating: "High" },
   ],
   "IAT-2": [
-    { deptCode: "AI&DS", deptName: "AI & Data Science", mean: 72.1, std: 6.2, variance: 38.4, spreadLower: 65.9, spreadUpper: 78.3, sampleSize: 50, passRate: 96.0, consistencyRating: "High" },
+    { deptCode: "ADS", deptName: "AI & Data Science", mean: 72.1, std: 6.2, variance: 38.4, spreadLower: 65.9, spreadUpper: 78.3, sampleSize: 50, passRate: 96.0, consistencyRating: "High" },
     { deptCode: "CSE", deptName: "Computer Science", mean: 74.5, std: 6.9, variance: 47.6, spreadLower: 67.6, spreadUpper: 81.4, sampleSize: 20, passRate: 100.0, consistencyRating: "High" },
     { deptCode: "BME", deptName: "Biomedical Engg", mean: 67.4, std: 5.8, variance: 33.6, spreadLower: 61.6, spreadUpper: 73.2, sampleSize: 28, passRate: 96.4, consistencyRating: "High" },
     { deptCode: "Biotech", deptName: "Biotechnology", mean: 65.8, std: 8.1, variance: 65.6, spreadLower: 57.7, spreadUpper: 73.9, sampleSize: 25, passRate: 96.0, consistencyRating: "Good" },
@@ -235,7 +235,7 @@ const ALL_DEPARTMENTS_DATA: Record<
     { deptCode: "IT", deptName: "Information Tech", mean: 70.3, std: 6.0, variance: 36.0, spreadLower: 64.3, spreadUpper: 76.3, sampleSize: 10, passRate: 100.0, consistencyRating: "High" },
   ],
   "END-SEM": [
-    { deptCode: "AI&DS", deptName: "AI & Data Science", mean: 70.6, std: 7.1, variance: 50.4, spreadLower: 63.5, spreadUpper: 77.7, sampleSize: 50, passRate: 94.0, consistencyRating: "High" },
+    { deptCode: "ADS", deptName: "AI & Data Science", mean: 70.6, std: 7.1, variance: 50.4, spreadLower: 63.5, spreadUpper: 77.7, sampleSize: 50, passRate: 94.0, consistencyRating: "High" },
     { deptCode: "CSE", deptName: "Computer Science", mean: 73.8, std: 7.8, variance: 60.8, spreadLower: 66.0, spreadUpper: 81.6, sampleSize: 20, passRate: 95.0, consistencyRating: "High" },
     { deptCode: "BME", deptName: "Biomedical Engg", mean: 66.2, std: 6.5, variance: 42.3, spreadLower: 59.7, spreadUpper: 72.7, sampleSize: 28, passRate: 92.8, consistencyRating: "High" },
     { deptCode: "Biotech", deptName: "Biotechnology", mean: 64.5, std: 9.2, variance: 84.6, spreadLower: 55.3, spreadUpper: 73.7, sampleSize: 25, passRate: 96.0, consistencyRating: "Good" },
@@ -244,7 +244,7 @@ const ALL_DEPARTMENTS_DATA: Record<
     { deptCode: "IT", deptName: "Information Tech", mean: 68.8, std: 6.8, variance: 46.2, spreadLower: 62.0, spreadUpper: 75.6, sampleSize: 10, passRate: 90.0, consistencyRating: "High" },
   ],
   "REVALUATION": [
-    { deptCode: "AI&DS", deptName: "AI & Data Science", mean: 59.0, std: 7.2, variance: 51.8, spreadLower: 51.8, spreadUpper: 66.2, sampleSize: 12, passRate: 83.3, consistencyRating: "High" },
+    { deptCode: "ADS", deptName: "AI & Data Science", mean: 59.0, std: 7.2, variance: 51.8, spreadLower: 51.8, spreadUpper: 66.2, sampleSize: 12, passRate: 83.3, consistencyRating: "High" },
     { deptCode: "CSE", deptName: "Computer Science", mean: 65.0, std: 8.5, variance: 72.3, spreadLower: 56.5, spreadUpper: 73.5, sampleSize: 7, passRate: 85.7, consistencyRating: "Good" },
     { deptCode: "BME", deptName: "Biomedical Engg", mean: 67.0, std: 6.8, variance: 46.2, spreadLower: 60.2, spreadUpper: 73.8, sampleSize: 8, passRate: 87.5, consistencyRating: "High" },
     { deptCode: "Biotech", deptName: "Biotechnology", mean: 55.0, std: 10.2, variance: 104.0, spreadLower: 44.8, spreadUpper: 65.2, sampleSize: 6, passRate: 66.7, consistencyRating: "Moderate" },

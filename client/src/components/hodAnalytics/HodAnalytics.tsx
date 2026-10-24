@@ -188,7 +188,7 @@ export const HodAnalytics: React.FC<{ scope?: "hod" | "dean"; assessment?: strin
 
   const deptOptions = useMemo(() => {
     const map = new Map<string, string>();
-    departments.forEach((d) => map.set(d.key, `${d.code || d.key.toUpperCase()} — ${d.name}`));
+    departments.forEach((d) => map.set(d.key, `${d.code || d.key.toUpperCase().replace(/^AIDS$/, "ADS")} — ${d.name}`));
     allRows.forEach((r) => !map.has(r.deptKey) && map.set(r.deptKey, r.deptName));
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
   }, [departments, allRows]);
@@ -223,12 +223,12 @@ export const HodAnalytics: React.FC<{ scope?: "hod" | "dean"; assessment?: strin
     return Array.from(names.keys())
       .map((key) => {
         const d = departments.find((x) => x.key === key);
-        return { key, code: d?.code || key.toUpperCase(), name: d?.name || names.get(key) || key };
+        return { key, code: d?.code || key.toUpperCase().replace(/^AIDS$/, "ADS"), name: d?.name || names.get(key) || key };
       })
       .sort((a, b) => a.code.localeCompare(b.code));
   }, [deptOptions, departments]);
   const chipValue = (k: keyof Filters) =>
-    k === "dept" ? deptChips.find((d) => d.key === filters.dept)?.code ?? filters.dept.toUpperCase()
+    k === "dept" ? deptChips.find((d) => d.key === filters.dept)?.code ?? filters.dept.toUpperCase().replace(/^AIDS$/, "ADS")
       : k === "pub" ? (filters.pub === "published" ? "Published" : "Not published")
       : filters[k];
 
@@ -246,7 +246,7 @@ export const HodAnalytics: React.FC<{ scope?: "hod" | "dean"; assessment?: strin
 
   const activeChips = (Object.keys(filters) as (keyof Filters)[]).filter((k) => filters[k] !== "all");
   const chipLabel: Record<keyof Filters, string> = { dept: "Department", sem: "Semester", assess: "Assessment", subject: "Subject", cat: "Category", pub: "Publication" };
-  const filterTag = activeChips.map((k) => (k === "dept" ? filters.dept.toUpperCase() : filters[k])).join("_").replace(/\s+/g, "-");
+  const filterTag = activeChips.map((k) => (k === "dept" ? filters.dept.toUpperCase().replace(/^AIDS$/, "ADS") : filters[k])).join("_").replace(/\s+/g, "-");
   const fileName = (what: string) => `KVELL_${what}${filterTag ? `_${filterTag}` : ""}_${fmtDate()}`;
 
   /* ---------- downloads ---------- */
@@ -285,7 +285,7 @@ export const HodAnalytics: React.FC<{ scope?: "hod" | "dean"; assessment?: strin
 
   const hasData = allRows.length > 0;
   /** Department name -> short key (CSE, AIDS, ...) so table columns stay on one line. */
-  const deptCodes = useMemo(() => new Map(allRows.map((r) => [r.deptName, r.deptKey.toUpperCase()])), [allRows]);
+  const deptCodes = useMemo(() => new Map(allRows.map((r) => [r.deptName, r.deptKey.toUpperCase().replace(/^AIDS$/, "ADS")])), [allRows]);
 
   return (
     <div className="space-y-5 w-full">

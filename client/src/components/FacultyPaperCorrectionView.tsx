@@ -137,7 +137,7 @@ const FALLBACK_ALLOCATION: PaperCorrectionAllocation = {
       id: "STAFF-1",
       name: "Prof. K. Venkatesh",
       facultyId: "FAC-ENG-104",
-      department: "AI&DS",
+      department: "ADS",
       role: "Chief Evaluator",
       assignedScripts: 25,
       scriptRangeStart: 1,
@@ -594,8 +594,46 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
     );
   }
 
+  // Forward to COE (moved here from Marks Entry): the whole subject's marks for this assessment go to the COE
+  const forwardToCoe = async () => {
+    if (!activeAllocation || !realRoster) return;
+    const entered = realRoster.filter((m) => m.hasMarks).length;
+    if (entered === 0) {
+      notify("Evaluate at least one script before forwarding the marks to the COE.");
+      return;
+    }
+    if (entered < realRoster.length && !window.confirm(
+      `Only ${entered} of ${realRoster.length} scripts of ${activeAllocation.subjectCode} are evaluated. The COE cannot publish until every script has marks.
+
+Forward anyway?`)) return;
+    try {
+      const b = await facultyApi.forward({
+        semester: activeAllocation.semester,
+        subjectCode: activeAllocation.subjectCode,
+        academicYear: activeAllocation.academicYear || "2026-2027",
+        assessmentType: assessmentOf(activeAllocation),
+        deptKey: deptOf(activeAllocation),
+      });
+      notify(`Forwarded the marks of ${b.totalStudents} students in ${activeAllocation.subjectCode} (${assessmentOf(activeAllocation)}) to the COE.`);
+    } catch (e) {
+      notify(apiErrorMessage(e, "The marks could not be forwarded to the COE."));
+    }
+  };
+
   return (
     <div className="space-y-7">
+      {realRoster && activeAllocation && (
+        <div className="bg-white rounded-2xl border border-slate-200 px-5 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+          <p className="text-xs font-semibold text-slate-700">
+            <span className="font-black text-[#0B192C]">{activeAllocation.subjectCode}</span> · {assessmentOf(activeAllocation)} ·{" "}
+            {realRoster.filter((m) => m.hasMarks).length} of {realRoster.length} scripts of the subject evaluated
+          </p>
+          <button onClick={forwardToCoe}
+            className="h-9 px-4 rounded-xl bg-[#0B192C] text-[#D4A72C] text-xs font-black inline-flex items-center gap-2">
+            Forward marks to COE
+          </button>
+        </div>
+      )}
       {/* TOP BANNER WITH SEALS & FACULTY ALLOCATION HEADER */}
       <div className="bg-white text-[#0B192C] rounded-3xl p-6 sm:p-8 shadow-sm border border-[#D4A72C]/30 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="relative z-10">
@@ -1366,7 +1404,21 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
           subjectTitle={activeAllocation.subjectTitle}
           semester={activeAllocation.semester}
           department={activeAllocation.department}
-          assessmentType={activeAllocation.examSession?.includes("IAT-2") ? "IAT-2" : "IAT-1"}
+          assessmentType={assessmentOf(activeAllocation)}
+          {...(() => {
+            // A script marked before opens with its saved marks and remarks, and without the waiting time
+            const saved = realRoster?.find((m) => m.regNo === evaluatingScript.dummyCode);
+            if (!saved || !saved.hasMarks) return { minSeconds: realRoster ? 180 : 0 };
+            const bc = saved.partBC as Record<string, { a: { i?: number; ii?: number; iii?: number }; b: { i?: number; ii?: number; iii?: number } }> | undefined;
+            const cos: Record<number, string> = { 11: "CO1", 12: "CO1", 13: "CO2", 14: "CO2", 15: "CO3", 16: "CO6" };
+            const sub = (x?: { i?: number; ii?: number; iii?: number }) => ({ i: x?.i ?? 0, ii: x?.ii ?? 0, iii: x?.iii ?? 0 });
+            return {
+              minSeconds: 0,
+              initialPartA: saved.partA as number[] | undefined,
+              initialPartB: bc ? Object.fromEntries([11, 12, 13, 14, 15, 16].map((q) => [q, { a: sub(bc[String(q)]?.a), b: sub(bc[String(q)]?.b), co: cos[q] }])) : undefined,
+              initialRemarks: saved.remarks,
+            };
+          })()}
           packetId={evaluatingScript.packetId || activeStaffSlot?.bundlePacketId || "PKT-A"}
           pdfLoader={realRoster ? () => facultyApi.answerScript({ semester: activeAllocation.semester, subject: activeAllocation.subjectCode, regNo: evaluatingScript.dummyCode, assessment: assessmentOf(activeAllocation), dept: deptOf(activeAllocation) }) : undefined}
           onSaveMarks={async (result) => {
@@ -1391,6 +1443,7 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
                   examinerDesignation: activeStaffSlot?.role || "Internal Examiner",
                   expectedVersion: current?.version,
                   deptKey: deptOf(activeAllocation),
+                  remarks: result.remarks,
                 } as any);
                 notify(`Marks saved for ${evaluatingScript.dummyCode}.`);
                 loadRoster();

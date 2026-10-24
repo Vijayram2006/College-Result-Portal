@@ -72,7 +72,7 @@ export const INITIAL_TIMETABLE: ExamTimetableSlot[] = [
     day: "Saturday",
     session: "FN (10:00 AM - 01:00 PM)",
     deptKey: "aids",
-    deptCode: "AIDS",
+    deptCode: "ADS",
     deptName: "Artificial Intelligence & Data Science",
     subjectCode: "AI602",
     subjectTitle: "Deep Learning & Neural Architectures",
@@ -173,7 +173,7 @@ export const INITIAL_NOTIFICATIONS: DeanExamNotification[] = [
     deadline: "2026-10-23 05:00 PM",
     academicYear: "2026-2027",
     semester: "Semester I",
-    targetDepartments: ["AIDS", "CSE", "BME", "BT", "ECE", "MECH"],
+    targetDepartments: ["ADS", "CSE", "BME", "BT", "ECE", "MECH"],
     message:
       "All course instructors and designated faculty members are hereby instructed to prepare and submit 2 sets (Set A & Set B) of Question Papers along with Detailed Answer Keys & Scheme of Valuation on or before the deadline. Strict adherence to Bloom's Taxonomy and Outcome-Based Education (OBE) metrics is mandatory.",
     senderName: "Dr. Meera Krishnan",
@@ -244,7 +244,7 @@ export const ExamTimetableNotificationView: React.FC<ExamTimetableNotificationVi
     "All course instructors and designated faculty members are hereby instructed to prepare and submit 2 sets (Set A & Set B) of Question Papers along with Detailed Answer Keys & Scheme of Valuation on or before the deadline."
   );
   const [selectedDepts, setSelectedDepts] = useState<string[]>([
-    "AIDS",
+    "ADS",
     "CSE",
     "BME",
     "BT",
@@ -354,7 +354,7 @@ export const ExamTimetableNotificationView: React.FC<ExamTimetableNotificationVi
   const handleAddSlot = (e: React.FormEvent) => {
     e.preventDefault();
     const deptInfoMap: Record<string, { code: string; name: string }> = {
-      aids: { code: "AIDS", name: "Artificial Intelligence & Data Science" },
+      aids: { code: "ADS", name: "Artificial Intelligence & Data Science" },
       cse: { code: "CSE", name: "Computer Science & Engineering" },
       bme: { code: "BME", name: "Biomedical Engineering" },
       bt: { code: "BT", name: "Biotechnology" },
@@ -1011,7 +1011,7 @@ export const ExamTimetableNotificationView: React.FC<ExamTimetableNotificationVi
                   Target Departments:
                 </label>
                 <div className="grid grid-cols-3 gap-2">
-                  {["AIDS", "CSE", "BME", "BT", "ECE", "MECH"].map((d) => (
+                  {["ADS", "CSE", "BME", "BT", "ECE", "MECH"].map((d) => (
                     <label
                       key={d}
                       className="flex items-center gap-2 p-2 rounded-xl border border-gray-200 bg-gray-50 text-xs font-bold cursor-pointer"
