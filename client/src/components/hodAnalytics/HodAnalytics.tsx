@@ -315,27 +315,10 @@ export const HodAnalytics: React.FC<{ scope?: "hod" | "dean"; assessment?: strin
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setLive(!live)}
-              className={`px-3 py-2.5 rounded-xl text-xs font-bold border transition ${live ? "border-[#1baf7a]/60 bg-[#1baf7a]/15 text-white" : "border-white/20 bg-white/5 text-white/70"}`}
-              title="Refresh automatically while this page is open"
-            >
-              Live {live ? "ON" : "OFF"}
-            </button>
-            <button
-              type="button"
               onClick={() => load()}
               className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold flex items-center gap-1.5"
             >
               <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> Refresh
-            </button>
-            <button
-              type="button"
-              disabled={!hasData}
-              onClick={downloadTab}
-              className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold flex items-center gap-1.5 disabled:opacity-40"
-              title="Download the tables of the tab you are on"
-            >
-              <Download size={14} /> This tab
             </button>
             <button
               type="button"
@@ -364,60 +347,59 @@ export const HodAnalytics: React.FC<{ scope?: "hod" | "dean"; assessment?: strin
           )}
         </div>
 
-        {departments.length > 1 && (
-          <FilterRow label="Department">
-            <Pill active={filters.dept === "all"} onClick={() => setFilter("dept", "all")} count={total(counts.dept)}>All</Pill>
-            {departments.map((d) => (
-              <Pill key={d.key} active={filters.dept === d.key} onClick={() => setFilter("dept", d.key)} count={counts.dept.get(d.key) ?? 0} title={d.name}>
-                {(d.code || d.key).toUpperCase().replace(/^AI&?DS$|^AIDS$/, "ADS")}
-              </Pill>
-            ))}
-          </FilterRow>
-        )}
-
-        <FilterRow label="Assessment">
-          <Pill active={filters.assess === "all"} onClick={() => setFilter("assess", "all")} count={total(counts.assess)}>All</Pill>
-          {A.ASSESSMENTS.map((a) => (
-            <Pill key={a} active={filters.assess === a} onClick={() => setFilter("assess", a)} count={counts.assess.get(a) ?? 0}>
-              <AssessmentDot name={a} />
-            </Pill>
-          ))}
-        </FilterRow>
-
-        <FilterRow label="Semester">
-          <Pill active={filters.sem === "all"} onClick={() => setFilter("sem", "all")} count={total(counts.sem)}>All</Pill>
-          {SEMESTER_OPTIONS.map((s) => (
-            <Pill key={s} active={filters.sem === s} onClick={() => setFilter("sem", s)} count={counts.sem.get(s) ?? 0} title={s}>
-              {s.replace("Semester ", "Sem ")}
-            </Pill>
-          ))}
-        </FilterRow>
-
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto_auto] gap-3.5 xl:gap-6 items-start">
-          <FilterRow label="Subject">
-            <select
-              value={filters.subject}
-              onChange={(e) => setFilter("subject", e.target.value)}
-              className={`${selectCls} max-w-xl ${filters.subject !== "all" ? "!border-[#0B192C] !bg-[#FFF6DD]" : ""}`}
-            >
-              <option value="all">
-                All subjects{filters.dept !== "all" || filters.sem !== "all" ? " (of the department / semester chosen above)" : ""}
-              </option>
+        {/* One row of drop-downs: department, assessment, semester, subject, students, results */}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          {departments.length > 1 && (
+            <label className="block">
+              <span className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Department</span>
+              <select value={filters.dept} onChange={(e) => setFilter("dept", e.target.value)} className={selectCls}>
+                <option value="all">All departments</option>
+                {departments.map((d) => (
+                  <option key={d.key} value={d.key}>{(d.code || d.key).toUpperCase().replace(/^AI&?DS$|^AIDS$/, "ADS")} ({counts.dept.get(d.key) ?? 0})</option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="block">
+            <span className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Assessment</span>
+            <select value={filters.assess} onChange={(e) => setFilter("assess", e.target.value)} className={selectCls}>
+              <option value="all">All assessments</option>
+              {A.ASSESSMENTS.map((a) => <option key={a} value={a}>{a} ({counts.assess.get(a) ?? 0})</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Semester</span>
+            <select value={filters.sem} onChange={(e) => setFilter("sem", e.target.value)} className={selectCls}>
+              <option value="all">All semesters</option>
+              {SEMESTER_OPTIONS.map((s) => <option key={s} value={s}>{s.replace("Semester ", "Sem ")} ({counts.sem.get(s) ?? 0})</option>)}
+            </select>
+          </label>
+          <label className="block col-span-2 md:col-span-1 xl:col-span-1">
+            <span className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Subject</span>
+            <select value={filters.subject} onChange={(e) => setFilter("subject", e.target.value)}
+              className={`${selectCls} ${filters.subject !== "all" ? "!border-[#0B192C] !bg-[#FFF6DD]" : ""}`}>
+              <option value="all">All subjects</option>
               {subjectOptions.map(([k, label]) => (
-                <option key={k} value={k}>{label} · {counts.subject.get(k) ?? 0} scripts</option>
+                <option key={k} value={k} title={String(label)}>{String(label).length > 38 ? String(label).slice(0, 36) + "…" : String(label)}</option>
               ))}
             </select>
-          </FilterRow>
-          <FilterRow label="Students" compact>
-            <Pill active={filters.cat === "all"} onClick={() => setFilter("cat", "all")}>All</Pill>
-            <Pill active={filters.cat === "Regular"} onClick={() => setFilter("cat", "Regular")} count={counts.cat.get("Regular") ?? 0}>Regular</Pill>
-            <Pill active={filters.cat === "Lateral"} onClick={() => setFilter("cat", "Lateral")} count={counts.cat.get("Lateral") ?? 0}>Lateral</Pill>
-          </FilterRow>
-          <FilterRow label="Results" compact>
-            <Pill active={filters.pub === "all"} onClick={() => setFilter("pub", "all")}>All</Pill>
-            <Pill active={filters.pub === "published"} onClick={() => setFilter("pub", "published")} count={counts.pub.get("published") ?? 0}>Published</Pill>
-            <Pill active={filters.pub === "unpublished"} onClick={() => setFilter("pub", "unpublished")} count={counts.pub.get("unpublished") ?? 0}>Not published</Pill>
-          </FilterRow>
+          </label>
+          <label className="block">
+            <span className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Students</span>
+            <select value={filters.cat} onChange={(e) => setFilter("cat", e.target.value)} className={selectCls}>
+              <option value="all">All students</option>
+              <option value="Regular">Regular ({counts.cat.get("Regular") ?? 0})</option>
+              <option value="Lateral">Lateral ({counts.cat.get("Lateral") ?? 0})</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Results</span>
+            <select value={filters.pub} onChange={(e) => setFilter("pub", e.target.value)} className={selectCls}>
+              <option value="all">Published and not</option>
+              <option value="published">Published ({counts.pub.get("published") ?? 0})</option>
+              <option value="unpublished">Not published ({counts.pub.get("unpublished") ?? 0})</option>
+            </select>
+          </label>
         </div>
       </div>
 
