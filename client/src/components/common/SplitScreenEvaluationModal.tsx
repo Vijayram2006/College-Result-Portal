@@ -120,75 +120,58 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
     };
   });
 
-  // Every box is empty (not marked yet), a number - 0 included, for an attempted answer - or NA for a question the
-  // student did not attempt (typed as N; counts as 0). Keys: "A1".."A10" in Part A, "11a.i".."16b.iii" in B / C.
-  const [naBoxes, setNaBoxes] = useState<Set<string>>(() => new Set(initialPartA ? initialNotAttempted ?? [] : []));
+  // A box the examiner filled holds marks (0 included: attempted, earned nothing); a box left as it is shows NA - the
+  // student did not attempt it (counts as 0) - and is saved as such. Keys: "A1".."A10", "11a.i".."16b.iii".
+  const ALL_BOXES = [
+    ...Array.from({ length: 10 }, (_, i) => `A${i + 1}`),
+    ...[11, 12, 13, 14, 15, 16].flatMap((q) => ["a", "b"].flatMap((ch) => ["i", "ii", "iii"].map((k) => `${q}${ch}.${k}`))),
+  ];
   const [filledBoxes, setFilledBoxes] = useState<Set<string>>(() => {
-    // A saved script: every Part A box that is not NA, and every Part B / C box with marks
+    // A saved script with the NA list: every box not in it was filled (an attempted 0 shows as 0). An older one
+    // without it: the Part A boxes and the Part B / C boxes with marks.
     const filled = new Set<string>();
     if (initialPartA && initialPartA.length === 10) {
-      const na = new Set(initialNotAttempted ?? []);
-      initialPartA.forEach((_, i) => !na.has(`A${i + 1}`) && filled.add(`A${i + 1}`));
-      Object.entries(initialPartB ?? {}).forEach(([q, d]) =>
-        (["a", "b"] as const).forEach((ch) =>
-          (["i", "ii", "iii"] as const).forEach((k) => {
-            if ((Number(d[ch][k]) || 0) > 0) filled.add(`${q}${ch}.${k}`);
-          })
-        )
-      );
+      const na = initialNotAttempted ?? [];
+      if (na.length) {
+        ALL_BOXES.forEach((k) => !na.includes(k) && filled.add(k));
+      } else {
+        initialPartA.forEach((_, i) => filled.add(`A${i + 1}`));
+        Object.entries(initialPartB ?? {}).forEach(([q, d]) =>
+          (["a", "b"] as const).forEach((ch) =>
+            (["i", "ii", "iii"] as const).forEach((k) => {
+              if ((Number(d[ch][k]) || 0) > 0) filled.add(`${q}${ch}.${k}`);
+            })
+          )
+        );
+      }
     }
     return filled;
   });
-  const boxUsed = (key: string) => naBoxes.has(key) || filledBoxes.has(key);
-  const boxText = (key: string, value: number) => (naBoxes.has(key) ? "NA" : filledBoxes.has(key) ? String(value) : "");
-  const boxClass = (key: string) => (naBoxes.has(key) ? "italic !text-slate-500 !bg-slate-100" : "");
-  /** Reads what was typed in a box: "" clears it, N / NA / - marks it not attempted, a number goes through fit. */
+  const boxUsed = (key: string) => filledBoxes.has(key);
+  const boxText = (key: string, value: number) => (filledBoxes.has(key) ? String(value) : "");
+  const boxClass = (_key: string) => "";
+  /** Reads what was typed in a box: a number (through fit) fills it; clearing it puts it back to NA. */
   const onBoxInput = (key: string, raw: string, apply: (value: number) => void) => {
-    const text = raw.trim().toUpperCase();
-    const mark = (na: boolean, filled: boolean) => {
-      setNaBoxes((prev) => {
-        const next = new Set(prev);
-        if (na) next.add(key);
-        else next.delete(key);
-        return next;
-      });
-      setFilledBoxes((prev) => {
-        const next = new Set(prev);
-        if (filled) next.add(key);
-        else next.delete(key);
-        return next;
-      });
-    };
-    if (text === "") {
-      mark(false, false);
-      apply(0);
-      return;
-    }
-    if (/^(N|-)/.test(text)) {
-      mark(true, false);
-      apply(0);
-      return;
-    }
-    const digits = text.replace(/[^0-9.]/g, "");
+    const digits = raw.trim().replace(/[^0-9.]/g, "");
     const value = Number(digits);
-    if (digits === "" || Number.isNaN(value)) return;
-    mark(false, true);
-    apply(Math.max(0, value));
+    const filled = digits !== "" && !Number.isNaN(value);
+    setFilledBoxes((prev) => {
+      const next = new Set(prev);
+      if (filled) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+    apply(filled ? Math.max(0, value) : 0);
   };
-  // A question is answered as choice (a) OR (b): once one has a value, the other is a dummy (locked and empty)
+  // A question is answered as choice (a) OR (b): once one has a value, the other is a dummy (locked, NA)
   const otherChoiceUsed = (qNum: number, q: QuestionData, choice: "a" | "b") => {
     const otherKey = choice === "a" ? "b" : "a";
     const other = q[otherKey];
     return (Number(other.i) || 0) + (Number(other.ii) || 0) + (Number(other.iii) || 0) > 0
       || (["i", "ii", "iii"] as const).some((k) => boxUsed(`${qNum}${otherKey}.${k}`));
   };
-  /** Questions with nothing entered: every Part A box, and one choice of each Part B / C question, needs a value. */
-  const unmarkedQuestions = () => [
-    ...Array.from({ length: 10 }, (_, i) => `A${i + 1}`).filter((k) => !boxUsed(k)).map((k) => k.slice(1)),
-    ...[11, 12, 13, 14, 15, 16]
-      .filter((q) => !(["a", "b"] as const).some((ch) => (["i", "ii", "iii"] as const).some((k) => boxUsed(`${q}${ch}.${k}`))))
-      .map(String),
-  ];
+  /** Every box left as NA, saved as not attempted. */
+  const notAttemptedBoxes = () => ALL_BOXES.filter((k) => !filledBoxes.has(k));
 
   // CO Mappings for Part A
   const partACOs = ["CO1", "CO1", "CO1", "CO1", "CO2", "CO2", "CO2", "CO3", "CO3", "CO3"];
@@ -229,14 +212,6 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
   const currentGrade = calculateGrade(grandTotal);
 
   const handleSave = () => {
-    const unmarked = unmarkedQuestions();
-    if (unmarked.length) {
-      alert(
-        `Question${unmarked.length > 1 ? "s" : ""} ${unmarked.join(", ")} ${unmarked.length > 1 ? "are" : "is"} empty. ` +
-          "Enter the marks (0 if the answer was attempted but earned nothing), or N for not attempted (NA)."
-      );
-      return;
-    }
     onSaveMarks({
       partATotal,
       partBTotal,
@@ -245,7 +220,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
       partAMarks,
       partBCMarks,
       remarks: Object.fromEntries(Object.entries(remarks).filter(([, v]) => v.trim())),
-      notAttempted: Array.from(naBoxes),
+      notAttempted: notAttemptedBoxes(),
     });
     onClose();
   };
@@ -409,8 +384,8 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                 {/* How to fill a box: marks, 0 for an attempted answer that earned nothing, or N for not attempted */}
                 <div className="rounded-lg border border-red-900/30 bg-red-50/60 px-3 py-1.5 text-[11px] font-semibold text-red-950 flex flex-wrap gap-x-4 gap-y-1">
                   <span><b>0</b> = attempted, no marks</span>
-                  <span><b>N</b> = not attempted (shows <i>NA</i>, counts as 0)</span>
-                  <span>Every question needs a value; in Q11-16 fill only the choice (a or b) the student wrote.</span>
+                  <span><b>NA</b> (left as it is) = not attempted, counts as 0</span>
+                  <span>In Q11-16 fill only the choice (a or b) the student wrote.</span>
                 </div>
 
                 {/* Main Evaluation Grid: PART A and PART B side by side */}
@@ -439,6 +414,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                 type="text"
                                 inputMode="decimal"
                                 aria-label={`Part A question ${i + 1}`}
+                                placeholder="NA"
                                 value={boxText(`A${i + 1}`, mark)}
                                 onChange={(e) =>
                                   onBoxInput(`A${i + 1}`, e.target.value, (v) => {
@@ -508,6 +484,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                       inputMode="decimal"
                                       aria-label={`Q${qNum}(a)(i)`}
                                       disabled={otherChoiceUsed(qNum, qData, "a")}
+                                      placeholder="NA"
                                       value={boxText(`${qNum}a.i`, qData.a.i)}
                                       onChange={(e) =>
                                         onBoxInput(`${qNum}a.i`, e.target.value, (v) =>
@@ -523,6 +500,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                       inputMode="decimal"
                                       aria-label={`Q${qNum}(a)(ii)`}
                                       disabled={otherChoiceUsed(qNum, qData, "a")}
+                                      placeholder="NA"
                                       value={boxText(`${qNum}a.ii`, qData.a.ii)}
                                       onChange={(e) =>
                                         onBoxInput(`${qNum}a.ii`, e.target.value, (v) =>
@@ -538,6 +516,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                       inputMode="decimal"
                                       aria-label={`Q${qNum}(a)(iii)`}
                                       disabled={otherChoiceUsed(qNum, qData, "a")}
+                                      placeholder="NA"
                                       value={boxText(`${qNum}a.iii`, qData.a.iii)}
                                       onChange={(e) =>
                                         onBoxInput(`${qNum}a.iii`, e.target.value, (v) =>
@@ -570,6 +549,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                       inputMode="decimal"
                                       aria-label={`Q${qNum}(b)(i)`}
                                       disabled={otherChoiceUsed(qNum, qData, "b")}
+                                      placeholder="NA"
                                       value={boxText(`${qNum}b.i`, qData.b.i)}
                                       onChange={(e) =>
                                         onBoxInput(`${qNum}b.i`, e.target.value, (v) =>
@@ -585,6 +565,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                       inputMode="decimal"
                                       aria-label={`Q${qNum}(b)(ii)`}
                                       disabled={otherChoiceUsed(qNum, qData, "b")}
+                                      placeholder="NA"
                                       value={boxText(`${qNum}b.ii`, qData.b.ii)}
                                       onChange={(e) =>
                                         onBoxInput(`${qNum}b.ii`, e.target.value, (v) =>
@@ -600,6 +581,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                       inputMode="decimal"
                                       aria-label={`Q${qNum}(b)(iii)`}
                                       disabled={otherChoiceUsed(qNum, qData, "b")}
+                                      placeholder="NA"
                                       value={boxText(`${qNum}b.iii`, qData.b.iii)}
                                       onChange={(e) =>
                                         onBoxInput(`${qNum}b.iii`, e.target.value, (v) =>

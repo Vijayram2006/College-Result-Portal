@@ -96,6 +96,7 @@ interface StudentMarkData {
   subjectTitle?: string;
   examinerName?: string;
   examinerDesignation?: string;
+  notAttempted?: string[];
 }
 
 export interface FacultyMarkEntryProps {
@@ -202,6 +203,62 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
     14: { a: { i: 0, ii: 0, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
     15: { a: { i: 0, ii: 0, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
     16: { a: { i: 0, ii: 0, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
+  };
+
+  // A box the examiner filled holds marks (0 included: attempted, earned nothing); a box left empty means the student
+  // did not attempt it (NA, counts as 0) and is saved as such. Keys: "A1".."A10" in Part A, "11a.i".."16b.iii" in B / C.
+  const [filledBoxes, setFilledBoxes] = useState<Set<string>>(new Set());
+  const setNaBoxes = (_: Set<string>) => undefined; // NA is simply every box that is not filled
+  const ALL_BOXES = [
+    ...Array.from({ length: 10 }, (_, i) => `A${i + 1}`),
+    ...[11, 12, 13, 14, 15, 16].flatMap((q) => ["a", "b"].flatMap((ch) => ["i", "ii", "iii"].map((k) => `${q}${ch}.${k}`))),
+  ];
+  const boxText = (key: string, value: number) => (filledBoxes.has(key) ? String(value) : "");
+  const boxUsed = (key: string) => filledBoxes.has(key);
+  /** Reads what was typed in a box: "" (or N / -) leaves it empty = not attempted, a number is capped at max. */
+  const onBoxInput = (key: string, raw: string, max: number, apply: (value: number) => void) => {
+    const digits = raw.trim().replace(/[^0-9.]/g, "");
+    const value = Number(digits);
+    const filled = digits !== "" && !Number.isNaN(value);
+    setFilledBoxes((prev) => {
+      const next = new Set(prev);
+      if (filled) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+    apply(filled ? Math.min(max, Math.max(0, value)) : 0);
+  };
+  const boxClass = (_key: string) => "";
+  /**
+   * Opens a sheet. A sheet saved with the NA list: every box not in it was filled (so an attempted 0 shows as 0).
+   * An older sheet without one: the Part A boxes and the Part B / C boxes with marks.
+   */
+  const loadBoxes = (student: StudentMarkData | null) => {
+    const na = student?.hasMarks ? student.notAttempted ?? [] : [];
+    const filled = new Set<string>();
+    if (student?.hasMarks && na.length) {
+      ALL_BOXES.forEach((k) => !na.includes(k) && filled.add(k));
+    } else if (student?.hasMarks) {
+      student.partA.forEach((_, i) => filled.add(`A${i + 1}`));
+      Object.entries(student.partBC).forEach(([q, d]) =>
+        (["a", "b"] as const).forEach((ch) =>
+          (["i", "ii", "iii"] as const).forEach((k) => {
+            if ((Number(d[ch][k]) || 0) > 0) filled.add(`${q}${ch}.${k}`);
+          })
+        )
+      );
+    }
+    setFilledBoxes(filled);
+  };
+  /** Every box left empty, saved as not attempted. */
+  const notAttemptedBoxes = () => ALL_BOXES.filter((k) => !filledBoxes.has(k));
+
+  // A question is answered as choice (a) OR (b): once one has a value, the other is a dummy (locked and empty)
+  const otherChoiceUsed = (qNum: number, q: QuestionBC, choice: "a" | "b") => {
+    const otherKey = choice === "a" ? "b" : "a";
+    const other = q[otherKey];
+    return (Number(other.i) || 0) + (Number(other.ii) || 0) + (Number(other.iii) || 0) > 0
+      || (["i", "ii", "iii"] as const).some((k) => boxUsed(`${qNum}${otherKey}.${k}`));
   };
 
   const [partBCMarks, setPartBCMarks] = useState<Record<number, QuestionBC>>(initialPartBC);
@@ -367,6 +424,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
   // Open Mark Entry Form for selected student
   const handleOpenMarkEntry = (student: StudentMarkData) => {
     setSelectedStudent(student);
+    loadBoxes(student);
     if (student.hasMarks) {
       setPartAMarks([...student.partA]);
       setPartBCMarks(JSON.parse(JSON.stringify(student.partBC)));
@@ -498,6 +556,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
         examinerName: examinerName.trim(),
         examinerDesignation: examinerDesignation.trim(),
         expectedVersion: (selectedStudent as { version?: number }).version ?? 0,
+        notAttempted: notAttemptedBoxes(),
       });
       const updated: StudentMarkData = { ...saved, dob: saved.dob || "" };
       setStudents((prev) => prev.map((s) => (s.regNo === updated.regNo ? updated : s)));
@@ -1244,6 +1303,16 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                 </div>
               </div>
 
+              {/* How to fill a box: marks, 0 for an attempted answer that earned nothing, NA (left as it is) for not attempted */}
+              {!viewOnly && (
+                <div className="rounded-lg border border-red-900/30 bg-red-50/50 px-3 py-2 text-[11px] font-semibold text-red-950 flex flex-wrap gap-x-4 gap-y-1">
+                  <span>Type the marks the student earned.</span>
+                  <span><b>0</b> = attempted, no marks</span>
+                  <span><b>NA</b> (left as it is) = not attempted, counts as 0</span>
+                  <span>In Q11-16 fill only the choice (a or b) the student wrote.</span>
+                </div>
+              )}
+
               {/* Main Evaluation Grid: PART A and PART B + C side by side */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 pt-2">
                 {/* PART - A (Questions 1 to 10): stretches to the height of Part B + Part C beside it */}
@@ -1272,20 +1341,20 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                           </td>
                           <td className="p-1.5 border-r border-red-900/40">
                             <input
-                              type="number"
-                              min="0"
-                              max="2"
-                              step="0.5"
+                              type="text"
+                              inputMode="decimal"
+                              aria-label={`Part A question ${i + 1}`}
                               disabled={isFacultyPortalLocked || !allowInternal}
-                              value={mark === 0 ? "" : mark}
-                              placeholder="0"
-                              onChange={(e) => {
-                                const val = Number(e.target.value);
-                                const updated = [...partAMarks];
-                                updated[i] = isNaN(val) ? 0 : Math.min(2, Math.max(0, val));
-                                setPartAMarks(updated);
-                              }}
-                              className={`w-14 text-center font-bold px-1.5 py-1 rounded border border-gray-300 bg-[#FFFEFA] focus:ring-1 focus:ring-red-900 ${
+                              placeholder="NA"
+                              value={boxText(`A${i + 1}`, mark)}
+                              onChange={(e) =>
+                                onBoxInput(`A${i + 1}`, e.target.value, 2, (v) => {
+                                  const updated = [...partAMarks];
+                                  updated[i] = v;
+                                  setPartAMarks(updated);
+                                })
+                              }
+                              className={`w-14 text-center font-bold px-1.5 py-1 rounded border border-gray-300 bg-[#FFFEFA] focus:ring-1 focus:ring-red-900 ${boxClass(`A${i + 1}`)} ${
                                 isFacultyPortalLocked || !allowInternal
                                   ? "bg-slate-100 cursor-not-allowed opacity-60 text-slate-500"
                                   : ""
@@ -1352,24 +1421,19 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                 <td className="p-1 font-bold text-gray-700 border-r border-red-900/40">a</td>
                                 <td className="p-1 border-r border-red-900/40">
                                   <input
-                                    type="number"
-                                    min="0"
-                                    max={qNum === 16 ? 15 : 13}
-                                    disabled={isFacultyPortalLocked || !allowExternal}
-                                    value={qData.a.i === 0 ? "" : qData.a.i}
-                                    placeholder="0"
-                                    onChange={(e) => {
-                                      const val = Number(e.target.value) || 0;
-                                      setPartBCMarks({
-                                        ...partBCMarks,
-                                        [qNum]: {
-                                          ...qData,
-                                          a: { ...qData.a, i: fitSub(qData.a, "i", val, qNum) },
-                                        },
-                                      });
-                                    }}
-                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${
-                                      isFacultyPortalLocked || !allowExternal
+                                    type="text"
+                                    inputMode="decimal"
+                                    aria-label={`Q${qNum}(a)(i)`}
+                                    disabled={isFacultyPortalLocked || !allowExternal || otherChoiceUsed(qNum, qData, "a")}
+                                    placeholder="NA"
+                                    value={boxText(`${qNum}a.i`, qData.a.i)}
+                                    onChange={(e) =>
+                                      onBoxInput(`${qNum}a.i`, e.target.value, qNum === 16 ? 15 : 13, (v) =>
+                                        setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, a: { ...qData.a, i: fitSub(qData.a, "i", v, qNum) } } })
+                                      )
+                                    }
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${boxClass(`${qNum}a.i`)} ${
+                                      isFacultyPortalLocked || !allowExternal || otherChoiceUsed(qNum, qData, "a")
                                         ? "bg-slate-100 cursor-not-allowed opacity-60 text-slate-500"
                                         : ""
                                     }`}
@@ -1377,24 +1441,19 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                 </td>
                                 <td className="p-1 border-r border-red-900/40">
                                   <input
-                                    type="number"
-                                    min="0"
-                                    max={qNum === 16 ? 15 : 13}
-                                    disabled={isFacultyPortalLocked || !allowExternal}
-                                    value={qData.a.ii === 0 ? "" : qData.a.ii}
-                                    placeholder="0"
-                                    onChange={(e) => {
-                                      const val = Number(e.target.value) || 0;
-                                      setPartBCMarks({
-                                        ...partBCMarks,
-                                        [qNum]: {
-                                          ...qData,
-                                          a: { ...qData.a, ii: fitSub(qData.a, "ii", val, qNum) },
-                                        },
-                                      });
-                                    }}
-                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${
-                                      isFacultyPortalLocked || !allowExternal
+                                    type="text"
+                                    inputMode="decimal"
+                                    aria-label={`Q${qNum}(a)(ii)`}
+                                    disabled={isFacultyPortalLocked || !allowExternal || otherChoiceUsed(qNum, qData, "a")}
+                                    placeholder="NA"
+                                    value={boxText(`${qNum}a.ii`, qData.a.ii)}
+                                    onChange={(e) =>
+                                      onBoxInput(`${qNum}a.ii`, e.target.value, qNum === 16 ? 15 : 13, (v) =>
+                                        setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, a: { ...qData.a, ii: fitSub(qData.a, "ii", v, qNum) } } })
+                                      )
+                                    }
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${boxClass(`${qNum}a.ii`)} ${
+                                      isFacultyPortalLocked || !allowExternal || otherChoiceUsed(qNum, qData, "a")
                                         ? "bg-slate-100 cursor-not-allowed opacity-60 text-slate-500"
                                         : ""
                                     }`}
@@ -1402,24 +1461,19 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                 </td>
                                 <td className="p-1 border-r border-red-900/40">
                                   <input
-                                    type="number"
-                                    min="0"
-                                    max={qNum === 16 ? 15 : 13}
-                                    disabled={isFacultyPortalLocked || !allowExternal}
-                                    value={qData.a.iii === 0 ? "" : qData.a.iii}
-                                    placeholder="0"
-                                    onChange={(e) => {
-                                      const val = Number(e.target.value) || 0;
-                                      setPartBCMarks({
-                                        ...partBCMarks,
-                                        [qNum]: {
-                                          ...qData,
-                                          a: { ...qData.a, iii: fitSub(qData.a, "iii", val, qNum) },
-                                        },
-                                      });
-                                    }}
-                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${
-                                      isFacultyPortalLocked || !allowExternal
+                                    type="text"
+                                    inputMode="decimal"
+                                    aria-label={`Q${qNum}(a)(iii)`}
+                                    disabled={isFacultyPortalLocked || !allowExternal || otherChoiceUsed(qNum, qData, "a")}
+                                    placeholder="NA"
+                                    value={boxText(`${qNum}a.iii`, qData.a.iii)}
+                                    onChange={(e) =>
+                                      onBoxInput(`${qNum}a.iii`, e.target.value, qNum === 16 ? 15 : 13, (v) =>
+                                        setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, a: { ...qData.a, iii: fitSub(qData.a, "iii", v, qNum) } } })
+                                      )
+                                    }
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${boxClass(`${qNum}a.iii`)} ${
+                                      isFacultyPortalLocked || !allowExternal || otherChoiceUsed(qNum, qData, "a")
                                         ? "bg-slate-100 cursor-not-allowed opacity-60 text-slate-500"
                                         : ""
                                     }`}
@@ -1438,24 +1492,19 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                 <td className="p-1 font-bold text-gray-700 border-r border-red-900/40">b</td>
                                 <td className="p-1 border-r border-red-900/40">
                                   <input
-                                    type="number"
-                                    min="0"
-                                    max={qNum === 16 ? 15 : 13}
-                                    disabled={isFacultyPortalLocked || !allowExternal}
-                                    value={qData.b.i === 0 ? "" : qData.b.i}
-                                    placeholder="0"
-                                    onChange={(e) => {
-                                      const val = Number(e.target.value) || 0;
-                                      setPartBCMarks({
-                                        ...partBCMarks,
-                                        [qNum]: {
-                                          ...qData,
-                                          b: { ...qData.b, i: fitSub(qData.b, "i", val, qNum) },
-                                        },
-                                      });
-                                    }}
-                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${
-                                      isFacultyPortalLocked || !allowExternal
+                                    type="text"
+                                    inputMode="decimal"
+                                    aria-label={`Q${qNum}(b)(i)`}
+                                    disabled={isFacultyPortalLocked || !allowExternal || otherChoiceUsed(qNum, qData, "b")}
+                                    placeholder="NA"
+                                    value={boxText(`${qNum}b.i`, qData.b.i)}
+                                    onChange={(e) =>
+                                      onBoxInput(`${qNum}b.i`, e.target.value, qNum === 16 ? 15 : 13, (v) =>
+                                        setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, b: { ...qData.b, i: fitSub(qData.b, "i", v, qNum) } } })
+                                      )
+                                    }
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${boxClass(`${qNum}b.i`)} ${
+                                      isFacultyPortalLocked || !allowExternal || otherChoiceUsed(qNum, qData, "b")
                                         ? "bg-slate-100 cursor-not-allowed opacity-60 text-slate-500"
                                         : ""
                                     }`}
@@ -1463,24 +1512,19 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                 </td>
                                 <td className="p-1 border-r border-red-900/40">
                                   <input
-                                    type="number"
-                                    min="0"
-                                    max={qNum === 16 ? 15 : 13}
-                                    disabled={isFacultyPortalLocked || !allowExternal}
-                                    value={qData.b.ii === 0 ? "" : qData.b.ii}
-                                    placeholder="0"
-                                    onChange={(e) => {
-                                      const val = Number(e.target.value) || 0;
-                                      setPartBCMarks({
-                                        ...partBCMarks,
-                                        [qNum]: {
-                                          ...qData,
-                                          b: { ...qData.b, ii: fitSub(qData.b, "ii", val, qNum) },
-                                        },
-                                      });
-                                    }}
-                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${
-                                      isFacultyPortalLocked || !allowExternal
+                                    type="text"
+                                    inputMode="decimal"
+                                    aria-label={`Q${qNum}(b)(ii)`}
+                                    disabled={isFacultyPortalLocked || !allowExternal || otherChoiceUsed(qNum, qData, "b")}
+                                    placeholder="NA"
+                                    value={boxText(`${qNum}b.ii`, qData.b.ii)}
+                                    onChange={(e) =>
+                                      onBoxInput(`${qNum}b.ii`, e.target.value, qNum === 16 ? 15 : 13, (v) =>
+                                        setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, b: { ...qData.b, ii: fitSub(qData.b, "ii", v, qNum) } } })
+                                      )
+                                    }
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${boxClass(`${qNum}b.ii`)} ${
+                                      isFacultyPortalLocked || !allowExternal || otherChoiceUsed(qNum, qData, "b")
                                         ? "bg-slate-100 cursor-not-allowed opacity-60 text-slate-500"
                                         : ""
                                     }`}
@@ -1488,24 +1532,19 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                 </td>
                                 <td className="p-1 border-r border-red-900/40">
                                   <input
-                                    type="number"
-                                    min="0"
-                                    max={qNum === 16 ? 15 : 13}
-                                    disabled={isFacultyPortalLocked || !allowExternal}
-                                    value={qData.b.iii === 0 ? "" : qData.b.iii}
-                                    placeholder="0"
-                                    onChange={(e) => {
-                                      const val = Number(e.target.value) || 0;
-                                      setPartBCMarks({
-                                        ...partBCMarks,
-                                        [qNum]: {
-                                          ...qData,
-                                          b: { ...qData.b, iii: fitSub(qData.b, "iii", val, qNum) },
-                                        },
-                                      });
-                                    }}
-                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${
-                                      isFacultyPortalLocked || !allowExternal
+                                    type="text"
+                                    inputMode="decimal"
+                                    aria-label={`Q${qNum}(b)(iii)`}
+                                    disabled={isFacultyPortalLocked || !allowExternal || otherChoiceUsed(qNum, qData, "b")}
+                                    placeholder="NA"
+                                    value={boxText(`${qNum}b.iii`, qData.b.iii)}
+                                    onChange={(e) =>
+                                      onBoxInput(`${qNum}b.iii`, e.target.value, qNum === 16 ? 15 : 13, (v) =>
+                                        setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, b: { ...qData.b, iii: fitSub(qData.b, "iii", v, qNum) } } })
+                                      )
+                                    }
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${boxClass(`${qNum}b.iii`)} ${
+                                      isFacultyPortalLocked || !allowExternal || otherChoiceUsed(qNum, qData, "b")
                                         ? "bg-slate-100 cursor-not-allowed opacity-60 text-slate-500"
                                         : ""
                                     }`}
@@ -1566,62 +1605,50 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                 <td className="p-1 font-bold text-gray-700 border-r border-red-900/40">a</td>
                                 <td className="p-1 border-r border-red-900/40">
                                   <input
-                                    type="number"
-                                    min="0"
-                                    max={qNum === 16 ? 15 : 13}
-                                    value={qData.a.i === 0 ? "" : qData.a.i}
-                                    placeholder="0"
-                                    onChange={(e) => {
-                                      const val = Number(e.target.value) || 0;
-                                      setPartBCMarks({
-                                        ...partBCMarks,
-                                        [qNum]: {
-                                          ...qData,
-                                          a: { ...qData.a, i: fitSub(qData.a, "i", val, qNum) },
-                                        },
-                                      });
-                                    }}
-                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                    type="text"
+                                    inputMode="decimal"
+                                    aria-label={`Q${qNum}(a)(i)`}
+                                    disabled={otherChoiceUsed(qNum, qData, "a")}
+                                    placeholder="NA"
+                                    value={boxText(`${qNum}a.i`, qData.a.i)}
+                                    onChange={(e) =>
+                                      onBoxInput(`${qNum}a.i`, e.target.value, qNum === 16 ? 15 : 13, (v) =>
+                                        setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, a: { ...qData.a, i: fitSub(qData.a, "i", v, qNum) } } })
+                                      )
+                                    }
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${boxClass(`${qNum}a.i`)} disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:text-slate-500`}
                                   />
                                 </td>
                                 <td className="p-1 border-r border-red-900/40">
                                   <input
-                                    type="number"
-                                    min="0"
-                                    max={qNum === 16 ? 15 : 13}
-                                    value={qData.a.ii === 0 ? "" : qData.a.ii}
-                                    placeholder="0"
-                                    onChange={(e) => {
-                                      const val = Number(e.target.value) || 0;
-                                      setPartBCMarks({
-                                        ...partBCMarks,
-                                        [qNum]: {
-                                          ...qData,
-                                          a: { ...qData.a, ii: fitSub(qData.a, "ii", val, qNum) },
-                                        },
-                                      });
-                                    }}
-                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                    type="text"
+                                    inputMode="decimal"
+                                    aria-label={`Q${qNum}(a)(ii)`}
+                                    disabled={otherChoiceUsed(qNum, qData, "a")}
+                                    placeholder="NA"
+                                    value={boxText(`${qNum}a.ii`, qData.a.ii)}
+                                    onChange={(e) =>
+                                      onBoxInput(`${qNum}a.ii`, e.target.value, qNum === 16 ? 15 : 13, (v) =>
+                                        setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, a: { ...qData.a, ii: fitSub(qData.a, "ii", v, qNum) } } })
+                                      )
+                                    }
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${boxClass(`${qNum}a.ii`)} disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:text-slate-500`}
                                   />
                                 </td>
                                 <td className="p-1 border-r border-red-900/40">
                                   <input
-                                    type="number"
-                                    min="0"
-                                    max={qNum === 16 ? 15 : 13}
-                                    value={qData.a.iii === 0 ? "" : qData.a.iii}
-                                    placeholder="0"
-                                    onChange={(e) => {
-                                      const val = Number(e.target.value) || 0;
-                                      setPartBCMarks({
-                                        ...partBCMarks,
-                                        [qNum]: {
-                                          ...qData,
-                                          a: { ...qData.a, iii: fitSub(qData.a, "iii", val, qNum) },
-                                        },
-                                      });
-                                    }}
-                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                    type="text"
+                                    inputMode="decimal"
+                                    aria-label={`Q${qNum}(a)(iii)`}
+                                    disabled={otherChoiceUsed(qNum, qData, "a")}
+                                    placeholder="NA"
+                                    value={boxText(`${qNum}a.iii`, qData.a.iii)}
+                                    onChange={(e) =>
+                                      onBoxInput(`${qNum}a.iii`, e.target.value, qNum === 16 ? 15 : 13, (v) =>
+                                        setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, a: { ...qData.a, iii: fitSub(qData.a, "iii", v, qNum) } } })
+                                      )
+                                    }
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${boxClass(`${qNum}a.iii`)} disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:text-slate-500`}
                                   />
                                 </td>
                                 <td rowSpan={2} className="p-2 font-mono font-bold text-sm text-[#0B192C] align-middle bg-red-50/20 border-r border-red-900/40">
@@ -1637,62 +1664,50 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                                 <td className="p-1 font-bold text-gray-700 border-r border-red-900/40">b</td>
                                 <td className="p-1 border-r border-red-900/40">
                                   <input
-                                    type="number"
-                                    min="0"
-                                    max={qNum === 16 ? 15 : 13}
-                                    value={qData.b.i === 0 ? "" : qData.b.i}
-                                    placeholder="0"
-                                    onChange={(e) => {
-                                      const val = Number(e.target.value) || 0;
-                                      setPartBCMarks({
-                                        ...partBCMarks,
-                                        [qNum]: {
-                                          ...qData,
-                                          b: { ...qData.b, i: fitSub(qData.b, "i", val, qNum) },
-                                        },
-                                      });
-                                    }}
-                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                    type="text"
+                                    inputMode="decimal"
+                                    aria-label={`Q${qNum}(b)(i)`}
+                                    disabled={otherChoiceUsed(qNum, qData, "b")}
+                                    placeholder="NA"
+                                    value={boxText(`${qNum}b.i`, qData.b.i)}
+                                    onChange={(e) =>
+                                      onBoxInput(`${qNum}b.i`, e.target.value, qNum === 16 ? 15 : 13, (v) =>
+                                        setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, b: { ...qData.b, i: fitSub(qData.b, "i", v, qNum) } } })
+                                      )
+                                    }
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${boxClass(`${qNum}b.i`)} disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:text-slate-500`}
                                   />
                                 </td>
                                 <td className="p-1 border-r border-red-900/40">
                                   <input
-                                    type="number"
-                                    min="0"
-                                    max={qNum === 16 ? 15 : 13}
-                                    value={qData.b.ii === 0 ? "" : qData.b.ii}
-                                    placeholder="0"
-                                    onChange={(e) => {
-                                      const val = Number(e.target.value) || 0;
-                                      setPartBCMarks({
-                                        ...partBCMarks,
-                                        [qNum]: {
-                                          ...qData,
-                                          b: { ...qData.b, ii: fitSub(qData.b, "ii", val, qNum) },
-                                        },
-                                      });
-                                    }}
-                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                    type="text"
+                                    inputMode="decimal"
+                                    aria-label={`Q${qNum}(b)(ii)`}
+                                    disabled={otherChoiceUsed(qNum, qData, "b")}
+                                    placeholder="NA"
+                                    value={boxText(`${qNum}b.ii`, qData.b.ii)}
+                                    onChange={(e) =>
+                                      onBoxInput(`${qNum}b.ii`, e.target.value, qNum === 16 ? 15 : 13, (v) =>
+                                        setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, b: { ...qData.b, ii: fitSub(qData.b, "ii", v, qNum) } } })
+                                      )
+                                    }
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${boxClass(`${qNum}b.ii`)} disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:text-slate-500`}
                                   />
                                 </td>
                                 <td className="p-1 border-r border-red-900/40">
                                   <input
-                                    type="number"
-                                    min="0"
-                                    max={qNum === 16 ? 15 : 13}
-                                    value={qData.b.iii === 0 ? "" : qData.b.iii}
-                                    placeholder="0"
-                                    onChange={(e) => {
-                                      const val = Number(e.target.value) || 0;
-                                      setPartBCMarks({
-                                        ...partBCMarks,
-                                        [qNum]: {
-                                          ...qData,
-                                          b: { ...qData.b, iii: fitSub(qData.b, "iii", val, qNum) },
-                                        },
-                                      });
-                                    }}
-                                    className="w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA]"
+                                    type="text"
+                                    inputMode="decimal"
+                                    aria-label={`Q${qNum}(b)(iii)`}
+                                    disabled={otherChoiceUsed(qNum, qData, "b")}
+                                    placeholder="NA"
+                                    value={boxText(`${qNum}b.iii`, qData.b.iii)}
+                                    onChange={(e) =>
+                                      onBoxInput(`${qNum}b.iii`, e.target.value, qNum === 16 ? 15 : 13, (v) =>
+                                        setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, b: { ...qData.b, iii: fitSub(qData.b, "iii", v, qNum) } } })
+                                      )
+                                    }
+                                    className={`w-12 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] ${boxClass(`${qNum}b.iii`)} disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:text-slate-500`}
                                   />
                                 </td>
                               </tr>

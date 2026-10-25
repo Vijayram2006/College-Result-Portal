@@ -411,6 +411,8 @@ export interface StudentMarkDTO {
   version?: number;
   /** Evaluator remarks ("overall", "q1".."q16"). */
   remarks?: Record<string, string>;
+  /** Boxes the student did not attempt (NA): "A1".."A10", "11a.i".."16b.iii". They count as 0. */
+  notAttempted?: string[];
 }
 
 /** Forwarding / publication state of one subject (NOT_FORWARDED, FORWARDED, PUBLISHED, OUT_OF_DATE, NO_MARKS). */
@@ -479,6 +481,7 @@ export const facultyApi = {
     expectedVersion?: number;
     deptKey?: string;
     remarks?: Record<string, string>;
+    notAttempted?: string[];
   }): Promise<StudentMarkDTO> {
     return (await apiClient.put<StudentMarkDTO>("/faculty/marks", payload)).data;
   },
