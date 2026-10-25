@@ -48,7 +48,6 @@ import {
   HierarchyRole,
   HierarchyStageNumber,
   PdfAttachment,
-  SAMPLE_QP_PDF_DATA,
   safeLoadQuestionPapers,
 } from "../data/questionPapersData";
 import { adminAuthApi } from "../services/api";

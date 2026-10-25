@@ -98,7 +98,9 @@ export const AnswerScriptPane: React.FC<{
   label: string;
   /** Shown instead of loading anything, e.g. until the assessment is chosen. */
   prompt?: string;
-}> = ({ fetchPdf, scriptKey, label, prompt }) => {
+  /** Fill the parent (e.g. a panel of the paper-correction window) instead of taking half of a split screen. */
+  fill?: boolean;
+}> = ({ fetchPdf, scriptKey, label, prompt, fill }) => {
   const [url, setUrl] = useState<string | null>(null);
   const [blob, setBlob] = useState<Blob | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "none" | "error">("loading");
@@ -135,7 +137,7 @@ export const AnswerScriptPane: React.FC<{
   const zoomButton = "p-1 rounded-md bg-white/10 hover:bg-white/20 disabled:opacity-40";
 
   return (
-    <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-2xl flex flex-col overflow-hidden lg:w-1/2 min-h-[50vh] lg:min-h-0 lg:h-[94vh]">
+    <div className={`bg-white rounded-3xl border border-[#E5E1D8] shadow-2xl flex flex-col overflow-hidden ${fill ? "w-full h-full min-h-[50vh]" : "lg:w-1/2 min-h-[50vh] lg:min-h-0 lg:h-[94vh]"}`}>
       <div className="flex items-center justify-between gap-2 px-4 py-3 bg-[#0B192C] text-white">
         <span className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider shrink-0">
           <FileText size={15} className="text-[#D4A72C]" /> Answer script

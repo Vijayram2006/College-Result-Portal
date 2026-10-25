@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { apiClient } from "../../services/api";
+import { apiClient, authApi } from "../../services/api";
 import {
   PenLine,
   BookOpen,
@@ -34,7 +34,17 @@ import {
   Check,
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import { allCurriculumSubjects, CurriculumSubject } from "../../data/curriculumSubjects";
+/** A subject of the college's catalogue (GET /admin/subjects). */
+interface CurriculumSubject {
+  code: string;
+  title: string;
+  department: string;
+  deptKey: string;
+  credits: number;
+  category: string;
+  semester: string;
+  faculty: string;
+}
 
 export interface EvaluatedScriptDetail {
   scriptBarcode: string;
@@ -42,7 +52,7 @@ export interface EvaluatedScriptDetail {
   partAMarks: number; // Max 20
   partBMarks: number; // Max 80
   totalMarks: number; // Max 100
-  grade: "O" | "A+" | "A" | "B+" | "B" | "RA";
+  grade: string;
   evaluatedAt: string;
   remarks: string;
   status: "VERIFIED" | "VALUED" | "SCRUTINY_FLAGGED";
@@ -126,548 +136,71 @@ export interface PaperCorrectionAllocation {
   status: "ALLOCATED" | "VALUATION_IN_PROGRESS" | "SCRUTINY_COMPLETED";
 }
 
-// Available faculties for 1-click auto-suggestion
-const PRESET_FACULTY_POOL: { name: string; id: string; dept: string; role: "Chief Evaluator" | "Internal Examiner" | "External Examiner" }[] = [
-  { name: "Prof. K. Venkatesh", id: "FAC-ENG-104", dept: "ADS", role: "Internal Examiner" as const },
-  { name: "Dr. S. Mohan", id: "FAC-ENG-101", dept: "ADS", role: "Chief Evaluator" as const },
-  { name: "Dr. Ananya Menon", id: "FAC-ENG-202", dept: "CSE", role: "Internal Examiner" as const },
-  { name: "Dr. Jayapradha", id: "FAC-ENG-201", dept: "CSE", role: "Chief Evaluator" as const },
-  { name: "Dr. Meenakshi S.", id: "FAC-ENG-302", dept: "BME", role: "Internal Examiner" as const },
-  { name: "Dr. R. Natarajan", id: "FAC-ENG-301", dept: "BME", role: "Chief Evaluator" as const },
-  { name: "Dr. Kavitha Raman", id: "FAC-ENG-402", dept: "Biotech", role: "Internal Examiner" as const },
-  { name: "Dr. G. Sivakumar", id: "FAC-ENG-401", dept: "Biotech", role: "Chief Evaluator" as const },
-  { name: "Dr. P. Suresh", id: "FAC-ENG-502", dept: "ECE", role: "Internal Examiner" as const },
-  { name: "Dr. T. Balakrishnan", id: "FAC-ENG-501", dept: "ECE", role: "Chief Evaluator" as const },
-  { name: "Prof. Arjun Rao", id: "FAC-ENG-208", dept: "CSE", role: "Internal Examiner" as const },
-  { name: "Prof. Vikram Shah", id: "FAC-ENG-209", dept: "CSE", role: "Internal Examiner" as const },
-  { name: "Prof. S. Nandhini", id: "FAC-ENG-108", dept: "ADS", role: "Internal Examiner" as const },
-  { name: "Dr. Meganathan", id: "FAC-VAL-001", dept: "Evaluation Wing", role: "External Examiner" as const },
-];
-
-// Helper function to generate realistic evaluated scripts for faculty paper inspection
-export const generateFacultyScripts = (
-  facultyName: string,
-  bundlePacketId: string,
-  subjectCode: string,
-  count: number,
-  baseMean: number = 68.0,
-  stdDev: number = 7.0
-): EvaluatedScriptDetail[] => {
-  const list: EvaluatedScriptDetail[] = [];
-  const startId = bundlePacketId.includes("A") ? 8401 : bundlePacketId.includes("B") ? 8431 : 8461;
-
-  for (let i = 1; i <= count; i++) {
-    const wave = Math.sin(i * 4.2 + (baseMean % 7)) * stdDev * 1.35;
-    const rawTotal = Math.min(97, Math.max(38, Math.round(baseMean + wave)));
-    const partA = Math.min(20, Math.max(7, Math.round((rawTotal / 100) * 20 + Math.sin(i * 2) * 1.5)));
-    const partB = Math.max(0, rawTotal - partA);
-    const total = partA + partB;
-
-    let grade: "O" | "A+" | "A" | "B+" | "B" | "RA" = "B";
-    if (total >= 90) grade = "O";
-    else if (total >= 80) grade = "A+";
-    else if (total >= 70) grade = "A";
-    else if (total >= 60) grade = "B+";
-    else if (total >= 50) grade = "B";
-    else grade = "RA";
-
-    list.push({
-      scriptBarcode: `BC-${subjectCode}-${bundlePacketId}-${String(i).padStart(2, "0")}`,
-      dummyCode: `DMY-${startId + i}`,
-      partAMarks: partA,
-      partBMarks: partB,
-      totalMarks: total,
-      grade,
-      evaluatedAt: `2026-10-${18 + (i % 3)} ${String((i % 6) + 9).padStart(2, "0")}:${String((i * 11) % 60).padStart(2, "0")} AM`,
-      remarks:
-        total >= 85
-          ? "Exemplary solution derivation in Part B"
-          : total < 50
-          ? "Analytical deficit in question 14 rubrics"
-          : "Standard autonomous valuation completed",
-      status: i % 9 === 0 ? "SCRUTINY_FLAGGED" : "VERIFIED",
-    });
-  }
-  return list;
-};
+// The college's evaluators (faculty and HOD sign-ins), loaded from the server
+const PRESET_FACULTY_POOL: { name: string; id: string; dept: string; role: "Chief Evaluator" | "Internal Examiner" | "External Examiner" }[] = [];
 
 const STORAGE_KEY = "kvell_paper_correction_assignments";
 
-// Initial demo allocations with multi-faculty evaluation performance data
-const INITIAL_ALLOCATIONS: PaperCorrectionAllocation[] = [
-  {
-    id: "ALLOC-AI602-2026",
-    subjectCode: "AI602",
-    subjectTitle: "Deep Learning & Neural Architectures",
-    department: "Artificial Intelligence & Data Science",
-    deptKey: "aids",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    regulation: "R-2023 Autonomous",
-    examSession: "Nov/Dec 2026 (FN)",
-    qpMasterCode: "QP-2026-AI602-V2",
-    totalAnswerScripts: 50,
-    numberOfStaff: 2,
-    allocatedAt: "2026-10-18 10:30 AM",
-    deadlineDate: "2026-10-24",
-    campVenue: "Autonomous Valuation Camp (Hall 304, Tech Block)",
-    adApprovedBy: "Dr. K. R. Ramanathan (Associate Dean - Academics)",
-    status: "VALUATION_IN_PROGRESS",
-    assignedStaff: [
-      {
-        id: "STAFF-1",
-        name: "Prof. K. Venkatesh",
-        facultyId: "FAC-ENG-104",
-        department: "ADS",
-        role: "Chief Evaluator",
-        assignedScripts: 25,
-        evaluatedScripts: 25,
-        averageMarks: 68.4,
-        stdDev: 6.8,
-        highestMark: 92,
-        lowestMark: 45,
-        passCount: 24,
-        scriptRangeStart: 1,
-        scriptRangeEnd: 25,
-        bundlePacketId: "PKT-AI602-A",
-        status: "Completed",
-        allottedScripts: generateFacultyScripts("Prof. K. Venkatesh", "PKT-AI602-A", "AI602", 25, 68.4, 6.8),
-      },
-      {
-        id: "STAFF-2",
-        name: "Dr. S. Mohan",
-        facultyId: "FAC-ENG-101",
-        department: "ADS",
-        role: "Internal Examiner",
-        assignedScripts: 25,
-        evaluatedScripts: 25,
-        averageMarks: 65.2,
-        stdDev: 7.1,
-        highestMark: 88,
-        lowestMark: 42,
-        passCount: 23,
-        scriptRangeStart: 26,
-        scriptRangeEnd: 50,
-        bundlePacketId: "PKT-AI602-B",
-        status: "Completed",
-        allottedScripts: generateFacultyScripts("Dr. S. Mohan", "PKT-AI602-B", "AI602", 25, 65.2, 7.1),
-      },
-    ],
-  },
-  {
-    id: "ALLOC-CS601-2026",
-    subjectCode: "CS601",
-    subjectTitle: "Data Structures & Algorithms",
-    department: "Computer Science and Engineering",
-    deptKey: "cse",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    regulation: "R-2023 Autonomous",
-    examSession: "Nov/Dec 2026 (FN)",
-    qpMasterCode: "QP-2026-CS601-V1",
-    totalAnswerScripts: 40,
-    numberOfStaff: 2,
-    allocatedAt: "2026-10-17 02:15 PM",
-    deadlineDate: "2026-10-23",
-    campVenue: "Autonomous Valuation Camp (Hall 302, CS Wing)",
-    adApprovedBy: "Dr. K. R. Ramanathan (Associate Dean - Academics)",
-    status: "VALUATION_IN_PROGRESS",
-    assignedStaff: [
-      {
-        id: "STAFF-CS-1",
-        name: "Dr. Ananya Menon",
-        facultyId: "FAC-ENG-202",
-        department: "CSE",
-        role: "Chief Evaluator",
-        assignedScripts: 20,
-        evaluatedScripts: 20,
-        averageMarks: 73.2,
-        stdDev: 6.4,
-        highestMark: 95,
-        lowestMark: 52,
-        passCount: 20,
-        scriptRangeStart: 1,
-        scriptRangeEnd: 20,
-        bundlePacketId: "PKT-CS601-A",
-        status: "Completed",
-        allottedScripts: generateFacultyScripts("Dr. Ananya Menon", "PKT-CS601-A", "CS601", 20, 73.2, 6.4),
-      },
-      {
-        id: "STAFF-CS-2",
-        name: "Dr. Jayapradha",
-        facultyId: "FAC-ENG-201",
-        department: "CSE",
-        role: "Internal Examiner",
-        assignedScripts: 20,
-        evaluatedScripts: 20,
-        averageMarks: 71.5,
-        stdDev: 6.9,
-        highestMark: 91,
-        lowestMark: 48,
-        passCount: 19,
-        scriptRangeStart: 21,
-        scriptRangeEnd: 40,
-        bundlePacketId: "PKT-CS601-B",
-        status: "Completed",
-        allottedScripts: generateFacultyScripts("Dr. Jayapradha", "PKT-CS601-B", "CS601", 20, 71.5, 6.9),
-      },
-    ],
-  },
-  {
-    id: "ALLOC-MA26C01T-2026",
-    subjectCode: "MA26C01T",
-    subjectTitle: "Matrices and Calculus",
-    department: "All Engineering Departments",
-    deptKey: "all",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    regulation: "R-2023 Autonomous",
-    examSession: "Nov/Dec 2026 (FN)",
-    qpMasterCode: "QP-2026-MA26C01T-AUTONOMOUS",
-    totalAnswerScripts: 60,
-    numberOfStaff: 2,
-    allocatedAt: "2026-10-16 11:00 AM",
-    deadlineDate: "2026-10-22",
-    campVenue: "Central Mathematics Valuation Camp (Hall 105)",
-    adApprovedBy: "Dr. K. R. Ramanathan (Associate Dean - Academics)",
-    status: "VALUATION_IN_PROGRESS",
-    assignedStaff: [
-      {
-        id: "STAFF-MA-1",
-        name: "Prof. Arjun Rao",
-        facultyId: "FAC-ENG-208",
-        department: "Mathematics",
-        role: "Chief Evaluator",
-        assignedScripts: 30,
-        evaluatedScripts: 30,
-        averageMarks: 67.8,
-        stdDev: 7.9,
-        highestMark: 94,
-        lowestMark: 41,
-        passCount: 28,
-        scriptRangeStart: 1,
-        scriptRangeEnd: 30,
-        bundlePacketId: "PKT-MA26C01T-A",
-        status: "Completed",
-        allottedScripts: generateFacultyScripts("Prof. Arjun Rao", "PKT-MA26C01T-A", "MA26C01T", 30, 67.8, 7.9),
-      },
-      {
-        id: "STAFF-MA-2",
-        name: "Prof. Vikram Shah",
-        facultyId: "FAC-ENG-209",
-        department: "Mathematics",
-        role: "Internal Examiner",
-        assignedScripts: 30,
-        evaluatedScripts: 30,
-        averageMarks: 66.2,
-        stdDev: 8.3,
-        highestMark: 90,
-        lowestMark: 43,
-        passCount: 27,
-        scriptRangeStart: 31,
-        scriptRangeEnd: 60,
-        bundlePacketId: "PKT-MA26C01T-B",
-        status: "Completed",
-        allottedScripts: generateFacultyScripts("Prof. Vikram Shah", "PKT-MA26C01T-B", "MA26C01T", 30, 66.2, 8.3),
-      },
-    ],
-  },
-  {
-    id: "ALLOC-AI604-2026",
-    subjectCode: "AI604",
-    subjectTitle: "Natural Language Processing & LLMs",
-    department: "Artificial Intelligence & Data Science",
-    deptKey: "aids",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    regulation: "R-2023 Autonomous",
-    examSession: "Nov/Dec 2026 (FN)",
-    qpMasterCode: "QP-2026-AI604-V1",
-    totalAnswerScripts: 40,
-    numberOfStaff: 2,
-    allocatedAt: "2026-10-17 09:30 AM",
-    deadlineDate: "2026-10-23",
-    campVenue: "Autonomous Valuation Camp (Hall 304, Tech Block)",
-    adApprovedBy: "Dr. K. R. Ramanathan (Associate Dean - Academics)",
-    status: "VALUATION_IN_PROGRESS",
-    assignedStaff: [
-      {
-        id: "STAFF-AI4-1",
-        name: "Prof. K. Venkatesh",
-        facultyId: "FAC-ENG-104",
-        department: "ADS",
-        role: "Chief Evaluator",
-        assignedScripts: 20,
-        evaluatedScripts: 20,
-        averageMarks: 71.2,
-        stdDev: 6.2,
-        highestMark: 94,
-        lowestMark: 48,
-        passCount: 19,
-        scriptRangeStart: 1,
-        scriptRangeEnd: 20,
-        bundlePacketId: "PKT-AI604-A",
-        status: "Completed",
-        allottedScripts: generateFacultyScripts("Prof. K. Venkatesh", "PKT-AI604-A", "AI604", 20, 71.2, 6.2),
-      },
-      {
-        id: "STAFF-AI4-2",
-        name: "Prof. S. Nandhini",
-        facultyId: "FAC-ENG-108",
-        department: "ADS",
-        role: "Internal Examiner",
-        assignedScripts: 20,
-        evaluatedScripts: 20,
-        averageMarks: 69.8,
-        stdDev: 6.5,
-        highestMark: 91,
-        lowestMark: 44,
-        passCount: 19,
-        scriptRangeStart: 21,
-        scriptRangeEnd: 40,
-        bundlePacketId: "PKT-AI604-B",
-        status: "Completed",
-        allottedScripts: generateFacultyScripts("Prof. S. Nandhini", "PKT-AI604-B", "AI604", 20, 69.8, 6.5),
-      },
-    ],
-  },
-  {
-    id: "ALLOC-CS603-2026",
-    subjectCode: "CS603",
-    subjectTitle: "Cloud Computing & DevOps Architecture",
-    department: "Computer Science and Engineering",
-    deptKey: "cse",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    regulation: "R-2023 Autonomous",
-    examSession: "Nov/Dec 2026 (FN)",
-    qpMasterCode: "QP-2026-CS603-V2",
-    totalAnswerScripts: 50,
-    numberOfStaff: 2,
-    allocatedAt: "2026-10-18 03:00 PM",
-    deadlineDate: "2026-10-24",
-    campVenue: "Autonomous Valuation Camp (Hall 302, CS Wing)",
-    adApprovedBy: "Dr. K. R. Ramanathan (Associate Dean - Academics)",
-    status: "VALUATION_IN_PROGRESS",
-    assignedStaff: [
-      {
-        id: "STAFF-CS3-1",
-        name: "Dr. Ananya Menon",
-        facultyId: "FAC-ENG-202",
-        department: "CSE",
-        role: "Chief Evaluator",
-        assignedScripts: 25,
-        evaluatedScripts: 25,
-        averageMarks: 75.0,
-        stdDev: 5.8,
-        highestMark: 96,
-        lowestMark: 54,
-        passCount: 25,
-        scriptRangeStart: 1,
-        scriptRangeEnd: 25,
-        bundlePacketId: "PKT-CS603-A",
-        status: "Completed",
-        allottedScripts: generateFacultyScripts("Dr. Ananya Menon", "PKT-CS603-A", "CS603", 25, 75.0, 5.8),
-      },
-      {
-        id: "STAFF-CS3-2",
-        name: "Dr. Jayapradha",
-        facultyId: "FAC-ENG-201",
-        department: "CSE",
-        role: "Internal Examiner",
-        assignedScripts: 25,
-        evaluatedScripts: 25,
-        averageMarks: 72.8,
-        stdDev: 6.3,
-        highestMark: 93,
-        lowestMark: 50,
-        passCount: 24,
-        scriptRangeStart: 26,
-        scriptRangeEnd: 50,
-        bundlePacketId: "PKT-CS603-B",
-        status: "Completed",
-        allottedScripts: generateFacultyScripts("Dr. Jayapradha", "PKT-CS603-B", "CS603", 25, 72.8, 6.3),
-      },
-    ],
-  },
-  {
-    id: "ALLOC-BM603-2026",
-    subjectCode: "BM603",
-    subjectTitle: "Biomedical Instrumentation & Sensors",
-    department: "Biomedical Engineering",
-    deptKey: "bme",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    regulation: "R-2023 Autonomous",
-    examSession: "Nov/Dec 2026 (FN)",
-    qpMasterCode: "QP-2026-BM603-V1",
-    totalAnswerScripts: 30,
-    numberOfStaff: 2,
-    allocatedAt: "2026-10-17 11:30 AM",
-    deadlineDate: "2026-10-23",
-    campVenue: "Autonomous Valuation Camp (Bio-Wing 204)",
-    adApprovedBy: "Dr. K. R. Ramanathan (Associate Dean - Academics)",
-    status: "VALUATION_IN_PROGRESS",
-    assignedStaff: [
-      {
-        id: "STAFF-BM-1",
-        name: "Dr. Meenakshi S.",
-        facultyId: "FAC-ENG-302",
-        department: "BME",
-        role: "Chief Evaluator",
-        assignedScripts: 15,
-        evaluatedScripts: 15,
-        averageMarks: 67.4,
-        stdDev: 7.2,
-        highestMark: 89,
-        lowestMark: 44,
-        passCount: 14,
-        scriptRangeStart: 1,
-        scriptRangeEnd: 15,
-        bundlePacketId: "PKT-BM603-A",
-        status: "Completed",
-        allottedScripts: generateFacultyScripts("Dr. Meenakshi S.", "PKT-BM603-A", "BM603", 15, 67.4, 7.2),
-      },
-      {
-        id: "STAFF-BM-2",
-        name: "Dr. R. Natarajan",
-        facultyId: "FAC-ENG-301",
-        department: "BME",
-        role: "Internal Examiner",
-        assignedScripts: 15,
-        evaluatedScripts: 15,
-        averageMarks: 66.0,
-        stdDev: 7.5,
-        highestMark: 87,
-        lowestMark: 41,
-        passCount: 14,
-        scriptRangeStart: 16,
-        scriptRangeEnd: 30,
-        bundlePacketId: "PKT-BM603-B",
-        status: "Completed",
-        allottedScripts: generateFacultyScripts("Dr. R. Natarajan", "PKT-BM603-B", "BM603", 15, 66.0, 7.5),
-      },
-    ],
-  },
-  {
-    id: "ALLOC-BT602-2026",
-    subjectCode: "BT602",
-    subjectTitle: "Genetic Engineering & CRISPR Technology",
-    department: "Biotechnology",
-    deptKey: "biotech",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    regulation: "R-2023 Autonomous",
-    examSession: "Nov/Dec 2026 (FN)",
-    qpMasterCode: "QP-2026-BT602-V2",
-    totalAnswerScripts: 30,
-    numberOfStaff: 2,
-    allocatedAt: "2026-10-18 10:00 AM",
-    deadlineDate: "2026-10-24",
-    campVenue: "Autonomous Valuation Camp (Biotech Lab 102)",
-    adApprovedBy: "Dr. K. R. Ramanathan (Associate Dean - Academics)",
-    status: "VALUATION_IN_PROGRESS",
-    assignedStaff: [
-      {
-        id: "STAFF-BT-1",
-        name: "Dr. Kavitha Raman",
-        facultyId: "FAC-ENG-402",
-        department: "Biotech",
-        role: "Chief Evaluator",
-        assignedScripts: 15,
-        evaluatedScripts: 15,
-        averageMarks: 68.2,
-        stdDev: 6.7,
-        highestMark: 90,
-        lowestMark: 45,
-        passCount: 14,
-        scriptRangeStart: 1,
-        scriptRangeEnd: 15,
-        bundlePacketId: "PKT-BT602-A",
-        status: "Completed",
-        allottedScripts: generateFacultyScripts("Dr. Kavitha Raman", "PKT-BT602-A", "BT602", 15, 68.2, 6.7),
-      },
-      {
-        id: "STAFF-BT-2",
-        name: "Dr. G. Sivakumar",
-        facultyId: "FAC-ENG-401",
-        department: "Biotech",
-        role: "Internal Examiner",
-        assignedScripts: 15,
-        evaluatedScripts: 15,
-        averageMarks: 65.5,
-        stdDev: 7.0,
-        highestMark: 86,
-        lowestMark: 42,
-        passCount: 13,
-        scriptRangeStart: 16,
-        scriptRangeEnd: 30,
-        bundlePacketId: "PKT-BT602-B",
-        status: "Completed",
-        allottedScripts: generateFacultyScripts("Dr. G. Sivakumar", "PKT-BT602-B", "BT602", 15, 65.5, 7.0),
-      },
-    ],
-  },
-  {
-    id: "ALLOC-EC601-2026",
-    subjectCode: "EC601",
-    subjectTitle: "VLSI Design & Embedded Systems",
-    department: "Electronics & Communication Engineering",
-    deptKey: "ece",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    regulation: "R-2023 Autonomous",
-    examSession: "Nov/Dec 2026 (FN)",
-    qpMasterCode: "QP-2026-EC601-V1",
-    totalAnswerScripts: 40,
-    numberOfStaff: 2,
-    allocatedAt: "2026-10-17 01:00 PM",
-    deadlineDate: "2026-10-23",
-    campVenue: "Autonomous Valuation Camp (ECE Block Hall 201)",
-    adApprovedBy: "Dr. K. R. Ramanathan (Associate Dean - Academics)",
-    status: "VALUATION_IN_PROGRESS",
-    assignedStaff: [
-      {
-        id: "STAFF-EC-1",
-        name: "Dr. P. Suresh",
-        facultyId: "FAC-ENG-502",
-        department: "ECE",
-        role: "Chief Evaluator",
-        assignedScripts: 20,
-        evaluatedScripts: 20,
-        averageMarks: 70.4,
-        stdDev: 6.6,
-        highestMark: 93,
-        lowestMark: 47,
-        passCount: 19,
-        scriptRangeStart: 1,
-        scriptRangeEnd: 20,
-        bundlePacketId: "PKT-EC601-A",
-        status: "Completed",
-        allottedScripts: generateFacultyScripts("Dr. P. Suresh", "PKT-EC601-A", "EC601", 20, 70.4, 6.6),
-      },
-      {
-        id: "STAFF-EC-2",
-        name: "Dr. T. Balakrishnan",
-        facultyId: "FAC-ENG-501",
-        department: "ECE",
-        role: "Internal Examiner",
-        assignedScripts: 20,
-        evaluatedScripts: 20,
-        averageMarks: 68.9,
-        stdDev: 6.9,
-        highestMark: 91,
-        lowestMark: 45,
-        passCount: 19,
-        scriptRangeStart: 21,
-        scriptRangeEnd: 40,
-        bundlePacketId: "PKT-EC601-B",
-        status: "Completed",
-        allottedScripts: generateFacultyScripts("Dr. T. Balakrishnan", "PKT-EC601-B", "EC601", 20, 68.9, 6.9),
-      },
-    ],
-  },
-];
+/** Sample allotments that older versions of this screen saved; they are removed from the shared list. */
+const DEMO_ALLOCATION_IDS = new Set(["ALLOC-AI602-2026", "ALLOC-CS601-2026", "ALLOC-MA26C01T-2026", "ALLOC-AI604-2026",
+  "ALLOC-CS603-2026", "ALLOC-BM603-2026", "ALLOC-BT602-2026", "ALLOC-EC601-2026"]);
+const isDemoAllocation = (a: PaperCorrectionAllocation) =>
+  DEMO_ALLOCATION_IDS.has(a.id) && /^\d{4}-\d{2}-\d{2} /.test(a.allocatedAt || "");
+
+const readAllocations = (): PaperCorrectionAllocation[] => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+/** One answer script in the evaluators' order (GET /dean/paper-correction/scripts). */
+interface LiveScript {
+  position: number;
+  dummyCode: string;
+  evaluated: boolean;
+  partATotal: number;
+  partBCTotal: number;
+  total: number;
+  grade: string | null;
+}
+
+const assessmentOf = (a: PaperCorrectionAllocation) =>
+  /IAT-?2/i.test(a.examSession) ? "IAT-2" : /IAT-?1/i.test(a.examSession) ? "IAT-1" : "End Semester";
+const liveKey = (a: PaperCorrectionAllocation) => `${a.deptKey}|${a.semester}|${a.subjectCode}|${assessmentOf(a)}`;
+const PASS_MARK = 40;
+
+/** An evaluator's real figures: their range of the subject's scripts and the marks saved for them so far. */
+const liveStaff = (staff: EvaluatorStaff, scripts: LiveScript[] | undefined): EvaluatorStaff => {
+  const bundle = (scripts ?? []).slice(Math.max(0, staff.scriptRangeStart - 1), staff.scriptRangeEnd);
+  const done = bundle.filter((s) => s.evaluated);
+  const totals = done.map((s) => s.total);
+  const avg = totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : 0;
+  const sd = totals.length ? Math.sqrt(totals.reduce((a, b) => a + (b - avg) ** 2, 0) / totals.length) : 0;
+  return {
+    ...staff,
+    evaluatedScripts: done.length,
+    averageMarks: parseFloat(avg.toFixed(1)),
+    stdDev: parseFloat(sd.toFixed(1)),
+    highestMark: totals.length ? Math.max(...totals) : 0,
+    lowestMark: totals.length ? Math.min(...totals) : 0,
+    passCount: totals.filter((m) => m >= PASS_MARK).length,
+    status: done.length === 0 ? "Assigned" : done.length < staff.assignedScripts ? "In Evaluation" : "Completed",
+    allottedScripts: done.map((s) => ({
+      scriptBarcode: s.dummyCode,
+      dummyCode: s.dummyCode,
+      partAMarks: s.partATotal,
+      partBMarks: s.partBCTotal,
+      totalMarks: s.total,
+      grade: s.grade === "F" ? "RA" : s.grade || "-",
+      evaluatedAt: "",
+      remarks: "",
+      status: "VALUED" as const,
+    })),
+  };
+};
 
 interface PaperCorrectionViewProps {
   onToast?: (msg: string) => void;
@@ -691,7 +224,17 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
   const [selectedSemester, setSelectedSemester] = useState<string>("Semester I");
   // The Dean allots the evaluators for IAT-1, IAT-2 and the end semester examination
   const [selectedAssessment, setSelectedAssessment] = useState<"IAT-1" | "IAT-2" | "End Semester">("End Semester");
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("Artificial Intelligence & Data Science");
+  // The department is a real department key (the subject's answer scripts are that department's)
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("All Departments");
+  const [realDepts, setRealDepts] = useState<{ key: string; name: string; code: string }[]>([]);
+  const [realSubjects, setRealSubjects] = useState<CurriculumSubject[]>([]);
+  useEffect(() => {
+    apiClient.get("/admin/departments").then((r) => setRealDepts(r.data)).catch(() => setRealDepts([]));
+    apiClient.get("/admin/subjects").then((r) => setRealSubjects(r.data.map((x: any) => ({
+      code: x.code, title: x.title, department: x.department, deptKey: x.deptKey, credits: x.credits ?? 0,
+      category: "Core Mandatory", semester: x.semester, faculty: x.faculty ?? "",
+    })))).catch(() => setRealSubjects([]));
+  }, []);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Selected Subject
@@ -701,7 +244,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
   const [totalScriptsInput, setTotalScriptsInput] = useState<number>(50);
   const [numberOfStaffInput, setNumberOfStaffInput] = useState<number>(2);
   const [valuationCampVenue, setValuationCampVenue] = useState<string>(
-    "Central Valuation Camp · Engineering Academic Block (Camp Room 304)"
+    ""
   );
   const [deadlineDate, setDeadlineDate] = useState<string>(() => {
     const d = new Date();
@@ -712,32 +255,62 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
   // Dynamic Staff Input State
   const [evaluatorInputs, setEvaluatorInputs] = useState<
     { name: string; facultyId: string; department: string; role: EvaluatorStaff["role"] }[]
-  >([
-    { name: "Prof. K. Venkatesh", facultyId: "FAC-ENG-104", department: "ADS", role: "Chief Evaluator" },
-    { name: "Dr. S. Mohan", facultyId: "FAC-ENG-101", department: "ADS", role: "Internal Examiner" },
-  ]);
+  >([]);
 
   // Persisted Allocations (ensure full multi-subject dataset is loaded)
-  const [allocations, setAllocations] = useState<PaperCorrectionAllocation[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length >= 6) {
-          return parsed;
-        }
-      }
-      return INITIAL_ALLOCATIONS;
-    } catch {
-      return INITIAL_ALLOCATIONS;
-    }
-  });
+  // The college's real allotments (shared through the server); old sample allotments are dropped
+  const [allocations, setAllocations] = useState<PaperCorrectionAllocation[]>(() =>
+    readAllocations().filter((a) => !isDemoAllocation(a))
+  );
+  useEffect(() => {
+    const reload = () => {
+      const all = readAllocations();
+      const real = all.filter((a) => !isDemoAllocation(a));
+      setAllocations(real);
+      // Remove sample allotments saved by older versions from the shared list (the Dean's account may change it)
+      if (real.length !== all.length) localStorage.setItem(STORAGE_KEY, JSON.stringify(real));
+    };
+    reload();
+    window.addEventListener("kvell_paper_correction_updated", reload);
+    window.addEventListener("storage", reload);
+    return () => {
+      window.removeEventListener("kvell_paper_correction_updated", reload);
+      window.removeEventListener("storage", reload);
+    };
+  }, []);
+
+  // Real progress and marks of every allotted subject, in the evaluators' order (refreshed every minute)
+  const [liveScripts, setLiveScripts] = useState<Record<string, LiveScript[]>>({});
+  const [liveTick, setLiveTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setLiveTick((n) => n + 1), 60000);
+    return () => clearInterval(id);
+  }, []);
+  useEffect(() => {
+    let live = true;
+    const unique = new Map(allocations.filter((a) => a.deptKey && a.deptKey !== "all").map((a) => [liveKey(a), a]));
+    unique.forEach((a, key) => {
+      apiClient
+        .get<LiveScript[]>("/dean/paper-correction/scripts", {
+          params: { dept: a.deptKey, semester: a.semester, subject: a.subjectCode, assessment: assessmentOf(a) },
+        })
+        .then((r) => live && setLiveScripts((prev) => ({ ...prev, [key]: r.data })))
+        .catch(() => undefined);
+    });
+    return () => {
+      live = false;
+    };
+  }, [allocations, liveTick]);
+  const liveAllocations = useMemo(
+    () => allocations.map((a) => ({ ...a, assignedStaff: a.assignedStaff.map((s) => liveStaff(s, liveScripts[liveKey(a)])) })),
+    [allocations, liveScripts]
+  );
 
   // Active view tab: "faculty-overview" (Default: Overall Paper Allotment & Mark Avg Hub) | "allocations-history" | "new-allocation"
   const [activeTab, setActiveTab] = useState<"faculty-overview" | "allocations-history" | "new-allocation">("faculty-overview");
 
-  // Selected faculty ID for faculty-overview tab (Default: Prof. K. Venkatesh)
-  const [selectedFacultyId, setSelectedFacultyId] = useState<string>("FAC-ENG-104");
+  // Selected faculty ID for the faculty-overview tab (first evaluator until one is chosen)
+  const [selectedFacultyId, setSelectedFacultyId] = useState<string>("");
   const [facultySearchQuery, setFacultySearchQuery] = useState<string>("");
   const [facultyDeptFilter, setFacultyDeptFilter] = useState<string>("ALL");
   const [facultySubjectFilter, setFacultySubjectFilter] = useState<string>("ALL");
@@ -786,8 +359,8 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
       });
     });
 
-    // Aggregate from allocations
-    allocations.forEach((alloc) => {
+    // Aggregate from the allotments with their real figures
+    liveAllocations.forEach((alloc) => {
       alloc.assignedStaff.forEach((staff) => {
         const key = staff.facultyId || staff.name;
         if (!map.has(key)) {
@@ -809,20 +382,10 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
         }
 
         const fac = map.get(key)!;
-        const staffScripts =
-          staff.allottedScripts && staff.allottedScripts.length > 0
-            ? staff.allottedScripts
-            : generateFacultyScripts(
-                staff.name,
-                staff.bundlePacketId,
-                alloc.subjectCode,
-                staff.assignedScripts,
-                staff.averageMarks || 68.0,
-                staff.stdDev || 6.8
-              );
+        const staffScripts = staff.allottedScripts ?? [];
 
         fac.totalAllottedScripts += staff.assignedScripts;
-        fac.totalEvaluatedScripts += staff.evaluatedScripts ?? staff.assignedScripts;
+        fac.totalEvaluatedScripts += staff.evaluatedScripts ?? 0;
 
         fac.allocatedSubjects.push({
           allocationId: alloc.id,
@@ -833,10 +396,10 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
           academicYear: alloc.academicYear,
           bundlePacketId: staff.bundlePacketId,
           assignedScripts: staff.assignedScripts,
-          evaluatedScripts: staff.evaluatedScripts ?? staff.assignedScripts,
-          averageMarks: staff.averageMarks ?? 68.4,
-          stdDev: staff.stdDev ?? 6.8,
-          passCount: staff.passCount ?? Math.round(staff.assignedScripts * 0.95),
+          evaluatedScripts: staff.evaluatedScripts ?? 0,
+          averageMarks: staff.averageMarks ?? 0,
+          stdDev: staff.stdDev ?? 0,
+          passCount: staff.passCount ?? 0,
           campVenue: alloc.campVenue,
           deadlineDate: alloc.deadlineDate,
           status: staff.status,
@@ -866,7 +429,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
           fac.allScripts.length;
         fac.overallStdDev = parseFloat(Math.sqrt(variance).toFixed(1));
 
-        const passed = fac.allScripts.filter((s) => s.totalMarks >= 50).length;
+        const passed = fac.allScripts.filter((s) => s.totalMarks >= PASS_MARK).length;
         fac.overallPassRate = parseFloat(((passed / fac.allScripts.length) * 100).toFixed(1));
       } else {
         fac.lowestMark = 0;
@@ -874,7 +437,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
     });
 
     return map;
-  }, [allocations]);
+  }, [liveAllocations]);
 
   const facultyList = useMemo(() => {
     return Array.from(facultyOverallMap.values()).filter((f) => f.totalAllottedScripts > 0);
@@ -901,7 +464,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
       "Allotted Scripts": sub.assignedScripts,
       "Evaluated Scripts": sub.evaluatedScripts,
       "Respective Mark Average (μ)": sub.averageMarks,
-      "Pass Rate %": `${Math.round((sub.passCount / sub.assignedScripts) * 100)}%`,
+      "Pass Rate %": `${Math.round((sub.passCount / Math.max(1, sub.evaluatedScripts)) * 100)}%`,
       "Camp Venue": sub.campVenue,
       "Deadline": sub.deadlineDate,
       "Valuation Status": sub.status,
@@ -944,14 +507,8 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
 
   // Filtered Subject Catalog
   const filteredSubjects = useMemo(() => {
-    return allCurriculumSubjects.filter((sub) => {
-      const matchDept =
-        selectedDepartment === "All Departments" ||
-        sub.department.toLowerCase() === selectedDepartment.toLowerCase() ||
-        (selectedDepartment.includes("AI") && sub.deptKey === "aids") ||
-        (selectedDepartment.includes("Computer") && sub.deptKey === "cse") ||
-        (selectedDepartment.includes("Biomedical") && sub.deptKey === "bme") ||
-        (selectedDepartment.includes("Biotech") && sub.deptKey === "biotech");
+    return realSubjects.filter((sub) => {
+      const matchDept = selectedDepartment === "All Departments" || sub.deptKey === selectedDepartment;
 
       const matchSem =
         !selectedSemester ||
@@ -966,7 +523,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
 
       return matchDept && matchSem && matchSearch;
     });
-  }, [selectedDepartment, selectedSemester, searchQuery]);
+  }, [selectedDepartment, selectedSemester, searchQuery, realSubjects]);
 
   // Auto-select first subject when filtered list changes if none selected
   useEffect(() => {
@@ -975,18 +532,30 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
     }
   }, [filteredSubjects, selectedSubject]);
 
-  // When selectedSubject changes, adjust script count default based on department
+  // The subject's real number of answer scripts (its students for this assessment, absentees excluded)
+  const [scriptCountNote, setScriptCountNote] = useState<string>("");
   useEffect(() => {
-    if (selectedSubject) {
-      let defaultCount = 50;
-      if (selectedSubject.deptKey === "cse") defaultCount = 60;
-      else if (selectedSubject.deptKey === "bme") defaultCount = 28;
-      else if (selectedSubject.deptKey === "biotech") defaultCount = 25;
-      else if (selectedSubject.deptKey === "ece") defaultCount = 35;
-      else if (selectedSubject.deptKey === "mech") defaultCount = 48;
-      setTotalScriptsInput(defaultCount);
-    }
-  }, [selectedSubject]);
+    if (!selectedSubject) return;
+    let live = true;
+    setScriptCountNote("Counting the answer scripts...");
+    apiClient
+      .get<LiveScript[]>("/dean/paper-correction/scripts", {
+        params: { dept: selectedSubject.deptKey, semester: selectedSemester, subject: selectedSubject.code, assessment: selectedAssessment },
+      })
+      .then((r) => {
+        if (!live) return;
+        setTotalScriptsInput(r.data.length);
+        setScriptCountNote(`${r.data.length} answer scripts of ${selectedSubject.code} for ${selectedAssessment} (absent students excluded).`);
+      })
+      .catch(() => {
+        if (!live) return;
+        setTotalScriptsInput(0);
+        setScriptCountNote("Could not count the answer scripts for this subject.");
+      });
+    return () => {
+      live = false;
+    };
+  }, [selectedSubject, selectedSemester, selectedAssessment]);
 
   // Sync evaluator inputs array length when numberOfStaffInput changes
   useEffect(() => {
@@ -994,14 +563,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
     setEvaluatorInputs((prev) => {
       const next = [...prev];
       while (next.length < n) {
-        const poolIndex = next.length % PRESET_FACULTY_POOL.length;
-        const candidate = PRESET_FACULTY_POOL[poolIndex];
-        next.push({
-          name: candidate.name,
-          facultyId: candidate.id,
-          department: candidate.dept,
-          role: next.length === 0 ? "Chief Evaluator" : "Internal Examiner",
-        });
+        next.push({ name: "", facultyId: "", department: "", role: next.length === 0 ? "Chief Evaluator" : "Internal Examiner" });
       }
       return next.slice(0, n);
     });
@@ -1010,7 +572,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
   // AUTOMATIC EQUAL MAPPING ENGINE
   // Calculates equal distribution of answer scripts among N staff members
   const calculatedMapping = useMemo(() => {
-    const total = Math.max(1, totalScriptsInput || 1);
+    const total = Math.max(0, totalScriptsInput || 0);
     const staffCount = Math.max(1, evaluatorInputs.length || 1);
 
     const basePerStaff = Math.floor(total / staffCount);
@@ -1029,32 +591,18 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
       const code = selectedSubject?.code || "SUB";
       const bundleId = `PKT-${code}-${packetLetter}`;
 
-      const baseMean = 68.0 + (idx === 0 ? 1.5 : -1.2);
-      const stdDev = 6.8 + (idx % 2 === 0 ? 0.3 : -0.2);
-      const scripts = generateFacultyScripts(staff.name, bundleId, code, count, baseMean, stdDev);
-      const avg = parseFloat((scripts.reduce((a, b) => a + b.totalMarks, 0) / (scripts.length || 1)).toFixed(1));
-      const passCount = scripts.filter((s) => s.totalMarks >= 50).length;
-      const highestMark = Math.max(...scripts.map((s) => s.totalMarks));
-      const lowestMark = Math.min(...scripts.map((s) => s.totalMarks));
-
       return {
         id: `STAFF-${idx + 1}`,
-        name: staff.name.trim() || `Evaluating Faculty ${idx + 1}`,
-        facultyId: staff.facultyId.trim() || `FAC-${idx + 101}`,
-        department: staff.department.trim() || (selectedSubject?.department || "Engineering"),
+        name: staff.name.trim(),
+        facultyId: staff.facultyId.trim(),
+        department: staff.department.trim(),
         role: staff.role,
         assignedScripts: count,
-        evaluatedScripts: count,
-        averageMarks: avg,
-        stdDev,
-        highestMark,
-        lowestMark,
-        passCount,
+        evaluatedScripts: 0,
         scriptRangeStart: start,
         scriptRangeEnd: end,
         bundlePacketId: bundleId,
-        status: "Completed",
-        allottedScripts: scripts,
+        status: "Assigned",
       };
     });
 
@@ -1111,8 +659,8 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
       return;
     }
 
-    if (calculatedMapping.distribution.some((s) => !s.name.trim())) {
-      notify("Please fill in names for all evaluating staff!");
+    if (calculatedMapping.distribution.some((s) => !s.facultyId.trim())) {
+      notify("Choose every evaluator from the college's faculty list (their sign-in is needed to open the scripts).");
       return;
     }
 
@@ -1124,7 +672,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
       deptKey: selectedSubject.deptKey,
       semester: selectedSemester,
       academicYear: selectedAcademicYear,
-      regulation: "R-2023 Autonomous",
+      regulation: "",
       examSession: selectedAssessment === "End Semester"
         ? `${selectedSemester.toUpperCase()} END SEMESTER EXAMINATIONS`
         : `${selectedSemester.toUpperCase()} ${selectedAssessment} INTERNAL ASSESSMENT TEST`,
@@ -1141,7 +689,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
       }),
       deadlineDate,
       campVenue: valuationCampVenue,
-      adApprovedBy: "Dr. K. R. Ramanathan (Associate Dean - Academics)",
+      adApprovedBy: authApi.currentUser()?.name || "Associate Dean",
       status: "ALLOCATED",
     };
 
@@ -1352,16 +900,9 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-[#0B192C] focus:ring-2 focus:ring-[#D4A72C] focus:outline-none bg-white cursor-pointer"
                   >
                     <option value="All Departments">All Departments</option>
-                    <option value="Artificial Intelligence & Data Science">AI &amp; Data Science</option>
-                    <option value="Computer Science and Engineering">Computer Science &amp; Engg</option>
-                    <option value="Biomedical Engineering">Biomedical Engineering</option>
-                    <option value="Biotech">Biotechnology</option>
-                    <option value="Electronics & Communication Engineering">ECE</option>
-                    <option value="Mechanical Engineering">Mechanical Engineering</option>
-                    <option value="Electrical & Electronics Engineering">EEE</option>
-                    <option value="Information Technology">Information Technology</option>
-                    <option value="Civil Engineering">Civil Engineering</option>
-                    <option value="Robotics and Automation">Robotics &amp; Automation</option>
+                    {realDepts.map((d) => (
+                      <option key={d.key} value={d.key}>{d.code || d.key.toUpperCase()} · {d.name}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -1541,7 +1082,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                       [2. COE Central Master Key (Locked in Dean/COE DB)]
                     </span>
                     <p className="text-[11px] text-amber-800 mt-0.5">
-                      Maps: <code className="bg-white/80 px-1 py-0.5 rounded font-mono font-bold">Reg No 20260110226001</code> &rarr; <code className="bg-white/80 px-1 py-0.5 rounded font-mono font-bold">Script ID: SCR-001</code> &rarr; <code className="bg-white/80 px-1 py-0.5 rounded font-mono font-bold">Dummy Barcode: DMY-84291</code>
+                      Maps: <code className="bg-white/80 px-1 py-0.5 rounded font-mono font-bold">Register number</code> &rarr; <code className="bg-white/80 px-1 py-0.5 rounded font-mono font-bold">dummy number AS-XXXXXXXX</code> (computed by the server with a secret key; never shown to evaluators)
                     </p>
                   </div>
                 </div>
@@ -1725,7 +1266,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                             type="text"
                             value={evaluatorInputs[idx]?.name || ""}
                             onChange={(e) => handleUpdateStaff(idx, "name", e.target.value)}
-                            placeholder="Enter Faculty Name (e.g. Dr. Ananya Menon)"
+                            placeholder="Choose the evaluator from the faculty list"
                             className="w-full px-3.5 py-2 rounded-xl border border-gray-300 font-bold text-xs text-[#0B192C] focus:border-[#D4A72C] focus:outline-none"
                           />
                         </div>
@@ -1739,7 +1280,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                             type="text"
                             value={evaluatorInputs[idx]?.facultyId || ""}
                             onChange={(e) => handleUpdateStaff(idx, "facultyId", e.target.value)}
-                            placeholder="FAC-ENG-101"
+                            placeholder="Sign-in ID (e.g. FACECE)"
                             className="w-full px-3.5 py-2 rounded-xl border border-gray-300 font-mono font-bold text-xs text-[#0B192C] focus:border-[#D4A72C] focus:outline-none"
                           />
                         </div>
@@ -2018,7 +1559,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                               <div className="text-right shrink-0">
                                 <span className="text-[9px] font-extrabold uppercase text-blue-700 block">Respective Avg</span>
                                 <span className="font-mono font-black text-base text-blue-950 block">
-                                  {staff.averageMarks ?? 68.4} <span className="text-[10px] font-normal text-gray-500">/ 100</span>
+                                  {staff.averageMarks ?? 0} <span className="text-[10px] font-normal text-gray-500">/ 100</span>
                                 </span>
                               </div>
                             </div>
@@ -2054,13 +1595,13 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-[10px] font-bold text-blue-900 uppercase">Respective Mark Avg (&mu;):</span>
                               <span className="font-mono font-black text-sm text-blue-950">
-                                {staff.averageMarks ?? 68.4} / 100
+                                {staff.averageMarks ?? 0} / 100
                               </span>
                             </div>
                             <div className="flex items-center justify-between text-[11px] font-mono text-gray-600">
                               <span>Valuation Pass Rate:</span>
                               <span className="font-bold text-emerald-800">
-                                {Math.round(((staff.passCount ?? staff.assignedScripts) / staff.assignedScripts) * 100)}%
+                                {Math.round(((staff.passCount ?? 0) / Math.max(1, staff.evaluatedScripts ?? 0)) * 100)}%
                               </span>
                             </div>
                           </div>
@@ -2072,7 +1613,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                               {staff.assignedScripts} Scripts
                             </span>
                             <span className="font-mono text-[11px] text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                              {staff.evaluatedScripts ?? staff.assignedScripts} / {staff.assignedScripts} Valued
+                              {staff.evaluatedScripts ?? 0} / {staff.assignedScripts} Valued
                             </span>
                           </div>
 
@@ -2464,15 +2005,15 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                   </div>
                   <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
                     <span className="font-mono font-black text-xl text-slate-900 block">
-                      {selectedFacultyStats.allScripts.filter((s) => s.grade === "B").length}
+                      {selectedFacultyStats.allScripts.filter((s) => s.grade === "B" || s.grade === "C").length}
                     </span>
-                    <span className="text-[11px] font-bold text-slate-700 block mt-0.5">Grade B (50-59)</span>
+                    <span className="text-[11px] font-bold text-slate-700 block mt-0.5">Grade B / C (40-59)</span>
                   </div>
                   <div className="p-3 rounded-2xl bg-red-50 border border-red-200">
                     <span className="font-mono font-black text-xl text-red-950 block">
                       {selectedFacultyStats.allScripts.filter((s) => s.grade === "RA").length}
                     </span>
-                    <span className="text-[11px] font-bold text-red-800 block mt-0.5">Grade RA (&lt;50)</span>
+                    <span className="text-[11px] font-bold text-red-800 block mt-0.5">Grade RA (&lt;40)</span>
                   </div>
                 </div>
               </div>
@@ -2529,7 +2070,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                           </td>
                           <td className="py-3 px-4 text-center">
                             <span className="px-2 py-0.5 rounded font-mono font-bold text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-200">
-                              {Math.round((sub.passCount / sub.assignedScripts) * 100)}%
+                              {Math.round((sub.passCount / Math.max(1, sub.evaluatedScripts)) * 100)}%
                             </span>
                           </td>
                           <td className="py-3 px-4 text-gray-600 truncate max-w-xs">{sub.campVenue}</td>
@@ -2640,7 +2181,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                                     ? "bg-emerald-100 text-emerald-800"
                                     : s.grade === "A+" || s.grade === "A"
                                     ? "bg-blue-100 text-blue-800"
-                                    : s.grade === "B+" || s.grade === "B"
+                                    : s.grade === "B+" || s.grade === "B" || s.grade === "C"
                                     ? "bg-amber-100 text-amber-800"
                                     : "bg-red-100 text-red-800"
                                 }`}
@@ -2792,7 +2333,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                 </div>
                 <div>
                   <div className="h-10 border-b border-gray-400 w-44 mb-1" />
-                  <p className="font-bold text-[#0B192C]">Dr. K. R. Ramanathan</p>
+                  <p className="font-bold text-[#0B192C]">{inspectionAllocation.adApprovedBy}</p>
                   <p className="text-[10px] text-gray-500">Associate Dean (Academics)</p>
                 </div>
               </div>
@@ -2872,18 +2413,18 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-2 text-center text-xs">
                   <div className="p-3 rounded-xl bg-white/10 border border-white/10">
                     <span className="text-[9px] text-[#D4A72C] font-black uppercase block">1. STUDENT SCRIPT</span>
-                    <span className="font-bold text-white block mt-1">ABI T</span>
-                    <span className="font-mono text-[10px] text-slate-300">20260110226001</span>
+                    <span className="font-bold text-white block mt-1">Register number</span>
+                    <span className="font-mono text-[10px] text-slate-300">on the cover page</span>
                   </div>
                   <div className="p-3 rounded-xl bg-[#D4A72C]/20 border border-[#D4A72C]/50">
                     <span className="text-[9px] text-[#EAB308] font-black uppercase block">2. COE MASTER KEY</span>
-                    <span className="font-mono font-bold text-white block mt-1">SCR-001</span>
-                    <span className="font-mono text-[10px] text-amber-300 font-bold">&rarr; DMY-84291</span>
+                    <span className="font-mono font-bold text-white block mt-1">Server key</span>
+                    <span className="font-mono text-[10px] text-amber-300 font-bold">&rarr; AS-XXXXXXXX</span>
                   </div>
                   <div className="p-3 rounded-xl bg-white/10 border border-white/10">
                     <span className="text-[9px] text-[#D4A72C] font-black uppercase block">3. FACULTY DESK</span>
-                    <span className="font-mono font-bold text-amber-400 block mt-1">DMY-84291</span>
-                    <span className="text-[10px] text-slate-300">Blind: 84 / 100</span>
+                    <span className="font-mono font-bold text-amber-400 block mt-1">AS-XXXXXXXX</span>
+                    <span className="text-[10px] text-slate-300">Cover page hidden</span>
                   </div>
                   <div className="p-3 rounded-xl bg-white/10 border border-white/10">
                     <span className="text-[9px] text-[#D4A72C] font-black uppercase block">4. DE-MASK JOIN</span>
@@ -2892,8 +2433,8 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                   </div>
                   <div className="p-3 rounded-xl bg-white/10 border border-white/10">
                     <span className="text-[9px] text-[#D4A72C] font-black uppercase block">5. DEAN &amp; PUBLISH</span>
-                    <span className="font-bold text-white block mt-1">ABI T (84/100)</span>
-                    <span className="text-[10px] text-purple-300 font-bold">Grade: A+</span>
+                    <span className="font-bold text-white block mt-1">Student's result</span>
+                    <span className="text-[10px] text-purple-300 font-bold">After COE publishes</span>
                   </div>
                 </div>
 
@@ -2905,71 +2446,19 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                 </div>
               </div>
 
-              {/* Sample Locked Lookup Table */}
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
-                <div className="p-3.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                  <span className="font-display font-extrabold text-xs text-[#0B192C]">
-                    COE Central Master Key Lookup Table (Locked in COE/Dean DB)
-                  </span>
-                  <span className="text-[10px] font-mono font-bold text-gray-500">
-                    Table: kvell_coe_master_key_ai602
-                  </span>
-                </div>
-
-                <div className="overflow-x-auto max-h-60">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#0B192C] text-white uppercase text-[10px] font-bold tracking-wider sticky top-0">
-                      <tr>
-                        <th className="py-2.5 px-3">Student Reg No</th>
-                        <th className="py-2.5 px-3">Student Name</th>
-                        <th className="py-2.5 px-3">Script ID</th>
-                        <th className="py-2.5 px-3">Dummy Barcode</th>
-                        <th className="py-2.5 px-3">Allocated Faculty</th>
-                        <th className="py-2.5 px-3">Flap Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 font-medium">
-                      <tr className="bg-amber-50/40">
-                        <td className="py-2 px-3 font-mono font-black text-[#0B192C]">20260110226001</td>
-                        <td className="py-2 px-3 font-bold text-[#0B192C]">ABI T</td>
-                        <td className="py-2 px-3 font-mono text-gray-600">SCR-001</td>
-                        <td className="py-2 px-3 font-mono font-black text-blue-900 bg-blue-50 px-2 py-0.5 rounded">
-                          DMY-84291
-                        </td>
-                        <td className="py-2 px-3 text-gray-700">Prof. K. Venkatesh (PKT-AI602-A)</td>
-                        <td className="py-2 px-3">
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-red-100 text-red-900">
-                            Masked / Concealed
-                          </span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 px-3 font-mono text-gray-700">20260110226002</td>
-                        <td className="py-2 px-3 text-gray-800">ABISHEK M</td>
-                        <td className="py-2 px-3 font-mono text-gray-600">SCR-002</td>
-                        <td className="py-2 px-3 font-mono font-bold text-blue-900">DMY-84292</td>
-                        <td className="py-2 px-3 text-gray-700">Prof. K. Venkatesh (PKT-AI602-A)</td>
-                        <td className="py-2 px-3">
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-red-100 text-red-900">
-                            Masked / Concealed
-                          </span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 px-3 font-mono text-gray-700">20260110226026</td>
-                        <td className="py-2 px-3 text-gray-800">LOGESH R</td>
-                        <td className="py-2 px-3 font-mono text-gray-600">SCR-026</td>
-                        <td className="py-2 px-3 font-mono font-bold text-blue-900">DMY-84316</td>
-                        <td className="py-2 px-3 text-gray-700">Dr. S. Mohan (PKT-AI602-B)</td>
-                        <td className="py-2 px-3">
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-red-100 text-red-900">
-                            Masked / Concealed
-                          </span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+              {/* How the real dummy numbers work */}
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-4 text-xs text-gray-700 space-y-2">
+                <p className="font-display font-extrabold text-[#0B192C]">How the dummy numbers work</p>
+                <p>
+                  Every answer script gets a dummy number (AS- followed by 8 characters) calculated by the server from the
+                  department, semester, subject, assessment and register number with a secret key. No lookup table is stored,
+                  evaluators only ever see the dummy number, and the cover page with the student's details is replaced by a
+                  blank page before the script is shown.
+                </p>
+                <p>
+                  The scripts are listed in dummy-number order; each evaluator's bundle is their range of positions in that list,
+                  and the marks they save go straight to the student's record for the COE.
+                </p>
               </div>
             </div>
 
@@ -3000,17 +2489,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
 
         const isOverallMode = inspectModalTab === "overall";
 
-        const subjectScripts =
-          staff.allottedScripts && staff.allottedScripts.length > 0
-            ? staff.allottedScripts
-            : generateFacultyScripts(
-                staff.name,
-                staff.bundlePacketId,
-                alloc.subjectCode,
-                staff.assignedScripts,
-                staff.averageMarks || 68.0,
-                staff.stdDev || 6.8
-              );
+        const subjectScripts = staff.allottedScripts ?? [];
 
         const scriptsList = isOverallMode && overallFacStats?.allScripts?.length
           ? overallFacStats.allScripts
@@ -3126,7 +2605,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                           className="px-3 py-1.5 rounded-xl bg-white hover:bg-blue-100 text-blue-950 border border-blue-300 font-bold text-xs transition cursor-pointer shadow-2xs flex items-center gap-1.5"
                         >
                           <UserCheck size={13} className="text-blue-800" />
-                          <span>Switch to: {other.name} ({other.averageMarks || 65.2} / 100)</span>
+                          <span>Switch to: {other.name} ({other.averageMarks || 0} / 100)</span>
                         </button>
                       ))}
                     </div>
@@ -3168,7 +2647,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                     <div className="p-2.5 rounded-xl bg-white/10 text-center border border-white/10">
                       <span className="text-[9px] text-emerald-300 uppercase block font-bold">{alloc.subjectCode} Packet Avg</span>
                       <span className="text-white font-black text-sm">
-                        {staff.averageMarks ?? 68.4} / 100
+                        {staff.averageMarks ?? 0} / 100
                       </span>
                     </div>
                   </div>
@@ -3232,7 +2711,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                     <span className="font-display font-black text-2xl text-blue-950 mt-1 block font-mono">
                       {isOverallMode
                         ? (overallFacStats?.overallAverageMarks || staff.averageMarks)
-                        : (staff.averageMarks ?? 68.4)}{" "}
+                        : (staff.averageMarks ?? 0)}{" "}
                       <span className="text-xs font-normal text-blue-600">/ 100</span>
                     </span>
                     <span className="text-[11px] text-blue-800 font-mono font-bold mt-0.5 block">
@@ -3266,7 +2745,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                     <span className="font-display font-black text-2xl text-emerald-950 mt-1 block font-mono">
                       {isOverallMode
                         ? (overallFacStats?.totalEvaluatedScripts || staff.assignedScripts)
-                        : (staff.evaluatedScripts ?? staff.assignedScripts)}{" "}
+                        : (staff.evaluatedScripts ?? 0)}{" "}
                       <span className="text-xs font-normal text-emerald-600">
                         / {isOverallMode ? (overallFacStats?.totalAllottedScripts || staff.assignedScripts) : staff.assignedScripts}
                       </span>
@@ -3281,11 +2760,11 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                     <span className="font-display font-black text-2xl text-purple-950 mt-1 block font-mono">
                       {isOverallMode
                         ? (overallFacStats?.overallPassRate || 95)
-                        : Math.round(((staff.passCount ?? staff.assignedScripts) / staff.assignedScripts) * 100)}%
+                        : Math.round(((staff.passCount ?? 0) / Math.max(1, staff.evaluatedScripts ?? 0)) * 100)}%
                     </span>
                     <span className="text-[11px] text-purple-800 font-mono font-bold mt-0.5 block">
-                      Highest: {isOverallMode ? (overallFacStats?.highestMark || 94) : (staff.highestMark ?? 92)} &bull; Lowest:{" "}
-                      {isOverallMode ? (overallFacStats?.lowestMark || 45) : (staff.lowestMark ?? 44)}
+                      Highest: {isOverallMode ? (overallFacStats?.highestMark || 0) : (staff.highestMark ?? 0)} &bull; Lowest:{" "}
+                      {isOverallMode ? (overallFacStats?.lowestMark || 0) : (staff.lowestMark ?? 0)}
                     </span>
                   </div>
                 </div>
@@ -3357,7 +2836,7 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                       GRADE ATTAINMENT DISTRIBUTION ON {isOverallMode ? "ALL ALLOTTED PAPERS" : `${alloc.subjectCode} PAPERS`} ({scriptsList.length} PAPERS):
                     </span>
                     <span className="font-mono text-[10px] text-gray-500 font-bold">
-                      Autonomous R-2023 Grade Scales
+                      Grade scale (pass mark 40)
                     </span>
                   </div>
 
@@ -3380,11 +2859,11 @@ export const PaperCorrectionView: React.FC<PaperCorrectionViewProps> = ({ onToas
                     </div>
                     <div className="p-2 rounded-xl bg-slate-100 text-slate-900 border border-slate-300">
                       <span className="font-black block font-mono text-base">{countB}</span>
-                      <span className="text-[10px] font-bold block">B (50-59)</span>
+                      <span className="text-[10px] font-bold block">B / C (40-59)</span>
                     </div>
                     <div className="p-2 rounded-xl bg-red-100 text-red-950 border border-red-300">
                       <span className="font-black block font-mono text-base">{countRA}</span>
-                      <span className="text-[10px] font-bold block">RA (&lt;50)</span>
+                      <span className="text-[10px] font-bold block">RA (&lt;40)</span>
                     </div>
                   </div>
                 </div>

@@ -53,6 +53,8 @@ export interface SplitScreenEvaluationModalProps {
   minSeconds?: number;
   /** REQ-04: remarks already saved ("overall", "q1".."q16"). */
   initialRemarks?: Record<string, string>;
+  /** Boxes saved as not attempted (NA): "A1".."A10", "11a.i".."16b.iii". */
+  initialNotAttempted?: string[];
   onSaveMarks: (result: {
     partATotal: number;
     partBTotal: number;
@@ -61,28 +63,30 @@ export interface SplitScreenEvaluationModalProps {
     partAMarks: number[];
     partBCMarks: Record<number, QuestionData>;
     remarks: Record<string, string>;
+    notAttempted: string[];
   }) => void;
 }
 
 export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProps> = ({
   isOpen,
   onClose,
-  studentRegNo = "20260110226001",
-  studentName = "ABI T",
-  dummyBarcode = "DMY-84291",
+  studentRegNo = "",
+  studentName = "",
+  dummyBarcode = "",
   isBlindValuation = false,
   subjectCode,
   subjectTitle,
   semester = "Semester I",
-  department = "Computer Science & Engineering",
-  examDate = "09/10/26",
+  department = "",
+  examDate = new Date().toLocaleDateString("en-GB"),
   assessmentType: initialAssessment = "IAT-1",
-  packetId = "PKT-A",
+  packetId = "",
   initialPartA,
   initialPartB,
   pdfLoader,
   minSeconds = 0,
   initialRemarks,
+  initialNotAttempted,
   onSaveMarks,
 }) => {
   // REQ-04 remarks and the REQ-03 minimum evaluation time (the server checks the time too)
@@ -99,9 +103,6 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
   if (!isOpen) return null;
 
   const [assessmentType, setAssessmentType] = useState<"IAT-1" | "IAT-2" | "End Semester">(initialAssessment);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [zoomLevel, setZoomLevel] = useState<number>(100);
-  const [viewMode, setViewMode] = useState<"written_script" | "pdf_placeholder">("written_script");
 
   // Part A: Questions 1 to 10 (Max 2 marks each, total 20)
   const [partAMarks, setPartAMarks] = useState<number[]>(() => {
@@ -118,6 +119,76 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
       14: { ...z(), co: "CO2" }, 15: { ...z(), co: "CO3" }, 16: { ...z(), co: "CO6" },
     };
   });
+
+  // Every box is empty (not marked yet), a number - 0 included, for an attempted answer - or NA for a question the
+  // student did not attempt (typed as N; counts as 0). Keys: "A1".."A10" in Part A, "11a.i".."16b.iii" in B / C.
+  const [naBoxes, setNaBoxes] = useState<Set<string>>(() => new Set(initialPartA ? initialNotAttempted ?? [] : []));
+  const [filledBoxes, setFilledBoxes] = useState<Set<string>>(() => {
+    // A saved script: every Part A box that is not NA, and every Part B / C box with marks
+    const filled = new Set<string>();
+    if (initialPartA && initialPartA.length === 10) {
+      const na = new Set(initialNotAttempted ?? []);
+      initialPartA.forEach((_, i) => !na.has(`A${i + 1}`) && filled.add(`A${i + 1}`));
+      Object.entries(initialPartB ?? {}).forEach(([q, d]) =>
+        (["a", "b"] as const).forEach((ch) =>
+          (["i", "ii", "iii"] as const).forEach((k) => {
+            if ((Number(d[ch][k]) || 0) > 0) filled.add(`${q}${ch}.${k}`);
+          })
+        )
+      );
+    }
+    return filled;
+  });
+  const boxUsed = (key: string) => naBoxes.has(key) || filledBoxes.has(key);
+  const boxText = (key: string, value: number) => (naBoxes.has(key) ? "NA" : filledBoxes.has(key) ? String(value) : "");
+  const boxClass = (key: string) => (naBoxes.has(key) ? "italic !text-slate-500 !bg-slate-100" : "");
+  /** Reads what was typed in a box: "" clears it, N / NA / - marks it not attempted, a number goes through fit. */
+  const onBoxInput = (key: string, raw: string, apply: (value: number) => void) => {
+    const text = raw.trim().toUpperCase();
+    const mark = (na: boolean, filled: boolean) => {
+      setNaBoxes((prev) => {
+        const next = new Set(prev);
+        if (na) next.add(key);
+        else next.delete(key);
+        return next;
+      });
+      setFilledBoxes((prev) => {
+        const next = new Set(prev);
+        if (filled) next.add(key);
+        else next.delete(key);
+        return next;
+      });
+    };
+    if (text === "") {
+      mark(false, false);
+      apply(0);
+      return;
+    }
+    if (/^(N|-)/.test(text)) {
+      mark(true, false);
+      apply(0);
+      return;
+    }
+    const digits = text.replace(/[^0-9.]/g, "");
+    const value = Number(digits);
+    if (digits === "" || Number.isNaN(value)) return;
+    mark(false, true);
+    apply(Math.max(0, value));
+  };
+  // A question is answered as choice (a) OR (b): once one has a value, the other is a dummy (locked and empty)
+  const otherChoiceUsed = (qNum: number, q: QuestionData, choice: "a" | "b") => {
+    const otherKey = choice === "a" ? "b" : "a";
+    const other = q[otherKey];
+    return (Number(other.i) || 0) + (Number(other.ii) || 0) + (Number(other.iii) || 0) > 0
+      || (["i", "ii", "iii"] as const).some((k) => boxUsed(`${qNum}${otherKey}.${k}`));
+  };
+  /** Questions with nothing entered: every Part A box, and one choice of each Part B / C question, needs a value. */
+  const unmarkedQuestions = () => [
+    ...Array.from({ length: 10 }, (_, i) => `A${i + 1}`).filter((k) => !boxUsed(k)).map((k) => k.slice(1)),
+    ...[11, 12, 13, 14, 15, 16]
+      .filter((q) => !(["a", "b"] as const).some((ch) => (["i", "ii", "iii"] as const).some((k) => boxUsed(`${q}${ch}.${k}`))))
+      .map(String),
+  ];
 
   // CO Mappings for Part A
   const partACOs = ["CO1", "CO1", "CO1", "CO1", "CO2", "CO2", "CO2", "CO3", "CO3", "CO3"];
@@ -157,19 +228,15 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
 
   const currentGrade = calculateGrade(grandTotal);
 
-  // Auto-Fill sample authentic scores matching user's screenshot
-  const handleAutoFillSample = () => {
-    setPartAMarks([2, 2, 2, 1, 2, 2, 1.5, 2, 1.5, 2]);
-    setPartBCMarks({
-      11: { a: { i: 8, ii: 6, iii: 0 }, b: { i: 5, ii: 0, iii: 0 }, co: "CO1" },
-      12: { a: { i: 7, ii: 7, iii: 0 }, b: { i: 0, ii: 0, iii: 0 }, co: "CO1" },
-      13: { a: { i: 8, ii: 6, iii: 0 }, b: { i: 0, ii: 0, iii: 0 }, co: "CO2" },
-      14: { a: { i: 6, ii: 8, iii: 0 }, b: { i: 0, ii: 0, iii: 0 }, co: "CO2" },
-      15: { a: { i: 7, ii: 7, iii: 0 }, b: { i: 0, ii: 0, iii: 0 }, co: "CO3" },
-    });
-  };
-
   const handleSave = () => {
+    const unmarked = unmarkedQuestions();
+    if (unmarked.length) {
+      alert(
+        `Question${unmarked.length > 1 ? "s" : ""} ${unmarked.join(", ")} ${unmarked.length > 1 ? "are" : "is"} empty. ` +
+          "Enter the marks (0 if the answer was attempted but earned nothing), or N for not attempted (NA)."
+      );
+      return;
+    }
     onSaveMarks({
       partATotal,
       partBTotal,
@@ -178,6 +245,7 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
       partAMarks,
       partBCMarks,
       remarks: Object.fromEntries(Object.entries(remarks).filter(([, v]) => v.trim())),
+      notAttempted: Array.from(naBoxes),
     });
     onClose();
   };
@@ -208,216 +276,15 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
               </div>
             </div>
 
-            {/* Sub-toolbar with View Switcher & Page Navigation */}
-            <div className="px-4 py-2 bg-[#0B192C] border-b border-slate-800 flex items-center justify-between gap-2 shrink-0 text-xs">
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("written_script")}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
-                    viewMode === "written_script"
-                      ? "bg-[#D4A72C] text-[#0B192C] shadow-xs"
-                      : "bg-slate-800 text-gray-300 hover:bg-slate-700"
-                  }`}
-                >
-                  Photocopy Pages ({currentPage}/8)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("pdf_placeholder")}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
-                    viewMode === "pdf_placeholder"
-                      ? "bg-[#D4A72C] text-[#0B192C] shadow-xs"
-                      : "bg-slate-800 text-gray-300 hover:bg-slate-700"
-                  }`}
-                >
-                  Upload Status
-                </button>
-              </div>
-
-              {viewMode === "written_script" && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={currentPage <= 1}
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-40 cursor-pointer"
-                    title="Previous Page"
-                  >
-                    <ChevronLeft size={14} />
-                  </button>
-                  <span className="font-mono text-[11px] text-[#D4A72C] font-bold">
-                    Page {currentPage} of 8
-                  </span>
-                  <button
-                    type="button"
-                    disabled={currentPage >= 8}
-                    onClick={() => setCurrentPage((p) => Math.min(8, p + 1))}
-                    className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-40 cursor-pointer"
-                    title="Next Page"
-                  >
-                    <ChevronRight size={14} />
-                  </button>
-                  <div className="h-4 w-px bg-slate-700 mx-1" />
-                  <button
-                    type="button"
-                    onClick={() => setZoomLevel((z) => Math.min(150, z + 25))}
-                    className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-gray-300 cursor-pointer"
-                    title="Zoom In"
-                  >
-                    <ZoomIn size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setZoomLevel((z) => Math.max(75, z - 25))}
-                    className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-gray-300 cursor-pointer"
-                    title="Zoom Out"
-                  >
-                    <ZoomOut size={13} />
-                  </button>
-                </div>
-              )}
-            </div>
-
             {/* Left Body Area */}
-            <div className="flex-1 overflow-y-auto p-4 bg-[#081322] flex items-center justify-center">
+            <div className={`flex-1 min-h-0 bg-[#081322] ${pdfLoader ? "p-2 flex" : "overflow-y-auto p-4 flex items-center justify-center"}`}>
               {pdfLoader ? (
-                <div className="w-full h-full">
-                  <AnswerScriptPane fetchPdf={pdfLoader} scriptKey={displayReg} label={`${displayReg} • ${subjectCode} • ${assessmentType}`} />
-                </div>
-              ) : viewMode === "pdf_placeholder" ? (
-                /* EXACT Placeholder matching user's screenshot */
-                <div className="bg-[#FAF8F5] rounded-2xl p-8 sm:p-12 w-full max-w-lg text-center border border-gray-200 shadow-inner space-y-4 my-auto">
-                  <div className="w-16 h-16 rounded-2xl bg-gray-200 text-gray-400 flex items-center justify-center mx-auto">
-                    <FileText size={32} />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-gray-800 text-sm">
-                      No answer script uploaded for this assessment yet.
-                    </h4>
-                    <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">
-                      The COE uploads scripts on the Answer Scripts page. You can still enter marks.
-                    </p>
-                  </div>
-                  <div className="pt-2 flex items-center justify-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setViewMode("written_script")}
-                      className="text-xs font-bold text-amber-700 hover:text-amber-800 underline cursor-pointer"
-                    >
-                      View Written Photocopy Simulation &rarr;
-                    </button>
-                  </div>
-                </div>
+                <AnswerScriptPane fill fetchPdf={pdfLoader} scriptKey={displayReg} label={`${displayReg} • ${subjectCode} • ${assessmentType}`} />
               ) : (
-                /* Authentic High-Fidelity Written Student Answer Booklet */
-                <div
-                  style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: "top center" }}
-                  className="bg-white rounded-xl shadow-2xl p-6 sm:p-8 max-w-xl w-full border-2 border-gray-300 text-[#0B192C] font-serif transition-transform duration-150 space-y-5"
-                >
-                  {/* Top Seal / Header */}
-                  <div className="border-b-2 border-black pb-3 text-center">
-                    <div className="flex items-center justify-between text-[10px] font-sans font-bold text-gray-500 uppercase tracking-widest pb-1">
-                      <span>PAGE {currentPage} OF 8</span>
-                      <span>HIGH RESOLUTION SCAN 300 DPI</span>
-                      <span>PACKET {packetId}</span>
-                    </div>
-                    <h3 className="font-sans font-black text-sm uppercase tracking-wider text-black">
-                      Karpaga Vinayaga College of Engineering and Technology
-                    </h3>
-                    <p className="text-[10px] font-sans text-gray-600 uppercase font-semibold">
-                      Autonomous End Semester Examination Answer Booklet
-                    </p>
-                  </div>
-
-                  {/* Watermark */}
-                  <div className="relative font-mono text-xs text-gray-900 space-y-4 leading-relaxed">
-                    {currentPage === 1 && (
-                      <div className="space-y-4">
-                        <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-[11px] font-sans">
-                          <strong>PART - A &bull; Question 1:</strong> Define Data Normalization and write the formula for Min-Max Feature Scaling.
-                        </div>
-                        <div className="pl-4 border-l-2 border-blue-600 text-gray-900 font-sans italic text-xs">
-                          <em>Candidate Written Answer:</em>
-                          <p className="mt-1 font-serif not-italic">
-                            Data Normalization is the pre-processing technique of scaling numerical feature vectors into a uniform bounded range [0, 1] to prevent dominance by attributes with large absolute magnitudes.
-                          </p>
-                          <p className="mt-1 font-mono font-bold text-blue-900">
-                            X_norm = (X - X_min) / (X_max - X_min)
-                          </p>
-                        </div>
-                        <div className="text-right text-[10px] font-sans font-black text-emerald-700">
-                          &check; [Evaluator Marks Awarded: 2.0 / 2.0 &bull; CO1]
-                        </div>
-
-                        <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-[11px] font-sans pt-2">
-                          <strong>PART - A &bull; Question 2:</strong> State the difference between supervised and unsupervised clustering.
-                        </div>
-                        <div className="pl-4 border-l-2 border-blue-600 text-gray-900 font-sans italic text-xs">
-                          <em>Candidate Written Answer:</em>
-                          <p className="mt-1 font-serif not-italic">
-                            Supervised learning relies on ground-truth target labels y_i with loss minimisation J(&theta;). Unsupervised clustering identifies inherent latent geometric structures without labels using distance metrics d(x_i, &mu;_k).
-                          </p>
-                        </div>
-                        <div className="text-right text-[10px] font-sans font-black text-emerald-700">
-                          &check; [Evaluator Marks Awarded: 2.0 / 2.0 &bull; CO1]
-                        </div>
-                      </div>
-                    )}
-
-                    {currentPage === 2 && (
-                      <div className="space-y-4">
-                        <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-[11px] font-sans">
-                          <strong>PART - B &bull; Question 11(a):</strong> Explain K-Means Clustering algorithm with mathematical convergence proof and cluster centroid update derivation.
-                        </div>
-                        <div className="pl-4 border-l-2 border-blue-600 text-gray-900 font-sans text-xs space-y-2">
-                          <em>Candidate Written Answer:</em>
-                          <p className="font-serif">
-                            1. Initialize k cluster centroids &mu;_1, &mu;_2, ... &mu;_k randomly from the data distribution.
-                          </p>
-                          <p className="font-serif">
-                            2. Expectation Step: Assign each sample point x_i to the closest cluster centroid:
-                            c^(i) = argmin_k || x^(i) - &mu;_k ||^2
-                          </p>
-                          <p className="font-serif">
-                            3. Maximization Step: Update centroid vectors by computing the coordinate arithmetic mean of all assigned vectors:
-                            &mu;_k = (1 / |C_k|) &sum; (for i &isin; C_k) x^(i)
-                          </p>
-                          <div className="p-2 bg-slate-50 border border-slate-200 rounded font-mono text-[10px] text-center text-slate-800">
-                            Objective Distortion Function: J = &sum; (i=1 to m) || x^(i) - &mu;_c(i) ||^2
-                          </div>
-                        </div>
-                        <div className="text-right text-[10px] font-sans font-black text-emerald-700">
-                          &check; [Subdivision I: 8.0M + Subdivision II: 6.0M = 14.0 / 16.0 &bull; CO1]
-                        </div>
-                      </div>
-                    )}
-
-                    {currentPage > 2 && (
-                      <div className="space-y-4">
-                        <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 text-[11px] font-sans">
-                          <strong>PART - B &bull; Question {11 + (currentPage - 2)}(a):</strong> Comprehensive solution and analytical derivation continued on Page {currentPage}.
-                        </div>
-                        <div className="p-6 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 text-center font-sans space-y-2">
-                          <p className="font-bold text-xs text-gray-700">
-                            Student Answer Worksheet &bull; Page {currentPage}
-                          </p>
-                          <p className="text-[11px] text-gray-500">
-                            Handwritten derivations, mathematical matrix computations, and structural flowchart diagrams certified in high resolution.
-                          </p>
-                          <div className="pt-2 text-emerald-700 font-bold text-xs font-mono">
-                            &check; Authenticated by Valuation Camp Invigilator
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bottom Script Footer */}
-                  <div className="border-t border-gray-200 pt-2 flex items-center justify-between text-[10px] font-sans text-gray-500">
-                    <span>Autonomous Central Valuation Wing</span>
-                    <span className="font-mono font-bold text-blue-900">{subjectCode} Script Booklet</span>
-                  </div>
+                <div className="m-auto text-center text-xs text-gray-300 space-y-2 px-6">
+                  <FileText size={32} className="mx-auto text-gray-500" />
+                  <p className="font-bold">No answer script is available for this student.</p>
+                  <p className="text-gray-400">The COE uploads the scanned scripts on the Answer Scripts page.</p>
                 </div>
               )}
             </div>
@@ -473,15 +340,6 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                         </button>
                       ))}
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleAutoFillSample}
-                      className="px-2.5 py-1 rounded-lg bg-[#D4A72C]/20 hover:bg-[#D4A72C]/30 text-[#0B192C] font-black text-[10px] border border-[#D4A72C] transition flex items-center gap-1 cursor-pointer shadow-2xs"
-                      title="Populate authentic evaluator marks matching rubric"
-                    >
-                      <Sparkles size={11} className="text-[#B08014]" />
-                      <span>Auto-Fill Marks</span>
-                    </button>
                   </div>
 
                   {/* Center: Karpaga Vinayaga Banner Logo */}
@@ -548,6 +406,13 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                   </div>
                 </div>
 
+                {/* How to fill a box: marks, 0 for an attempted answer that earned nothing, or N for not attempted */}
+                <div className="rounded-lg border border-red-900/30 bg-red-50/60 px-3 py-1.5 text-[11px] font-semibold text-red-950 flex flex-wrap gap-x-4 gap-y-1">
+                  <span><b>0</b> = attempted, no marks</span>
+                  <span><b>N</b> = not attempted (shows <i>NA</i>, counts as 0)</span>
+                  <span>Every question needs a value; in Q11-16 fill only the choice (a or b) the student wrote.</span>
+                </div>
+
                 {/* Main Evaluation Grid: PART A and PART B side by side */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 pt-1">
                   {/* PART - A (Questions 1 to 10) */}
@@ -571,19 +436,18 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                             </td>
                             <td className="p-1.5 border-r border-red-900/40">
                               <input
-                                type="number"
-                                min="0"
-                                max="2"
-                                step="0.5"
-                                value={mark === 0 ? "" : mark}
-                                placeholder="0"
-                                onChange={(e) => {
-                                  const val = Number(e.target.value);
-                                  const updated = [...partAMarks];
-                                  updated[i] = isNaN(val) ? 0 : Math.min(2, Math.max(0, val));
-                                  setPartAMarks(updated);
-                                }}
-                                className="w-14 text-center font-bold px-1 py-0.5 rounded border border-gray-300 bg-[#FFFEFA] focus:ring-1 focus:ring-red-900 focus:outline-none"
+                                type="text"
+                                inputMode="decimal"
+                                aria-label={`Part A question ${i + 1}`}
+                                value={boxText(`A${i + 1}`, mark)}
+                                onChange={(e) =>
+                                  onBoxInput(`A${i + 1}`, e.target.value, (v) => {
+                                    const updated = [...partAMarks];
+                                    updated[i] = Math.min(2, v);
+                                    setPartAMarks(updated);
+                                  })
+                                }
+                                className={`w-14 text-center font-bold px-1 py-0.5 rounded border border-gray-300 bg-[#FFFEFA] focus:ring-1 focus:ring-red-900 focus:outline-none ${boxClass(`A${i + 1}`)}`}
                               />
                             </td>
                             <td className="p-1.5 font-mono text-[10px] text-gray-500 font-bold">
@@ -640,62 +504,47 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                   <td className="p-1 font-bold text-gray-700 border-r border-red-900/40">a</td>
                                   <td className="p-1 border-r border-red-900/40">
                                     <input
-                                      type="number"
-                                      min="0"
-                                      max={qNum === 16 ? 15 : 13}
-                                      value={qData.a.i === 0 ? "" : qData.a.i}
-                                      placeholder="0"
-                                      onChange={(e) => {
-                                        const val = Number(e.target.value) || 0;
-                                        setPartBCMarks({
-                                          ...partBCMarks,
-                                          [qNum]: {
-                                            ...qData,
-                                            a: { ...qData.a, i: fitSub(qData.a, "i", val, qNum) },
-                                          },
-                                        });
-                                      }}
-                                      className="w-10 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] text-xs focus:ring-1 focus:ring-red-900 focus:outline-none"
+                                      type="text"
+                                      inputMode="decimal"
+                                      aria-label={`Q${qNum}(a)(i)`}
+                                      disabled={otherChoiceUsed(qNum, qData, "a")}
+                                      value={boxText(`${qNum}a.i`, qData.a.i)}
+                                      onChange={(e) =>
+                                        onBoxInput(`${qNum}a.i`, e.target.value, (v) =>
+                                          setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, a: { ...qData.a, i: fitSub(qData.a, "i", v, qNum) } } })
+                                        )
+                                      }
+                                      className={`w-10 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] text-xs focus:ring-1 focus:ring-red-900 focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 ${boxClass(`${qNum}a.i`)}`}
                                     />
                                   </td>
                                   <td className="p-1 border-r border-red-900/40">
                                     <input
-                                      type="number"
-                                      min="0"
-                                      max={qNum === 16 ? 15 : 13}
-                                      value={qData.a.ii === 0 ? "" : qData.a.ii}
-                                      placeholder="0"
-                                      onChange={(e) => {
-                                        const val = Number(e.target.value) || 0;
-                                        setPartBCMarks({
-                                          ...partBCMarks,
-                                          [qNum]: {
-                                            ...qData,
-                                            a: { ...qData.a, ii: fitSub(qData.a, "ii", val, qNum) },
-                                          },
-                                        });
-                                      }}
-                                      className="w-10 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] text-xs focus:ring-1 focus:ring-red-900 focus:outline-none"
+                                      type="text"
+                                      inputMode="decimal"
+                                      aria-label={`Q${qNum}(a)(ii)`}
+                                      disabled={otherChoiceUsed(qNum, qData, "a")}
+                                      value={boxText(`${qNum}a.ii`, qData.a.ii)}
+                                      onChange={(e) =>
+                                        onBoxInput(`${qNum}a.ii`, e.target.value, (v) =>
+                                          setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, a: { ...qData.a, ii: fitSub(qData.a, "ii", v, qNum) } } })
+                                        )
+                                      }
+                                      className={`w-10 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] text-xs focus:ring-1 focus:ring-red-900 focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 ${boxClass(`${qNum}a.ii`)}`}
                                     />
                                   </td>
                                   <td className="p-1 border-r border-red-900/40">
                                     <input
-                                      type="number"
-                                      min="0"
-                                      max={qNum === 16 ? 15 : 13}
-                                      value={qData.a.iii === 0 ? "" : qData.a.iii}
-                                      placeholder="0"
-                                      onChange={(e) => {
-                                        const val = Number(e.target.value) || 0;
-                                        setPartBCMarks({
-                                          ...partBCMarks,
-                                          [qNum]: {
-                                            ...qData,
-                                            a: { ...qData.a, iii: fitSub(qData.a, "iii", val, qNum) },
-                                          },
-                                        });
-                                      }}
-                                      className="w-10 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] text-xs focus:ring-1 focus:ring-red-900 focus:outline-none"
+                                      type="text"
+                                      inputMode="decimal"
+                                      aria-label={`Q${qNum}(a)(iii)`}
+                                      disabled={otherChoiceUsed(qNum, qData, "a")}
+                                      value={boxText(`${qNum}a.iii`, qData.a.iii)}
+                                      onChange={(e) =>
+                                        onBoxInput(`${qNum}a.iii`, e.target.value, (v) =>
+                                          setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, a: { ...qData.a, iii: fitSub(qData.a, "iii", v, qNum) } } })
+                                        )
+                                      }
+                                      className={`w-10 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] text-xs focus:ring-1 focus:ring-red-900 focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 ${boxClass(`${qNum}a.iii`)}`}
                                     />
                                   </td>
                                   <td
@@ -717,62 +566,47 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                                   <td className="p-1 font-bold text-gray-700 border-r border-red-900/40">b</td>
                                   <td className="p-1 border-r border-red-900/40">
                                     <input
-                                      type="number"
-                                      min="0"
-                                      max={qNum === 16 ? 15 : 13}
-                                      value={qData.b.i === 0 ? "" : qData.b.i}
-                                      placeholder="0"
-                                      onChange={(e) => {
-                                        const val = Number(e.target.value) || 0;
-                                        setPartBCMarks({
-                                          ...partBCMarks,
-                                          [qNum]: {
-                                            ...qData,
-                                            b: { ...qData.b, i: fitSub(qData.b, "i", val, qNum) },
-                                          },
-                                        });
-                                      }}
-                                      className="w-10 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] text-xs focus:ring-1 focus:ring-red-900 focus:outline-none"
+                                      type="text"
+                                      inputMode="decimal"
+                                      aria-label={`Q${qNum}(b)(i)`}
+                                      disabled={otherChoiceUsed(qNum, qData, "b")}
+                                      value={boxText(`${qNum}b.i`, qData.b.i)}
+                                      onChange={(e) =>
+                                        onBoxInput(`${qNum}b.i`, e.target.value, (v) =>
+                                          setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, b: { ...qData.b, i: fitSub(qData.b, "i", v, qNum) } } })
+                                        )
+                                      }
+                                      className={`w-10 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] text-xs focus:ring-1 focus:ring-red-900 focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 ${boxClass(`${qNum}b.i`)}`}
                                     />
                                   </td>
                                   <td className="p-1 border-r border-red-900/40">
                                     <input
-                                      type="number"
-                                      min="0"
-                                      max={qNum === 16 ? 15 : 13}
-                                      value={qData.b.ii === 0 ? "" : qData.b.ii}
-                                      placeholder="0"
-                                      onChange={(e) => {
-                                        const val = Number(e.target.value) || 0;
-                                        setPartBCMarks({
-                                          ...partBCMarks,
-                                          [qNum]: {
-                                            ...qData,
-                                            b: { ...qData.b, ii: fitSub(qData.b, "ii", val, qNum) },
-                                          },
-                                        });
-                                      }}
-                                      className="w-10 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] text-xs focus:ring-1 focus:ring-red-900 focus:outline-none"
+                                      type="text"
+                                      inputMode="decimal"
+                                      aria-label={`Q${qNum}(b)(ii)`}
+                                      disabled={otherChoiceUsed(qNum, qData, "b")}
+                                      value={boxText(`${qNum}b.ii`, qData.b.ii)}
+                                      onChange={(e) =>
+                                        onBoxInput(`${qNum}b.ii`, e.target.value, (v) =>
+                                          setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, b: { ...qData.b, ii: fitSub(qData.b, "ii", v, qNum) } } })
+                                        )
+                                      }
+                                      className={`w-10 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] text-xs focus:ring-1 focus:ring-red-900 focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 ${boxClass(`${qNum}b.ii`)}`}
                                     />
                                   </td>
                                   <td className="p-1 border-r border-red-900/40">
                                     <input
-                                      type="number"
-                                      min="0"
-                                      max={qNum === 16 ? 15 : 13}
-                                      value={qData.b.iii === 0 ? "" : qData.b.iii}
-                                      placeholder="0"
-                                      onChange={(e) => {
-                                        const val = Number(e.target.value) || 0;
-                                        setPartBCMarks({
-                                          ...partBCMarks,
-                                          [qNum]: {
-                                            ...qData,
-                                            b: { ...qData.b, iii: fitSub(qData.b, "iii", val, qNum) },
-                                          },
-                                        });
-                                      }}
-                                      className="w-10 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] text-xs focus:ring-1 focus:ring-red-900 focus:outline-none"
+                                      type="text"
+                                      inputMode="decimal"
+                                      aria-label={`Q${qNum}(b)(iii)`}
+                                      disabled={otherChoiceUsed(qNum, qData, "b")}
+                                      value={boxText(`${qNum}b.iii`, qData.b.iii)}
+                                      onChange={(e) =>
+                                        onBoxInput(`${qNum}b.iii`, e.target.value, (v) =>
+                                          setPartBCMarks({ ...partBCMarks, [qNum]: { ...qData, b: { ...qData.b, iii: fitSub(qData.b, "iii", v, qNum) } } })
+                                        )
+                                      }
+                                      className={`w-10 text-center font-bold py-0.5 rounded border border-gray-300 bg-[#FFFEFA] text-xs focus:ring-1 focus:ring-red-900 focus:outline-none disabled:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 ${boxClass(`${qNum}b.iii`)}`}
                                     />
                                   </td>
                                 </tr>
@@ -860,15 +694,6 @@ export const SplitScreenEvaluationModal: React.FC<SplitScreenEvaluationModalProp
                     Cancel
                   </button>
                   <div className="flex items-center gap-2">
-                    {!pdfLoader && (
-                      <button
-                        type="button"
-                        onClick={handleAutoFillSample}
-                        className="px-3.5 py-2 rounded-xl bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold text-xs transition cursor-pointer"
-                      >
-                        Reset / Sample Marks
-                      </button>
-                    )}
                     {waitLeft > 0 && (
                       <span className="text-[11px] font-bold text-amber-300" role="timer">
                         Minimum evaluation time: {Math.floor(waitLeft / 60)}:{String(waitLeft % 60).padStart(2, "0")} left

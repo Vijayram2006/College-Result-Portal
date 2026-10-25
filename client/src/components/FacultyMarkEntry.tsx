@@ -32,39 +32,6 @@ import {
 } from "lucide-react";
 import { apiErrorMessage, authApi, facultyApi, type FacultySubjectDTO } from "../services/api";
 import { getRealLocalTimestamp } from "../utils/dateUtils";
-import { aidsSem1Students } from "../data/aidsStudents";
-import {
-  cseSem1Students,
-  bmeSem1Students,
-  seedDummyMarksForDepts,
-  generateStudentMarkDetail,
-  ensureDummyMarksLoaded,
-} from "../data/dummyMarksData";
-import { departmentSubjectsCatalog } from "../data/curriculumSubjects";
-
-// Initial student registry populated with AIDS, CSE, and BME Semester 1 students
-const baseStudentsByDept: Record<string, { regNo: string; name: string; dob: string }[]> = {
-  aids: aidsSem1Students.map((s) => ({
-    regNo: s.regNo,
-    name: s.name,
-    dob: "2005-06-15",
-  })),
-  ads: aidsSem1Students.map((s) => ({
-    regNo: s.regNo,
-    name: s.name,
-    dob: "2005-06-15",
-  })),
-  cse: cseSem1Students.map((s) => ({
-    regNo: s.regNo,
-    name: s.name,
-    dob: s.dob || "2005-04-18",
-  })),
-  bme: bmeSem1Students.map((s) => ({
-    regNo: s.regNo,
-    name: s.name,
-    dob: s.dob || "2005-08-22",
-  })),
-};
 
 export interface Department {
   key: string;
@@ -74,105 +41,6 @@ export interface Department {
   totalStudents?: number;
   status?: "ACTIVE" | "INACTIVE";
 }
-
-export const initialDefaultDepts: Department[] = [
-  {
-    key: "aids",
-    name: "Artificial Intelligence & Data Science",
-    code: "ADS",
-    headName: "Dr. HOD AIDS",
-    totalStudents: 50,
-    status: "ACTIVE",
-  },
-  {
-    key: "cse",
-    name: "Computer Science and Engineering",
-    code: "CSE",
-    headName: "Dr. HOD CSE",
-    totalStudents: 20,
-    status: "ACTIVE",
-  },
-  {
-    key: "auto",
-    name: "Automobile Engineering",
-    code: "AUTO",
-    headName: "Dr. HOD AUTO",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-  {
-    key: "bme",
-    name: "Biomedical Engineering",
-    code: "BME",
-    headName: "Dr. HOD BME",
-    totalStudents: 15,
-    status: "ACTIVE",
-  },
-  {
-    key: "biotech",
-    name: "Biotech",
-    code: "BIOTECH",
-    headName: "Dr. HOD Biotech",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-  {
-    key: "ece",
-    name: "ECE (Electronics and Communication Engineering)",
-    code: "ECE",
-    headName: "Dr. HOD ECE",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-  {
-    key: "eee",
-    name: "EEE (Electrical and Electronics Engineering)",
-    code: "EEE",
-    headName: "Dr. HOD EEE",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-  {
-    key: "civil",
-    name: "CIVIL Engineering",
-    code: "CIVIL",
-    headName: "Dr. HOD Civil",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-  {
-    key: "robotics",
-    name: "Robotics and Automation",
-    code: "R&A",
-    headName: "Dr. HOD Robotics",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-  {
-    key: "mech",
-    name: "Mechanical Engineering",
-    code: "MECH",
-    headName: "Dr. HOD Mech",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-  {
-    key: "mba",
-    name: "Master of Business Administration (MBA)",
-    code: "MBA",
-    headName: "Dr. HOD MBA",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-  {
-    key: "mca",
-    name: "Master of Computer Applications (MCA)",
-    code: "MCA",
-    headName: "Dr. HOD MCA",
-    totalStudents: 0,
-    status: "ACTIVE",
-  },
-];
 
 export const getActiveFacultyCollege = (): string => {
   return localStorage.getItem("kvell_faculty_college") || "Engineering";
@@ -205,52 +73,6 @@ export const clearFacultyPharmacyAndNursingData = () => {
   } catch (e) {
     console.error("Error clearing pharmacy and nursing data", e);
   }
-};
-
-export const getStoredDepartments = (): Department[] => {
-  const activeCol = getActiveFacultyCollege().toLowerCase();
-  const scopedKey = getScopedKey("kvell_departments");
-
-  // For Nursing and Pharmacy: NO pre-seeded data! Start completely clean / 0 data.
-  if (activeCol !== "engineering") {
-    try {
-      const raw = localStorage.getItem(scopedKey);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) {
-      console.error("Error reading scoped departments", e);
-    }
-    return [];
-  }
-
-  // Engineering College: return persisted or default engineering depts
-  try {
-    const raw = localStorage.getItem("kvell_departments");
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const existingKeys = new Set(parsed.map((d: any) => (d.key || "").toLowerCase()));
-        let changed = false;
-        const merged = [...parsed];
-        for (const defDept of initialDefaultDepts) {
-          if (!existingKeys.has(defDept.key.toLowerCase())) {
-            merged.push(defDept);
-            existingKeys.add(defDept.key.toLowerCase());
-            changed = true;
-          }
-        }
-        if (changed) {
-          localStorage.setItem("kvell_departments", JSON.stringify(merged));
-        }
-        return merged;
-      }
-    }
-  } catch (e) {
-    console.error("Error reading kvell_departments", e);
-  }
-  return initialDefaultDepts;
 };
 
 interface StudentMarkData {
@@ -652,19 +474,6 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
   const grandGrade = calculateGrade(grandTotal);
   const resultStatus: "PASS" | "FAIL" = grandTotal >= 40 ? "PASS" : "FAIL";
   const isGraceApplied = false;
-
-  // Pre-fill realistic sample marks matching the examination paper
-  const handleFillSampleMarks = () => {
-    setPartAMarks([2, 2, 2, 1, 2, 1, 2, 2, 2, 2]);
-    setPartBCMarks({
-      11: { a: { i: 8, ii: 5, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
-      12: { a: { i: 7, ii: 6, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
-      13: { a: { i: 8, ii: 5, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
-      14: { a: { i: 6, ii: 7, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
-      15: { a: { i: 7, ii: 6, iii: 0 }, b: { i: 0, ii: 0, iii: 0 } },
-      16: { a: { i: 0, ii: 0, iii: 0 }, b: { i: 8, ii: 6, iii: 0 } },
-    });
-  };
 
   // CONFIRM MARK: saved on the server, which recomputes the totals and grade
   const handleConfirmMark = async () => {
@@ -1364,14 +1173,6 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                       </button>
                     ))}
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleFillSampleMarks}
-                    className="px-2.5 py-1 rounded-lg bg-[#D4A72C]/20 hover:bg-[#D4A72C]/30 text-[#0B192C] font-bold text-[10px] border border-[#D4A72C] transition flex items-center gap-1"
-                    title="Populate sample scores for quick verification"
-                  >
-                    <Sparkles size={11} /> Auto-Fill Marks
-                  </button>
                 </div>
 
                 {/* Center: Karpaga Vinayaga Banner Logo */}

@@ -44,13 +44,11 @@ import {
 } from "lucide-react";
 import {
   QuestionPaperItem,
-  INITIAL_QUESTION_PAPERS,
   QuestionPartAItem,
   QuestionPartBItem,
   QuestionPartCItem,
   StageSignature,
   PdfAttachment,
-  SAMPLE_QP_PDF_DATA,
   safeLoadQuestionPapers,
 } from "./dean/QuestionPaperReviewView";
 import {
@@ -67,7 +65,7 @@ interface FacultyQuestionPaperViewProps {
 
 export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> = ({
   onToast,
-  facultyName = "Dr. Ananya Menon",
+  facultyName = "",
   department = "Computer Science and Engineering",
 }) => {
   // The server returns only this faculty member's own papers
@@ -865,7 +863,7 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
                   {paperToRevise ? "Revise & Resubmit Question Paper" : "Draft New Question Paper to HOD"}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Author: {facultyName} • Submitting to HOD: Prof. Jayapradha (CSE)
+                  Author: {facultyName} • Submitting to: the HOD of the department
                 </p>
               </div>
               <button

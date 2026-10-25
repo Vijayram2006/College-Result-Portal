@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import { apiClient } from "../../services/api";
 import {
   FileText,
   AlertTriangle,
@@ -142,897 +143,13 @@ export interface ValuationProcedureRecord {
   };
 }
 
-// Curated pool of independent examiners available for Examiner 2 allotment
-export const EXAMINER_2_POOL = [
-  { name: "Dr. S. Mohan", id: "FAC-EXT-501", role: "External Examiner", institution: "Anna University Regional Campus" },
-  { name: "Dr. P. Suresh", id: "FAC-EXT-504", role: "External Examiner", institution: "MIT Chennai" },
-  { name: "Dr. N. Sundaram", id: "FAC-EXT-508", role: "External Examiner", institution: "SSN College of Engineering" },
-  { name: "Dr. Kavitha Raman", id: "FAC-EXT-402", role: "External Examiner", institution: "PSG College of Technology" },
-  { name: "Dr. Meenakshi S.", id: "FAC-EXT-302", role: "External Examiner", institution: "SRM Institute of Science & Technology" },
-  { name: "Dr. V. Karthik", id: "FAC-EXT-605", role: "External Examiner", institution: "Thiagarajar College of Engineering" },
-  { name: "Dr. Meganathan K.", id: "FAC-EXT-512", role: "External Examiner", institution: "College of Engineering Guindy (CEG)" },
-  { name: "Dr. Ananya Menon", id: "FAC-EXT-202", role: "Independent Valuer", institution: "Government College of Technology" },
-];
+type ExaminerOption = { name: string; id: string; role: string; institution: string };
+/** Examiner 2 and 3 are chosen from the college's faculty and HODs (filled from the server when the screen opens). */
+export const EXAMINER_2_POOL: ExaminerOption[] = [];
+export const EXAMINER_3_POOL: ExaminerOption[] = [];
 
-// Senior subject specialists / autonomous board pool for Examiner 3 allotment (Triggered when Δ ≥ 5)
-export const EXAMINER_3_POOL = [
-  {
-    name: "Dr. K. R. Ramanathan",
-    id: "CHIEF-VAL-01",
-    role: "Chief Subject Expert & Autonomous Valuation Chairman",
-    institution: "Karpaga Vinayaga Autonomous Board",
-  },
-  {
-    name: "Dr. T. Balakrishnan",
-    id: "CHIEF-VAL-02",
-    role: "Senior Professor & Autonomous Board Vice Chairman",
-    institution: "Karpaga Vinayaga Autonomous Board",
-  },
-  {
-    name: "Dr. R. Natarajan",
-    id: "CHIEF-VAL-03",
-    role: "Dean of Academic Standards & Valuation Warden",
-    institution: "Karpaga Vinayaga Autonomous Board",
-  },
-  {
-    name: "Dr. G. Sivakumar",
-    id: "CHIEF-VAL-04",
-    role: "Chief Evaluation Board Member & Emeritus Professor",
-    institution: "Karpaga Vinayaga Autonomous Board",
-  },
-  {
-    name: "Dr. H. Jayashree",
-    id: "CHIEF-VAL-05",
-    role: "Senior Mathematical Sciences Ombudsman",
-    institution: "Karpaga Vinayaga Autonomous Board",
-  },
-];
-
-// Initial Realistic Dataset across multiple departments demonstrating Examiner 2 & Examiner 3 allotment states
 /** REQ-12: a revaluation whose marks differ from the first valuation by this many marks or more goes to Examiner 3. */
 export const REVAL_THRESHOLD = 5;
-
-const INITIAL_REVALUATION_RECORDS: ValuationProcedureRecord[] = [
-  // 1. AI&DS - Procedural 3 resolved
-  {
-    id: "REV-2026-001",
-    studentRegNo: "20260110226001",
-    studentName: "ABI T",
-    department: "Artificial Intelligence & Data Science",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    subjectCode: "CS26C02T",
-    subjectTitle: "Fundamentals of Data Science",
-    dummyBarcode: "DMY-74892 (KV-619284)",
-    packetId: "PKT-A",
-    proc1: {
-      examinerName: "Dr. Ananya Menon",
-      examinerId: "FAC-ENG-202",
-      role: "Internal Examiner",
-      department: "CSE",
-      partAMarks: 10,
-      partBCMarks: 32,
-      totalMarks: 42,
-      grade: "RA",
-      evaluatedDate: "2026-10-15",
-    },
-    application: {
-      applicationRef: "APP-REV-01",
-      appliedDate: "2026-10-17",
-      feeReceiptNo: "KVELL-REC-8921",
-      feeAmount: 600,
-      reason: "Part B Question 14 derivation steps not properly credited in initial valuation.",
-      status: "RATIFIED",
-    },
-    proc2: {
-      allotmentStatus: "EVALUATED",
-      examinerName: "Dr. S. Mohan",
-      examinerId: "FAC-EXT-501",
-      role: "External Examiner",
-      institution: "Anna University Regional Campus",
-      allottedDate: "2026-10-18",
-      partAMarks: 14,
-      partBCMarks: 42,
-      totalMarks: 56,
-      grade: "B",
-      evaluatedDate: "2026-10-19",
-      remarks: "Question 14 algorithm steps completely valid; Part B awarded +10 marks.",
-    },
-    markDifference: 14, // |42 - 56| = 14 >= 5 -> EXAMINER 3 TRIGGERED!
-    isThirdValuationTriggered: true,
-    proc3: {
-      allotmentStatus: "EVALUATED",
-      examinerName: "Dr. K. R. Ramanathan",
-      examinerId: "CHIEF-VAL-01",
-      role: "Chief Subject Expert & Valuation Chairman",
-      institution: "Karpaga Vinayaga Autonomous Board",
-      allottedDate: "2026-10-20",
-      partAMarks: 13,
-      partBCMarks: 41,
-      totalMarks: 54,
-      grade: "B",
-      evaluatedDate: "2026-10-21",
-      resolutionFormula: "Average of two nearest marks: (56 + 54) / 2 = 55",
-      chiefRationale: "First examiner missed secondary gradient proof. Examiner 2 and 3 marks converge closely.",
-    },
-    finalOutcome: {
-      awardedMarks: 55,
-      grade: "B",
-      markShift: 13,
-      status: "THIRD_VALUATION_RESOLVED",
-      approvedBy: "Associate Dean (Academics) & Controller of Examinations",
-      ratifiedDate: "2026-10-21",
-    },
-  },
-
-  // 2. AI&DS - Normal Re-eval (Delta <= 10)
-  {
-    id: "REV-2026-002",
-    studentRegNo: "20260110226002",
-    studentName: "ABISHEK S R",
-    department: "Artificial Intelligence & Data Science",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    subjectCode: "MA26C01T",
-    subjectTitle: "Matrices and Calculus",
-    dummyBarcode: "DMY-38192 (KV-482910)",
-    packetId: "PKT-B",
-    proc1: {
-      examinerName: "Prof. K. Venkatesh",
-      examinerId: "FAC-ENG-104",
-      role: "Internal Examiner",
-      department: "Mathematics & AI",
-      partAMarks: 14,
-      partBCMarks: 48,
-      totalMarks: 62,
-      grade: "B+",
-      evaluatedDate: "2026-10-15",
-    },
-    application: {
-      applicationRef: "APP-REV-02",
-      appliedDate: "2026-10-17",
-      feeReceiptNo: "KVELL-REC-8922",
-      feeAmount: 600,
-      reason: "Eigenvalues calculation in Question 11 awarded partial marks.",
-      status: "RATIFIED",
-    },
-    proc2: {
-      allotmentStatus: "EVALUATED",
-      examinerName: "Dr. P. Suresh",
-      examinerId: "FAC-EXT-504",
-      role: "External Examiner",
-      institution: "MIT Chennai",
-      allottedDate: "2026-10-18",
-      partAMarks: 16,
-      partBCMarks: 52,
-      totalMarks: 68,
-      grade: "B+",
-      evaluatedDate: "2026-10-19",
-      remarks: "Slightly more generous on intermediate reduction steps; awarded +6 marks.",
-    },
-    markDifference: 6, // |62 - 68| = 6 >= 5 -> EXAMINER 3 TRIGGERED
-    isThirdValuationTriggered: false,
-    proc3: {
-      allotmentStatus: "NOT_REQUIRED",
-    },
-    finalOutcome: {
-      awardedMarks: 68,
-      grade: "B+",
-      markShift: 6,
-      status: "REVAL_ACCEPTED_NORMAL",
-      approvedBy: "Associate Dean (Academics)",
-      ratifiedDate: "2026-10-20",
-    },
-  },
-
-  // 3. AI&DS - Procedural 3 resolved
-  {
-    id: "REV-2026-003",
-    studentRegNo: "20260110226003",
-    studentName: "ADITYA S",
-    department: "Artificial Intelligence & Data Science",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    subjectCode: "CS26C02T",
-    subjectTitle: "Fundamentals of Data Science",
-    dummyBarcode: "DMY-91823 (KV-192039)",
-    packetId: "PKT-A",
-    proc1: {
-      examinerName: "Dr. Ananya Menon",
-      examinerId: "FAC-ENG-202",
-      role: "Internal Examiner",
-      department: "CSE",
-      partAMarks: 8,
-      partBCMarks: 28,
-      totalMarks: 36,
-      grade: "RA",
-      evaluatedDate: "2026-10-15",
-    },
-    application: {
-      applicationRef: "APP-REV-03",
-      appliedDate: "2026-10-18",
-      feeReceiptNo: "KVELL-REC-8925",
-      feeAmount: 600,
-      reason: "Question 13 pandas dataframe pipeline full solution given; request complete re-check.",
-      status: "RATIFIED",
-    },
-    proc2: {
-      allotmentStatus: "EVALUATED",
-      examinerName: "Dr. S. Mohan",
-      examinerId: "FAC-EXT-501",
-      role: "External Examiner",
-      institution: "Anna University Regional Campus",
-      allottedDate: "2026-10-19",
-      partAMarks: 12,
-      partBCMarks: 41,
-      totalMarks: 53,
-      grade: "B",
-      evaluatedDate: "2026-10-20",
-      remarks: "Student logic is correct; initial examiner marked strictly on syntax formatting.",
-    },
-    markDifference: 17, // |36 - 53| = 17 >= 5 -> EXAMINER 3 TRIGGERED!
-    isThirdValuationTriggered: true,
-    proc3: {
-      allotmentStatus: "EVALUATED",
-      examinerName: "Dr. K. R. Ramanathan",
-      examinerId: "CHIEF-VAL-01",
-      role: "Chief Subject Expert & Valuation Chairman",
-      institution: "Karpaga Vinayaga Autonomous Board",
-      allottedDate: "2026-10-20",
-      partAMarks: 11,
-      partBCMarks: 40,
-      totalMarks: 51,
-      grade: "B",
-      evaluatedDate: "2026-10-21",
-      resolutionFormula: "Average of two nearest marks: (53 + 51) / 2 = 52",
-      chiefRationale: "Second examiner assessment verified. Code logic valid for full marks in autonomous rubric.",
-    },
-    finalOutcome: {
-      awardedMarks: 52,
-      grade: "B",
-      markShift: 16,
-      status: "THIRD_VALUATION_RESOLVED",
-      approvedBy: "Associate Dean (Academics) & Controller of Examinations",
-      ratifiedDate: "2026-10-21",
-    },
-  },
-
-  // 4. CSE - Normal Re-eval (Delta <= 10)
-  {
-    id: "REV-2026-004",
-    studentRegNo: "20260110226004",
-    studentName: "AKSHAYA S",
-    department: "Computer Science & Engineering",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    subjectCode: "CY26C01I",
-    subjectTitle: "Engineering Chemistry",
-    dummyBarcode: "DMY-40192 (KV-859201)",
-    packetId: "PKT-C",
-    proc1: {
-      examinerName: "Dr. R. Revathi",
-      examinerId: "FAC-ENG-304",
-      role: "Internal Examiner",
-      department: "Chemistry",
-      partAMarks: 16,
-      partBCMarks: 58,
-      totalMarks: 74,
-      grade: "A",
-      evaluatedDate: "2026-10-15",
-    },
-    application: {
-      applicationRef: "APP-REV-04",
-      appliedDate: "2026-10-18",
-      feeReceiptNo: "KVELL-REC-8930",
-      feeAmount: 600,
-      reason: "Spectroscopy problem Part B expected distinction mark.",
-      status: "RATIFIED",
-    },
-    proc2: {
-      allotmentStatus: "EVALUATED",
-      examinerName: "Dr. N. Sundaram",
-      examinerId: "FAC-EXT-508",
-      role: "External Examiner",
-      institution: "SSN College of Engineering",
-      allottedDate: "2026-10-19",
-      partAMarks: 17,
-      partBCMarks: 60,
-      totalMarks: 77,
-      grade: "A+",
-      evaluatedDate: "2026-10-20",
-      remarks: "NMR spectroscopy diagram drawn with high precision; awarded +3 marks.",
-    },
-    markDifference: 3, // |74 - 77| = 3 <= 10 -> EXAMINER 3 NOT NEEDED
-    isThirdValuationTriggered: false,
-    proc3: {
-      allotmentStatus: "NOT_REQUIRED",
-    },
-    finalOutcome: {
-      awardedMarks: 77,
-      grade: "A+",
-      markShift: 3,
-      status: "REVAL_ACCEPTED_NORMAL",
-      approvedBy: "Associate Dean (Academics)",
-      ratifiedDate: "2026-10-20",
-    },
-  },
-
-  // 5. CSE - Examiner 3 resolved
-  {
-    id: "REV-2026-005",
-    studentRegNo: "20260110226005",
-    studentName: "ANISH V",
-    department: "Computer Science & Engineering",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    subjectCode: "CS26N011",
-    subjectTitle: "Industry Nexus- I Python Foundations",
-    dummyBarcode: "DMY-58201 (KV-391829)",
-    packetId: "PKT-D",
-    proc1: {
-      examinerName: "Dr. Ananya Menon",
-      examinerId: "FAC-ENG-202",
-      role: "Internal Examiner",
-      department: "CSE",
-      partAMarks: 9,
-      partBCMarks: 34,
-      totalMarks: 43,
-      grade: "RA",
-      evaluatedDate: "2026-10-15",
-    },
-    application: {
-      applicationRef: "APP-REV-05",
-      appliedDate: "2026-10-18",
-      feeReceiptNo: "KVELL-REC-8934",
-      feeAmount: 600,
-      reason: "OOP inheritance question was marked zero due to syntax variation.",
-      status: "RATIFIED",
-    },
-    proc2: {
-      allotmentStatus: "EVALUATED",
-      examinerName: "Dr. S. Mohan",
-      examinerId: "FAC-EXT-501",
-      role: "External Examiner",
-      institution: "Anna University Regional Campus",
-      allottedDate: "2026-10-19",
-      partAMarks: 13,
-      partBCMarks: 45,
-      totalMarks: 58,
-      grade: "B",
-      evaluatedDate: "2026-10-20",
-      remarks: "Python multiple inheritance solution is valid under Python 3.10 C3 MRO rules.",
-    },
-    markDifference: 15, // |43 - 58| = 15 >= 5 -> EXAMINER 3 TRIGGERED!
-    isThirdValuationTriggered: true,
-    proc3: {
-      allotmentStatus: "EVALUATED",
-      examinerName: "Dr. K. R. Ramanathan",
-      examinerId: "CHIEF-VAL-01",
-      role: "Chief Subject Expert & Valuation Chairman",
-      institution: "Karpaga Vinayaga Autonomous Board",
-      allottedDate: "2026-10-20",
-      partAMarks: 12,
-      partBCMarks: 44,
-      totalMarks: 56,
-      grade: "B",
-      evaluatedDate: "2026-10-21",
-      resolutionFormula: "Average of two nearest marks: (58 + 56) / 2 = 57",
-      chiefRationale: "Examiner 1 applied strict static typing rubric. Examiner 2 and 3 dynamic typing evaluation endorsed.",
-    },
-    finalOutcome: {
-      awardedMarks: 57,
-      grade: "B",
-      markShift: 14,
-      status: "THIRD_VALUATION_RESOLVED",
-      approvedBy: "Associate Dean (Academics) & Controller of Examinations",
-      ratifiedDate: "2026-10-21",
-    },
-  },
-
-  // 6. CSE - Normal Re-eval (Delta <= 10)
-  {
-    id: "REV-2026-006",
-    studentRegNo: "20260110226006",
-    studentName: "ASHVATHKUMAR S",
-    department: "Computer Science & Engineering",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    subjectCode: "MA26C01T",
-    subjectTitle: "Matrices and Calculus",
-    dummyBarcode: "DMY-84920 (KV-502918)",
-    packetId: "PKT-B",
-    proc1: {
-      examinerName: "Prof. K. Venkatesh",
-      examinerId: "FAC-ENG-104",
-      role: "Internal Examiner",
-      department: "Mathematics & AI",
-      partAMarks: 12,
-      partBCMarks: 40,
-      totalMarks: 52,
-      grade: "B",
-      evaluatedDate: "2026-10-15",
-    },
-    application: {
-      applicationRef: "APP-REV-06",
-      appliedDate: "2026-10-18",
-      feeReceiptNo: "KVELL-REC-8938",
-      feeAmount: 600,
-      reason: "Double integral bounds in Question 15 evaluated accurately.",
-      status: "RATIFIED",
-    },
-    proc2: {
-      allotmentStatus: "EVALUATED",
-      examinerName: "Dr. P. Suresh",
-      examinerId: "FAC-EXT-504",
-      role: "External Examiner",
-      institution: "MIT Chennai",
-      allottedDate: "2026-10-19",
-      partAMarks: 14,
-      partBCMarks: 46,
-      totalMarks: 60,
-      grade: "B+",
-      evaluatedDate: "2026-10-20",
-      remarks: "Polar coordinate transformation credited; +8 marks.",
-    },
-    markDifference: 8, // |52 - 60| = 8 >= 5 -> EXAMINER 3 TRIGGERED
-    isThirdValuationTriggered: false,
-    proc3: {
-      allotmentStatus: "NOT_REQUIRED",
-    },
-    finalOutcome: {
-      awardedMarks: 60,
-      grade: "B+",
-      markShift: 8,
-      status: "REVAL_ACCEPTED_NORMAL",
-      approvedBy: "Associate Dean (Academics)",
-      ratifiedDate: "2026-10-20",
-    },
-  },
-
-  // 7. BME - EXAMINER 3 PENDING DEAN ALLOTMENT! (Δ = 13 ≥ 5)
-  {
-    id: "REV-2026-007",
-    studentRegNo: "20260110226007",
-    studentName: "ASIF AHMED A R",
-    department: "Biomedical Engineering",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    subjectCode: "BM26C03T",
-    subjectTitle: "Human Anatomy & Physiology",
-    dummyBarcode: "DMY-29481 (KV-729401)",
-    packetId: "PKT-E",
-    proc1: {
-      examinerName: "Dr. Meenakshi S.",
-      examinerId: "FAC-ENG-302",
-      role: "Internal Examiner",
-      department: "BME",
-      partAMarks: 11,
-      partBCMarks: 37,
-      totalMarks: 48,
-      grade: "C",
-      evaluatedDate: "2026-10-15",
-    },
-    application: {
-      applicationRef: "APP-REV-07",
-      appliedDate: "2026-10-19",
-      feeReceiptNo: "KVELL-REC-8942",
-      feeAmount: 600,
-      reason: "Cardiac electrophysiology membrane potential curves verified.",
-      status: "PENDING_EXAMINER_3",
-    },
-    proc2: {
-      allotmentStatus: "EVALUATED",
-      examinerName: "Dr. S. Mohan",
-      examinerId: "FAC-EXT-501",
-      role: "External Examiner",
-      institution: "Anna University Regional Campus",
-      allottedDate: "2026-10-19",
-      partAMarks: 15,
-      partBCMarks: 46,
-      totalMarks: 61,
-      grade: "B+",
-      evaluatedDate: "2026-10-20",
-      remarks: "Action potential graph accurately labeled; substantial rubric credit awarded.",
-    },
-    markDifference: 13, // |48 - 61| = 13 >= 5 -> EXAMINER 3 TRIGGERED!
-    isThirdValuationTriggered: true,
-    proc3: {
-      allotmentStatus: "PENDING_ALLOTMENT", // DEAN MUST ALLOT EXAMINER 3!
-    },
-    finalOutcome: {
-      awardedMarks: 61,
-      grade: "B+",
-      markShift: 13,
-      status: "AWAITING_EXAMINER_3",
-      approvedBy: "Associate Dean (Pending Third Valuer)",
-    },
-  },
-
-  // 8. BME - Normal Re-eval (Delta <= 10)
-  {
-    id: "REV-2026-008",
-    studentRegNo: "20260110226008",
-    studentName: "BHARATHI V",
-    department: "Biomedical Engineering",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    subjectCode: "CY26C01I",
-    subjectTitle: "Engineering Chemistry",
-    dummyBarcode: "DMY-69102 (KV-491028)",
-    packetId: "PKT-A",
-    proc1: {
-      examinerName: "Dr. R. Revathi",
-      examinerId: "FAC-ENG-304",
-      role: "Internal Examiner",
-      department: "Chemistry",
-      partAMarks: 16,
-      partBCMarks: 55,
-      totalMarks: 71,
-      grade: "A",
-      evaluatedDate: "2026-10-15",
-    },
-    application: {
-      applicationRef: "APP-REV-08",
-      appliedDate: "2026-10-19",
-      feeReceiptNo: "KVELL-REC-8945",
-      feeAmount: 600,
-      reason: "Re-totalling check in Section A.",
-      status: "RATIFIED",
-    },
-    proc2: {
-      allotmentStatus: "EVALUATED",
-      examinerName: "Dr. S. Mohan",
-      examinerId: "FAC-EXT-501",
-      role: "External Examiner",
-      institution: "Anna University Regional Campus",
-      allottedDate: "2026-10-19",
-      partAMarks: 17,
-      partBCMarks: 56,
-      totalMarks: 73,
-      grade: "A",
-      evaluatedDate: "2026-10-20",
-      remarks: "Slight totaling oversight in Question 4 corrected; awarded +2 marks.",
-    },
-    markDifference: 2, // |71 - 73| = 2 <= 10 -> EXAMINER 3 NOT NEEDED
-    isThirdValuationTriggered: false,
-    proc3: {
-      allotmentStatus: "NOT_REQUIRED",
-    },
-    finalOutcome: {
-      awardedMarks: 73,
-      grade: "A",
-      markShift: 2,
-      status: "REVAL_ACCEPTED_NORMAL",
-      approvedBy: "Associate Dean (Academics)",
-      ratifiedDate: "2026-10-20",
-    },
-  },
-
-  // 9. Biotechnology - EXAMINER 2 PENDING DEAN ALLOTMENT!
-  {
-    id: "REV-2026-009",
-    studentRegNo: "20260110226009",
-    studentName: "CHANDRU K",
-    department: "Biotechnology",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    subjectCode: "BT26C02T",
-    subjectTitle: "Microbiology & Cell Biology",
-    dummyBarcode: "DMY-10928 (KV-920194)",
-    packetId: "PKT-F",
-    proc1: {
-      examinerName: "Dr. Kavitha Raman",
-      examinerId: "FAC-ENG-402",
-      role: "Internal Examiner",
-      department: "Biotech",
-      partAMarks: 10,
-      partBCMarks: 35,
-      totalMarks: 45,
-      grade: "RA",
-      evaluatedDate: "2026-10-15",
-    },
-    application: {
-      applicationRef: "APP-REV-09",
-      appliedDate: "2026-10-20",
-      feeReceiptNo: "KVELL-REC-8950",
-      feeAmount: 600,
-      reason: "Gram staining biochemical pathway diagram fully drawn with mordant mechanism.",
-      status: "PENDING_EXAMINER_2",
-    },
-    proc2: {
-      allotmentStatus: "PENDING_ALLOTMENT", // DEAN MUST ALLOT EXAMINER 2!
-    },
-    isThirdValuationTriggered: false,
-    proc3: {
-      allotmentStatus: "NOT_REQUIRED",
-    },
-    finalOutcome: {
-      awardedMarks: 45,
-      grade: "RA",
-      markShift: 0,
-      status: "AWAITING_EXAMINER_2",
-      approvedBy: "Associate Dean (Pending Valuation)",
-    },
-  },
-
-  // 10. Biotechnology - Examiner 2 Allotted (In-Progress)
-  {
-    id: "REV-2026-010",
-    studentRegNo: "20260110226010",
-    studentName: "DEEPIKA M",
-    department: "Biotechnology",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    subjectCode: "BT26C02T",
-    subjectTitle: "Microbiology & Cell Biology",
-    dummyBarcode: "DMY-49201 (KV-381920)",
-    packetId: "PKT-F",
-    proc1: {
-      examinerName: "Dr. Kavitha Raman",
-      examinerId: "FAC-ENG-402",
-      role: "Internal Examiner",
-      department: "Biotech",
-      partAMarks: 14,
-      partBCMarks: 51,
-      totalMarks: 65,
-      grade: "B+",
-      evaluatedDate: "2026-10-15",
-    },
-    application: {
-      applicationRef: "APP-REV-10",
-      appliedDate: "2026-10-20",
-      feeReceiptNo: "KVELL-REC-8952",
-      feeAmount: 600,
-      reason: "Bacterial kinetics exponential phase math evaluated strictly.",
-      status: "UNDER_SECOND_EVALUATION",
-    },
-    proc2: {
-      allotmentStatus: "ALLOTTED",
-      examinerName: "Dr. N. Sundaram",
-      examinerId: "FAC-EXT-508",
-      role: "External Examiner",
-      institution: "SSN College of Engineering",
-      allottedDate: "2026-10-21",
-    },
-    isThirdValuationTriggered: false,
-    proc3: {
-      allotmentStatus: "NOT_REQUIRED",
-    },
-    finalOutcome: {
-      awardedMarks: 65,
-      grade: "B+",
-      markShift: 0,
-      status: "AWAITING_EXAMINER_2",
-      approvedBy: "Associate Dean (In-Progress)",
-    },
-  },
-
-  // 11. ECE - EXAMINER 3 PENDING DEAN ALLOTMENT! (Δ = 16 ≥ 5)
-  {
-    id: "REV-2026-011",
-    studentRegNo: "20260110226011",
-    studentName: "DINESH KUMAR R",
-    department: "Electronics & Communication Engineering",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    subjectCode: "EC26C01T",
-    subjectTitle: "Digital Electronics & VLSI Design",
-    dummyBarcode: "DMY-85012 (KV-491820)",
-    packetId: "PKT-G",
-    proc1: {
-      examinerName: "Dr. P. Suresh",
-      examinerId: "FAC-ENG-502",
-      role: "Internal Examiner",
-      department: "ECE",
-      partAMarks: 8,
-      partBCMarks: 31,
-      totalMarks: 39,
-      grade: "RA",
-      evaluatedDate: "2026-10-15",
-    },
-    application: {
-      applicationRef: "APP-REV-11",
-      appliedDate: "2026-10-19",
-      feeReceiptNo: "KVELL-REC-8958",
-      feeAmount: 600,
-      reason: "Verilog HDL finite state machine code was written with Mealy architecture; deserves full marks.",
-      status: "PENDING_EXAMINER_3",
-    },
-    proc2: {
-      allotmentStatus: "EVALUATED",
-      examinerName: "Dr. V. Karthik",
-      examinerId: "FAC-EXT-605",
-      role: "External Examiner",
-      institution: "Thiagarajar College of Engineering",
-      allottedDate: "2026-10-20",
-      partAMarks: 13,
-      partBCMarks: 42,
-      totalMarks: 55,
-      grade: "B",
-      evaluatedDate: "2026-10-21",
-      remarks: "FSM Verilog code compiles without syntax defect and meets synthesis specifications.",
-    },
-    markDifference: 16, // |39 - 55| = 16 >= 5 -> EXAMINER 3 TRIGGERED!
-    isThirdValuationTriggered: true,
-    proc3: {
-      allotmentStatus: "PENDING_ALLOTMENT", // DEAN MUST ALLOT EXAMINER 3!
-    },
-    finalOutcome: {
-      awardedMarks: 55,
-      grade: "B",
-      markShift: 16,
-      status: "AWAITING_EXAMINER_3",
-      approvedBy: "Associate Dean (Pending Third Valuer)",
-    },
-  },
-
-  // 12. ECE - Normal Re-eval (Delta <= 10)
-  {
-    id: "REV-2026-012",
-    studentRegNo: "20260110226012",
-    studentName: "GOWTHAM P",
-    department: "Electronics & Communication Engineering",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    subjectCode: "EC26C01T",
-    subjectTitle: "Digital Electronics & VLSI Design",
-    dummyBarcode: "DMY-39182 (KV-192840)",
-    packetId: "PKT-G",
-    proc1: {
-      examinerName: "Dr. P. Suresh",
-      examinerId: "FAC-ENG-502",
-      role: "Internal Examiner",
-      department: "ECE",
-      partAMarks: 14,
-      partBCMarks: 44,
-      totalMarks: 58,
-      grade: "B",
-      evaluatedDate: "2026-10-15",
-    },
-    application: {
-      applicationRef: "APP-REV-12",
-      appliedDate: "2026-10-19",
-      feeReceiptNo: "KVELL-REC-8960",
-      feeAmount: 600,
-      reason: "K-map simplification in Question 12.",
-      status: "RATIFIED",
-    },
-    proc2: {
-      allotmentStatus: "EVALUATED",
-      examinerName: "Dr. V. Karthik",
-      examinerId: "FAC-EXT-605",
-      role: "External Examiner",
-      institution: "Thiagarajar College of Engineering",
-      allottedDate: "2026-10-20",
-      partAMarks: 15,
-      partBCMarks: 49,
-      totalMarks: 64,
-      grade: "B+",
-      evaluatedDate: "2026-10-21",
-      remarks: "Don't care conditions in 4-variable K-map correctly grouped; +6 marks.",
-    },
-    markDifference: 6, // |58 - 64| = 6 >= 5 -> EXAMINER 3 TRIGGERED
-    isThirdValuationTriggered: false,
-    proc3: {
-      allotmentStatus: "NOT_REQUIRED",
-    },
-    finalOutcome: {
-      awardedMarks: 64,
-      grade: "B+",
-      markShift: 6,
-      status: "REVAL_ACCEPTED_NORMAL",
-      approvedBy: "Associate Dean (Academics)",
-      ratifiedDate: "2026-10-21",
-    },
-  },
-
-  // 13. Mechanical Engineering - EXAMINER 2 PENDING DEAN ALLOTMENT!
-  {
-    id: "REV-2026-013",
-    studentRegNo: "20260110226013",
-    studentName: "HARISH M",
-    department: "Mechanical Engineering",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    subjectCode: "ME26C02T",
-    subjectTitle: "Engineering Thermodynamics",
-    dummyBarcode: "DMY-73019 (KV-294019)",
-    packetId: "PKT-H",
-    proc1: {
-      examinerName: "Dr. V. Karthik",
-      examinerId: "FAC-ENG-605",
-      role: "Internal Examiner",
-      department: "Mech",
-      partAMarks: 9,
-      partBCMarks: 31,
-      totalMarks: 40,
-      grade: "RA",
-      evaluatedDate: "2026-10-15",
-    },
-    application: {
-      applicationRef: "APP-REV-13",
-      appliedDate: "2026-10-20",
-      feeReceiptNo: "KVELL-REC-8964",
-      feeAmount: 600,
-      reason: "Rankine cycle reheat cycle enthalpy calculation from steam table.",
-      status: "PENDING_EXAMINER_2",
-    },
-    proc2: {
-      allotmentStatus: "PENDING_ALLOTMENT", // DEAN MUST ALLOT EXAMINER 2!
-    },
-    isThirdValuationTriggered: false,
-    proc3: {
-      allotmentStatus: "NOT_REQUIRED",
-    },
-    finalOutcome: {
-      awardedMarks: 40,
-      grade: "RA",
-      markShift: 0,
-      status: "AWAITING_EXAMINER_2",
-      approvedBy: "Associate Dean (Pending Valuation)",
-    },
-  },
-
-  // 14. Mechanical Engineering - Normal Re-eval (Delta <= 10)
-  {
-    id: "REV-2026-014",
-    studentRegNo: "20260110226014",
-    studentName: "JANANI S",
-    department: "Mechanical Engineering",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    subjectCode: "ME26C02T",
-    subjectTitle: "Engineering Thermodynamics",
-    dummyBarcode: "DMY-94012 (KV-682910)",
-    packetId: "PKT-H",
-    proc1: {
-      examinerName: "Dr. V. Karthik",
-      examinerId: "FAC-ENG-605",
-      role: "Internal Examiner",
-      department: "Mech",
-      partAMarks: 15,
-      partBCMarks: 55,
-      totalMarks: 70,
-      grade: "A",
-      evaluatedDate: "2026-10-15",
-    },
-    application: {
-      applicationRef: "APP-REV-14",
-      appliedDate: "2026-10-19",
-      feeReceiptNo: "KVELL-REC-8968",
-      feeAmount: 600,
-      reason: "Brayton cycle efficiency derivation steps.",
-      status: "RATIFIED",
-    },
-    proc2: {
-      allotmentStatus: "EVALUATED",
-      examinerName: "Dr. S. Mohan",
-      examinerId: "FAC-EXT-501",
-      role: "External Examiner",
-      institution: "Anna University Regional Campus",
-      allottedDate: "2026-10-20",
-      partAMarks: 16,
-      partBCMarks: 58,
-      totalMarks: 74,
-      grade: "A",
-      evaluatedDate: "2026-10-21",
-      remarks: "Specific heat ratio variation appropriately accounted for; awarded +4 marks.",
-    },
-    markDifference: 4, // |70 - 74| = 4 <= 10 -> EXAMINER 3 NOT NEEDED
-    isThirdValuationTriggered: false,
-    proc3: {
-      allotmentStatus: "NOT_REQUIRED",
-    },
-    finalOutcome: {
-      awardedMarks: 74,
-      grade: "A",
-      markShift: 4,
-      status: "REVAL_ACCEPTED_NORMAL",
-      approvedBy: "Associate Dean (Academics)",
-      ratifiedDate: "2026-10-21",
-    },
-  },
-];
 
 interface RevaluationThreeTierReviewViewProps {
   onToast?: (msg: string) => void;
@@ -1056,10 +173,10 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
       const saved = localStorage.getItem("kvell_revaluation_3tier_records_v3");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return withRule(parsed);
+        if (Array.isArray(parsed)) return withRule(parsed);
       }
     } catch {}
-    return withRule(INITIAL_REVALUATION_RECORDS);
+    return [];
   });
 
   const [activeTab, setActiveTab] = useState<"roster" | "stats" | "escrow">("roster");
@@ -1075,21 +192,34 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
   const [simulateM2Record, setSimulateM2Record] = useState<ValuationProcedureRecord | null>(null);
 
   // Form states for Examiner 2 allotment modal
-  const [selectedEx2Id, setSelectedEx2Id] = useState<string>(EXAMINER_2_POOL[0].id);
+  const [selectedEx2Id, setSelectedEx2Id] = useState<string>((EXAMINER_2_POOL[0]?.id ?? ""));
   const [customEx2Name, setCustomEx2Name] = useState<string>("");
   const [customEx2Inst, setCustomEx2Inst] = useState<string>("");
   const [ex2Instructions, setEx2Instructions] = useState<string>("Conduct independent autonomous valuation against scheme rubric.");
-  const [ex2Deadline, setEx2Deadline] = useState<string>("2026-10-25");
-  const [simulatedM2Score, setSimulatedM2Score] = useState<number>(55);
+  const [ex2Deadline, setEx2Deadline] = useState<string>(() => new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10));
+  const [simulatedM2Score, setSimulatedM2Score] = useState<number>(0);
 
   // Form states for Examiner 3 allotment modal
-  const [selectedEx3Id, setSelectedEx3Id] = useState<string>(EXAMINER_3_POOL[0].id);
+  const [selectedEx3Id, setSelectedEx3Id] = useState<string>((EXAMINER_3_POOL[0]?.id ?? ""));
   const [ex3Formula, setEx3Formula] = useState<string>("Nearest Two Marks Average: (M2 + M3) / 2");
-  const [simulatedM3Score, setSimulatedM3Score] = useState<number>(54);
+  const [simulatedM3Score, setSimulatedM3Score] = useState<number>(0);
 
   const notify = (msg: string) => {
     if (onToast) onToast(msg);
   };
+
+  const [, setPoolLoaded] = useState(0);
+  useEffect(() => {
+    apiClient
+      .get<{ id: string; name: string; dept: string; role: string }[]>("/workflow-docs/staff")
+      .then((r) => {
+        const list = r.data.map((s) => ({ name: s.name, id: s.id, role: s.role, institution: s.dept }));
+        EXAMINER_2_POOL.splice(0, EXAMINER_2_POOL.length, ...list);
+        EXAMINER_3_POOL.splice(0, EXAMINER_3_POOL.length, ...list);
+        setPoolLoaded((n) => n + 1);
+      })
+      .catch(() => undefined);
+  }, []);
 
   const saveRecords = (newRecords: ValuationProcedureRecord[]) => {
     setRecords(newRecords);
@@ -1098,11 +228,6 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
     } catch (e) {
       console.error(e);
     }
-  };
-
-  const handleResetDataset = () => {
-    saveRecords(INITIAL_REVALUATION_RECORDS);
-    notify("Re-evaluation dataset reset to initial multi-department baseline!");
   };
 
   // Distinct subjects present in the records
@@ -1429,7 +554,11 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
     if (!allotExaminer2Record) return;
 
     const chosenPool = EXAMINER_2_POOL.find((e) => e.id === selectedEx2Id);
-    const examinerName = customEx2Name.trim() || chosenPool?.name || "Dr. S. Mohan";
+    const examinerName = customEx2Name.trim() || chosenPool?.name || "";
+    if (!examinerName) {
+      notify("Choose Examiner 2 from the faculty list or type the external examiner's name.");
+      return;
+    }
     const examinerId = chosenPool?.id || "FAC-EXT-CUSTOM";
     const role = "External Examiner";
     const institution = customEx2Inst.trim() || chosenPool?.institution || "Anna University Regional Campus";
@@ -1540,9 +669,13 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
     if (!allotExaminer3Record) return;
 
     const chosenPool = EXAMINER_3_POOL.find((e) => e.id === selectedEx3Id);
-    const examinerName = chosenPool?.name || "Dr. K. R. Ramanathan";
-    const examinerId = chosenPool?.id || "CHIEF-VAL-01";
-    const role = chosenPool?.role || "Chief Subject Expert & Autonomous Valuation Chairman";
+    const examinerName = chosenPool?.name || "";
+    if (!examinerName) {
+      notify("Choose Examiner 3 from the faculty list.");
+      return;
+    }
+    const examinerId = chosenPool?.id || "";
+    const role = chosenPool?.role || "Examiner 3";
     const institution = chosenPool?.institution || "Karpaga Vinayaga Autonomous Board";
 
     const updated = records.map((r) => {
@@ -1751,14 +884,6 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
             className="px-4 py-2.5 rounded-xl bg-white text-[#0B192C] hover:bg-gray-100 border border-gray-300 font-extrabold text-xs transition flex items-center gap-2 cursor-pointer shadow-sm"
           >
             <Download size={15} /> Export Audit Sheet (Excel)
-          </button>
-          <button
-            type="button"
-            onClick={handleResetDataset}
-            className="px-3.5 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-[#0B192C] font-bold text-xs transition flex items-center gap-1.5 cursor-pointer border border-slate-200"
-            title="Reset to pristine 14-record multi-department test cohort"
-          >
-            <RefreshCw size={14} /> Reset Demo Data
           </button>
           <button
             type="button"
@@ -2237,8 +1362,8 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                             <button
                               onClick={() => {
                                 setAllotExaminer2Record(r);
-                                setSelectedEx2Id(EXAMINER_2_POOL[0].id);
-                                setSimulatedM2Score(r.proc1.totalMarks + 6);
+                                setSelectedEx2Id((EXAMINER_2_POOL[0]?.id ?? ""));
+                                setSimulatedM2Score(r.proc1.totalMarks);
                               }}
                               className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] transition shadow-xs flex items-center gap-1 mx-auto cursor-pointer"
                             >
@@ -2256,7 +1381,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                             <button
                               onClick={() => {
                                 setAllotExaminer2Record(r);
-                                setSimulatedM2Score(r.proc1.totalMarks + 14);
+                                setSimulatedM2Score(r.proc2.totalMarks || r.proc1.totalMarks);
                               }}
                               className="text-[10px] text-blue-700 underline block mx-auto cursor-pointer font-bold"
                             >
@@ -2320,7 +1445,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                             <button
                               onClick={() => {
                                 setAllotExaminer3Record(r);
-                                setSelectedEx3Id(EXAMINER_3_POOL[0].id);
+                                setSelectedEx3Id((EXAMINER_3_POOL[0]?.id ?? ""));
                                 const m2 = r.proc2.totalMarks ?? 60;
                                 setSimulatedM3Score(Math.round((m2 + r.proc1.totalMarks) / 2));
                               }}
@@ -2702,7 +1827,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                         <button
                           onClick={() => {
                             setAllotExaminer3Record(r);
-                            setSelectedEx3Id(EXAMINER_3_POOL[0].id);
+                            setSelectedEx3Id((EXAMINER_3_POOL[0]?.id ?? ""));
                             const m2 = r.proc2.totalMarks ?? 60;
                             setSimulatedM3Score(Math.round((m2 + r.proc1.totalMarks) / 2));
                           }}
@@ -2943,7 +2068,7 @@ export const RevaluationThreeTierReviewView: React.FC<RevaluationThreeTierReview
                 onClick={() => handleConfirmAllotExaminer2(true)}
                 className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs cursor-pointer shadow-md flex items-center gap-1.5"
               >
-                <Check size={14} /> Allot &amp; Simulate Valuation
+                <Check size={14} /> Allot &amp; Record Examiner 2 Marks
               </button>
             </div>
           </div>

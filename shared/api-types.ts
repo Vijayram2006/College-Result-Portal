@@ -27,10 +27,26 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_6"];
+        get: operations["list_7"];
         put?: never;
         post: operations["upload"];
-        delete: operations["delete_3"];
+        delete: operations["delete_2"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/answer-scripts/absences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["absences"];
+        put: operations["setAbsent"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -68,6 +84,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/co-assessment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["adminSheet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/co-assessment/attainment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["adminAttainment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/dashboard": {
         parameters: {
             query?: never;
@@ -91,9 +139,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_5"];
+        get: operations["list_6"];
         put?: never;
-        post: operations["create_4"];
+        post: operations["create_5"];
         delete?: never;
         options?: never;
         head?: never;
@@ -108,9 +156,9 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put: operations["update_2"];
+        put: operations["update_1"];
         post?: never;
-        delete: operations["delete_2"];
+        delete: operations["delete_1"];
         options?: never;
         head?: never;
         patch?: never;
@@ -123,9 +171,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_4"];
+        get: operations["list_5"];
         put?: never;
-        post: operations["create_3"];
+        post: operations["create_4"];
         delete?: never;
         options?: never;
         head?: never;
@@ -139,10 +187,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_2"];
-        put: operations["update_1"];
+        get: operations["get_1"];
+        put: operations["update"];
         post?: never;
-        delete: operations["delete_1"];
+        delete: operations["delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -174,6 +222,86 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["forward_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/hall-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["coePlans"];
+        put?: never;
+        post: operations["create_3"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/hall-plans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_6"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/hall-plans/{id}/extension": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["extend"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/hall-plans/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/hall-plans/{id}/seats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["seats_1"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -236,7 +364,7 @@ export interface paths {
             cookie?: never;
         };
         get: operations["roster_1"];
-        put: operations["save_2"];
+        put: operations["save_5"];
         post?: never;
         delete?: never;
         options?: never;
@@ -366,7 +494,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["delete_6"];
+        delete: operations["delete_5"];
         options?: never;
         head?: never;
         patch?: never;
@@ -427,8 +555,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list"];
-        put: operations["save_1"];
+        get: operations["list_1"];
+        put: operations["save_4"];
         post?: never;
         delete: operations["deleteGroup"];
         options?: never;
@@ -446,7 +574,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["delete_5"];
+        delete: operations["delete_4"];
         options?: never;
         head?: never;
         patch?: never;
@@ -459,7 +587,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_3"];
+        get: operations["list_4"];
         put?: never;
         post: operations["create_2"];
         delete: operations["deleteAll"];
@@ -494,7 +622,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["delete_4"];
+        delete: operations["delete_3"];
         options?: never;
         head?: never;
         patch?: never;
@@ -516,63 +644,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admission/applicants": {
+    "/api/admin/withholds": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["list_2"];
-        put?: never;
-        post: operations["create_1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admission/applicants/next-roll": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["nextRoll"];
-        put?: never;
+        get: operations["list"];
+        put: operations["set"];
         post?: never;
-        delete?: never;
+        delete: operations["release"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admission/applicants/{id}": {
+    "/api/admin/withholds/codes": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["get_1"];
-        put: operations["update"];
-        post?: never;
-        delete: operations["delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admission/applicants/{id}/documents/{kind}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["document"];
-        put: operations["putDocument"];
+        get: operations["codes"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -692,6 +788,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dean/faculty": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_3"];
+        put?: never;
+        post: operations["create_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dean/faculty/subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["subjects_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dean/faculty/{id}/subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["setSubjects"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dean/hall-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["deanPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dean/hall-plans/{id}/seats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["seats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dean/mark-approvals": {
         parameters: {
             query?: never;
@@ -699,7 +875,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_7"];
+        get: operations["list_9"];
         put?: never;
         post?: never;
         delete?: never;
@@ -740,6 +916,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dean/paper-correction/scripts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["scripts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/faculty/answer-scripts/file": {
         parameters: {
             query?: never;
@@ -749,6 +941,70 @@ export interface paths {
         };
         get: operations["answerScript"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/faculty/co-assessment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sheet"];
+        put: operations["save_2"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/faculty/co-assessment/attainment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["attainment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/faculty/co-assessment/survey-window": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["surveyWindow_1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/faculty/co-assessment/threshold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["threshold"];
         post?: never;
         delete?: never;
         options?: never;
@@ -766,6 +1022,54 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["forward"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/faculty/hall-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["deptPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/faculty/hall-plans/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["facultyPublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/faculty/hall-plans/{id}/seats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["deptSeats_1"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -812,7 +1116,7 @@ export interface paths {
             cookie?: never;
         };
         get: operations["roster"];
-        put: operations["save"];
+        put: operations["save_1"];
         post?: never;
         delete?: never;
         options?: never;
@@ -845,6 +1149,22 @@ export interface paths {
         };
         get: operations["publishedResults"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/faculty/quizzes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["quizzes_1"];
+        put: operations["saveQuiz_1"];
         post?: never;
         delete?: never;
         options?: never;
@@ -900,6 +1220,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/hod/co-assessment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sheet_1"];
+        put: operations["save_3"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hod/co-assessment/attainment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["attainment_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hod/co-assessment/survey-window": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["surveyWindow"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hod/co-assessment/threshold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["threshold_1"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hod/hall-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["deptPlans_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hod/hall-plans/{id}/seats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["deptSeats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hod/hall-plans/{id}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["validate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/hod/internal-marks": {
         parameters: {
             query?: never;
@@ -939,7 +1371,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_8"];
+        get: operations["list_10"];
         put?: never;
         post?: never;
         delete?: never;
@@ -989,6 +1421,22 @@ export interface paths {
         };
         get: operations["overview_1"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/hod/quizzes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["quizzes"];
+        put: operations["saveQuiz"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1131,7 +1579,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_1"];
+        get: operations["list_2"];
         put?: never;
         post: operations["create"];
         delete?: never;
@@ -1181,6 +1629,22 @@ export interface paths {
         };
         get: operations["pdf"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/student/exit-survey": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["exitSurvey"];
+        put: operations["saveExitSurvey"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1252,6 +1716,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/student/quizzes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["quizzes_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/student/quizzes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["answerQuiz"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/student/revaluation": {
         parameters: {
             query?: never;
@@ -1262,6 +1758,22 @@ export interface paths {
         get: operations["mine"];
         put?: never;
         post: operations["apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/student/seating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["seating"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1428,6 +1940,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workflow-docs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_8"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workflow-docs/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["staff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workflow-docs/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["save"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -1464,6 +2024,20 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Absence: {
+            markedAt?: string;
+            markedBy?: string;
+            regNo?: string;
+            subjectCode?: string;
+        };
+        AbsenceRequest: {
+            absent?: boolean;
+            assessment?: string;
+            dept?: string;
+            regNo?: string;
+            semester?: string;
+            subject?: string;
+        };
         AcademicSession: {
             academicYear?: string;
             semesterTerm?: string;
@@ -1506,6 +2080,26 @@ export interface components {
         Attachment: {
             dataUrl?: string;
             fileName?: string;
+        };
+        Attainment: {
+            coMax?: number[];
+            courseType?: string;
+            deptKey?: string;
+            deptName?: string;
+            internal?: {
+                [key: string]: components["schemas"]["Level"];
+            };
+            overall?: components["schemas"]["OverallRow"][];
+            semester?: string;
+            students?: components["schemas"]["StudentAttainment"][];
+            subjectCode?: string;
+            subjectTitle?: string;
+            survey?: components["schemas"]["SurveyRow"][];
+            /** Format: double */
+            threshold?: number;
+            university?: {
+                [key: string]: components["schemas"]["Level"];
+            };
         };
         AuditEntry: {
             action?: string;
@@ -1554,6 +2148,10 @@ export interface components {
             message?: string;
             stack?: string;
             url?: string;
+        };
+        Code: {
+            code?: string;
+            description?: string;
         };
         CollegeLock: {
             freezeSubmissions?: boolean;
@@ -1620,6 +2218,10 @@ export interface components {
             password?: string;
             role?: string;
             username?: string;
+        };
+        Created: {
+            faculty?: components["schemas"]["FacultyAccount"];
+            startingPassword?: string;
         };
         Cycle: {
             /** Format: double */
@@ -1692,6 +2294,32 @@ export interface components {
             /** Format: int32 */
             totalStudents?: number;
         };
+        DeptStep: {
+            deptKey?: string;
+            deptName?: string;
+            /** Format: date-time */
+            facultyPublishedAt?: string;
+            facultyPublishedBy?: string;
+            /** Format: date-time */
+            hodValidatedAt?: string;
+            hodValidatedBy?: string;
+            /** Format: int32 */
+            students?: number;
+        };
+        DeptSubject: {
+            code?: string;
+            semester?: string;
+            title?: string;
+        };
+        Doc: {
+            data?: components["schemas"]["JsonNode"];
+            key?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+            updatedBy?: string;
+            /** Format: int32 */
+            version?: number;
+        };
         Employment: {
             designation?: string;
             from?: string;
@@ -1706,6 +2334,30 @@ export interface components {
             section?: string;
             /** Format: int32 */
             years?: number;
+        };
+        ExtensionInput: {
+            /** Format: int32 */
+            extraMinutes?: number;
+            hall?: string;
+            reason?: string;
+        };
+        FacultyAccount: {
+            active?: boolean;
+            deptKey?: string;
+            deptName?: string;
+            designation?: string;
+            email?: string;
+            /** Format: int64 */
+            id?: number;
+            mobile?: string;
+            name?: string;
+            staffId?: string;
+            subjects?: components["schemas"]["HandlingSubject"][];
+            title?: string;
+            username?: string;
+            /** Format: date-time */
+            verifiedAt?: string;
+            verifiedBy?: string;
         };
         FacultyDetail: {
             aadhaar?: string;
@@ -1797,6 +2449,24 @@ export interface components {
             nursing?: components["schemas"]["Regulation"];
             pharmacy?: components["schemas"]["Regulation"];
         };
+        HallInput: {
+            /** Format: int32 */
+            capacity?: number;
+            name?: string;
+        };
+        HallSummary: {
+            extensionReason?: string;
+            /** Format: int32 */
+            extraMinutes?: number;
+            hall?: string;
+            /** Format: int32 */
+            students?: number;
+        };
+        HandlingSubject: {
+            code?: string;
+            semester?: string;
+            title?: string;
+        };
         HistoryItem: {
             changedAt?: string;
             changedBy?: string;
@@ -1806,6 +2476,12 @@ export interface components {
             /** Format: double */
             oldValue?: number;
             regNo?: string;
+        };
+        IatColumn: {
+            co?: string;
+            label?: string;
+            /** Format: double */
+            max?: number;
         };
         Inbox: {
             items?: components["schemas"]["Item"][];
@@ -1862,6 +2538,16 @@ export interface components {
             textual?: boolean;
             valueNode?: boolean;
         };
+        Level: {
+            /** Format: int32 */
+            above?: number;
+            /** Format: int32 */
+            level?: number;
+            /** Format: double */
+            percent?: number;
+            /** Format: int32 */
+            students?: number;
+        };
         LoginRequest: {
             captchaAnswer?: string;
             captchaId?: string;
@@ -1891,6 +2577,9 @@ export interface components {
                 [key: string]: components["schemas"]["Question"];
             };
             regNo?: string;
+            remarks?: {
+                [key: string]: string;
+            };
             semester?: string;
             subjectCode?: string;
         };
@@ -1911,6 +2600,19 @@ export interface components {
             /** Format: int32 */
             maxGraceMarks?: number;
         };
+        NewFaculty: {
+            dept?: string;
+            designation?: string;
+            dob?: string;
+            email?: string;
+            gender?: string;
+            joinedOn?: string;
+            mobile?: string;
+            name?: string;
+            staffId?: string;
+            subjects?: components["schemas"]["SubjectInput"][];
+            title?: string;
+        };
         Officer: {
             collegeKey?: string;
             departmentScope?: string;
@@ -1923,6 +2625,25 @@ export interface components {
             role?: string;
             status?: string;
             username?: string;
+        };
+        OverallRow: {
+            co?: string;
+            /** Format: double */
+            direct?: number;
+            /** Format: double */
+            directNinety?: number;
+            /** Format: int32 */
+            exit?: number;
+            /** Format: double */
+            exitTen?: number;
+            /** Format: int32 */
+            iat?: number;
+            /** Format: double */
+            percent?: number;
+            /** Format: int32 */
+            see?: number;
+            /** Format: double */
+            total?: number;
         };
         Overview: {
             departmentKey?: string;
@@ -1951,6 +2672,44 @@ export interface components {
         };
         PasswordReset: {
             password?: string;
+        };
+        Plan: {
+            assessmentType?: string;
+            createdBy?: string;
+            departments?: components["schemas"]["DeptStep"][];
+            /** Format: int32 */
+            durationMinutes?: number;
+            /** Format: date */
+            examDate?: string;
+            halls?: components["schemas"]["HallSummary"][];
+            /** Format: int64 */
+            id?: number;
+            /** Format: date-time */
+            publishedAt?: string;
+            publishedBy?: string;
+            /** Format: int32 */
+            reportingMinutes?: number;
+            seal?: string;
+            semester?: string;
+            session?: string;
+            /** Format: time-local */
+            startTime?: string;
+            status?: string;
+            title?: string;
+        };
+        PlanInput: {
+            assessmentType?: string;
+            depts?: string[];
+            /** Format: int32 */
+            durationMinutes?: number;
+            examDate?: string;
+            halls?: components["schemas"]["HallInput"][];
+            /** Format: int32 */
+            reportingMinutes?: number;
+            semester?: string;
+            session?: string;
+            startTime?: string;
+            title?: string;
         };
         Profile: {
             academicYear?: string;
@@ -2031,8 +2790,45 @@ export interface components {
             qualification?: string;
         };
         Question: {
-            a?: components["schemas"]["Subdivisions"];
-            b?: components["schemas"]["Subdivisions"];
+            /** Format: int32 */
+            answer?: number;
+            co?: string;
+            options?: string[];
+            q?: string;
+        };
+        Quiz: {
+            /** Format: int32 */
+            attempts?: number;
+            /** Format: date-time */
+            closesAt?: string;
+            createdBy?: string;
+            cycle?: string;
+            /** Format: int64 */
+            id?: number;
+            /** Format: int32 */
+            myScore?: number;
+            open?: boolean;
+            /** Format: date-time */
+            opensAt?: string;
+            questions?: components["schemas"]["Question"][];
+            semester?: string;
+            subjectCode?: string;
+            subjectTitle?: string;
+            title?: string;
+        };
+        QuizAnswers: {
+            answers?: number[];
+        };
+        QuizInput: {
+            /** Format: date-time */
+            closesAt?: string;
+            cycle?: string;
+            /** Format: date-time */
+            opensAt?: string;
+            questions?: components["schemas"]["Question"][];
+            semester?: string;
+            subjectCode?: string;
+            title?: string;
         };
         RecentUpload: {
             batchId?: string;
@@ -2157,16 +2953,8 @@ export interface components {
                 [key: string]: number;
             };
         };
-        RowInput: {
-            regNo?: string;
-            values?: {
-                [key: string]: number;
-            };
-        };
         SaveRequest: {
-            rows?: components["schemas"]["RowInput"][];
-            semester?: string;
-            subjectCode?: string;
+            data?: components["schemas"]["JsonNode"];
         };
         SaveResult: {
             /** Format: int32 */
@@ -2192,6 +2980,19 @@ export interface components {
             confirmed?: boolean;
             visibleToStudents?: boolean;
         };
+        Script: {
+            dummyCode?: string;
+            evaluated?: boolean;
+            grade?: string;
+            /** Format: double */
+            partATotal?: number;
+            /** Format: double */
+            partBCTotal?: number;
+            /** Format: int32 */
+            position?: number;
+            /** Format: int32 */
+            total?: number;
+        };
         ScriptInfo: {
             assessmentType?: string;
             fileName?: string;
@@ -2201,6 +3002,37 @@ export interface components {
             subjectCode?: string;
             uploadedAt?: string;
             uploadedBy?: string;
+        };
+        Seat: {
+            bench?: string;
+            deptKey?: string;
+            hall?: string;
+            name?: string;
+            regNo?: string;
+        };
+        SeatingCard: {
+            assessmentType?: string;
+            bench?: string;
+            /** Format: int32 */
+            durationMinutes?: number;
+            /** Format: time-local */
+            endTime?: string;
+            /** Format: date */
+            examDate?: string;
+            extensionReason?: string;
+            /** Format: int32 */
+            extraMinutes?: number;
+            hall?: string;
+            /** Format: int64 */
+            planId?: number;
+            publishedBy?: string;
+            /** Format: time-local */
+            reportingTime?: string;
+            semester?: string;
+            session?: string;
+            /** Format: time-local */
+            startTime?: string;
+            title?: string;
         };
         SemesterResult: {
             academicYear?: string;
@@ -2221,12 +3053,38 @@ export interface components {
             totalCredits?: number;
             /** Format: int32 */
             totalMarks?: number;
+            withheldCode?: string;
+            withheldReason?: string;
+        };
+        Sheet: {
+            components?: components["schemas"]["Component"][];
+            courseType?: string;
+            courseTypeLocked?: boolean;
+            cycle?: string;
+            deptKey?: string;
+            deptName?: string;
+            enteredBy?: {
+                [key: string]: string;
+            };
+            iatColumns?: components["schemas"]["IatColumn"][];
+            iatExaminers?: string;
+            semester?: string;
+            students?: components["schemas"]["StudentRow"][];
+            subjectCode?: string;
+            subjectTitle?: string;
+            surveyWindow?: components["schemas"]["SurveyWindow"];
         };
         Slab: {
             /** Format: double */
             marks?: number;
             /** Format: double */
             minPercent?: number;
+        };
+        Staff: {
+            dept?: string;
+            id?: string;
+            name?: string;
+            role?: string;
         };
         StatusChange: {
             status?: string;
@@ -2241,6 +3099,33 @@ export interface components {
             /** Format: int64 */
             databaseBytes?: number;
             tables?: components["schemas"]["TableStat"][];
+        };
+        StudentAttainment: {
+            /** Format: double */
+            activity?: number;
+            assignment?: {
+                [key: string]: number;
+            };
+            grade?: string;
+            /** Format: double */
+            gradePoint?: number;
+            iat?: {
+                [key: string]: number;
+            };
+            iatScore?: {
+                [key: string]: number;
+            };
+            name?: string;
+            quizOrLab?: {
+                [key: string]: number;
+            };
+            regNo?: string;
+            /** Format: double */
+            seePercent?: number;
+            survey?: number[];
+            total?: {
+                [key: string]: number;
+            };
         };
         StudentGateway: {
             allowGradeDownload?: boolean;
@@ -2270,6 +3155,9 @@ export interface components {
             /** Format: double */
             partBCTotal?: number;
             regNo?: string;
+            remarks?: {
+                [key: string]: string;
+            };
             resultStatus?: string;
             semester?: string;
             subjectCode?: string;
@@ -2315,14 +3203,6 @@ export interface components {
             subjects?: components["schemas"]["StudentSubject"][];
             visible?: boolean;
         };
-        Subdivisions: {
-            /** Format: double */
-            i?: number;
-            /** Format: double */
-            ii?: number;
-            /** Format: double */
-            iii?: number;
-        };
         Subject: {
             code?: string;
             /** Format: int32 */
@@ -2333,10 +3213,17 @@ export interface components {
             gradePoints?: number;
             internal?: number;
             publishedAt?: string;
+            remarks?: {
+                [key: string]: string;
+            };
             status?: string;
             title?: string;
             /** Format: int32 */
             total?: number;
+        };
+        SubjectInput: {
+            code?: string;
+            semester?: string;
         };
         SubjectItem: {
             academicYear?: string;
@@ -2362,6 +3249,45 @@ export interface components {
             /** Format: int32 */
             studentsWithResults?: number;
         };
+        SurveyInput: {
+            ratings?: number[];
+            subjectCode?: string;
+        };
+        SurveyRow: {
+            co?: string;
+            /** Format: int32 */
+            excellent?: number;
+            /** Format: int32 */
+            excellentOrVeryGood?: number;
+            /** Format: int32 */
+            good?: number;
+            /** Format: int32 */
+            level?: number;
+            /** Format: double */
+            percent?: number;
+            /** Format: int32 */
+            poor?: number;
+            /** Format: int32 */
+            satisfactory?: number;
+            /** Format: int32 */
+            total?: number;
+            /** Format: int32 */
+            veryGood?: number;
+        };
+        SurveySubject: {
+            ratings?: number[];
+            subjectCode?: string;
+            subjectTitle?: string;
+            window?: components["schemas"]["SurveyWindow"];
+        };
+        SurveyWindow: {
+            /** Format: date-time */
+            closesAt?: string;
+            open?: boolean;
+            /** Format: date-time */
+            opensAt?: string;
+            setBy?: string;
+        };
         SystemConfig: {
             academicSession?: components["schemas"]["AcademicSession"];
             gateways?: components["schemas"]["Gateways"];
@@ -2381,6 +3307,12 @@ export interface components {
             /** Format: int64 */
             rows?: number;
             table?: string;
+        };
+        ThresholdRequest: {
+            semester?: string;
+            subjectCode?: string;
+            /** Format: double */
+            threshold?: number;
         };
         TopFaculty: {
             designation?: string;
@@ -2408,6 +3340,34 @@ export interface components {
             regNo?: string;
             role?: string;
             username?: string;
+        };
+        WindowRequest: {
+            /** Format: date-time */
+            closesAt?: string;
+            /** Format: date-time */
+            opensAt?: string;
+            semester?: string;
+            subjectCode?: string;
+        };
+        Withhold: {
+            assessmentType?: string;
+            code?: string;
+            deptKey?: string;
+            description?: string;
+            name?: string;
+            reason?: string;
+            regNo?: string;
+            semester?: string;
+            /** Format: date-time */
+            setAt?: string;
+            setBy?: string;
+        };
+        WithholdInput: {
+            assessmentType?: string;
+            code?: string;
+            reason?: string;
+            regNo?: string;
+            semester?: string;
         };
         YearPass: {
             name?: string;
@@ -2447,7 +3407,7 @@ export interface operations {
             };
         };
     };
-    list_6: {
+    list_7: {
         parameters: {
             query: {
                 dept: string;
@@ -2504,7 +3464,7 @@ export interface operations {
             };
         };
     };
-    delete_3: {
+    delete_2: {
         parameters: {
             query: {
                 dept: string;
@@ -2525,6 +3485,56 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    absences: {
+        parameters: {
+            query: {
+                dept: string;
+                semester: string;
+                assessment: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Absence"][];
+                };
+            };
+        };
+    };
+    setAbsent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AbsenceRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: unknown;
+                    };
+                };
             };
         };
     };
@@ -2574,6 +3584,57 @@ export interface operations {
             };
         };
     };
+    adminSheet: {
+        parameters: {
+            query: {
+                dept: string;
+                semester: string;
+                subject: string;
+                cycle: string;
+                courseType?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Sheet"];
+                };
+            };
+        };
+    };
+    adminAttainment: {
+        parameters: {
+            query: {
+                dept: string;
+                semester: string;
+                subject: string;
+                courseType?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Attainment"];
+                };
+            };
+        };
+    };
     dashboard: {
         parameters: {
             query?: never;
@@ -2594,7 +3655,7 @@ export interface operations {
             };
         };
     };
-    list_5: {
+    list_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -2614,7 +3675,7 @@ export interface operations {
             };
         };
     };
-    create_4: {
+    create_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -2638,7 +3699,7 @@ export interface operations {
             };
         };
     };
-    update_2: {
+    update_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -2664,7 +3725,7 @@ export interface operations {
             };
         };
     };
-    delete_2: {
+    delete_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -2684,7 +3745,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_5: {
         parameters: {
             query?: {
                 dept?: string;
@@ -2706,7 +3767,7 @@ export interface operations {
             };
         };
     };
-    create_3: {
+    create_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -2730,7 +3791,7 @@ export interface operations {
             };
         };
     };
-    get_2: {
+    get_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -2752,7 +3813,7 @@ export interface operations {
             };
         };
     };
-    update_1: {
+    update: {
         parameters: {
             query?: never;
             header?: never;
@@ -2778,7 +3839,7 @@ export interface operations {
             };
         };
     };
-    delete_1: {
+    delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -2893,6 +3954,144 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ResultBatch"];
+                };
+            };
+        };
+    };
+    coePlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Plan"][];
+                };
+            };
+        };
+    };
+    create_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Plan"];
+                };
+            };
+        };
+    };
+    delete_6: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+        };
+    };
+    extend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtensionInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Plan"];
+                };
+            };
+        };
+    };
+    publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Plan"];
+                };
+            };
+        };
+    };
+    seats_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Seat"][];
                 };
             };
         };
@@ -3015,7 +4214,7 @@ export interface operations {
             };
         };
     };
-    save_2: {
+    save_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -3227,7 +4426,7 @@ export interface operations {
             };
         };
     };
-    delete_6: {
+    delete_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -3315,7 +4514,7 @@ export interface operations {
             };
         };
     };
-    list: {
+    list_1: {
         parameters: {
             query?: {
                 dept?: string;
@@ -3340,7 +4539,7 @@ export interface operations {
             };
         };
     };
-    save_1: {
+    save_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -3391,7 +4590,7 @@ export interface operations {
             };
         };
     };
-    delete_5: {
+    delete_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -3411,7 +4610,7 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list_4: {
         parameters: {
             query?: {
                 dept?: string;
@@ -3501,7 +4700,7 @@ export interface operations {
             };
         };
     };
-    delete_4: {
+    delete_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -3549,10 +4748,10 @@ export interface operations {
             };
         };
     };
-    list_2: {
+    list: {
         parameters: {
             query?: {
-                college?: string;
+                dept?: string;
             };
             header?: never;
             path?: never;
@@ -3566,27 +4765,21 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": {
-                        [key: string]: unknown;
-                    }[];
+                    "*/*": components["schemas"]["Withhold"][];
                 };
             };
         };
     };
-    create_1: {
+    set: {
         parameters: {
-            query?: {
-                college?: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["WithholdInput"];
             };
         };
         responses: {
@@ -3596,17 +4789,17 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": {
-                        [key: string]: unknown;
-                    };
+                    "*/*": components["schemas"]["Withhold"][];
                 };
             };
         };
     };
-    nextRoll: {
+    release: {
         parameters: {
             query: {
-                prefix: string;
+                regNo: string;
+                semester: string;
+                assessment: string;
             };
             header?: never;
             path?: never;
@@ -3620,20 +4813,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": {
-                        [key: string]: number;
-                    };
+                    "*/*": components["schemas"]["Withhold"][];
                 };
             };
         };
     };
-    get_1: {
+    codes: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                id: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -3644,117 +4833,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    update: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    document: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-                kind: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": string;
-                };
-            };
-        };
-    };
-    putDocument: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-                kind: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: string;
-                };
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": {
-                        [key: string]: unknown;
-                    };
+                    "*/*": components["schemas"]["Code"][];
                 };
             };
         };
@@ -3933,7 +5012,141 @@ export interface operations {
             };
         };
     };
-    list_7: {
+    list_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["FacultyAccount"][];
+                };
+            };
+        };
+    };
+    create_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewFaculty"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Created"];
+                };
+            };
+        };
+    };
+    subjects_2: {
+        parameters: {
+            query: {
+                dept: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DeptSubject"][];
+                };
+            };
+        };
+    };
+    setSubjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubjectInput"][];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["FacultyAccount"];
+                };
+            };
+        };
+    };
+    deanPlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Plan"][];
+                };
+            };
+        };
+    };
+    seats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Seat"][];
+                };
+            };
+        };
+    };
+    list_9: {
         parameters: {
             query?: never;
             header?: never;
@@ -4003,12 +5216,12 @@ export interface operations {
             };
         };
     };
-    answerScript: {
+    scripts: {
         parameters: {
             query: {
+                dept: string;
                 semester: string;
                 subject: string;
-                regNo: string;
                 assessment: string;
             };
             header?: never;
@@ -4023,7 +5236,158 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "*/*": components["schemas"]["Script"][];
+                };
+            };
+        };
+    };
+    answerScript: {
+        parameters: {
+            query: {
+                semester: string;
+                subject: string;
+                regNo: string;
+                assessment: string;
+                dept?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "*/*": string;
+                };
+            };
+        };
+    };
+    sheet: {
+        parameters: {
+            query: {
+                semester: string;
+                subject: string;
+                cycle: string;
+                courseType?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Sheet"];
+                };
+            };
+        };
+    };
+    save_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: number;
+                    };
+                };
+            };
+        };
+    };
+    attainment: {
+        parameters: {
+            query: {
+                semester: string;
+                subject: string;
+                courseType?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Attainment"];
+                };
+            };
+        };
+    };
+    surveyWindow_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WindowRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SurveyWindow"];
+                };
+            };
+        };
+    };
+    threshold: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ThresholdRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: number;
+                    };
                 };
             };
         };
@@ -4048,6 +5412,70 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ResultBatch"];
+                };
+            };
+        };
+    };
+    deptPlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Plan"][];
+                };
+            };
+        };
+    };
+    facultyPublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Plan"];
+                };
+            };
+        };
+    };
+    deptSeats_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Seat"][];
                 };
             };
         };
@@ -4129,6 +5557,7 @@ export interface operations {
                 semester: string;
                 subject: string;
                 assessment: string;
+                dept?: string;
             };
             header?: never;
             path?: never;
@@ -4147,7 +5576,7 @@ export interface operations {
             };
         };
     };
-    save: {
+    save_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -4211,6 +5640,53 @@ export interface operations {
             };
         };
     };
+    quizzes_1: {
+        parameters: {
+            query: {
+                semester: string;
+                subject: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Quiz"][];
+                };
+            };
+        };
+    };
+    saveQuiz_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuizInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Quiz"];
+                };
+            };
+        };
+    };
     status: {
         parameters: {
             query: {
@@ -4270,6 +5746,195 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["Analytics"];
+                };
+            };
+        };
+    };
+    sheet_1: {
+        parameters: {
+            query: {
+                semester: string;
+                subject: string;
+                cycle: string;
+                courseType?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Sheet"];
+                };
+            };
+        };
+    };
+    save_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: number;
+                    };
+                };
+            };
+        };
+    };
+    attainment_1: {
+        parameters: {
+            query: {
+                semester: string;
+                subject: string;
+                courseType?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Attainment"];
+                };
+            };
+        };
+    };
+    surveyWindow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WindowRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SurveyWindow"];
+                };
+            };
+        };
+    };
+    threshold_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ThresholdRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: number;
+                    };
+                };
+            };
+        };
+    };
+    deptPlans_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Plan"][];
+                };
+            };
+        };
+    };
+    deptSeats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Seat"][];
+                };
+            };
+        };
+    };
+    validate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Plan"];
                 };
             };
         };
@@ -4345,7 +6010,7 @@ export interface operations {
             };
         };
     };
-    list_8: {
+    list_10: {
         parameters: {
             query?: never;
             header?: never;
@@ -4431,6 +6096,53 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["Overview"];
+                };
+            };
+        };
+    };
+    quizzes: {
+        parameters: {
+            query: {
+                semester: string;
+                subject: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Quiz"][];
+                };
+            };
+        };
+    };
+    saveQuiz: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuizInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Quiz"];
                 };
             };
         };
@@ -4597,7 +6309,7 @@ export interface operations {
             };
         };
     };
-    list_1: {
+    list_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -4747,6 +6459,50 @@ export interface operations {
             };
         };
     };
+    exitSurvey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SurveySubject"][];
+                };
+            };
+        };
+    };
+    saveExitSurvey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SurveyInput"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SurveySubject"];
+                };
+            };
+        };
+    };
     mine_1: {
         parameters: {
             query?: never;
@@ -4829,6 +6585,52 @@ export interface operations {
             };
         };
     };
+    quizzes_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Quiz"][];
+                };
+            };
+        };
+    };
+    answerQuiz: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuizAnswers"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Quiz"];
+                };
+            };
+        };
+    };
     mine: {
         parameters: {
             query?: never;
@@ -4869,6 +6671,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["Request"];
+                };
+            };
+        };
+    };
+    seating: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SeatingCard"][];
                 };
             };
         };
@@ -5135,6 +6957,74 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["StorageStats"];
+                };
+            };
+        };
+    };
+    list_8: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Doc"][];
+                };
+            };
+        };
+    };
+    staff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Staff"][];
+                };
+            };
+        };
+    };
+    save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };

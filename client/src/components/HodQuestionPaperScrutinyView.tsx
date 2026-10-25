@@ -40,10 +40,8 @@ import {
 } from "lucide-react";
 import {
   QuestionPaperItem,
-  INITIAL_QUESTION_PAPERS,
   StageSignature,
   PdfAttachment,
-  SAMPLE_QP_PDF_DATA,
   safeLoadQuestionPapers,
 } from "./dean/QuestionPaperReviewView";
 
@@ -292,7 +290,7 @@ export const HodQuestionPaperScrutinyView: React.FC<HodQuestionPaperScrutinyView
             Department Question Paper DAC Scrutiny &amp; Moderation
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-1">
-            Scrutinize question papers submitted by {department} faculty. After DAC certification, forward papers to the Associate Dean (Dr. Rajesh Kumar). Only after Associate Dean clearance will papers advance to the Controller of Examinations (COE).
+            Scrutinize question papers submitted by {department} faculty. After DAC certification, forward papers to the Associate Dean. Only after Associate Dean clearance will papers advance to the Controller of Examinations (COE).
           </p>
         </div>
 

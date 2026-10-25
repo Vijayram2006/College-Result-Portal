@@ -633,7 +633,7 @@ export const SubjectsPage: React.FC = () => {
                   type="text"
                   value={newFaculty}
                   onChange={(e) => setNewFaculty(e.target.value)}
-                  placeholder="e.g. Dr. Ananya Menon"
+                  placeholder="Faculty in-charge"
                   className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3.5 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
                 />
               </div>
