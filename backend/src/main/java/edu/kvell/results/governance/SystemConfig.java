@@ -63,7 +63,7 @@ public record SystemConfig(String systemMode, String lastUpdated, String updated
     public static GradingRegulations actualGrading() {
         Regulation current = new Regulation("KVELL current grading (pass rules to be confirmed by the college)", 0, 0,
                 40, "10-point grading: O >= 90 (10), A+ >= 80 (9), A >= 70 (8), B+ >= 60 (7), B >= 50 (6), "
-                        + "C >= 40 (5), F < 40 (0). Pass: total of 40 or more out of 100.");
+                        + "C >= 45 (5), F < 45 (0). Pass: total of 45 or more out of 100.");
         return new GradingRegulations(current, current, current, new Moderation(0, false, 0));
     }
 

@@ -462,17 +462,17 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
     if (total >= 70) return "A";
     if (total >= 60) return "B+";
     if (total >= 50) return "B";
-    if (total >= 40) return "C";
+    if (total >= 45) return "C";
     return "F";
   };
 
 
-  // The preview must match what the server saves: its grading is O>=90 ... C>=40, PASS at 40, no grace marks.
+  // The preview must match what the server saves: its grading is O>=90 ... C>=45, PASS at 45, no grace marks.
   // The Super Admin regulation settings (calculateDynamicGradeAndStatus) are not applied until the college confirms
   // its pass rules; until then they would show faculty a different result from the stored one.
   void calculateDynamicGradeAndStatus;
   const grandGrade = calculateGrade(grandTotal);
-  const resultStatus: "PASS" | "FAIL" = grandTotal >= 40 ? "PASS" : "FAIL";
+  const resultStatus: "PASS" | "FAIL" = grandTotal >= 45 ? "PASS" : "FAIL";
   const isGraceApplied = false;
 
   // CONFIRM MARK: saved on the server, which recomputes the totals and grade

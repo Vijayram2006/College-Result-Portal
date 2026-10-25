@@ -36,8 +36,8 @@ export const RANGES = [
   { label: "70–79", min: 70, max: 79.99 },
   { label: "60–69", min: 60, max: 69.99 },
   { label: "50–59", min: 50, max: 59.99 },
-  { label: "40–49", min: 40, max: 49.99 },
-  { label: "Below 40", min: 0, max: 39.99 },
+  { label: "45–49", min: 45, max: 49.99 },
+  { label: "Below 45", min: 0, max: 44.99 },
 ];
 
 const sum = (s: { i: number; ii: number; iii: number } | undefined) =>

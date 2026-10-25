@@ -170,7 +170,7 @@ interface LiveScript {
 const assessmentOf = (a: PaperCorrectionAllocation) =>
   /IAT-?2/i.test(a.examSession) ? "IAT-2" : /IAT-?1/i.test(a.examSession) ? "IAT-1" : "End Semester";
 const liveKey = (a: PaperCorrectionAllocation) => `${a.deptKey}|${a.semester}|${a.subjectCode}|${assessmentOf(a)}`;
-const PASS_MARK = 40;
+const PASS_MARK = 45;
 
 /** An evaluator's real figures: their range of the subject's scripts and the marks saved for them so far. */
 const liveStaff = (staff: EvaluatorStaff, scripts: LiveScript[] | undefined): EvaluatorStaff => {

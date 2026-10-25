@@ -30,9 +30,10 @@ class GradeCalculatorTest {
             "0, 59, 59, B, 6, true",
             "0, 50, 50, B, 6, true",
             "0, 49, 49, C, 5, true",
-            "0, 40, 40, C, 5, true",        // the pass mark itself passes
-            "0, 39.4, 39, F, 0, false",     // 39.4 rounds down: fail
-            "0, 39.5, 40, C, 5, true",      // 39.5 rounds up: pass
+            "0, 45, 45, C, 5, true",        // the pass mark itself passes
+            "0, 44.4, 44, F, 0, false",     // 44.4 rounds down: fail
+            "0, 44.5, 45, C, 5, true",      // 44.5 rounds up: pass
+            "0, 40, 40, F, 0, false",       // 40 no longer passes
             "0, 0, 0, F, 0, false",
             "20, 96, 100, O, 10, true",     // capped at 100
     })
@@ -82,7 +83,7 @@ class GradeCalculatorTest {
 
     @Test
     void passMarkIsForty() {
-        assertTrue(GradeCalculator.grade(0, 40).passed());
-        assertFalse(GradeCalculator.grade(0, 39).passed());
+        assertTrue(GradeCalculator.grade(0, 45).passed());
+        assertFalse(GradeCalculator.grade(0, 44).passed());
     }
 }
