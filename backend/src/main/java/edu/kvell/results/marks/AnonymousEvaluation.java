@@ -6,9 +6,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.apache.pdfbox.Loader;
@@ -33,10 +35,33 @@ import org.springframework.stereotype.Service;
 public class AnonymousEvaluation {
 
     private final JdbcClient db;
+    private final MarkService marks;
     private volatile byte[] key;
 
-    public AnonymousEvaluation(JdbcClient db) {
+    public AnonymousEvaluation(JdbcClient db, MarkService marks) {
         this.db = db;
+        this.marks = marks;
+    }
+
+    /**
+     * A subject's answer scripts in the order the evaluators see them: students marked absent left out, dummy numbers
+     * only, sorted by dummy number. An evaluator's bundle in the Dean's paper-correction allotment is a range of
+     * positions in this list, so the faculty roster and the Dean's progress view both use it.
+     */
+    public List<MarkService.StudentMark> evaluationOrder(String deptKey, String semester, String subject,
+                                                         String assessment) {
+        Set<String> absent = new HashSet<>(db.sql("""
+                        SELECT reg_no FROM script_absences WHERE dept_key = ? AND semester = ? AND subject_code = ?
+                          AND assessment_type = ?
+                        """).params(deptKey, Semesters.parse(semester), subject.trim().toUpperCase(Locale.ROOT),
+                        assessment.trim()).query(String.class).list());
+        // The requested assessment, not the row's: students without marks yet have none, and their dummy number must
+        // match the one resolve() computes when the script is opened
+        return marks.roster(deptKey, semester, subject, assessment).stream()
+                .filter(m -> !absent.contains(m.regNo()))
+                .map(m -> mask(m, deptKey, assessment.trim()))
+                .sorted(Comparator.comparing(MarkService.StudentMark::regNo))
+                .toList();
     }
 
     /** The dummy number of one student's script, e.g. "AS-3F9C21B7". */
@@ -59,11 +84,15 @@ public class AnonymousEvaluation {
     }
 
     public MarkService.StudentMark mask(MarkService.StudentMark m, String deptKey) {
-        String code = code(deptKey, Semesters.parse(m.semester()), m.subjectCode(), m.assessmentType(), m.regNo());
+        return mask(m, deptKey, m.assessmentType());
+    }
+
+    private MarkService.StudentMark mask(MarkService.StudentMark m, String deptKey, String assessment) {
+        String code = code(deptKey, Semesters.parse(m.semester()), m.subjectCode(), assessment, m.regNo());
         return new MarkService.StudentMark(code, "Answer script " + code, "", "", m.hasMarks(), m.partATotal(),
                 m.partBCTotal(), m.grandTotal(), m.grade(), m.resultStatus(), m.partA(), m.partBC(), m.assessmentType(),
                 m.deptKey(), m.deptName(), m.semester(), m.subjectCode(), m.subjectTitle(), m.examinerName(),
-                m.examinerDesignation(), m.version(), m.remarks());
+                m.examinerDesignation(), m.version(), m.remarks(), m.notAttempted());
     }
 
     /** The register number behind a dummy number of this department, semester, subject and assessment. */

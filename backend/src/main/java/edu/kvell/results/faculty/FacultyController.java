@@ -168,13 +168,7 @@ public class FacultyController {
                                          @RequestParam(required = false) String dept) {
         // Faculty evaluate anonymously: dummy numbers in a shuffled order
         dept = access.deptFor(dept, semester, subject);
-        java.util.Set<String> absent = new java.util.HashSet<>(db.sql("""
-                        SELECT reg_no FROM script_absences WHERE dept_key = ? AND semester = ? AND subject_code = ?
-                          AND assessment_type = ?
-                        """).params(dept, edu.kvell.results.common.Semesters.parse(semester),
-                        subject.trim().toUpperCase(java.util.Locale.ROOT), assessment.trim()).query(String.class).list());
-        return anonymous.mask(marks.roster(dept, semester, subject, assessment).stream()
-                .filter(m -> !absent.contains(m.regNo())).toList(), dept);
+        return anonymous.evaluationOrder(dept, semester, subject, assessment);
     }
 
     @PutMapping("/marks")
@@ -217,7 +211,7 @@ public class FacultyController {
         }
         MarkService.MarkRequest own = new MarkService.MarkRequest(dept, r.semester(), r.subjectCode(),
                 reg, r.assessmentType(), r.partA(), r.partBC(), r.examinerName(), r.examinerDesignation(),
-                r.expectedVersion(), r.remarks());
+                r.expectedVersion(), r.remarks(), r.notAttempted());
         return anonymous.mask(marks.save(own, user, http.getRemoteAddr()), dept);
     }
 

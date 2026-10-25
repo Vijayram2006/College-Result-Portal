@@ -38,7 +38,7 @@ interface HodExamNotificationsViewProps {
 
 export const HodExamNotificationsView: React.FC<HodExamNotificationsViewProps> = ({
   department = "Computer Science & Engineering",
-  hodName = "Dr. Jayapradha",
+  hodName = "",
   onNavigateQP,
   onToast,
 }) => {

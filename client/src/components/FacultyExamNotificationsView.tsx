@@ -21,7 +21,6 @@ import {
 import {
   safeLoadNotifications,
   DeanExamNotification,
-  INITIAL_NOTIFICATIONS,
 } from "./dean/ExamTimetableNotificationView";
 
 interface FacultyExamNotificationsViewProps {
@@ -34,7 +33,7 @@ interface FacultyExamNotificationsViewProps {
 export const FacultyExamNotificationsView: React.FC<FacultyExamNotificationsViewProps> = ({
   onNavigateToQuestionPaper,
   onToast,
-  facultyName = "Dr. Ananya Menon",
+  facultyName = "",
   department = "Computer Science and Engineering",
 }) => {
   const [notifications, setNotifications] = useState<DeanExamNotification[]>(() => safeLoadNotifications());

@@ -455,7 +455,7 @@ export const DepartmentsPage: React.FC = () => {
                   type="text"
                   value={formHeadName}
                   onChange={(e) => setFormHeadName(e.target.value)}
-                  placeholder="e.g. Dr. K. Ramanathan"
+                  placeholder="Head of department"
                   className="w-full h-10 px-3 rounded-xl border border-[#E5E1D8] text-xs font-semibold focus:outline-none focus:border-[#0B192C]"
                 />
               </div>

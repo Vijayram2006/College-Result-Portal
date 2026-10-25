@@ -66,34 +66,6 @@ export interface PaperCorrectionAllocation {
   status: "ALLOCATED" | "VALUATION_IN_PROGRESS" | "SCRUTINY_COMPLETED";
 }
 
-// Deterministic pseudorandom permutation of numbers [0..count-1] based on seed string
-export function getScrambledIndices(count: number, seed: string): number[] {
-  const indices = Array.from({ length: count }, (_, i) => i);
-  let seedNum = 0;
-  for (let i = 0; i < seed.length; i++) {
-    seedNum = (seedNum * 31 + seed.charCodeAt(i)) % 2147483647;
-  }
-  for (let i = indices.length - 1; i > 0; i--) {
-    seedNum = (seedNum * 16807 + 12345) % 2147483647;
-    const j = Math.abs(seedNum) % (i + 1);
-    const temp = indices[i];
-    indices[i] = indices[j];
-    indices[j] = temp;
-  }
-  return indices;
-}
-
-// Helper to generate non-sequential COE confidential dummy barcodes that cannot be traced to student alphabetical order
-export function getCoeDummyBarcode(subjectCode: string, packetId: string, serialIndex: number) {
-  // Scramble using coprime multipliers so dummy codes are completely decoupled from student alphabetical roll order
-  const hash = Math.abs(((serialIndex * 3719 + 5431) ^ (packetId.charCodeAt(packetId.length - 1) * 491)) % 89999) + 10000;
-  const barcode = Math.abs(((serialIndex * 7129 + 1307) ^ (subjectCode.charCodeAt(0) * 83)) % 899999) + 100000;
-  return {
-    dummyCode: `DMY-${hash}`,
-    barcodeNumber: `KV-${barcode}`,
-  };
-}
-
 export interface EvaluatedScriptItem {
   scriptId: string;
   slotNumber: number;
@@ -113,60 +85,13 @@ export interface EvaluatedScriptItem {
 const STORAGE_KEY = "kvell_paper_correction_assignments";
 const EVALUATED_STORAGE_KEY = "kvell_faculty_evaluated_scripts";
 
-// Fallback initial allocation in case AD hasn't run yet
-const FALLBACK_ALLOCATION: PaperCorrectionAllocation = {
-  id: "ALLOC-AI602-2026",
-  subjectCode: "AI602",
-  subjectTitle: "Deep Learning & Neural Architectures",
-  department: "Artificial Intelligence & Data Science",
-  deptKey: "aids",
-  semester: "Semester I",
-  academicYear: "2026-2027",
-  regulation: "R-2023 Autonomous",
-  examSession: "Nov/Dec 2026 (FN)",
-  qpMasterCode: "QP-2026-AI602-V2",
-  totalAnswerScripts: 50,
-  numberOfStaff: 2,
-  allocatedAt: "2026-10-18 10:30 AM",
-  deadlineDate: "2026-10-24",
-  campVenue: "Autonomous Valuation Camp (Hall 304, Tech Block)",
-  adApprovedBy: "Dr. K. R. Ramanathan (Associate Dean - Academics)",
-  status: "VALUATION_IN_PROGRESS",
-  assignedStaff: [
-    {
-      id: "STAFF-1",
-      name: "Prof. K. Venkatesh",
-      facultyId: "FAC-ENG-104",
-      department: "ADS",
-      role: "Chief Evaluator",
-      assignedScripts: 25,
-      scriptRangeStart: 1,
-      scriptRangeEnd: 25,
-      bundlePacketId: "PKT-AI602-A",
-      status: "In Evaluation",
-    },
-    {
-      id: "STAFF-2",
-      name: "Dr. Ananya Menon",
-      facultyId: "FAC-ENG-202",
-      department: "CSE",
-      role: "Internal Examiner",
-      assignedScripts: 25,
-      scriptRangeStart: 26,
-      scriptRangeEnd: 50,
-      bundlePacketId: "PKT-AI602-B",
-      status: "In Evaluation",
-    },
-  ],
-};
-
 interface FacultyPaperCorrectionViewProps {
   currentFacultyName?: string;
   onToast?: (msg: string) => void;
 }
 
 export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProps> = ({
-  currentFacultyName = "Dr. Ananya Menon",
+  currentFacultyName = "",
   onToast,
 }) => {
   // Load allocations from localStorage
@@ -175,16 +100,16 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
-    return [FALLBACK_ALLOCATION];
+    return [];
   });
 
   // Active Selected Faculty Identity
   const [selectedFacultyName, setSelectedFacultyName] = useState<string>(() => {
     // Check if currentFacultyName exists in any allocation
-    return currentFacultyName || "Prof. K. Venkatesh";
+    return currentFacultyName || "";
   });
 
   // Selected Allocation for Detailed Valuation
@@ -260,10 +185,6 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
         if (staff.name) names.add(staff.name.trim());
       });
     });
-    // Ensure default faculties are present
-    names.add("Prof. K. Venkatesh");
-    names.add("Dr. Ananya Menon");
-    names.add("Dr. S. Mohan");
     return Array.from(names);
   }, [allocations]);
 
@@ -333,48 +254,8 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
       }));
     }
 
-    const { scriptRangeStart, scriptRangeEnd, bundlePacketId } = activeStaffSlot;
-    const count = scriptRangeEnd - scriptRangeStart + 1;
-    const code = activeAllocation.subjectCode;
-
-    // Deterministically scramble scripts within packet so order does NOT map to student alphabetical roll order
-    const scrambled = getScrambledIndices(count, `${code}-${bundlePacketId}`);
-
-    const list: EvaluatedScriptItem[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const scrambledOffset = scrambled[i];
-      const serialNum = scriptRangeStart + scrambledOffset;
-      const scriptId = `${code}-${bundlePacketId}-SCR-${String(serialNum).padStart(3, "0")}`;
-      const { dummyCode, barcodeNumber } = getCoeDummyBarcode(code, bundlePacketId, serialNum);
-
-      // Check if existing saved mark exists
-      const saved = evaluatedScriptsMap[scriptId];
-      if (saved) {
-        list.push({
-          ...saved,
-          slotNumber: i + 1,
-          dummyCode: saved.dummyCode || dummyCode,
-          barcodeNumber: saved.barcodeNumber || barcodeNumber,
-        });
-      } else {
-        list.push({
-          scriptId,
-          slotNumber: i + 1,
-          dummyCode,
-          barcodeNumber,
-          packetId: bundlePacketId,
-          subjectCode: code,
-          partAMarks: 0,
-          partBCMarks: 0,
-          totalMarks: 0,
-          grade: "RA",
-          status: "PENDING",
-        });
-      }
-    }
-
-    return list;
+    // Until the real scripts load (or if none are uploaded) the bundle is empty
+    return [];
   }, [activeAllocation, activeStaffSlot, evaluatedScriptsMap, realRoster]);
 
   // Filtered scripts (Searchable by dummy barcode or script slot)
@@ -431,7 +312,7 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
         allocationId: alloc.id,
         subjectCode: alloc.subjectCode,
         subjectTitle: alloc.subjectTitle,
-        bundlePacketId: staffMatch?.bundlePacketId || "PKT-A",
+        bundlePacketId: staffMatch?.bundlePacketId || "",
         assignedScripts: assigned,
         evaluatedScripts: evaluated,
         averageMarks: avg,
@@ -501,38 +382,6 @@ export const FacultyPaperCorrectionView: React.FC<FacultyPaperCorrectionViewProp
       } catch {}
       return nextMap;
     });
-  };
-
-  // Quick Evaluate All Scripts (Simulate Complete Valuation with Realistic Marks)
-  const handleSimulateQuickEvaluation = () => {
-    const updatedMap = { ...evaluatedScriptsMap };
-
-    assignedScriptsList.forEach((script, idx) => {
-      const baseMark = 68 + ((idx * 7) % 27);
-      const partA = Math.round(Math.min(20, (baseMark * 0.22)));
-      const partBC = Math.round(Math.min(80, baseMark - partA));
-      const total = partA + partBC;
-      const grade = computeGrade(total);
-
-      updatedMap[script.scriptId] = {
-        ...script,
-        partAMarks: partA,
-        partBCMarks: partBC,
-        totalMarks: total,
-        grade,
-        status: "EVALUATED",
-        evaluatedAt: new Date().toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        remarks: "Autonomous Valuation Camp · Evaluated & Signed by Examiner",
-      };
-    });
-
-    saveEvaluatedScripts(updatedMap);
-    notify(`Batch evaluated all ${assignedScriptsList.length} scripts in Packet ${activeStaffSlot?.bundlePacketId}!`);
   };
 
   // Lock and Finalize Bundle
@@ -908,14 +757,6 @@ Forward anyway?`)) return;
             <div className="flex flex-wrap items-center gap-2.5">
               <button
                 type="button"
-                onClick={handleSimulateQuickEvaluation}
-                className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs transition shadow flex items-center gap-1.5 cursor-pointer"
-                title="Populate authentic evaluator marks for all scripts"
-              >
-                <Sparkles size={15} /> Quick-Grade Rubric (All Scripts)
-              </button>
-              <button
-                type="button"
                 onClick={handleExportBundleExcel}
                 className="px-4 py-2.5 rounded-xl bg-white text-[#0B192C] hover:bg-gray-100 border border-gray-300 font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
@@ -1001,7 +842,7 @@ Forward anyway?`)) return;
                 type="text"
                 value={scriptSearch}
                 onChange={(e) => setScriptSearch(e.target.value)}
-                placeholder="Search by dummy code (e.g. DMY-84291)..."
+                placeholder="Search by dummy number (AS-...)"
                 className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 text-xs font-bold text-[#0B192C] focus:ring-2 focus:ring-[#D4A72C] focus:outline-none"
               />
             </div>
@@ -1417,9 +1258,10 @@ Forward anyway?`)) return;
               initialPartA: saved.partA as number[] | undefined,
               initialPartB: bc ? Object.fromEntries([11, 12, 13, 14, 15, 16].map((q) => [q, { a: sub(bc[String(q)]?.a), b: sub(bc[String(q)]?.b), co: cos[q] }])) : undefined,
               initialRemarks: saved.remarks,
+              initialNotAttempted: (saved as { notAttempted?: string[] }).notAttempted,
             };
           })()}
-          packetId={evaluatingScript.packetId || activeStaffSlot?.bundlePacketId || "PKT-A"}
+          packetId={evaluatingScript.packetId || activeStaffSlot?.bundlePacketId || ""}
           pdfLoader={realRoster ? () => facultyApi.answerScript({ semester: activeAllocation.semester, subject: activeAllocation.subjectCode, regNo: evaluatingScript.dummyCode, assessment: assessmentOf(activeAllocation), dept: deptOf(activeAllocation) }) : undefined}
           onSaveMarks={async (result) => {
             if (realRoster) {
@@ -1444,6 +1286,7 @@ Forward anyway?`)) return;
                   expectedVersion: current?.version,
                   deptKey: deptOf(activeAllocation),
                   remarks: result.remarks,
+                  notAttempted: result.notAttempted,
                 } as any);
                 notify(`Marks saved for ${evaluatingScript.dummyCode}.`);
                 loadRoster();

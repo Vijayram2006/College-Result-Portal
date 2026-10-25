@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { trpc } from "../lib/trpc";
 // Sample lists for the remaining demo-only screens (Faculty performance / Dean); real results come from the API
-import { marksStudentsList, generalStudentsList } from "../data/dummyMarksData";
 import { facultyApi, publicApi, type FacultyOverviewDTO, type PublicSummaryDTO } from "../services/api";
 import { apiErrorMessage, authApi, hodApi, studentApi, type HodOverviewDTO, type RegisteredSubjectDTO, type RevaluationRequestDTO, type StudentResultsDTO } from "../services/api";
 
@@ -15,7 +13,7 @@ import { useSystemConfig, isStudentPortalClosed, isRevaluationOpen } from "../ut
 import type { PublishedBatch } from "../utils/publishedResults";
 import { FacultyMarkEntry, clearFacultyPharmacyAndNursingData } from "../components/FacultyMarkEntry";
 import { AssociateDeanDashboard } from "../components/AssociateDeanDashboard";
-import { INITIAL_QUESTION_PAPERS, QuestionPaperReviewView, safeLoadQuestionPapers } from "../components/dean/QuestionPaperReviewView";
+import { QuestionPaperReviewView, safeLoadQuestionPapers } from "../components/dean/QuestionPaperReviewView";
 import { FacultyQuestionPaperView } from "../components/FacultyQuestionPaperView";
 import { MarkApprovalsView } from "../components/MarkApprovalsView";
 import { PortalShell } from "../components/PortalShell";
@@ -155,39 +153,39 @@ const roleMeta: Record<
   { name: string; roleLabel: string; initials: string; department: string }
 > = {
   Student: {
-    name: "Aarav Sharma",
+    name: "",
     roleLabel: "Student (B.Tech CSE)",
-    initials: "AS",
+    initials: "",
     department: "Computer Science & Engineering",
   },
   Faculty: {
-    name: "Dr. Ananya Menon",
+    name: "",
     roleLabel: "Faculty",
-    initials: "AM",
+    initials: "",
     department: "Computer Science & Engineering",
   },
   HOD: {
-    name: "Dr. Jayapradha",
+    name: "",
     roleLabel: "Head of Department (CSE)",
-    initials: "JP",
+    initials: "",
     department: "Computer Science & Engineering",
   },
   "Associate Dean": {
-    name: "Dr. Rajesh Kumar",
+    name: "",
     roleLabel: "Associate Dean (Academics & Evaluation)",
-    initials: "RK",
+    initials: "",
     department: "Office of the Associate Dean",
   },
   Dean: {
-    name: "Dr. Meera Krishnan",
+    name: "",
     roleLabel: "Dean of Academics",
-    initials: "MK",
+    initials: "",
     department: "Academic Affairs",
   },
   Admin: {
-    name: "KVELL System Administrator",
+    name: "",
     roleLabel: "System Administrator",
-    initials: "AD",
+    initials: "",
     department: "University Administration",
   },
 };
@@ -245,89 +243,6 @@ const roleNav: Record<Role, NavItem[]> = {
     { key: "elective-demand", label: "Elective Demand", icon: BarChart3 },
   ],
 };
-
-const facultyTrend = [
-  { period: "IA-1", score: 68, benchmark: 64 },
-  { period: "Test 1", score: 72, benchmark: 67 },
-  { period: "IA-2", score: 76, benchmark: 71 },
-  { period: "Test 2", score: 78, benchmark: 73 },
-  { period: "Seminar", score: 81, benchmark: 76 },
-];
-
-const facultySubjectData = [
-  { subject: "Data Structures", value: 82 },
-  { subject: "Networks", value: 76 },
-  { subject: "Operating Systems", value: 71 },
-  { subject: "DBMS", value: 68 },
-];
-
-const hodTrend = [
-  { period: "2023–24", score: 67 },
-  { period: "2024–25", score: 71 },
-  { period: "2025–26", score: 76 },
-  { period: "Current", score: 79 },
-];
-
-const deanTrend = [
-  { period: "2023", cse: 71, ece: 68, mech: 64, it: 73 },
-  { period: "2024", cse: 75, ece: 71, mech: 67, it: 76 },
-  { period: "2025", cse: 78, ece: 75, mech: 70, it: 79 },
-  { period: "2026", cse: 81, ece: 78, mech: 73, it: 82 },
-];
-
-const students: Array<{ reg: string; name: string; section: string; semester: string; average: number; status: string }> = generalStudentsList;
-
-const subjects = [
-  { code: "CS601", name: "Data Structures", section: "CSE A", students: 64, average: 82, completion: 96, tone: "success" as const },
-  { code: "CS603", name: "Operating Systems", section: "CSE B", students: 58, average: 71, completion: 89, tone: "warning" as const },
-  { code: "CS605", name: "Database Management Systems", section: "CSE A", students: 64, average: 68, completion: 78, tone: "warning" as const },
-  { code: "CS607", name: "Cloud Computing", section: "CSE B", students: 58, average: 76, completion: 94, tone: "success" as const },
-];
-
-const attentionStudents: Array<{ reg: string; student: string; subject: string; performance: number; trend: string; status: string }> = [];
-
-const facultyRows = [
-  { name: "Dr. Ananya Menon", subjects: 4, students: 244, average: 76, completion: 92, status: "On track" },
-  { name: "Prof. Vikram Shah", subjects: 3, students: 186, average: 73, completion: 88, status: "On track" },
-  { name: "Dr. Priya Nair", subjects: 3, students: 172, average: 69, completion: 79, status: "Review" },
-  { name: "Prof. Arjun Rao", subjects: 2, students: 128, average: 81, completion: 96, status: "On track" },
-];
-
-const departments: Array<{ name: string; short: string; faculty: number; students: number; average: number; improvement: string; risk: number; status: string }> = [
-  { name: "Artificial Intelligence & Data Science", short: "ADS", faculty: 12, students: 50, average: 86, improvement: "+4.2%", risk: 2, status: "Healthy" },
-  { name: "Computer Science and Engineering", short: "CSE", faculty: 18, students: 20, average: 88, improvement: "+5.1%", risk: 1, status: "Healthy" },
-  { name: "Biomedical Engineering", short: "BME", faculty: 10, students: 15, average: 84, improvement: "+3.8%", risk: 1, status: "Healthy" },
-  { name: "Automobile Engineering", short: "AUTO", faculty: 8, students: 0, average: 78, improvement: "+1.2%", risk: 0, status: "Healthy" },
-  { name: "Biotech", short: "BIOTECH", faculty: 9, students: 0, average: 80, improvement: "+2.0%", risk: 0, status: "Healthy" },
-  { name: "Electronics & Communication Engineering", short: "ECE", faculty: 14, students: 0, average: 81, improvement: "+2.5%", risk: 0, status: "Healthy" },
-  { name: "Electrical & Electronics Engineering", short: "EEE", faculty: 11, students: 0, average: 79, improvement: "+1.9%", risk: 0, status: "Healthy" },
-  { name: "Civil Engineering", short: "CIVIL", faculty: 9, students: 0, average: 76, improvement: "+1.5%", risk: 0, status: "Healthy" },
-  { name: "Robotics and Automation", short: "R&A", faculty: 8, students: 0, average: 82, improvement: "+3.0%", risk: 0, status: "Healthy" },
-  { name: "Mechanical Engineering", short: "MECH", faculty: 15, students: 0, average: 77, improvement: "+1.7%", risk: 0, status: "Healthy" },
-  { name: "Master of Business Administration", short: "MBA", faculty: 12, students: 0, average: 83, improvement: "+2.4%", risk: 0, status: "Healthy" },
-  { name: "Master of Computer Applications", short: "MCA", faculty: 10, students: 0, average: 85, improvement: "+3.1%", risk: 0, status: "Healthy" },
-];
-
-const marksStudents: Array<{ reg: string; name: string; sub1: string; sub2: string; sub3: string; sub4: string; sub5: string }> = marksStudentsList;
-
-const GRADE_OPTIONS = ["O", "A+", "A", "B+", "B", "C", "F"] as const;
-
-function calculateStudentResult(grades: Record<string, string>): { status: "PASS" | "FAIL"; grade: string } {
-  const subjectList = ["sub1", "sub2", "sub3", "sub4", "sub5"];
-  const list = subjectList.map((s) => (grades[s] || "O").toUpperCase());
-  const hasFail = list.some((g) => g === "F" || g === "RA" || g === "FAIL");
-  const points: Record<string, number> = { "O": 10, "A+": 9, "A": 8, "B+": 7, "B": 6, "C": 5, "F": 0 };
-  if (hasFail) return { status: "FAIL", grade: "F" };
-  const avg = list.reduce((sum, g) => sum + (points[g] ?? 6), 0) / Math.max(list.length, 1);
-  const overallGrade = avg >= 9.5 ? "O" : avg >= 8.5 ? "A+" : avg >= 7.5 ? "A" : avg >= 6.5 ? "B+" : avg >= 5.5 ? "B" : "C";
-  return { status: "PASS", grade: overallGrade };
-}
-
-function buildIAComparison(rows: any[]) {
-  return (["Semester 1", "Semester 2"] as const).map((assessment) => {
-    return { assessment, average: 85, highest: 98, lowest: 55, passPercentage: 92, count: 5 };
-  });
-}
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -475,74 +390,13 @@ const FACULTY_COLLEGES: Record<FacultyCollege, FacultyCollegeProfile> = {
     shortName: "Engineering",
     icon: "⚙️",
     logoUrl: "/engineering-logo.png",
-    facultyName: "Dr. Ananya Menon",
-    examinerId: "KVELL-FAC-ENG-018",
+    facultyName: "",
+    examinerId: "",
     department: "Computer Science & Engineering",
     badgeBg: "bg-amber-100 border-amber-300",
     badgeText: "text-amber-900",
-    hodName: "Dr. Jayapradha (HOD CSE)",
-    courses: [
-      {
-        id: "CRS-CS3351",
-        code: "CS3351",
-        title: "Digital Principles and Computer Organization",
-        department: "Computer Science & Engineering",
-        deptShort: "CSE",
-        semester: "Semester I",
-        section: "Section A",
-        type: "Theory",
-        enrolledStudents: 70,
-        evaluatedStudents: 64,
-        passRate: 91.4,
-        avgScore: 78.2,
-        status: "In Progress",
-      },
-      {
-        id: "CRS-AI3401",
-        code: "AI3401",
-        title: "Artificial Intelligence & Neural Networks",
-        department: "Artificial Intelligence & Data Science",
-        deptShort: "ADS",
-        semester: "Semester I",
-        section: "Section A",
-        type: "Theory",
-        enrolledStudents: 50,
-        evaluatedStudents: 34,
-        passRate: 85.3,
-        avgScore: 72.4,
-        status: "In Progress",
-      },
-      {
-        id: "CRS-CS3361",
-        code: "CS3361",
-        title: "Database Systems Laboratory & Practical",
-        department: "Computer Science & Engineering",
-        deptShort: "CSE",
-        semester: "Semester I",
-        section: "Section B",
-        type: "Laboratory",
-        enrolledStudents: 20,
-        evaluatedStudents: 20,
-        passRate: 100,
-        avgScore: 84.5,
-        status: "Completed",
-      },
-      {
-        id: "CRS-CS3352",
-        code: "CS3352",
-        title: "Design and Analysis of Algorithms",
-        department: "Computer Science & Engineering",
-        deptShort: "CSE",
-        semester: "Semester I",
-        section: "Section A",
-        type: "Theory",
-        enrolledStudents: 60,
-        evaluatedStudents: 60,
-        passRate: 90.0,
-        avgScore: 76.1,
-        status: "Completed",
-      },
-    ],
+    hodName: "",
+    courses: [],
   },
   Pharmacy: {
     collegeKey: "Pharmacy",
@@ -551,12 +405,12 @@ const FACULTY_COLLEGES: Record<FacultyCollege, FacultyCollegeProfile> = {
     shortName: "Pharmacy",
     icon: "💊",
     logoUrl: "/pharmacy-logo.png",
-    facultyName: "Dr. S. Ramanathan",
-    examinerId: "KVELL-FAC-PHARM-009",
+    facultyName: "",
+    examinerId: "",
     department: "Pharmaceutics & Pharmaceutical Analysis",
     badgeBg: "bg-emerald-100 border-emerald-300",
     badgeText: "text-emerald-900",
-    hodName: "Dr. K. Raman (HOD Pharmacy)",
+    hodName: "",
     courses: [],
   },
   Nursing: {
@@ -566,12 +420,12 @@ const FACULTY_COLLEGES: Record<FacultyCollege, FacultyCollegeProfile> = {
     shortName: "Nursing",
     icon: "🏥",
     logoUrl: "/nursing-logo.png",
-    facultyName: "Prof. Mary Thomas",
-    examinerId: "KVELL-FAC-NUR-014",
+    facultyName: "",
+    examinerId: "",
     department: "Medical-Surgical & Clinical Nursing",
     badgeBg: "bg-sky-100 border-sky-300",
     badgeText: "text-sky-900",
-    hodName: "Prof. Grace David (HOD Nursing)",
+    hodName: "",
     courses: [],
   },
 };
@@ -836,7 +690,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
               Draft &amp; Submit Question Papers to HOD for DAC Scrutiny
             </h3>
             <p className="text-xs text-slate-600 mt-0.5">
-              Prepare Part A (20M), Part B (65M with choices), Part C (15M) mapped to Bloom&apos;s Taxonomy (K1–K6) and Course Outcomes (CO1–CO5). Submit to Dr. Jayapradha (HOD) for scrutiny.
+              Prepare Part A (20M), Part B (65M with choices), Part C (15M) mapped to Bloom&apos;s Taxonomy (K1–K6) and Course Outcomes (CO1–CO5). Submit to your HOD for scrutiny.
             </p>
           </div>
         </div>
@@ -1203,21 +1057,6 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
 
 
 
-function AttentionTable({ compact = false, onView }: { compact?: boolean; onView?: () => void }) {
-  return (
-    <Panel className="overflow-hidden">
-      <div className="p-5 pb-3"><SectionHeading title="Students requiring attention" detail="Prioritized by current performance" action={onView ? <button onClick={onView} className="text-[12px] font-semibold text-[#FC6226] hover:underline">View all</button> : undefined} /></div>
-      <div className="mobile-table-scroll">
-        <table className="w-full min-w-[640px] text-left">
-          <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Student</th><th className="px-4 py-3">Subject</th><th className="px-4 py-3">Performance</th><th className="px-4 py-3">Trend</th><th className="px-5 py-3 text-right">Status</th></tr></thead>
-          <tbody className="divide-y divide-slate-100">{attentionStudents.slice(0, compact ? 3 : 5).map((student) => <tr key={student.reg} className="transition hover:bg-slate-50/70"><td className="px-5 py-3.5"><p className="text-xs font-semibold text-slate-800">{student.student}</p><p className="mt-0.5 text-[11px] text-slate-400">{student.reg}</p></td><td className="px-4 py-3.5 text-xs text-slate-600">{student.subject}</td><td className="px-4 py-3.5"><span className="text-xs font-semibold text-slate-800">{student.performance}%</span></td><td className="px-4 py-3.5">{student.trend === "down" ? <span className="flex items-center gap-1 text-xs font-medium text-red-700"><TrendingDown size={14} />Declining</span> : student.trend === "up" ? <span className="flex items-center gap-1 text-xs font-medium text-green-700"><TrendingUp size={14} />Improving</span> : <span className="flex items-center gap-1 text-xs font-medium text-slate-500"><Activity size={14} />Stable</span>}</td><td className="px-5 py-3.5 text-right"><StatusBadge tone={student.status === "Critical" ? "danger" : "warning"}>{student.status}</StatusBadge></td></tr>)}</tbody>
-        </table>
-      </div>
-    </Panel>
-  );
-}
-
-// Separate Component for HOD Student Result Search Directory
 function StudentResultView({ students }: { students: HodOverviewDTO["students"] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedYear, setSelectedYear] = useState("All");
@@ -1752,573 +1591,6 @@ function HodPortalDashboard({
 }
 
 
-function DeanMarkReview({ onToast }: { onToast?: (message: string) => void }) {
-  const requestsQuery = trpc.review.deanRequests.useQuery();
-  const reviewMutation = trpc.review.reviewSubmission.useMutation({ onSuccess: () => { requestsQuery.refetch(); setSelectedId(null); }, onError: () => requestsQuery.refetch() });
-  const publishMutation = trpc.marks.publishResults.useMutation({
-    onSuccess: (res) => {
-      requestsQuery.refetch();
-      onToast?.(`Assessment results published successfully to web portal! (${res.count ?? 0} record(s) published)`);
-    }
-  });
-  const requests = requestsQuery.data ?? [];
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const selected = requests.find((row) => row.submission.id === selectedId);
-  useEffect(() => { if (selectedId === null && requests[0]) setSelectedId(requests[0].submission.id); }, [requests, selectedId]);
-  const comparisonInput = useMemo(() => selected ? { subjectId: selected.submission.subjectId, semester: selected.submission.semester, section: selected.submission.section } : { semester: "__none__" }, [selected]);
-  const comparisonQuery = trpc.reports.rows.useQuery(comparisonInput, { enabled: Boolean(selected) });
-  const comparison = buildIAComparison(comparisonQuery.data ?? []);
-  const marks = selected ? (() => { try { return JSON.parse(selected.submission.marksJson) as Record<string, string>; } catch { return {}; } })() : {};
-  const studentGradeRows = marksStudents.map((student) => {
-    const grades = {
-      sub1: marks[`${student.reg}-sub1`] || student.sub1,
-      sub2: marks[`${student.reg}-sub2`] || student.sub2,
-      sub3: marks[`${student.reg}-sub3`] || student.sub3,
-      sub4: marks[`${student.reg}-sub4`] || student.sub4,
-      sub5: marks[`${student.reg}-sub5`] || student.sub5,
-    };
-    const res = calculateStudentResult(grades);
-    return { ...student, grades, res };
-  });
-  const review = (decision: "approve" | "return") => { if (selected && !reviewMutation.isPending) reviewMutation.mutate({ id: selected.submission.id, decision, reviewer: "Dean" }); };
-  const exportSelected = () => { if (!selected) return; const data = studentGradeRows.map((row) => ({ Department: "Computer Science and Engineering", Year: selected.submission.academicYear, Semester: selected.submission.semester, Subject: selected.subject?.name ?? "", Section: selected.submission.section, "Register Number": row.reg, "Student Name": row.name, "Sub 1": row.grades.sub1, "Sub 2": row.grades.sub2, "Sub 3": row.grades.sub3, "Sub 4": row.grades.sub4, "Sub 5": row.grades.sub5, Result: `${row.res.status} (${row.res.grade})` })); const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), selected.submission.assessment); downloadWorkbook(workbook, `KVELL_CSE_${selected.submission.assessment}_review.xlsx`); };
-  return <div className="space-y-6"><PageIntro eyebrow="Dean workspace" title="Mark Review" description="Review HOD-approved internal assessment marks and publish finalized results to the student portal." action={<button onClick={() => publishMutation.mutate({})} disabled={publishMutation.isPending} className="inline-flex items-center gap-2 rounded-md bg-[#FC6226] px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#E04F18] disabled:opacity-50"><CheckCircle2 size={14} />{publishMutation.isPending ? "Publishing..." : "Publish All Results to Portal"}</button>} /><div className="grid gap-5 xl:grid-cols-[0.75fr_1.25fr]"><Panel className="p-5"><SectionHeading title="Review queue" detail="Select a HOD-approved assessment" /><div className="mt-4 space-y-3">{requests.map((row) => <button key={row.submission.id} onClick={() => setSelectedId(row.submission.id)} className={cn("w-full rounded-lg border p-3 text-left transition", selectedId === row.submission.id ? "border-[#F5D8B4] bg-[#FFE8C2]/50" : "border-slate-100 hover:border-[#FC6226]/30")}><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-semibold text-slate-800">{row.subject?.name ?? "Subject"}</p><p className="mt-1 text-[11px] leading-4 text-slate-500">YR {row.submission.academicYear} · SEM {row.submission.semester}<br />SUB {row.subject?.code ?? "—"} · SEC {row.submission.section} · {row.submission.assessment}</p></div><StatusBadge tone="warning">Pending</StatusBadge></div></button>)}{requests.length === 0 && <EmptyState title="No marks awaiting Dean review" detail="HOD-approved assessment submissions will appear here." />}</div></Panel>{selected ? <div className="space-y-5"><Panel className="overflow-hidden"><div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[11px] font-semibold uppercase tracking-wide text-[#C2410C]">Computer Science and Engineering · {selected.submission.assessment}</p><h2 className="mt-1 text-base font-semibold text-slate-900">{selected.subject?.name ?? "Subject"}</h2><p className="mt-1 text-xs text-slate-500">YR {selected.submission.academicYear} · SEM {selected.submission.semester} · SUB {selected.subject?.code ?? "—"} · SEC {selected.submission.section}</p></div><div className="flex gap-2"><button onClick={exportSelected} className="inline-flex items-center gap-2 self-start rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Download size={14} />Export Excel</button><button onClick={() => publishMutation.mutate({ subjectId: selected.submission.subjectId })} disabled={publishMutation.isPending} className="inline-flex items-center gap-1.5 rounded-md bg-[#FC6226] px-3 py-2 text-xs font-semibold text-white hover:bg-[#E04F18] disabled:opacity-50"><CheckCircle2 size={14} />Publish subject</button></div></div><div className="grid gap-3 border-b border-slate-100 p-5 sm:grid-cols-4">{([["Average Grade", "A+"], ["Pass Count", "5/5"], ["Fail Count", "0"], ["Pass percentage", "100%"]] as const).map(([label, value]) => <MetricTile key={label} label={label} value={String(value)} />)}</div><div className="mobile-table-scroll"><table className="w-full min-w-[650px] text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Register Number & Student</th><th className="px-3 py-3 text-center">Sub 1</th><th className="px-3 py-3 text-center">Sub 2</th><th className="px-3 py-3 text-center">Sub 3</th><th className="px-3 py-3 text-center">Sub 4</th><th className="px-3 py-3 text-center">Sub 5</th><th className="px-5 py-3 text-right">Result</th></tr></thead><tbody className="divide-y divide-slate-100">{studentGradeRows.map((row) => <tr key={row.reg}><td className="px-5 py-3.5"><p className="text-xs font-semibold text-slate-800">{row.name}</p><p className="text-[11px] font-mono text-slate-400">{row.reg}</p></td><td className="px-3 py-3.5 text-center text-xs font-bold text-slate-800">{row.grades.sub1}</td><td className="px-3 py-3.5 text-center text-xs font-bold text-slate-800">{row.grades.sub2}</td><td className="px-3 py-3.5 text-center text-xs font-bold text-slate-800">{row.grades.sub3}</td><td className="px-3 py-3.5 text-center text-xs font-bold text-slate-800">{row.grades.sub4}</td><td className="px-3 py-3.5 text-center text-xs font-bold text-slate-800">{row.grades.sub5}</td><td className="px-5 py-3.5 text-right"><StatusBadge tone={row.res.status === "PASS" ? "success" : "danger"}>{row.res.status} ({row.res.grade})</StatusBadge></td></tr>)}</tbody></table></div></Panel><Panel className="p-5"><SectionHeading title="IA-1 vs IA-2 · CSE" detail="Submitted review marks comparison" /><div className="h-[230px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={comparison}><CartesianGrid stroke="#e2e8f0" vertical={false} strokeDasharray="3 3" /><XAxis dataKey="assessment" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} /><YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="average" name="Average" fill="#FC6226" radius={[4, 4, 0, 0]} /><Bar dataKey="highest" name="Highest" fill="#E04F18" radius={[4, 4, 0, 0]} /><Bar dataKey="lowest" name="Lowest" fill="#FDBA74" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div></Panel><div className="flex justify-end gap-2"><button onClick={() => review("return")} disabled={reviewMutation.isPending} className="rounded-md border border-red-200 px-3 py-2 text-xs font-semibold text-red-700">Return to HOD</button><button onClick={() => review("approve")} disabled={reviewMutation.isPending} className="rounded-md bg-[#FC6226] px-3 py-2 text-xs font-semibold text-white hover:bg-[#E04F18]">Approve assessment</button></div></div> : <EmptyState title="Select a review request" detail="Choose an item from the Dean review queue to inspect its IA marks." />}</div></div>;
-}
-
-function DeanDashboard({ onNavigate, onToast }: { onNavigate: (page: PageKey) => void; onToast?: (message: string) => void }) {
-  const requestsQuery = trpc.review.deanRequests.useQuery();
-  const reportsQuery = trpc.reports.rows.useQuery({});
-  const subjectsQuery = trpc.subjects.list.useQuery();
-  const reviewMutation = trpc.review.reviewSubmission.useMutation({ onSuccess: () => { requestsQuery.refetch(); setSelectedId(null); }, onError: () => requestsQuery.refetch() });
-  const publishMutation = trpc.marks.publishResults.useMutation({
-    onSuccess: () => {
-      requestsQuery.refetch();
-      reportsQuery.refetch();
-      onToast?.("All results published successfully to web portal!");
-    }
-  });
-  const requests = requestsQuery.data ?? [];
-  const reportRows = reportsQuery.data ?? [];
-  const subjects = subjectsQuery.data ?? [];
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const selected = requests.find((row) => row.submission.id === selectedId);
-  const comparisonInput = useMemo(() => selected ? { subjectId: selected.submission.subjectId, semester: selected.submission.semester, section: selected.submission.section } : { semester: "__none__" }, [selected]);
-  const comparisonQuery = trpc.reports.rows.useQuery(comparisonInput, { enabled: Boolean(selected) });
-  const comparison = buildIAComparison(comparisonQuery.data ?? []);
-  const selectedMarks = selected ? (() => { try { return JSON.parse(selected.submission.marksJson) as Record<string, number>; } catch { return {}; } })() : {};
-  const selectedIaRows = Object.entries(selectedMarks).filter(([key]) => key.endsWith("-internal")).map(([key, value]) => { const reg = key.replace(/-internal$/, ""); const student = students.find((item) => item.reg === reg); return { reg, name: student?.name ?? reg, value: Number(value || 0) }; });
-  const totalMarks = reportRows.reduce((sum, row) => { try { return sum + Object.values(JSON.parse(row.submission.marksJson) as Record<string, number>).reduce((inner, value) => inner + Number(value || 0), 0); } catch { return sum; } }, 0);
-  const totalEntries = reportRows.reduce((sum, row) => { try { return sum + Object.keys(JSON.parse(row.submission.marksJson) as Record<string, number>).length; } catch { return sum; } }, 0);
-  const average = totalEntries ? Math.round((totalMarks / (totalEntries * 20)) * 100) : 0;
-  const review = (id: number, decision: "approve" | "return") => { if (!reviewMutation.isPending) reviewMutation.mutate({ id, decision, reviewer: "Dean" }); };
-  const exportSelected = () => { if (!selected) return; const data = selectedIaRows.map((row) => ({ Department: "Computer Science and Engineering", Year: selected.submission.academicYear, Semester: selected.submission.semester, Subject: selected.subject?.name ?? "", Section: selected.submission.section, Assessment: selected.submission.assessment, Name: row.name, "IA Mark": row.value })); const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), selected.submission.assessment); downloadWorkbook(workbook, `KVELL_CSE_${selected.submission.assessment}_review.xlsx`); };
-  return <div className="space-y-6"><PageIntro eyebrow="Dean executive workspace" title="University overview" description="Review HOD-approved IA marks, inspect student assessment details, and publish approved results to the portal." action={<div className="flex items-center gap-2"><button onClick={() => publishMutation.mutate({})} disabled={publishMutation.isPending} className="inline-flex items-center gap-2 rounded-md bg-[#FC6226] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#E04F18] disabled:opacity-50"><CheckCircle2 size={14} />{publishMutation.isPending ? "Publishing..." : "Publish All Results"}</button><button onClick={() => onNavigate("reports")} className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><FileBarChart size={14} />Open reports</button></div>} /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><KpiCard label="Dean review requests" value={`${requests.length}`} note="HOD-approved marks awaiting decision" icon={FileText} tone="amber" trend={requests.length ? "down" : "flat"} /><KpiCard label="Subjects with data" value={`${subjects.length}`} note="Persisted subject records" icon={BookOpen} trend="flat" /><KpiCard label="Mark submissions" value={`${reportRows.length}`} note="Live persisted submissions" icon={BarChart3} trend="up" /><KpiCard label="Overall average" value={average ? `${average}%` : "—"} note="Calculated from saved marks" icon={TrendingUp} tone="green" trend="up" /></div><div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]"><Panel className="p-5"><SectionHeading title="Live academic summary" detail="Derived from current backend records" /><div className="space-y-4 pt-2"><div className="flex items-center justify-between border-b border-slate-100 pb-3"><span className="text-xs text-slate-600">Subjects monitored</span><span className="text-sm font-bold text-slate-900">{subjects.length}</span></div><div className="flex items-center justify-between border-b border-slate-100 pb-3"><span className="text-xs text-slate-600">Review queue</span><span className="text-sm font-bold text-amber-700">{requests.length} pending</span></div><div className="flex items-center justify-between"><span className="text-xs text-slate-600">Approved records</span><span className="text-sm font-bold text-green-700">{reportRows.filter((row) => row.submission.status === "FINAL_APPROVED" || (row.submission.status as string) === "approved").length}</span></div></div></Panel><Panel className="p-5"><SectionHeading title="Final approval queue" detail="Select a request to inspect read-only IA assessment marks" /><div className="space-y-3 pt-2">{requests.slice(0, 4).map((row) => <div key={row.submission.id} className={cn("rounded-lg border p-3", selectedId === row.submission.id ? "border-[#F5D8B4] bg-[#FFE8C2]/40" : "border-slate-100")}><button onClick={() => setSelectedId(row.submission.id)} className="w-full text-left"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-slate-800">{row.subject?.name ?? "Subject"}</p><p className="mt-1 text-[11px] text-slate-500">YR {row.submission.academicYear} · SEM {row.submission.semester} · SUB {row.subject?.code ?? "—"} · SEC {row.submission.section} · {row.submission.assessment}</p></div><StatusBadge tone="warning">Dean review</StatusBadge></div></button><div className="mt-3 flex gap-2"><button onClick={() => review(row.submission.id, "return")} disabled={reviewMutation.isPending} className="rounded-md border border-red-200 px-2.5 py-1.5 text-[11px] font-semibold text-red-700 disabled:opacity-50">Return to HOD</button><button onClick={() => review(row.submission.id, "approve")} disabled={reviewMutation.isPending} className="rounded-md bg-[#FC6226] px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-[#E04F18] disabled:opacity-50">Approve</button></div></div>)}{requests.length === 0 && <p className="py-6 text-center text-xs text-slate-500">No HOD-approved marks waiting for Dean review.</p>}</div></Panel></div>{selected && <><Panel className="overflow-hidden"><div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[11px] font-semibold uppercase tracking-wide text-[#C2410C]">Computer Science and Engineering · IA review</p><h2 className="mt-1 text-base font-semibold text-slate-900">{selected.subject?.name ?? "Subject"}</h2><p className="mt-1 text-xs text-slate-500">YR {selected.submission.academicYear} · SEM {selected.submission.semester} · SUB {selected.subject?.code ?? "—"} · SEC {selected.submission.section} · {selected.submission.assessment}</p></div><button onClick={exportSelected} className="inline-flex items-center gap-2 self-start rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Download size={14} />Export Excel</button></div><div className="grid gap-3 border-b border-slate-100 p-5 sm:grid-cols-4">{comparison.map((item) => <MetricTile key={item.assessment} label={`${item.assessment} average`} value={item.count ? `${item.average}` : "—"} />)}</div><div className="mobile-table-scroll"><table className="w-full min-w-[500px] text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Name</th><th className="px-4 py-3">IA mark</th><th className="px-5 py-3 text-right">Mode</th></tr></thead><tbody className="divide-y divide-slate-100">{selectedIaRows.map((row) => <tr key={row.reg}><td className="px-5 py-3.5 text-xs font-medium text-slate-700">{row.name}</td><td className="px-4 py-3.5 text-xs font-semibold text-slate-900">{row.value}</td><td className="px-5 py-3.5 text-right"><StatusBadge tone="neutral">Read only</StatusBadge></td></tr>)}</tbody></table></div></Panel><Panel className="p-5"><SectionHeading title="IA-1 vs IA-2 · CSE" detail="Average, highest, lowest, and pass percentage from submitted review marks" /><div className="mb-4 grid gap-4 lg:grid-cols-2">{comparison.map((item) => <div key={item.assessment} className="rounded-lg border border-slate-100 p-3"><p className="mb-3 text-xs font-bold text-[#8C2F00]">{item.assessment} · Computer Science and Engineering</p><div className="grid grid-cols-2 gap-2">{([["Average", item.average], ["Highest", item.highest], ["Lowest", item.lowest], ["Pass percentage", item.passPercentage]] as const).map(([label, value]) => <div key={label} className="rounded-md bg-[#FFF4D6]/50 p-2"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 text-lg font-bold text-slate-900">{value}{label === "Pass percentage" ? "%" : ""}</p></div>)}</div></div>)}</div><div className="h-[250px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={comparison}><CartesianGrid stroke="#e2e8f0" vertical={false} strokeDasharray="3 3" /><XAxis dataKey="assessment" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} /><YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="average" name="Average" fill="#FC6226" radius={[4, 4, 0, 0]} /><Bar dataKey="highest" name="Highest" fill="#E04F18" radius={[4, 4, 0, 0]} /><Bar dataKey="lowest" name="Lowest" fill="#FDBA74" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div></Panel></>}</div>;
-}
-
-function SubjectsPage({ onToast }: { onToast: (message: string) => void }) {
-  const subjectsQuery = trpc.subjects.list.useQuery();
-  const createSubject = trpc.subjects.create.useMutation({
-    onSuccess: async () => {
-      await subjectsQuery.refetch();
-      setShowCreate(false);
-      setNewSubject({ code: "", name: "", semester: "VI", section: "CSE A" });
-      onToast("Subject created and available in Marks Entry");
-    },
-    onError: (error: any) => onToast(error.message || "Unable to create subject"),
-  });
-  const [search, setSearch] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
-  const [newSubject, setNewSubject] = useState({ code: "", name: "", semester: "VI", section: "CSE A" });
-  const subjectRows = subjectsQuery.data ?? [];
-  const visible = subjectRows.filter((subject: any) => `${subject.name} ${subject.code}`.toLowerCase().includes(search.toLowerCase()));
-  const selectedSubject = subjectRows.find((subj: any) => subj.id === selectedSubjectId);
-  return <div className="space-y-6">
-    <PageIntro eyebrow="Faculty workspace" title="My subjects" description="Manage assigned subjects, sections, and assessment progress." action={<button onClick={() => setShowCreate((current) => !current)} className="inline-flex items-center gap-2 rounded-md bg-[#FC6226] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-[#E04F18]"><BookOpen size={14} />{showCreate ? "Close subject form" : "Add subject"}</button>} />
-    {showCreate && <Panel className="border-[#F5D8B4] bg-[#FFE8C2]/40 p-5"><SectionHeading title="Create a new subject" detail="This subject will be available for faculty marks entry and review." /><div className="grid gap-3 md:grid-cols-4"><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Subject code</label><input value={newSubject.code} onChange={(event) => setNewSubject({ ...newSubject, code: event.target.value.toUpperCase() })} placeholder="CS609" className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs focus:border-[#FC6226] focus:outline-none" /></div><div className="md:col-span-1"><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Subject name</label><input value={newSubject.name} onChange={(event) => setNewSubject({ ...newSubject, name: event.target.value })} placeholder="Advanced Algorithms" className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs focus:border-[#FC6226] focus:outline-none" /></div><FieldSelect label="Semester" value={newSubject.semester} options={["I"]} /><FieldSelect label="Section" value={newSubject.section} options={["CSE A", "CSE B", "IT A"]} /></div><div className="mt-4 flex justify-end"><button disabled={createSubject.isPending || !newSubject.code || !newSubject.name} onClick={() => createSubject.mutate({ ...newSubject, createdBy: "demo-faculty" })} className="rounded-md bg-[#FC6226] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#E04F18] disabled:cursor-not-allowed disabled:opacity-50">{createSubject.isPending ? "Creating…" : "Create subject"}</button></div></Panel>}
-    <Panel className="p-4"><div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div className="relative min-w-0 flex-1 md:max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search subjects" className="h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#FC6226] focus:outline-none" /></div><div className="flex gap-2"><select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 focus:border-[#FC6226] focus:outline-none"><option>Semester I</option></select><select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 focus:border-[#FC6226] focus:outline-none"><option>All sections</option><option>Section A</option><option>Section B</option></select></div></div></Panel>
-    <div className="grid gap-4 md:grid-cols-2">{visible.map((subject: any, index: number) => { const tone = subject.averageScore >= 75 ? "success" : "warning"; return <Panel key={subject.id} className={cn("reveal-up p-5", `reveal-up-delay-${Math.min(index + 1, 3)}`)}><div className="flex items-start justify-between gap-3"><div><span className="text-[11px] font-bold tracking-[0.14em] text-[#FC6226]">{subject.code}</span><h2 className="mt-2 text-[16px] font-semibold text-slate-900">{subject.name}</h2></div><StatusBadge tone={tone}>{tone === "success" ? "On track" : "Review"}</StatusBadge></div><div className="mt-5 grid grid-cols-3 gap-3 border-y border-slate-100 py-4"><div><p className="text-[11px] text-slate-400">Semester</p><p className="mt-1 text-xs font-semibold text-slate-700">{subject.semester}</p></div><div><p className="text-[11px] text-slate-400">Section</p><p className="mt-1 text-xs font-semibold text-slate-700">{subject.section}</p></div><div><p className="text-[11px] text-slate-400">Students</p><p className="mt-1 text-xs font-semibold text-slate-700">{subject.studentCount}</p></div></div><div className="mt-4 flex items-center justify-between"><div><p className="text-[11px] text-slate-400">Average score</p><p className="mt-1 text-xl font-semibold tracking-[-0.03em] text-slate-900">{subject.averageScore}%</p></div><div className="w-28"><div className="mb-1.5 flex justify-between text-[10px] text-slate-400"><span>Performance</span><span>{subject.averageScore}%</span></div><MiniProgress value={subject.averageScore} color={tone === "success" ? "#FC6226" : "#b45309"} /></div></div><button onClick={() => setSelectedSubjectId(subject.id)} className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-[#FC6226] hover:underline">View details <ChevronRight size={14} /></button></Panel> })}</div>
-    {selectedSubject && <Panel className="border-[#F5D8B4] bg-[#FFE8C2]/40 p-5"><div className="flex items-start justify-between gap-4"><div><p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#8C2F00]">Subject detail</p><h2 className="mt-2 text-lg font-semibold text-slate-900">{selectedSubject.name}</h2><p className="mt-1 text-xs text-slate-500">{selectedSubject.code} · Semester {selectedSubject.semester} · {selectedSubject.section}</p></div><button onClick={() => setSelectedSubjectId(null)} className="rounded-md p-1.5 text-slate-400 hover:bg-white hover:text-slate-700" aria-label="Close subject details"><X size={16} /></button></div><div className="mt-5 grid gap-3 sm:grid-cols-4"><MetricTile label="Students" value={`${selectedSubject.studentCount}`} /><MetricTile label="Average score" value={`${selectedSubject.averageScore}%`} /><MetricTile label="Review status" value="Active" tone="success" /><MetricTile label="Department" value="CSE" /></div></Panel>}
-  </div>;
-}
-
-function MarksPage({ role, onToast }: { role: Role; onToast: (message: string) => void }) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const subjectsQuery = trpc.subjects.list.useQuery();
-  const saveDraft = trpc.marks.saveDraft.useMutation({
-    onSuccess: () => { setUnsaved(false); onToast("Marks draft saved successfully"); },
-    onError: (err) => { onToast(`Save failed: ${err.message}`); }
-  });
-  const submitForReview = trpc.marks.submitForReview.useMutation({
-    onSuccess: () => { setUnsaved(false); onToast(role === "Faculty" ? "Results uploaded & submitted to HOD review" : "Results uploaded & submitted to Dean review"); },
-    onError: (err) => { onToast(`Submission failed: ${err.message}`); }
-  });
-
-  const subjectRows = subjectsQuery.data ?? [];
-  const [academicYear, setAcademicYear] = useState("2026-27");
-  const [semester, setSemester] = useState("I");
-  const [section, setSection] = useState("CSE A");
-  const [subjectId, setSubjectId] = useState<number | undefined>(undefined);
-  const [assessment, setAssessment] = useState<"IA-1" | "IA-2">("IA-1");
-  const [search, setSearch] = useState("");
-  const [unsaved, setUnsaved] = useState(false);
-  const [marks, setMarks] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      marksStudents.flatMap((student) => [
-        [`${student.reg}-sub1`, student.sub1],
-        [`${student.reg}-sub2`, student.sub2],
-        [`${student.reg}-sub3`, student.sub3],
-        [`${student.reg}-sub4`, student.sub4],
-        [`${student.reg}-sub5`, student.sub5],
-      ])
-    )
-  );
-
-  const filteredSubjects = useMemo(() => {
-    if (!subjectRows.length) return [];
-    const matched = subjectRows.filter((subject) => subject.semester === semester);
-    return matched.length ? matched : subjectRows;
-  }, [subjectRows, semester]);
-
-  useEffect(() => {
-    if (!subjectId && subjectRows.length > 0) {
-      setSubjectId(subjectRows[0].id);
-    }
-  }, [subjectRows, subjectId]);
-
-  const selectedSubject = subjectRows.find((subject) => subject.id === subjectId) ?? subjectRows[0];
-
-  const visible = marksStudents.filter((student) => `${student.reg} ${student.name}`.toLowerCase().includes(search.toLowerCase()));
-
-  const updateMark = (key: string, value: string) => {
-    setMarks((current) => ({ ...current, [key]: value }));
-    setUnsaved(true);
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: "binary" });
-        const wsName = wb.SheetNames[0];
-        const ws = wb.Sheets[wsName];
-        const data = XLSX.utils.sheet_to_json<any>(ws);
-
-        if (!data.length) {
-          onToast("The uploaded file contains no data rows.");
-          return;
-        }
-
-        const nextMarks: Record<string, string> = { ...marks };
-        let updatedCount = 0;
-        const subKeys = ["sub1", "sub2", "sub3", "sub4", "sub5"];
-
-        data.forEach((row: any) => {
-          const regKey = Object.keys(row).find((k) => /reg|usn|roll|student.*id|code/i.test(k));
-          const regVal = regKey ? String(row[regKey]).trim() : null;
-          const nameVal = String(row.Name || row.name || row["Student Name"] || "").trim().toLowerCase();
-
-          const student = marksStudents.find(
-            (s) => (regVal && s.reg.toLowerCase() === regVal.toLowerCase()) || (nameVal && s.name.toLowerCase() === nameVal)
-          );
-
-          if (student) {
-            subKeys.forEach((sub, idx) => {
-              const valKey = Object.keys(row).find((k) => new RegExp(`sub.*${idx + 1}|subject.*${idx + 1}|${sub}`, "i").test(k));
-              if (valKey && row[valKey] !== undefined) {
-                const valStr = String(row[valKey]).trim().toUpperCase();
-                const matchedGrade = GRADE_OPTIONS.find((g) => g === valStr) || (valStr === "PASS" ? "O" : valStr === "FAIL" ? "F" : "A");
-                nextMarks[`${student.reg}-${sub}`] = matchedGrade;
-                updatedCount++;
-              }
-            });
-          }
-        });
-
-        setMarks(nextMarks);
-        setUnsaved(true);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        onToast(`Successfully uploaded results! Parsed ${data.length} student records from ${file.name}`);
-      } catch (err: any) {
-        onToast(`Failed to parse result file: ${err?.message || "Invalid Excel/CSV format"}`);
-      }
-    };
-    reader.readAsBinaryString(file);
-  };
-
-  const submitMarks = (mode: "draft" | "review") => {
-    if (!selectedSubject) {
-      onToast("Select academic year, semester, section, and subject first");
-      return;
-    }
-    const payload = {
-      subjectId: selectedSubject.id,
-      academicYear,
-      semester: selectedSubject.semester || semester,
-      section: selectedSubject.section || section,
-      assessment,
-      marksJson: JSON.stringify(marks),
-      role: role === "Admin" ? "Faculty" : role,
-    };
-    if (mode === "draft") saveDraft.mutate(payload);
-    else submitForReview.mutate(payload);
-  };
-
-  const handleMarkCellKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, rowIndex: number, colIndex: number) => {
-    const components = ["internal", "test", "quiz", "seminar"];
-    let targetRow = rowIndex;
-    let targetCol = colIndex;
-
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      targetRow = Math.max(0, rowIndex - 1);
-    } else if (e.key === "ArrowDown" || e.key === "Enter") {
-      e.preventDefault();
-      targetRow = Math.min(visible.length - 1, rowIndex + 1);
-    } else if (e.key === "ArrowLeft") {
-      const input = e.currentTarget;
-      if (input.selectionStart === 0 && input.selectionEnd === 0) {
-        if (colIndex > 0) {
-          e.preventDefault();
-          targetCol = colIndex - 1;
-        }
-      }
-    } else if (e.key === "ArrowRight") {
-      const input = e.currentTarget;
-      if (input.selectionStart === input.value.length) {
-        if (colIndex < components.length - 1) {
-          e.preventDefault();
-          targetCol = colIndex + 1;
-        }
-      }
-    }
-
-    if (targetRow !== rowIndex || targetCol !== colIndex) {
-      const targetStudent = visible[targetRow];
-      const targetComp = components[targetCol];
-      if (targetStudent) {
-        const el = document.getElementById(`mark-input-${targetStudent.reg}-${targetComp}`);
-        if (el) {
-          (el as HTMLInputElement).focus();
-          (el as HTMLInputElement).select();
-        }
-      }
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".xlsx,.xls,.csv" className="hidden" />
-      <PageIntro
-        eyebrow="Faculty workspace"
-        title="Marks entry & Result upload"
-        description="Enter IA-1 and IA-2 component marks manually or upload an Excel/CSV spreadsheet result file for the selected academic year, semester, section, and subject."
-        action={
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-md bg-[#2C1810] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-[#422518] shadow-sm"
-            >
-              <Upload size={14} />
-              <span>Upload Result File (.xlsx / .csv)</span>
-            </button>
-            <div className="flex items-center gap-2 text-[11px] text-amber-700">
-              <span className="h-2 w-2 rounded-full bg-amber-500" />
-              {unsaved ? "Unsaved changes" : "All changes saved"}
-            </div>
-          </div>
-        }
-      />
-
-      <Panel className="p-4">
-        <div className="grid gap-3 md:grid-cols-5">
-          <FieldSelect label="Academic year" value={academicYear} options={["2026-27"]} onChange={setAcademicYear} />
-          <div>
-            <label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Semester</label>
-            <select value={semester} onChange={(event) => setSemester(event.target.value)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs focus:border-[#FC6226] focus:outline-none">
-              <option>I</option>
-            </select>
-          </div>
-          <FieldSelect
-            label="Section"
-            value={section}
-            options={Array.from(new Set(subjectRows.map((subject) => subject.section))).length ? Array.from(new Set(subjectRows.map((subject) => subject.section))) : ["CSE A", "CSE B"]}
-            onChange={setSection}
-          />
-          <div>
-            <label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Subject</label>
-            <select
-              value={subjectId ?? selectedSubject?.id ?? ""}
-              onChange={(event) => setSubjectId(Number(event.target.value))}
-              className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:border-[#FC6226] focus:outline-none"
-            >
-              <option value="">Select subject</option>
-              {(filteredSubjects.length ? filteredSubjects : subjectRows).map((subject) => (
-                <option key={subject.id} value={subject.id}>
-                  {subject.code} · {subject.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-[11px] font-semibold text-slate-500">IA component set</label>
-            <select
-              value={assessment}
-              onChange={(event) => setAssessment(event.target.value as "IA-1" | "IA-2")}
-              className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 focus:border-[#FC6226] focus:outline-none"
-            >
-              <option value="IA-1">Internal Assessment 1</option>
-              <option value="IA-2">Internal Assessment 2</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[11px] text-slate-500">
-            Editing <span className="font-semibold text-[#8C2F00]">{assessment}</span> separately from the other internal assessment. <span className="hidden sm:inline text-[#C2410C]">Tip: Use ↑ ↓ ← → or Enter to navigate marks.</span>
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition"
-            >
-              <Upload size={14} />
-              <span>Upload Excel Result</span>
-            </button>
-            <button
-              onClick={() => {
-                setUnsaved(false);
-                onToast("Reset to last saved values");
-              }}
-              className="rounded-md border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600"
-            >
-              Reset
-            </button>
-            <button
-              disabled={saveDraft.isPending || !selectedSubject}
-              onClick={() => submitMarks("draft")}
-              className="rounded-md border border-[#FC6226] bg-white px-3.5 py-2 text-xs font-semibold text-[#FC6226] hover:bg-[#FFE8CC] transition disabled:opacity-50"
-            >
-              {saveDraft.isPending ? "Saving..." : "Save draft"}
-            </button>
-            <button
-              disabled={submitForReview.isPending || !selectedSubject}
-              onClick={() => submitMarks("review")}
-              className="rounded-md bg-[#FC6226] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#E04F18] transition shadow-sm disabled:opacity-50"
-            >
-              {submitForReview.isPending ? "Submitting..." : role === "Faculty" ? "Submit to HOD" : "Submit to Dean"}
-            </button>
-          </div>
-        </div>
-      </Panel>
-
-      <div className="rounded-xl border border-slate-700/60 bg-[#111827] p-4 text-left shadow-lg">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400">
-          EXPECTED COLUMNS:
-        </p>
-        <p className="mt-1 text-sm font-semibold text-slate-100">
-          Register Number &bull; Student Name &bull; Sub 1 &bull; Sub 2 &bull; Sub 3 &bull; Sub 4 &bull; Sub 5
-        </p>
-        <p className="mt-1 text-xs text-slate-400">
-          Results are based on grade only (O, A+, A, B+, B, C, F). Internal (40) and External (60) marks removed.
-        </p>
-      </div>
-
-      <Panel className="overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-[15px] font-semibold text-slate-900">{assessment} component marks</h2>
-            <p className="mt-1 text-[11px] text-slate-500">
-              {selectedSubject ? `${selectedSubject.name} · ${selectedSubject.section || section} · ${academicYear}` : "Select a subject to begin"}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              <Upload size={13} />
-              <span>Import file</span>
-            </button>
-            <div className="relative w-full sm:w-60">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search students"
-                className="h-9 w-full rounded-md border border-slate-200 pl-9 pr-3 text-xs"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="mobile-table-scroll">
-          <table className="w-full min-w-[940px] text-left">
-            <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-5 py-3">Register Number & Student</th>
-                <th className="px-3 py-3 text-center">Sub 1</th>
-                <th className="px-3 py-3 text-center">Sub 2</th>
-                <th className="px-3 py-3 text-center">Sub 3</th>
-                <th className="px-3 py-3 text-center">Sub 4</th>
-                <th className="px-3 py-3 text-center">Sub 5</th>
-                <th className="px-5 py-3 text-right">Result</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {visible.map((student) => {
-                const studentGrades = {
-                  sub1: marks[`${student.reg}-sub1`] || student.sub1,
-                  sub2: marks[`${student.reg}-sub2`] || student.sub2,
-                  sub3: marks[`${student.reg}-sub3`] || student.sub3,
-                  sub4: marks[`${student.reg}-sub4`] || student.sub4,
-                  sub5: marks[`${student.reg}-sub5`] || student.sub5,
-                };
-                const res = calculateStudentResult(studentGrades);
-                return (
-                  <tr key={student.reg}>
-                    <td className="px-5 py-3.5">
-                      <p className="text-xs font-semibold text-slate-800">{student.name}</p>
-                      <p className="text-[11px] font-mono text-slate-400">{student.reg}</p>
-                    </td>
-                    {["sub1", "sub2", "sub3", "sub4", "sub5"].map((subKey) => (
-                      <td className="px-3 py-3.5 text-center" key={subKey}>
-                        <select
-                          value={marks[`${student.reg}-${subKey}`] || (student as any)[subKey] || "O"}
-                          onChange={(event) => updateMark(`${student.reg}-${subKey}`, event.target.value)}
-                          className="h-9 w-20 rounded-md border border-slate-200 bg-white px-2 text-center text-xs font-bold text-slate-800 focus:border-[#FC6226] focus:outline-none focus:ring-1 focus:ring-[#FC6226]"
-                        >
-                          {GRADE_OPTIONS.map((g) => (
-                            <option key={g} value={g}>{g}</option>
-                          ))}
-                        </select>
-                      </td>
-                    ))}
-                    <td className="px-5 py-3.5 text-right">
-                      <StatusBadge tone={res.status === "PASS" ? "success" : "danger"}>
-                        {res.status} ({res.grade})
-                      </StatusBadge>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
-    </div>
-  );
-}
-
-function PerformancePage({ role, onToast, studentReg, studentName, onReturn }: { role: Role; onToast: (message: string) => void; studentReg?: string; studentName?: string; onReturn?: () => void }) {
-  const subjectsQuery = trpc.subjects.list.useQuery();
-  const [subjectId, setSubjectId] = useState<number | undefined>(undefined);
-  const [semester, setSemester] = useState("VI");
-  const [assessment, setAssessment] = useState<"IA-1" | "IA-2">("IA-1");
-  const [section, setSection] = useState("CSE A");
-  const [applied, setApplied] = useState<{ subjectId?: number; semester: string; assessment: "IA-1" | "IA-2"; section: string } | null>(null);
-  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
-  const subjects = subjectsQuery.data ?? [];
-  const reportInput = useMemo(() => studentReg ? {} : applied ? { subjectId: applied.subjectId, semester: applied.semester, assessment: applied.assessment, section: applied.section } : {}, [applied, studentReg]);
-  const marksQuery = trpc.reports.rows.useQuery(reportInput, { enabled: Boolean(applied) || Boolean(studentReg) });
-  const selectedSubject = subjects.find((subject) => subject.id === applied?.subjectId);
-  const marksRows = (marksQuery.data ?? []).flatMap((row) => { let parsed: Record<string, number> = {}; try { parsed = JSON.parse(row.submission.marksJson); } catch { } const regs = Array.from(new Set(Object.keys(parsed).map((key) => key.replace(/-(internal|test|quiz|seminar)$/, "")))); return regs.filter((reg) => !studentReg || reg === studentReg).map((reg) => { const student = marksStudents.find((item) => item.reg === reg); const internal = Number(parsed[`${reg}-internal`] ?? 0); const total = ["internal", "test", "quiz", "seminar"].reduce((sum, component) => sum + Number(parsed[`${reg}-${component}`] ?? 0), 0); return { reg, name: student?.name ?? studentName ?? reg, section: row.submission.section, assessment: row.submission.assessment, internal, total, percentage: Math.round((total / 80) * 100) }; }); });
-  const sortedRows = [...marksRows].sort((a, b) => sortOrder === "desc" ? b.internal - a.internal : a.internal - b.internal);
-  const seed = selectedSubject ? selectedSubject.name.length % 6 : 0;
-  const chartData = studentReg ? (["IA-1", "IA-2"] as const).map((period) => { const rows = marksRows.filter((row) => row.assessment === period); const score = rows.length ? Math.round(rows.reduce((sum, row) => sum + row.internal, 0) / rows.length) : 0; return { period, score, benchmark: 50 }; }) : facultyTrend.map((point, index) => ({ ...point, score: Math.max(40, point.score + seed + index), benchmark: Math.max(38, point.benchmark + index / 2) }));
-  const submitFilters = () => { if (!subjectId) { onToast("Select a subject before loading performance"); return; } setApplied({ subjectId, semester, assessment, section }); onToast("Performance marks loaded from the selected parameters"); };
-  const title = studentReg ? `${studentName ?? studentReg} · IA performance` : "Student performance";
-  return <div className="space-y-6"><PageIntro eyebrow={studentReg ? "Individual student performance" : role === "HOD" ? "Department analytics" : "Faculty workspace"} title={title} description={studentReg ? "Read-only IA-1 and IA-2 marks for this student, calculated from submitted assessment records." : "Select all parameters and submit to view read-only marks from the marks entry portal."} action={studentReg && onReturn ? <button onClick={onReturn} className="rounded-md border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Return to Students</button> : undefined} />{!studentReg && <Panel className="p-4"><div className="grid gap-3 md:grid-cols-5"><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Subject</label><select value={subjectId ?? ""} onChange={(event) => setSubjectId(Number(event.target.value) || undefined)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs"><option value="">Select subject</option>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.code} · {subject.name}</option>)}</select></div><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Semester</label><select value={semester} onChange={(event) => setSemester(event.target.value)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs"><option>VI</option><option>V</option><option>IV</option></select></div><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Assessment</label><select value={assessment} onChange={(event) => setAssessment(event.target.value as "IA-1" | "IA-2")} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs"><option value="IA-1">IA-1</option><option value="IA-2">IA-2</option></select></div><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Section</label><select value={section} onChange={(event) => setSection(event.target.value)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs">{(Array.from(new Set(subjects.map((subject) => subject.section))).length ? Array.from(new Set(subjects.map((subject) => subject.section))) : ["CSE A"]).map((item: any) => <option key={String(item)}>{String(item)}</option>)}</select></div><button onClick={submitFilters} className="h-10 self-end rounded-md bg-[#FC6226] px-4 text-xs font-semibold text-white hover:bg-[#E04F18]">Submit</button></div><p className="mt-3 text-[11px] text-slate-500">Students remain hidden until Submit. Marks are read-only and reflect the latest saved or submitted marks entry.</p></Panel>}{(applied || studentReg) && <><Panel className="p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><SectionHeading title={studentReg ? "IA marks by assessment" : `${selectedSubject?.name ?? "Subject"} · ${applied?.assessment}`} detail={studentReg ? "Read-only marks from submitted IA assessments" : `${applied?.semester} · ${applied?.section} · read-only marks`} /><select value={sortOrder} onChange={(event) => setSortOrder(event.target.value as "asc" | "desc")} className="h-9 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700"><option value="desc">High to Low</option><option value="asc">Low to High</option></select></div><div className="mobile-table-scroll mt-4"><table className="w-full min-w-[680px] text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Assessment</th><th className="px-4 py-3">Student</th><th className="px-4 py-3">Section</th><th className="px-4 py-3">IA mark</th><th className="px-5 py-3 text-right">Mode</th></tr></thead><tbody className="divide-y divide-slate-100">{sortedRows.map((row, index) => <tr key={`${row.reg}-${row.assessment}-${index}`}><td className="px-5 py-3.5 text-xs font-semibold text-[#FC6226]">{row.assessment}</td><td className="px-4 py-3.5"><p className="text-xs font-semibold text-slate-800">{row.name}</p><p className="text-[11px] text-slate-400">{row.reg}</p></td><td className="px-4 py-3.5 text-xs text-slate-600">{row.section}</td><td className="px-4 py-3.5 text-xs font-bold text-[#FC6226]">{row.internal}</td><td className="px-5 py-3.5 text-right"><StatusBadge tone="neutral">Read only</StatusBadge></td></tr>)}</tbody></table></div>{sortedRows.length === 0 && <p className="py-8 text-center text-xs text-slate-500">No IA marks found for this student.</p>}</Panel><Panel className="p-5"><SectionHeading title={studentReg ? "Individual IA performance trend" : "Performance trend"} detail="Derived from submitted IA marks" /><div className="h-[250px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={chartData}><CartesianGrid stroke="#e2e8f0" vertical={false} strokeDasharray="3 3" /><XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} /><YAxis domain={[40, 95]} axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} tickFormatter={(v) => `${v}%`} /><ChartTooltip content={<ChartTooltipContent />} /><Line type="monotone" dataKey="score" name="Selected performance" stroke="#FC6226" strokeWidth={2.5} dot={{ r: 3 }} /><Line type="monotone" dataKey="benchmark" name="Benchmark" stroke="#94a3c2" strokeDasharray="4 4" /></LineChart></ResponsiveContainer></div></Panel></>}</div>;
-}
-
-function StudentsPage({ onView, role }: { onView: (student: (typeof students)[number]) => void; role: Role }) {
-  const [search, setSearch] = useState("");
-  const [academicYear, setAcademicYear] = useState("2026-27");
-  const [section, setSection] = useState("All sections");
-  const usersQuery = trpc.admin.users.useQuery({ actorRole: "Admin" });
-  const reportQuery = trpc.reports.rows.useQuery({}, { enabled: role === "HOD" });
-
-  const extraStudents = (usersQuery.data ?? [])
-    .filter((u: any) => u.portalRole === "Student")
-    .map((u: any) => ({
-      reg: u.openId || u.username,
-      name: u.name,
-      section: u.department?.includes("IT") ? "IT A" : "CSE A",
-      semester: "Semester I",
-      average: 82,
-      status: u.status === "ACTIVE" ? "On track" : "Monitor",
-    }));
-
-  const allStudentsList = [
-    ...students,
-    ...extraStudents.filter((e: any) => !students.some((s) => s.reg === e.reg)),
-  ];
-
-  const visible = allStudentsList.filter((student) => `${student.name} ${student.reg} ${student.section}`.toLowerCase().includes(search.toLowerCase()) && (role !== "HOD" || section === "All sections" || student.section === section));
-  const reviewRows = (reportQuery.data ?? []).filter((row) => row.submission.status === "PENDING_DEAN" || row.submission.status === "HOD_APPROVED" || row.submission.status === "FINAL_APPROVED" || (row.submission.status as string) === "submitted_to_dean" || (row.submission.status as string) === "approved").flatMap((row) => { let parsed: Record<string, number> = {}; try { parsed = JSON.parse(row.submission.marksJson); } catch { } const regs = Array.from(new Set(Object.keys(parsed).map((key) => key.replace(/-(internal|test|quiz|seminar)$/, "")))); return regs.map((reg) => { const matched = students.find((student) => student.reg === reg); const total = ["internal", "test", "quiz", "seminar"].reduce((sum, component) => sum + Number(parsed[`${reg}-${component}`] ?? 0), 0); return { key: `${row.submission.id}-${reg}`, reg, name: matched?.name ?? reg, subject: row.subject?.name ?? "Subject", section: row.submission.section, assessment: row.submission.assessment, total, percentage: Math.round((total / 80) * 100) }; }); });
-  return <div className="space-y-6"><PageIntro eyebrow={role === "HOD" ? "Department directory" : "Faculty workspace"} title="Students" description={role === "HOD" ? "Select academic year and section to review students and their submitted marks." : "Search and review your assigned student records."} /><Panel className="p-4"><div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">{role !== "HOD" && <div className="relative w-full md:max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search students" className="h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-xs" /></div>}{role === "HOD" && <div className="flex flex-wrap gap-2"><div><label className="mb-1 block text-[10px] font-semibold text-slate-500">Academic year</label><select value={academicYear} onChange={(event) => setAcademicYear(event.target.value)} className="h-10 rounded-md border border-slate-200 bg-white px-3 text-xs"><option>2026-27</option></select></div><div><label className="mb-1 block text-[10px] font-semibold text-slate-500">Section</label><select value={section} onChange={(event) => setSection(event.target.value)} className="h-10 rounded-md border border-slate-200 bg-white px-3 text-xs"><option>All sections</option><option>CSE A</option><option>CSE B</option></select></div></div>}</div></Panel><Panel className="overflow-hidden"><div className="mobile-table-scroll"><table className="w-full min-w-[680px] text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Student</th><th className="px-4 py-3">Section</th><th className="px-4 py-3">Semester</th><th className="px-4 py-3">Average performance</th><th className="px-5 py-3 text-right">Status</th>{role !== "HOD" && <th className="px-5 py-3 text-right">View</th>}</tr></thead><tbody className="divide-y divide-slate-100">{visible.map((student) => <tr key={student.reg}><td className="px-5 py-3.5"><p className="text-xs font-semibold text-slate-800">{student.name}</p><p className="mt-0.5 text-[11px] text-slate-400">{student.reg}</p></td><td className="px-4 py-3.5 text-xs text-slate-600">{student.section}</td><td className="px-4 py-3.5 text-xs text-slate-600">{student.semester}</td><td className="px-4 py-3.5"><div className="flex w-36 items-center gap-2"><MiniProgress value={student.average} color={student.average >= 75 ? "#FC6226" : student.average >= 65 ? "#b45309" : "#b91c1c"} /><span className="text-xs font-semibold text-slate-800">{student.average}%</span></div></td><td className="px-5 py-3.5 text-right"><StatusBadge tone={student.status === "On track" ? "success" : student.status === "Monitor" ? "warning" : "danger"}>{student.status}</StatusBadge></td>{role !== "HOD" && <td className="px-5 py-3.5 text-right"><button onClick={() => onView(student)} className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#FC6226] hover:underline"><Eye size={14} />View</button></td>}</tr>)}</tbody></table></div><div className="border-t border-slate-100 px-5 py-4"><p className="text-[11px] text-slate-400">Showing {visible.length} students for {academicYear}{role === "HOD" && section !== "All sections" ? ` · ${section}` : ""}</p></div></Panel>{role === "HOD" && <Panel className="overflow-hidden"><div className="border-b border-slate-100 p-5"><SectionHeading title="Submitted student marks" detail="Read-only marks from faculty submissions after HOD review" /></div><div className="mobile-table-scroll"><table className="w-full min-w-[820px] text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Student</th><th className="px-4 py-3">Subject</th><th className="px-4 py-3">Section</th><th className="px-4 py-3">Assessment</th><th className="px-4 py-3">Marks</th><th className="px-5 py-3 text-right">Mode</th></tr></thead><tbody className="divide-y divide-slate-100">{reviewRows.map((row) => <tr key={row.key}><td className="px-5 py-3.5"><p className="text-xs font-semibold text-slate-800">{row.name}</p><p className="mt-0.5 text-[11px] text-slate-400">{row.reg}</p></td><td className="px-4 py-3.5 text-xs text-slate-600">{row.subject}</td><td className="px-4 py-3.5 text-xs text-slate-600">{row.section}</td><td className="px-4 py-3.5 text-xs text-slate-600">{row.assessment}</td><td className="px-4 py-3.5 text-xs font-bold text-slate-800">{row.total}/80 · {row.percentage}%</td><td className="px-5 py-3.5 text-right"><StatusBadge tone="neutral">Read only</StatusBadge></td></tr>)}</tbody></table></div>{reviewRows.length === 0 && <p className="p-8 text-center text-xs text-slate-500">No HOD-reviewed student marks are available for the current data.</p>}</Panel>}</div>;
-}
-
-function ReportsPage({ onToast }: { onToast: (message: string) => void }) {
-  const subjectsQuery = trpc.subjects.list.useQuery();
-  const [semester, setSemester] = useState("I");
-  const [section, setSection] = useState("All sections");
-  const [subjectId, setSubjectId] = useState<number | undefined>(undefined);
-  const reportsQuery = trpc.reports.rows.useQuery({ semester, section: section === "All sections" ? undefined : section, subjectId });
-  const publishMutation = trpc.marks.publishResults.useMutation({
-    onSuccess: (res) => {
-      reportsQuery.refetch();
-      onToast(`Successfully published ${res.count ?? 0} result record(s) to the student portal!`);
-    }
-  });
-  const rows = reportsQuery.data ?? [];
-  const exportWorkbook = (kind: "overall" | "IA-1" | "IA-2") => { const selectedRows = rows.filter((row) => kind === "overall" || row.submission.assessment === kind); const data = selectedRows.map((row) => ({ Student: "Class marks", Subject: row.subject?.name ?? "", Semester: row.submission.semester, Section: row.submission.section, Assessment: row.submission.assessment, Status: row.submission.status, Marks: row.submission.marksJson })); const workbook = XLSX.utils.book_new(); const sheet = XLSX.utils.json_to_sheet(data.length ? data : [{ Notice: "No submitted marks match the selected parameters" }]); XLSX.utils.book_append_sheet(workbook, sheet, kind === "overall" ? "Overall Marks" : kind.replace("-", " ")); downloadWorkbook(workbook, `KVELL_${kind.replace("-", "_")}_marks.xlsx`); onToast(`${kind === "overall" ? "Overall" : kind} Excel downloaded`); };
-  return <div className="space-y-6"><PageIntro eyebrow="Reporting center" title="Reports" description="Export overall marks, publish assessment results to student portal, or download workbooks." action={<button onClick={() => publishMutation.mutate({ subjectId })} disabled={publishMutation.isPending} className="inline-flex items-center gap-2 rounded-md bg-[#FC6226] px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#E04F18] disabled:opacity-50"><CheckCircle2 size={14} />{publishMutation.isPending ? "Publishing..." : subjectId ? "Publish Selected Subject Results" : "Publish All Results to Portal"}</button>} /><Panel className="p-5"><SectionHeading title="Report parameters" detail="Filter the report dataset before downloading Excel or publishing results" /><div className="grid gap-4 sm:grid-cols-3"><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Semester</label><select value={semester} onChange={(event) => setSemester(event.target.value)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs"><option>VI</option><option>V</option><option>IV</option></select></div><FieldSelect label="Section" value={section} options={["All sections", "CSE A", "CSE B"]} /><div><label className="mb-1.5 block text-[11px] font-semibold text-slate-500">Subject</label><select value={subjectId ?? ""} onChange={(event) => setSubjectId(Number(event.target.value) || undefined)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs"><option value="">All subjects</option>{(subjectsQuery.data ?? []).map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></div></div><div className="mt-5 grid gap-3 md:grid-cols-3"><button onClick={() => exportWorkbook("overall")} className="inline-flex items-center justify-center gap-2 rounded-md bg-[#FC6226] px-3.5 py-3 text-xs font-semibold text-white hover:bg-[#E04F18]"><Download size={14} />Export overall marks Excel</button><button onClick={() => exportWorkbook("IA-1")} className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3.5 py-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Download size={14} />Export IA-1 Excel</button><button onClick={() => exportWorkbook("IA-2")} className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3.5 py-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Download size={14} />Export IA-2 Excel</button></div><p className="mt-4 text-[11px] text-slate-500">{rows.length} persisted submission records available for export.</p></Panel></div>;
-}
-
-function FacultyPage() {
-  const requestsQuery = trpc.review.requests.useQuery();
-  const reviewMutation = trpc.review.reviewSubmission.useMutation({ onSuccess: () => { requestsQuery.refetch(); setSelectedId(null); }, onError: () => requestsQuery.refetch() });
-  const requests = requestsQuery.data ?? [];
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const selected = requests.find((row) => row.submission.id === selectedId);
-  const comparisonInput = useMemo(() => selected ? { subjectId: selected.submission.subjectId, semester: selected.submission.semester, section: selected.submission.section } : { semester: "__none__" }, [selected]);
-  const comparisonQuery = trpc.reports.rows.useQuery(comparisonInput, { enabled: Boolean(selected) });
-  const comparison = buildIAComparison(comparisonQuery.data ?? []);
-  const review = (decision: "approve" | "return") => { if (selected && !reviewMutation.isPending) reviewMutation.mutate({ id: selected.submission.id, decision, reviewer: "HOD" }); };
-  const marks = selected ? (() => { try { return JSON.parse(selected.submission.marksJson) as Record<string, number>; } catch { return {}; } })() : {};
-  const iaMarkRows = Object.entries(marks).filter(([key]) => key.endsWith("-internal")).map(([key, value]) => { const reg = key.replace(/-internal$/, ""); const student = students.find((item) => item.reg === reg); return { reg, name: student?.name ?? reg, value: Number(value || 0) }; });
-  const exportSelected = () => { if (!selected) return; const data = iaMarkRows.map((row) => ({ Department: "Computer Science and Engineering", Year: selected.submission.academicYear, Semester: selected.submission.semester, Subject: selected.subject?.name ?? "", Section: selected.submission.section, Assessment: selected.submission.assessment, Name: row.name, "IA Mark": row.value })); const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), selected.submission.assessment); downloadWorkbook(workbook, `KVELL_CSE_${selected.submission.assessment}_review.xlsx`); };
-  return <div className="space-y-6"><PageIntro eyebrow="HOD workspace" title="Faculty review requests" description="Only faculty mark-review requests are shown. Select a request to inspect each student’s IA mark in read-only mode and approve or reject it." /><Panel className="p-5"><SectionHeading title="Pending review requests" detail="Every request includes year, semester, subject, section, and assessment." /><div className="mt-4 space-y-3">{requests.map((row) => <button key={row.submission.id} onClick={() => setSelectedId(row.submission.id)} className={cn("w-full rounded-lg border p-4 text-left transition hover:border-[#FC6226]/30 hover:bg-[#FFE8C2]/30", selectedId === row.submission.id ? "border-[#F5D8B4] bg-[#FFE8C2]/50" : "border-slate-100")}><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-slate-800">{row.subject?.name ?? "Subject"}</p><p className="mt-1 text-[11px] text-slate-500">YR {row.submission.academicYear} · SEM {row.submission.semester} · SUB {row.subject?.code ?? "—"} · SEC {row.submission.section} · {row.submission.assessment}</p></div><StatusBadge tone="warning">Awaiting review</StatusBadge></div></button>)}{requests.length === 0 && <EmptyState title="No faculty review requests" detail="Faculty requests will appear here after marks are submitted for HOD review." />}</div></Panel>{selected && <><Panel className="overflow-hidden"><div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[11px] font-semibold uppercase tracking-wide text-[#C2410C]">Computer Science and Engineering · IA review</p><h2 className="mt-1 text-base font-semibold text-slate-900">{selected.subject?.name ?? "Subject"}</h2><p className="mt-1 text-xs text-slate-500">YR {selected.submission.academicYear} · SEM {selected.submission.semester} · SUB {selected.subject?.code ?? "—"} · SEC {selected.submission.section} · {selected.submission.assessment}</p></div><div className="flex gap-2"><button onClick={exportSelected} className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"><Download size={14} />Export Excel</button><button onClick={() => review("return")} disabled={reviewMutation.isPending} className="rounded-md border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50">Reject</button><button onClick={() => review("approve")} disabled={reviewMutation.isPending} className="rounded-md bg-[#FC6226] px-3 py-2 text-xs font-semibold text-white hover:bg-[#E04F18]">Approve & send Dean</button></div></div><div className="mobile-table-scroll"><table className="w-full min-w-[500px] text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Name</th><th className="px-4 py-3">Value</th><th className="px-5 py-3 text-right">Mode</th></tr></thead><tbody className="divide-y divide-slate-100">{iaMarkRows.map((row) => <tr key={row.reg}><td className="px-5 py-3.5 text-xs font-medium text-slate-700">{row.name}</td><td className="px-4 py-3.5 text-xs font-semibold text-slate-900">{row.value}</td><td className="px-5 py-3.5 text-right"><StatusBadge tone="neutral">Read only</StatusBadge></td></tr>)}</tbody></table></div></Panel><Panel className="p-5"><SectionHeading title="IA-1 vs IA-2 · CSE" detail="Comparison of submitted review marks" /><div className="mb-4 grid gap-4 lg:grid-cols-2">{comparison.map((item) => <div key={item.assessment} className="rounded-lg border border-slate-100 p-3"><p className="mb-3 text-xs font-bold text-[#8C2F00]">{item.assessment} · Computer Science and Engineering</p><div className="grid grid-cols-2 gap-2">{([["Average", item.average], ["Highest", item.highest], ["Lowest", item.lowest], ["Pass percentage", item.passPercentage]] as const).map(([label, value]) => <div key={label} className="rounded-md bg-[#FFF4D6]/50 p-2"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 text-lg font-bold text-slate-900">{value}{label === "Pass percentage" ? "%" : ""}</p></div>)}</div></div>)}</div><div className="h-[250px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={comparison}><CartesianGrid stroke="#e2e8f0" vertical={false} strokeDasharray="3 3" /><XAxis dataKey="assessment" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} /><YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="average" name="Average" fill="#FC6226" radius={[4, 4, 0, 0]} /><Bar dataKey="highest" name="Highest" fill="#E04F18" radius={[4, 4, 0, 0]} /><Bar dataKey="lowest" name="Lowest" fill="#FDBA74" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div></Panel></>}</div>;
-}
-
-function AtRiskPage({ role, onView }: { role: Role; onView: () => void }) {
-  const rows = role === "Dean" ? departments.flatMap((department, index) => [{ reg: `22${department.short}0${index + 1}`, student: ["Nisha Thomas", "Kabir Rao", "Mira Joseph", "Rohan Das"][index], department: department.short, subject: index % 2 ? "Operating Systems" : "DBMS", performance: 54 + index * 4, previous: 62 + index * 2, status: index === 0 ? "Critical" : index === 1 ? "Monitor" : "Improving" }]) : attentionStudents.map((item) => ({ reg: item.reg, student: item.student, department: "CSE", subject: item.subject, performance: item.performance, previous: item.performance + (item.trend === "down" ? 8 : item.trend === "up" ? -5 : 1), status: item.status }));
-  return <div className="space-y-6"><PageIntro eyebrow={role === "Dean" ? "College monitoring" : "Focused monitoring"} title="At-risk students" description={role === "Dean" ? "College-wide view of students requiring academic support." : "Prioritize interventions using current and previous performance signals."} /><div className="grid gap-4 sm:grid-cols-3"><KpiCard label="Critical" value={role === "Dean" ? "31" : "12"} note="Immediate follow-up" icon={AlertCircle} tone="amber" trend="down" /><KpiCard label="Monitor" value={role === "Dean" ? "55" : "18"} note="Review this cycle" icon={Clock3} trend="flat" /><KpiCard label="Improving" value="24" note="Positive movement" icon={TrendingUp} tone="green" trend="up" /></div><Panel className="overflow-hidden"><div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-[15px] font-semibold text-slate-900">Priority student list</h2><p className="mt-1 text-[11px] text-slate-500">Sorted by current performance and trend direction.</p></div></div><div className="mobile-table-scroll"><table className="w-full min-w-[820px] text-left"><thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Student</th>{role === "Dean" && <th className="px-4 py-3">Department</th>}<th className="px-4 py-3">Subject</th><th className="px-4 py-3">Current</th><th className="px-4 py-3">Previous</th><th className="px-4 py-3">Trend</th><th className="px-5 py-3 text-right">Action</th></tr></thead><tbody className="divide-y divide-slate-100">{rows.map((row) => { const trend = row.performance > row.previous ? "up" : row.performance < row.previous ? "down" : "flat"; return <tr key={row.reg} className="hover:bg-slate-50/70"><td className="px-5 py-3.5"><p className="text-xs font-semibold text-slate-800">{row.student}</p><p className="mt-0.5 text-[11px] text-slate-400">{row.reg}</p></td>{role === "Dean" && <td className="px-4 py-3.5 text-xs text-slate-600">{row.department}</td>}<td className="px-4 py-3.5 text-xs text-slate-600">{row.subject}</td><td className="px-4 py-3.5 text-xs font-bold text-slate-800">{row.performance}%</td><td className="px-4 py-3.5 text-xs text-slate-500">{row.previous}%</td><td className="px-4 py-3.5">{trend === "down" ? <span className="flex items-center gap-1 text-xs font-semibold text-red-700"><TrendingDown size={14} />Declining</span> : trend === "up" ? <span className="flex items-center gap-1 text-xs font-semibold text-green-700"><TrendingUp size={14} />Improving</span> : <span className="flex items-center gap-1 text-xs font-semibold text-slate-500"><Activity size={14} />Stable</span>}</td><td className="px-5 py-3.5 text-right"><button onClick={onView} className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#FC6226] hover:underline"><Eye size={14} />View</button></td></tr>; })}</tbody></table></div></Panel></div>;
-}
-
-function DepartmentsPage({ onToast }: { onToast: (message: string) => void }) {
-  const subjectsQuery = trpc.subjects.list.useQuery();
-  const reportsQuery = trpc.reports.rows.useQuery({});
-  const rows = subjectsQuery.data ?? [];
-  const reportRows = reportsQuery.data ?? [];
-  const liveRows = rows.map((subject) => { const related = reportRows.filter((row) => row.subject?.id === subject.id); const average = subject.averageScore || (related.length ? Math.round(related.reduce((sum, row) => { try { const values = Object.values(JSON.parse(row.submission.marksJson) as Record<string, number>); return sum + values.reduce((inner, value) => inner + Number(value || 0), 0) / Math.max(values.length, 1); } catch { return sum; } }, 0) / related.length / 20 * 100) : 0); return { ...subject, average: Math.round(average), department: (subject as any).department || subject.section.split(" ")[0] }; });
-  return <div className="space-y-6"><PageIntro eyebrow="Executive overview" title="Departments" description="Compare live academic outcomes from persisted subjects and marks submissions." /><div className="grid gap-4 md:grid-cols-2">{liveRows.map((department, index) => <Panel key={department.id} className="reveal-up p-5"><div className="flex items-start justify-between gap-3"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FC6226] text-xs font-bold text-white">{department.section.split(" ")[0].slice(0, 3).toUpperCase()}</div><div><h2 className="text-[15px] font-semibold text-slate-900">{department.name}</h2><p className="mt-1 text-[11px] text-slate-500">{department.department} · {department.studentCount} students · {department.section}</p></div></div><StatusBadge tone={department.average >= 75 ? "success" : "warning"}>{department.average >= 75 ? "Strong" : "Review"}</StatusBadge></div><div className="mt-5 grid grid-cols-3 gap-3"><MetricTile label="Average" value={department.average ? `${department.average}%` : "—"} /><MetricTile label="Semester" value={department.semester} /><MetricTile label="Submissions" value={`${reportRows.filter((row) => row.subject?.id === department.id).length}`} tone="success" /></div><button onClick={() => onToast(`${department.name} analytics loaded from live records`)} className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-[#FC6226] hover:underline">View live analytics <ChevronRight size={14} /></button></Panel>)}{!liveRows.length && <EmptyState title="No department data yet" detail="Create subjects and submit marks to populate executive analytics." />}</div></div>;
-}
-
-function TrendsPage() {
-  const reportsQuery = trpc.reports.rows.useQuery({});
-  const rows = reportsQuery.data ?? [];
-  const grouped: Array<{ department: string; name: string; ia1: number; ia2: number }> = Array.from(new Map<string, string>(rows.map((row: any) => [row.subject?.code ?? `SUB-${row.submission.subjectId}`, row.subject?.name ?? "Subject"])).entries()).map(([code, name]) => { const current = rows.filter((row: any) => (row.subject?.code ?? `SUB-${row.submission.subjectId}`) === code); const values = (assessment: "IA-1" | "IA-2") => { const selected = current.filter((row: any) => row.submission.assessment === assessment); let total = 0; let count = 0; selected.forEach((row: any) => { try { const parsed = JSON.parse(row.submission.marksJson) as Record<string, number>; total += Object.values(parsed).reduce((sum, value) => sum + Number(value || 0), 0); count += Object.keys(parsed).length; } catch { } }); return count ? Math.round((total / (count * 20)) * 100) : 0; }; return { department: String(code), name: String(name), ia1: values("IA-1"), ia2: values("IA-2") }; });
-  const trendRows = grouped.length ? grouped : [{ department: "No data", name: "No persisted subjects", ia1: 0, ia2: 0 }];
-  return <div className="space-y-6"><PageIntro eyebrow="Executive analytics" title="Trend analysis" description="Live assessment movement calculated from persisted marks submissions." /><div className="grid gap-5 xl:grid-cols-[1.2fr_1fr]"><Panel className="p-5"><SectionHeading title="IA-1 vs IA-2 by subject" detail="Calculated from current backend records" /><div className="h-[290px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={trendRows} margin={{ top: 8, right: 8, left: -22, bottom: 0 }}><CartesianGrid stroke="#e2e8f0" vertical={false} strokeDasharray="3 3" /><XAxis dataKey="department" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} dy={10} /><YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} tickFormatter={(v) => `${v}%`} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="ia1" name="IA-1" fill="#FDBA74" radius={[4, 4, 0, 0]} barSize={18} /><Bar dataKey="ia2" name="IA-2" fill="#FC6226" radius={[4, 4, 0, 0]} barSize={18} /></BarChart></ResponsiveContainer></div></Panel><Panel className="p-5"><SectionHeading title="Live trend signals" detail="Decision support summary" /><div className="space-y-3 pt-2">{trendRows.slice(0, 4).map((row) => <div key={String(row.department)} className="rounded-lg border border-slate-100 p-3"><div className="flex items-center justify-between"><span className="text-xs font-semibold text-slate-800">{String(row.name)}</span><span className={cn("text-xs font-bold", row.ia2 >= row.ia1 ? "text-green-700" : "text-red-700")}>{row.ia2 - row.ia1 >= 0 ? "+" : ""}{row.ia2 - row.ia1} pts</span></div><p className="mt-1 text-[11px] text-slate-500">IA-1 {row.ia1 || "—"}% → IA-2 {row.ia2 || "—"}%</p></div>)}</div></Panel></div></div>;
-}
-
-
-
 function PageIntro({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: React.ReactNode }) {
   return <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#FC6226]">{eyebrow}</p><h1 className="mt-2 text-[26px] font-semibold tracking-[-0.04em] text-slate-950">{title}</h1><p className="mt-2 max-w-2xl text-[13px] text-slate-500">{description}</p></div>{action}</div>;
 }
@@ -2342,1053 +1614,6 @@ function EmptyState({ title, detail }: { title: string; detail: string }) {
   return <Panel className="flex min-h-[220px] flex-col items-center justify-center p-6 text-center"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400"><Search size={17} /></div><h2 className="mt-3 text-sm font-semibold text-slate-800">{title}</h2><p className="mt-1 text-xs text-slate-500">{detail}</p></Panel>;
 }
 
-function AdminPage({ onToast }: { onToast: (message: string) => void }) {
-  const adminInput = useMemo(() => ({ actorRole: "Admin" as const }), []);
-  const usersQuery = trpc.admin.users.useQuery(adminInput);
-
-  const createMutation = trpc.admin.createUser.useMutation({
-    onSuccess: (data) => {
-      usersQuery.refetch();
-      onToast(`New user account '${data?.user?.username || "user"}' created successfully`);
-      setIsCreateOpen(false);
-      resetForm();
-    },
-    onError: (error) => {
-      onToast(error.message || "Unable to create user account. Check username/email.");
-    },
-  });
-
-  const roleMutation = trpc.admin.updateUserRole.useMutation({
-    onSuccess: () => {
-      usersQuery.refetch();
-      onToast("User portal role updated");
-    },
-  });
-
-  const statusMutation = trpc.admin.updateUserStatus.useMutation({
-    onSuccess: (data) => {
-      usersQuery.refetch();
-      onToast(`User access ${(data?.status as string)?.toUpperCase() === "ACTIVE" ? "granted" : "revoked"}`);
-    },
-  });
-
-  const passwordMutation = trpc.admin.updateUserPassword.useMutation({
-    onSuccess: () => {
-      usersQuery.refetch();
-      onToast("User password updated successfully");
-      setChangePasswordUser(null);
-      setNewPassword("");
-    },
-  });
-
-  const deleteUserMutation = trpc.admin.deleteUser.useMutation({
-    onSuccess: () => {
-      usersQuery.refetch();
-      onToast("User account removed from directory");
-    },
-  });
-
-  const deleteMarksMutation = trpc.admin.deleteAllMarks.useMutation({
-    onSuccess: () => {
-      onToast("All student marks and review notifications were deleted");
-    },
-  });
-
-  const users = usersQuery.data ?? [];
-
-  // State for Create User Form
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [username, setUsername] = useState("");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [portalRole, setPortalRole] = useState<Role>("Faculty");
-  const [department, setDepartment] = useState("Computer Science & Engineering");
-  const [accessStatus, setAccessStatus] = useState<"Active" | "Revoked">("Active");
-
-  // State for Filters & Password Modal
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("All");
-  const [statusFilter, setStatusFilter] = useState<string>("All");
-  const [changePasswordUser, setChangePasswordUser] = useState<any | null>(null);
-  const [newPassword, setNewPassword] = useState("");
-  const [visiblePasswords, setVisiblePasswords] = useState<Record<number, boolean>>({});
-
-  const resetForm = () => {
-    setUsername("");
-    setName("");
-    setEmail("");
-    setPassword("");
-    setPortalRole("Faculty");
-    setDepartment("Computer Science & Engineering");
-    setAccessStatus("Active");
-  };
-
-  const generatePassword = () => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789#@!";
-    let pwd = "";
-    for (let i = 0; i < 10; i++) {
-      pwd += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setPassword(pwd);
-  };
-
-  const handleCreateSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username || !name || !email) {
-      onToast("Please fill in User ID, Full Name, and Email");
-      return;
-    }
-    createMutation.mutate({
-      actorRole: "Admin",
-      username,
-      name,
-      email,
-      password: password || "kvell#2026",
-      portalRole,
-      department,
-      status: accessStatus,
-    });
-  };
-
-  const toggleShowUserPassword = (id: number) => {
-    setVisiblePasswords((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch =
-      `${user.name} ${user.openId} ${user.email} ${user.department}`
-        .toLowerCase()
-        .includes(search.toLowerCase());
-    const matchesRole = roleFilter === "All" || user.portalRole === roleFilter;
-    const matchesStatus = statusFilter === "All" || user.status === statusFilter;
-    return matchesSearch && matchesRole && matchesStatus;
-  });
-
-  const deleteMarks = () => {
-    if (
-      window.confirm(
-        "Delete all student marks and review notifications? This cannot be undone."
-      )
-    )
-      deleteMarksMutation.mutate({
-        actorRole: "Admin",
-        confirmation: "DELETE_ALL_MARKS",
-      });
-  };
-
-  return (
-    <div className="space-y-6">
-      <PageIntro
-        eyebrow="Administration & Security"
-        title="Admin Panel & User Access Control"
-        description="Create user accounts, set credentials & passwords, assign roles, and grant or revoke webportal access for faculty, department heads, and administrators."
-        action={
-          <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              onClick={() => {
-                const randomId = Math.floor(100 + Math.random() * 900);
-                setUsername(`KVELL2025CSE${randomId}`);
-                setName("New CSE Student");
-                setEmail(`student.cse${randomId}@students.kvell.edu`);
-                setPortalRole("Student");
-                setDepartment("Computer Science & Engineering");
-                generatePassword();
-                setIsCreateOpen(true);
-              }}
-              className="inline-flex items-center gap-2 rounded-2xl bg-[#D4A72C] hover:bg-[#b08014] px-4 py-2.5 text-xs font-extrabold text-[#0B192C] shadow-md transition duration-150 active:scale-[0.98]"
-            >
-              <UserPlus size={16} />
-              <span>Create CSE Student User</span>
-            </button>
-            <button
-              onClick={() => {
-                generatePassword();
-                setIsCreateOpen(true);
-              }}
-              className="inline-flex items-center gap-2 rounded-2xl bg-[#0B192C] hover:bg-[#152744] px-5 py-2.5 text-xs font-extrabold text-white shadow-md border border-[#D4A72C]/40 transition duration-150 active:scale-[0.98]"
-            >
-              <UserPlus size={16} className="text-[#D4A72C]" />
-              <span>Create User Account</span>
-            </button>
-          </div>
-        }
-      />
-
-      {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-4">
-        <KpiCard
-          label="Total User Accounts"
-          value={`${users.length}`}
-          note="In webportal directory"
-          icon={UsersRound}
-          trend="flat"
-        />
-        <KpiCard
-          label="Active Access"
-          value={`${users.filter((u) => (u.status as string) !== "REVOKED" && (u.status as string) !== "Revoked").length}`}
-          note="Permitted to sign in"
-          icon={ShieldCheck}
-          tone="green"
-          trend="up"
-        />
-        <KpiCard
-          label="Revoked Access"
-          value={`${users.filter((u) => (u.status as string) === "REVOKED" || (u.status as string) === "Revoked").length}`}
-          note="Access suspended"
-          icon={Lock}
-          tone="amber"
-          trend="down"
-        />
-        <KpiCard
-          label="Administrators"
-          value={`${users.filter((u) => u.portalRole === "Admin" || (u.role as string) === "Admin" || (u.role as string) === "admin").length}`}
-          note="Full system controls"
-          icon={ShieldAlert}
-          trend="flat"
-        />
-      </div>
-
-      {/* CREATE USER MODAL */}
-      {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B192C]/60 p-4 backdrop-blur-md">
-          <div className="w-full max-w-lg rounded-3xl border border-[#D4A72C]/40 bg-white p-7 shadow-2xl reveal-up">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-2.5 text-[#0B192C]">
-                <div className="p-2 rounded-xl bg-[#0B192C] text-[#D4A72C]">
-                  <UserPlus size={18} />
-                </div>
-                <h2 className="text-base font-extrabold text-[#0B192C]">
-                  Create User Account & Access
-                </h2>
-              </div>
-              <button
-                onClick={() => setIsCreateOpen(false)}
-                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSubmit} className="mt-5 space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
-                    User ID / Username *
-                  </label>
-                  <input
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="e.g. faculty.ananya"
-                    required
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 px-3.5 text-xs font-semibold text-[#0B192C] placeholder:text-slate-400 focus:bg-white focus:border-[#0B192C] focus:outline-none transition shadow-sm"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
-                    Full Name *
-                  </label>
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Dr. Ananya Menon"
-                    required
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 px-3.5 text-xs font-semibold text-[#0B192C] placeholder:text-slate-400 focus:bg-white focus:border-[#0B192C] focus:outline-none transition shadow-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
-                  Email Address *
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="ananya@kvelluniversity.edu"
-                  required
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 px-3.5 text-xs font-semibold text-[#0B192C] placeholder:text-slate-400 focus:bg-white focus:border-[#0B192C] focus:outline-none transition shadow-sm"
-                />
-              </div>
-
-              <div>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <label className="text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
-                    Account Password *
-                  </label>
-                  <button
-                    type="button"
-                    onClick={generatePassword}
-                    className="text-[11px] font-bold text-[#8A6410] hover:underline"
-                  >
-                    Generate Random Password
-                  </button>
-                </div>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter or generate password"
-                    required
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 px-3.5 pr-10 text-xs font-semibold text-[#0B192C] focus:bg-white focus:border-[#0B192C] focus:outline-none transition shadow-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#0B192C]"
-                  >
-                    {showPassword ? <Lock size={15} /> : <KeyRound size={15} />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
-                    Portal Access Role *
-                  </label>
-                  <select
-                    value={portalRole}
-                    onChange={(e) => setPortalRole(e.target.value as Role)}
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 px-3.5 text-xs font-bold text-[#0B192C] focus:bg-white focus:border-[#0B192C] focus:outline-none transition shadow-sm"
-                  >
-                    <option value="Student">Student (Result & Elective Portal)</option>
-                    <option value="Faculty">Faculty (Teaching Portal)</option>
-                    <option value="HOD">HOD (Department Portal)</option>
-                    <option value="Dean">Dean (Executive Portal)</option>
-                    <option value="Admin">Admin (System Controls)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
-                    Initial Access Status *
-                  </label>
-                  <select
-                    value={accessStatus}
-                    onChange={(e) =>
-                      setAccessStatus(e.target.value as "Active" | "Revoked")
-                    }
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 px-3.5 text-xs font-bold text-[#0B192C] focus:bg-white focus:border-[#0B192C] focus:outline-none transition shadow-sm"
-                  >
-                    <option value="Active">Active (Permitted)</option>
-                    <option value="Revoked">Revoked (Suspended)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
-                  Department
-                </label>
-                <select
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 px-3.5 text-xs font-bold text-[#0B192C] focus:bg-white focus:border-[#0B192C] focus:outline-none transition shadow-sm"
-                >
-                  <option value="Computer Science & Engineering">
-                    Computer Science & Engineering
-                  </option>
-                  <option value="Information Technology">
-                    Information Technology
-                  </option>
-                  <option value="Electronics & Communication">
-                    Electronics & Communication
-                  </option>
-                  <option value="Mechanical Engineering">
-                    Mechanical Engineering
-                  </option>
-                  <option value="Academic Affairs">Academic Affairs</option>
-                  <option value="University Administration">
-                    University Administration
-                  </option>
-                </select>
-              </div>
-
-              <div className="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateOpen(false)}
-                  className="rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="rounded-2xl bg-[#0B192C] hover:bg-[#152744] text-white border border-[#D4A72C]/40 px-5 py-2.5 text-xs font-extrabold shadow-md transition disabled:opacity-50"
-                >
-                  {createMutation.isPending ? "Creating..." : "Create User Account"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* CHANGE PASSWORD MODAL */}
-      {changePasswordUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B192C]/60 p-4 backdrop-blur-md">
-          <div className="w-full max-w-md rounded-3xl border border-[#D4A72C]/40 bg-white p-6 shadow-2xl reveal-up">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2.5 text-[#0B192C]">
-                <div className="p-1.5 rounded-lg bg-[#0B192C] text-[#D4A72C]">
-                  <KeyRound size={16} />
-                </div>
-                <h3 className="text-sm font-extrabold text-[#0B192C]">
-                  Update Password for {changePasswordUser.name}
-                </h3>
-              </div>
-              <button
-                onClick={() => setChangePasswordUser(null)}
-                className="rounded-full p-1 text-slate-400 hover:bg-slate-100"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <div className="mt-4 space-y-4">
-              <p className="text-xs text-slate-600 font-medium">
-                Set a new password for account{" "}
-                <span className="font-extrabold text-[#0B192C] bg-[#D4A72C]/15 px-2 py-0.5 rounded-md border border-[#D4A72C]/30">
-                  {changePasswordUser.openId}
-                </span>
-                .
-              </p>
-              <div>
-                <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
-                  New Password
-                </label>
-                <input
-                  type="text"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password"
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 px-3.5 text-xs font-semibold text-[#0B192C] focus:bg-white focus:border-[#0B192C] focus:outline-none"
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setChangePasswordUser(null)}
-                  className="rounded-2xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    if (!newPassword) return;
-                    passwordMutation.mutate({
-                      actorRole: "Admin",
-                      userId: changePasswordUser.id,
-                      password: newPassword,
-                    });
-                  }}
-                  disabled={passwordMutation.isPending || !newPassword}
-                  className="rounded-2xl bg-[#0B192C] hover:bg-[#152744] px-5 py-2 text-xs font-extrabold text-white border border-[#D4A72C]/30 shadow-md transition disabled:opacity-50"
-                >
-                  Update Password
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* USER ACCESS DIRECTORY TABLE */}
-      <div className="bg-white rounded-3xl shadow-xl border border-[#E5E1D8] p-6 overflow-hidden">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between pb-4">
-          <div>
-            <h2 className="text-lg font-extrabold text-[#0B192C]">
-              User Access & Credentials Directory
-            </h2>
-            <p className="mt-0.5 text-xs font-medium text-slate-500">
-              Control portal login access, credentials, and role permissions for all users.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="relative w-full sm:w-60">
-              <Search
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                size={14}
-              />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search user ID, name..."
-                className="h-10 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE]/70 pl-9 pr-3.5 text-xs font-semibold text-[#0B192C] focus:bg-white focus:border-[#0B192C] focus:outline-none transition shadow-sm"
-              />
-            </div>
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="h-10 rounded-2xl border border-slate-200 bg-[#F8F5EE]/70 px-3 text-xs font-bold text-[#0B192C] focus:bg-white focus:border-[#0B192C] focus:outline-none transition shadow-sm"
-            >
-              <option value="All">All Roles</option>
-              <option value="Student">Student</option>
-              <option value="Faculty">Faculty</option>
-              <option value="HOD">HOD</option>
-              <option value="Dean">Dean</option>
-              <option value="Admin">Admin</option>
-            </select>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-10 rounded-2xl border border-slate-200 bg-[#F8F5EE]/70 px-3 text-xs font-bold text-[#0B192C] focus:bg-white focus:border-[#0B192C] focus:outline-none transition shadow-sm"
-            >
-              <option value="All">All Access</option>
-              <option value="Active">Active</option>
-              <option value="Revoked">Revoked</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="mt-3 overflow-auto rounded-2xl border border-slate-200 shadow-sm max-h-[75vh]">
-          <div className="mobile-table-scroll">
-            <table className="w-full min-w-[840px] text-left">
-              <thead className="bg-[#0B192C] text-white text-[11px] font-extrabold uppercase tracking-wider sticky top-0 z-20">
-                <tr>
-                  <th className="px-5 py-3.5">User ID & Name</th>
-                  <th className="px-4 py-3.5">Email & Dept</th>
-                  <th className="px-4 py-3.5">Portal Role</th>
-                  <th className="px-4 py-3.5">Password</th>
-                  <th className="px-4 py-3.5">Access Status</th>
-                  <th className="px-5 py-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {filteredUsers.map((user) => {
-                  const isRevoked = (user.status as string) === "REVOKED" || (user.status as string) === "Revoked";
-                  return (
-                    <tr
-                      key={user.id}
-                      className={cn(
-                        "transition hover:bg-[#F8F5EE]/60",
-                        isRevoked && "bg-red-50/30"
-                      )}
-                    >
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-lg bg-[#D4A72C]/15 px-2 py-0.5 text-[11px] font-extrabold text-[#8A6410] border border-[#D4A72C]/30 shadow-sm">
-                            {user.openId}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs font-extrabold text-[#0B192C]">
-                          {user.name}
-                        </p>
-                      </td>
-                      <td className="px-4 py-4">
-                        <p className="text-xs font-medium text-slate-700">{user.email}</p>
-                        <p className="mt-0.5 text-[11px] font-bold text-slate-400">
-                          {user.department || "General"}
-                        </p>
-                      </td>
-                      <td className="px-4 py-4">
-                        <select
-                          value={user.portalRole || ((user.role as string) === "Admin" || (user.role as string) === "admin" ? "Admin" : "Faculty")}
-                          disabled={roleMutation.isPending}
-                          onChange={(e) => {
-                            const selectedRole = e.target.value as Role;
-                            const isSysAdmin = selectedRole === "Admin" ? "admin" : "user";
-                            roleMutation.mutate({
-                              actorRole: "Admin",
-                              userId: user.id,
-                              role: isSysAdmin,
-                              portalRole: selectedRole,
-                            });
-                          }}
-                          className="h-9 rounded-xl border border-slate-200 bg-[#F8F5EE] px-3 text-xs font-extrabold text-[#0B192C] focus:bg-white focus:border-[#0B192C] transition shadow-sm"
-                        >
-                          <option value="Student">Student</option>
-                          <option value="Faculty">Faculty</option>
-                          <option value="HOD">HOD</option>
-                          <option value="Dean">Dean</option>
-                          <option value="Admin">Admin</option>
-                        </select>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-1.5">
-                          <span className="rounded-lg bg-[#D4A72C]/10 px-2.5 py-1 font-mono text-[11px] font-extrabold text-[#8A6410] border border-[#D4A72C]/30">
-                            PBKDF2 Salted
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <StatusBadge tone={isRevoked ? "danger" : "success"}>
-                          {isRevoked ? "Access Revoked" : "Active Access"}
-                        </StatusBadge>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() =>
-                              statusMutation.mutate({
-                                actorRole: "Admin",
-                                userId: user.id,
-                                status: isRevoked ? "Active" : "Revoked",
-                              })
-                            }
-                            disabled={statusMutation.isPending}
-                            className={cn(
-                              "rounded-xl border px-3 py-1.5 text-[11px] font-extrabold transition shadow-sm",
-                              isRevoked
-                                ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                                : "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                            )}
-                            title={isRevoked ? "Grant Access" : "Revoke Access"}
-                          >
-                            {isRevoked ? "Grant Access" : "Revoke"}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setChangePasswordUser(user);
-                              setNewPassword(user.password || "kvell#2026");
-                            }}
-                            className="rounded-xl border border-slate-200 bg-[#F8F5EE] p-2 text-slate-600 hover:bg-slate-200 hover:text-[#0B192C] transition shadow-sm"
-                            title="Change Password"
-                          >
-                            <KeyRound size={15} />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  `Remove user ${user.name} (${user.openId}) permanently?`
-                                )
-                              ) {
-                                deleteUserMutation.mutate({
-                                  actorRole: "Admin",
-                                  userId: user.id,
-                                });
-                              }
-                            }}
-                            disabled={deleteUserMutation.isPending}
-                            className="rounded-xl border border-red-200 bg-red-50 p-2 text-red-600 hover:bg-red-100 transition shadow-sm"
-                            title="Delete User Account"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          {filteredUsers.length === 0 && (
-            <p className="p-8 text-center text-xs font-semibold text-slate-500">
-              No user accounts found matching your search.
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ElectivesComponent({ onToast }: { onToast: (msg: string) => void }) {
-  const [semester, setSemester] = useState("Semester I");
-  const [deptKey, setDeptKey] = useState("Computer Science & Engineering");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-
-  const [groupName, setGroupName] = useState("Professional Elective - I");
-  const [openAt, setOpenAt] = useState("2026-10-01T09:00");
-  const [closeAt, setCloseAt] = useState("2026-10-05T23:59");
-  const [status, setStatus] = useState("OPEN");
-
-  const [electiveCourses, setElectiveCourses] = useState([
-    { code: "CS305E", name: "Machine Learning & Intelligent Systems", credits: 4, category: "Professional Elective I", faculty: "Dr. Ananya Menon" },
-    { code: "CS306E", name: "Cloud Native Computing & Microservices", credits: 4, category: "Professional Elective I", faculty: "Prof. Vikram Shah" },
-    { code: "CS307E", name: "Cyber Security & Information Assurance", credits: 4, category: "Professional Elective I", faculty: "Dr. Raghav Iyer" },
-    { code: "CS308E", name: "Data Science & Big Data Engineering", credits: 4, category: "Professional Elective I", faculty: "Dr. Priya Nair" },
-  ]);
-
-  const [newCode, setNewCode] = useState("");
-  const [newName, setNewName] = useState("");
-  const [newCredits, setNewCredits] = useState(4);
-  const [newFaculty, setNewFaculty] = useState("");
-
-  const handleAddCourse = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCode || !newName) {
-      onToast("Please enter course code and title");
-      return;
-    }
-    setElectiveCourses((prev) => [
-      ...prev,
-      { code: newCode, name: newName, credits: Number(newCredits), category: groupName, faculty: newFaculty || "Faculty" },
-    ]);
-    onToast(`Added elective subject '${newCode} - ${newName}' to group`);
-    setNewCode("");
-    setNewName("");
-    setNewFaculty("");
-  };
-
-  return (
-    <div className="space-y-6 w-full">
-      <div className="bg-white text-[#0B192C] rounded-3xl p-6 sm:p-8 shadow-sm border border-[#D4A72C]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div>
-          <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-black uppercase px-2.5 py-0.5 rounded tracking-widest inline-block mb-2 shadow-sm">
-            ELECTIVE GROUP MANAGEMENT
-          </span>
-          <h2 className="text-2xl font-black tracking-tight text-[#0B192C]">
-            Department Elective Configurations
-          </h2>
-          <p className="text-xs text-slate-600 mt-1 max-w-xl font-medium leading-relaxed">
-            Configure semester elective groups, set open/close selection windows, and add available course offerings for student enrollment.
-          </p>
-        </div>
-
-        <button
-          onClick={() => setIsCreateOpen(true)}
-          className="px-5 py-3 rounded-2xl bg-[#D4A72C] text-[#0B192C] font-extrabold text-xs hover:bg-[#c39722] transition shadow-lg flex items-center gap-2 shrink-0 active:scale-95"
-        >
-          <Plus size={16} strokeWidth={3} /> Create Elective Group
-        </button>
-      </div>
-
-      {/* Main Elective Group Details Card */}
-      <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-xl p-6 sm:p-8 space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#E5E1D8] pb-5">
-          <div>
-            <span className="text-[10px] font-black uppercase text-[#8A6410] tracking-wider">
-              {deptKey.toUpperCase()} · {semester}
-            </span>
-            <h3 className="font-extrabold text-2xl text-[#0B192C] mt-0.5">
-              {groupName}
-            </h3>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-black border border-emerald-300 shadow-sm flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              STATUS: {status}
-            </span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs bg-[#F8F5EE] p-5 rounded-2xl border border-[#E5E1D8]">
-          <div className="flex items-center gap-3 text-slate-800 font-bold">
-            <Calendar size={18} className="text-[#8A6410]" />
-            <div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase">Selection Opens</p>
-              <p className="text-xs font-black text-[#0B192C]">01 Oct 2026, 09:00 AM</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 text-slate-800 font-bold">
-            <Clock size={18} className="text-red-500" />
-            <div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase">Selection Closes</p>
-              <p className="text-xs font-black text-[#0B192C]">05 Oct 2026, 11:59 PM</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 text-slate-800 font-bold">
-            <CheckCircle2 size={18} className="text-emerald-600" />
-            <div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase">Selection Rule</p>
-              <p className="text-xs font-black text-emerald-800">Exactly 1 Subject Required</p>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="font-extrabold text-xs uppercase text-[#8A6410] tracking-wider">
-              Offered Elective Courses ({electiveCourses.length})
-            </h4>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {electiveCourses.map((c) => (
-              <div
-                key={c.code}
-                className="p-5 rounded-2xl border border-[#E5E1D8] bg-white flex items-center justify-between hover:border-[#D4A72C] transition shadow-sm hover:shadow-md"
-              >
-                <div>
-                  <span className="font-mono text-xs font-black text-[#8A6410] bg-[#D4A72C]/10 px-2.5 py-0.5 rounded-md border border-[#D4A72C]/30 inline-block mb-1">
-                    {c.code}
-                  </span>
-                  <span className="font-extrabold text-sm text-[#0B192C] block">
-                    {c.name}
-                  </span>
-                  {c.faculty && (
-                    <span className="text-[11px] font-bold text-slate-500 mt-0.5 block">
-                      Instructor: {c.faculty}
-                    </span>
-                  )}
-                </div>
-                <span className="px-3 py-1 rounded-xl bg-[#0B192C] font-black text-[11px] text-[#D4A72C] shrink-0 ml-3 shadow-sm">
-                  {c.credits} Credits
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Add New Course Form inside Group */}
-        <div className="border-t border-[#E5E1D8] pt-6">
-          <h4 className="font-extrabold text-xs uppercase text-[#0B192C] tracking-wider mb-3">
-            Add Elective Course to Offering Group
-          </h4>
-          <form onSubmit={handleAddCourse} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <input
-              type="text"
-              placeholder="Code (e.g. CS309E)"
-              value={newCode}
-              onChange={(e) => setNewCode(e.target.value)}
-              className="h-10 rounded-xl border border-slate-200 bg-[#F8F5EE] px-3 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
-            />
-            <input
-              type="text"
-              placeholder="Course Name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              className="h-10 rounded-xl border border-slate-200 bg-[#F8F5EE] px-3 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none sm:col-span-2"
-            />
-            <button
-              type="submit"
-              className="h-10 rounded-xl bg-[#0B192C] text-white font-extrabold text-xs hover:bg-[#152744] transition shadow-md flex items-center justify-center gap-1.5"
-            >
-              <Plus size={15} className="text-[#D4A72C]" /> Add Subject
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* CREATE ELECTIVE GROUP MODAL */}
-      {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B192C]/60 p-4 backdrop-blur-md">
-          <div className="w-full max-w-lg rounded-3xl border border-[#D4A72C]/40 bg-white p-7 shadow-2xl reveal-up">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-2 text-[#0B192C]">
-                <div className="p-2 rounded-xl bg-[#0B192C] text-[#D4A72C]">
-                  <BookOpen size={18} />
-                </div>
-                <h3 className="text-base font-black text-[#0B192C]">
-                  Configure New Elective Group
-                </h3>
-              </div>
-              <button
-                onClick={() => setIsCreateOpen(false)}
-                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="mt-5 space-y-4">
-              <div>
-                <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
-                  Elective Group Title *
-                </label>
-                <input
-                  type="text"
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                  placeholder="e.g. Professional Elective - II"
-                  className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3.5 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
-                    Target Semester
-                  </label>
-                  <select
-                    value={semester}
-                    onChange={(e) => setSemester(e.target.value)}
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
-                  >
-                    <option value="Semester I">Semester I (1st Sem)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
-                    Department
-                  </label>
-                  <select
-                    value={deptKey}
-                    onChange={(e) => setDeptKey(e.target.value)}
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
-                  >
-                    <option value="Computer Science & Engineering">Computer Science & Eng</option>
-                    <option value="Information Technology">Information Technology</option>
-                    <option value="Electronics & Communication">Electronics & Comm</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
-                    Selection Start Date
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={openAt}
-                    onChange={(e) => setOpenAt(e.target.value)}
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-[11px] font-extrabold text-[#0B192C] uppercase tracking-wider">
-                    Selection Deadline
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={closeAt}
-                    onChange={(e) => setCloseAt(e.target.value)}
-                    className="h-11 w-full rounded-2xl border border-slate-200 bg-[#F8F5EE] px-3 text-xs font-bold text-[#0B192C] focus:bg-white focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateOpen(false)}
-                  className="rounded-2xl border border-slate-200 px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCreateOpen(false);
-                    onToast(`Elective Group '${groupName}' created successfully!`);
-                  }}
-                  className="rounded-2xl bg-[#0B192C] hover:bg-[#152744] px-6 py-2.5 text-xs font-extrabold text-white border border-[#D4A72C]/40 shadow-lg"
-                >
-                  Save Group Config
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ElectiveDemandComponent({ onToast }: { onToast: (msg: string) => void }) {
-  const [status, setStatus] = useState<"DRAFT" | "UNDER_COE_REVIEW" | "COE_APPROVED">("DRAFT");
-  const [approved, setApproved] = useState(false);
-
-  const demandData = [
-    { rank: 1, code: "CS305E", name: "Machine Learning & Intelligent Systems", students: 86, percentage: 41.0 },
-    { rank: 2, code: "CS306E", name: "Cloud Native Computing & Microservices", students: 64, percentage: 30.5 },
-    { rank: 3, code: "CS307E", name: "Cyber Security & Information Assurance", students: 42, percentage: 20.0 },
-    { rank: 4, code: "CS308E", name: "Data Science & Big Data Engineering", students: 18, percentage: 8.5 },
-  ];
-
-  const handleCoeApproval = () => {
-    setApproved(true);
-    setStatus("COE_APPROVED");
-    onToast("COE Official Approval Recorded! Elective selections finalized into official semester subjects.");
-  };
-
-  return (
-    <div className="space-y-6 w-full">
-      <div className="bg-white text-[#0B192C] rounded-3xl p-6 sm:p-8 shadow-sm border border-[#D4A72C]/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div>
-          <span className="bg-[#D4A72C] text-[#0B192C] text-[10px] font-black uppercase px-2.5 py-0.5 rounded tracking-widest inline-block mb-2 shadow-sm">
-            DEMAND ANALYTICS & COE APPROVAL WORKFLOW
-          </span>
-          <h2 className="text-2xl font-black tracking-tight text-[#0B192C]">
-            Elective Demand Dashboard
-          </h2>
-          <p className="text-xs text-slate-600 mt-1 max-w-xl font-medium leading-relaxed">
-            Inspect live student elective preference rankings, total selection counts, and submit for Controller of Examinations (COE) official approval.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0">
-          {!approved ? (
-            <button
-              onClick={handleCoeApproval}
-              className="px-6 py-3 rounded-2xl bg-emerald-600 text-[#0B192C] font-extrabold text-xs hover:bg-emerald-700 transition shadow-lg flex items-center gap-2 active:scale-95 border border-emerald-400/40"
-            >
-              <CheckCircle2 size={16} /> Confirm COE Official Approval
-            </button>
-          ) : (
-            <span className="px-5 py-3 rounded-2xl bg-emerald-100 text-emerald-900 font-extrabold text-xs border border-emerald-300 flex items-center gap-2 shadow-sm">
-              <CheckCircle2 size={16} className="text-emerald-700" /> COE APPROVED & FINALIZED
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        <div className="bg-white p-6 rounded-3xl border border-[#E5E1D8] shadow-md">
-          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Total Selections Submitted</span>
-          <span className="font-black text-3xl text-[#0B192C] mt-1 block">210 Students</span>
-        </div>
-        <div className="bg-white p-6 rounded-3xl border border-[#E5E1D8] shadow-md">
-          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Top Preferred Elective</span>
-          <span className="font-black text-2xl text-emerald-700 mt-1 block">Machine Learning (41%)</span>
-        </div>
-        <div className="bg-white p-6 rounded-3xl border border-[#E5E1D8] shadow-md">
-          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Workflow Approval State</span>
-          <span className="font-black text-2xl text-[#8A6410] mt-1 block">{status}</span>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-3xl border border-[#E5E1D8] shadow-xl p-6 sm:p-8 space-y-4">
-        <div className="border-b border-[#E5E1D8] pb-4 flex justify-between items-center">
-          <div>
-            <h3 className="font-extrabold text-xl text-[#0B192C]">
-              Semester I · Professional Elective Demand Ranking
-            </h3>
-            <p className="text-xs text-slate-500 font-medium">
-              Ordered by total student selections (COUNT DESC)
-            </p>
-          </div>
-        </div>
-
-        <div className="overflow-auto rounded-2xl border border-slate-200 max-h-[75vh]">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#0B192C] text-white uppercase text-[11px] font-extrabold tracking-wider sticky top-0 z-20">
-              <tr>
-                <th className="p-4">Rank</th>
-                <th className="p-4">Course Code</th>
-                <th className="p-4">Elective Subject</th>
-                <th className="p-4 text-center">Student Selections</th>
-                <th className="p-4 text-center">Preference Percentage</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {demandData.map((row) => (
-                <tr key={row.code} className="hover:bg-[#F8F5EE]/60 transition">
-                  <td className="p-4 font-black text-[#0B192C]">#{row.rank}</td>
-                  <td className="p-4 font-mono font-extrabold text-[#8A6410]">
-                    <span className="bg-[#D4A72C]/15 px-2.5 py-1 rounded-md border border-[#D4A72C]/30">
-                      {row.code}
-                    </span>
-                  </td>
-                  <td className="p-4 font-extrabold text-[#0B192C]">{row.name}</td>
-                  <td className="p-4 text-center font-black text-[#0B192C]">{row.students} Students</td>
-                  <td className="p-4 text-center">
-                    <div className="flex items-center justify-center gap-3">
-                      <div className="w-28 bg-slate-100 h-2.5 rounded-full overflow-hidden shadow-inner border border-slate-200">
-                        <div className="bg-[#D4A72C] h-full rounded-full" style={{ width: `${row.percentage}%` }} />
-                      </div>
-                      <span className="font-extrabold text-[#0B192C]">{row.percentage}%</span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Latest publication figures from the server, shared by the banners and the login page. */
 function usePublicSummary() {
   const [summary, setSummary] = useState<PublicSummaryDTO | null>(null);
   useEffect(() => {
@@ -3417,9 +1642,6 @@ function PublicFigure({ kind }: { kind: "pass" | "published" }) {
 
 function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
   const [activePage, setActivePage] = useState<PageKey>(role === "Admin" ? "admin" : "dashboard");
-  const [performanceStudent, setPerformanceStudent] = useState<
-    (typeof students)[number] | null
-  >(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -3446,144 +1668,46 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
   }, [role]);
 
   const navigate = (page: PageKey) => {
-    if (page !== "performance") setPerformanceStudent(null);
     setActivePage(page);
     setSidebarOpen(false);
   };
 
+  // Only faculty reach this shell (students, HODs and Deans have their own dashboards; COEs use the COE panel)
   const content = useMemo(() => {
     switch (activePage) {
-      case "dashboard":
-        return role === "Student" ? (
-          <PerformancePage
-            role="Faculty"
-            onToast={setToast}
-            studentReg="KVELL2025CSE041"
-            studentName="Aarav Sharma"
-            onReturn={() => navigate("dashboard")}
-          />
-        ) : role === "Faculty" ? (
-          <FacultyDashboard onNavigate={navigate} />
-        ) : role === "HOD" ? (
-          <HodPortalDashboard onLogout={() => {}} />
-        ) : role === "Associate Dean" || role === "Dean" ? (
-          <AssociateDeanDashboard onLogout={() => onLogout()} isEmbedded={true} />
-        ) : (
-          <ElectivesComponent onToast={setToast} />
-        );
-      case "electives":
-        return <ElectivesComponent onToast={setToast} />;
-      case "elective-demand":
-        return <ElectiveDemandComponent onToast={setToast} />;
-      case "subjects":
-        if (role === "Faculty") return <FacultyDashboard onNavigate={navigate} />;
-        return <SubjectsPage onToast={setToast} />;
       case "marks":
-        // Faculty evaluate in Paper Correction (the bundles the Dean allots); the HOD keeps Mark Entry
-        return role === "Faculty" ? (
-          <FacultyPaperCorrectionView currentFacultyName={authApi.currentUser()?.name || meta.name} onToast={setToast} />
-        ) : (
-          <FacultyMarkEntry onToast={setToast} />
-        );
-      case "hall-allotment":
-        return <HallPlansView mode="faculty" deptKey={authApi.currentUser()?.departmentKey} onToast={setToast} />;
-      case "internal-marks":
-        return <CoAssessment mode="faculty" onToast={setToast} />;
       case "paper-correction":
+        // Faculty evaluate in Paper Correction (the bundles the Dean allots)
         return (
           <FacultyPaperCorrectionView
             currentFacultyName={authApi.currentUser()?.name || meta.name}
             onToast={setToast}
           />
         );
+      case "hall-allotment":
+        return <HallPlansView mode="faculty" deptKey={authApi.currentUser()?.departmentKey} onToast={setToast} />;
+      case "internal-marks":
+        return <CoAssessment mode="faculty" onToast={setToast} />;
       case "question-paper":
-        if (role === "Faculty")
-          return (
-            <FacultyQuestionPaperView
-              onToast={setToast}
-              facultyName={authApi.currentUser()?.name ?? ""}
-              department={facultyCollege?.collegeName || "Computer Science and Engineering"}
-            />
-          );
-        if (role === "HOD")
-          return (
-            <HodQuestionPapersView
-              department="Computer Science & Engineering"
-              hodName={authApi.currentUser()?.name ?? ""}
-            />
-          );
-        if (role === "Associate Dean" || role === "Dean" || role === "Admin")
-          return <QuestionPaperReviewView onToast={setToast} />;
-        return <QuestionPaperReviewView onToast={setToast} />;
+        return (
+          <FacultyQuestionPaperView
+            onToast={setToast}
+            facultyName={authApi.currentUser()?.name ?? ""}
+            department={facultyCollege?.collegeName || authApi.currentUser()?.departmentName || ""}
+          />
+        );
       case "verification":
       case "noticeboard":
-        if (role === "Faculty") {
-          return (
-            <FacultyExamNotificationsView
-              onNavigateToQuestionPaper={() => navigate("question-paper")}
-              onToast={setToast}
-              facultyName={facultyCollege?.facultyName || meta.name}
-              department={facultyCollege?.collegeName || meta.department}
-            />
-          );
-        }
-        if (role === "HOD") {
-          return (
-            <HodExamNotificationsView
-              department={meta.department || "Computer Science & Engineering"}
-              hodName={meta.name || "Dr. Jayapradha"}
-              onNavigateQP={() => navigate("question-paper")}
-              onToast={setToast}
-            />
-          );
-        }
-        return <FacultyDashboard onNavigate={navigate} />;
-      case "performance":
-        if (role === "Faculty") return <FacultyDashboard onNavigate={navigate} />;
         return (
-          <PerformancePage
-            role={role}
+          <FacultyExamNotificationsView
+            onNavigateToQuestionPaper={() => navigate("question-paper")}
             onToast={setToast}
-            studentReg={performanceStudent?.reg}
-            studentName={performanceStudent?.name}
-            onReturn={() => navigate("students")}
+            facultyName={authApi.currentUser()?.name || ""}
+            department={facultyCollege?.collegeName || meta.department}
           />
         );
-      case "students":
-        if (role === "Faculty") return <FacultyDashboard onNavigate={navigate} />;
-        return (
-          <StudentsPage
-            role={role}
-            onView={(student) => {
-              setPerformanceStudent(student);
-              navigate("performance");
-            }}
-          />
-        );
-      case "reports":
-        if (role === "Faculty") return <FacultyDashboard onNavigate={navigate} />;
-        return <ReportsPage onToast={setToast} />;
-      case "faculty":
-        return <FacultyPage />;
-      case "at-risk":
-        return (
-          <AtRiskPage
-            role={role}
-            onView={() =>
-              navigate(role === "Faculty" ? "dashboard" : "students")
-            }
-          />
-        );
-      case "departments":
-        return <DepartmentsPage onToast={setToast} />;
-      case "trends":
-        return <TrendsPage />;
-      case "dean-review":
-        return <DeanMarkReview onToast={setToast} />;
-      case "admin":
-        return <AdminPage onToast={setToast} />;
       default:
-        return role === "Admin" ? <ElectivesComponent onToast={setToast} /> : <FacultyDashboard onNavigate={navigate} />;
+        return <FacultyDashboard onNavigate={navigate} />;
     }
   }, [activePage, role]);
 
@@ -4128,7 +2252,7 @@ function LoginPage({
                         required
                         value={regNumber}
                         onChange={(e) => setRegNumber(e.target.value)}
-                        placeholder="e.g. 20260110226001 / KVELL2025CSE018"
+                        placeholder="Register number"
                         className="w-full h-12 pl-11 pr-4 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 focus:bg-white text-xs font-semibold text-[#172033] focus:border-[#0B192C] focus:ring-1 focus:ring-[#0B192C] focus:outline-none transition shadow-sm"
                       />
                     </div>
@@ -4273,7 +2397,7 @@ function LoginPage({
 
 function StudentDashboard({
   studentReg = "20260110226001",
-  studentName = "ABI T",
+  studentName = "",
   initialSemester = 1,
   onLogout,
 }: {
@@ -4311,103 +2435,7 @@ function StudentDashboard({
 
   const isElectiveEligible = false;
 
-  const semesterCoursesData: Record<
-    number,
-    {
-      core: Array<{ code: string; title: string; credits: number; category: string; faculty: string }>;
-      electives?: Array<{ code: string; title: string; credits: number; category: string; faculty: string; description: string }>;
-    }
-  > = {
-    1: {
-      core: [
-        { code: "UC26C01T", title: "Induction & Professional English", credits: 3, category: "Core Mandatory", faculty: "Prof. S. Nandhini" },
-        { code: "MA26C01T", title: "Matrices and Calculus", credits: 4, category: "Core Mandatory", faculty: "Dr. K. Raman" },
-        { code: "CY26C01I", title: "Engineering Chemistry", credits: 4, category: "Core Mandatory", faculty: "Dr. A. Sundaram" },
-        { code: "CS26C02T", title: "Programming in C", credits: 3, category: "Core Mandatory", faculty: "Dr. Priya Nair" },
-        { code: "CS26N01I", title: "Programming Laboratory", credits: 3, category: "Core Mandatory", faculty: "Prof. Arjun Rao" },
-        { code: "ME26C02P", title: "Engineering Practices Laboratory", credits: 2, category: "Core Mandatory", faculty: "Prof. M. Joseph" },
-        { code: "UC26C02P", title: "Physics & Chemistry Laboratory", credits: 2, category: "Core Mandatory", faculty: "Dr. S. Priya" },
-        { code: "UC26C03P", title: "Professional Communication Laboratory", credits: 2, category: "Core Mandatory", faculty: "Prof. S. Nandhini" },
-      ],
-    },
-    2: {
-      core: [
-        { code: "MA201", title: "Differential Equations & Complex Analysis", credits: 4, category: "Core Theory", faculty: "Dr. K. Raman" },
-        { code: "CH201", title: "Engineering Chemistry & Environmental Science", credits: 4, category: "Core Theory", faculty: "Dr. A. Sundaram" },
-        { code: "CS201", title: "Object Oriented Programming Fundamentals", credits: 3, category: "Core Theory", faculty: "Dr. Ananya Menon" },
-        { code: "EC201", title: "Digital Logic & Circuit Design", credits: 3, category: "Core Theory", faculty: "Prof. V. Shah" },
-        { code: "CS201L", title: "OOP & Digital Logic Laboratory", credits: 2, category: "Core Lab", faculty: "Dr. Ananya Menon" },
-      ],
-    },
-    3: {
-      core: [
-        { code: "CS301", title: "Data Structures & Algorithms", credits: 4, category: "Core Theory", faculty: "Dr. Raghav Iyer" },
-        { code: "CS302", title: "Computer Organization & Architecture", credits: 4, category: "Core Theory", faculty: "Prof. Arjun Rao" },
-        { code: "CS303", title: "Object Oriented Programming with Java", credits: 3, category: "Core Theory", faculty: "Dr. Priya Nair" },
-        { code: "CS304L", title: "Data Structures & Java Laboratory", credits: 2, category: "Core Lab", faculty: "Dr. Raghav Iyer" },
-      ],
-      electives: [
-        { code: "CS305E", title: "Machine Learning & Intelligent Systems", credits: 4, category: "Professional Elective I", faculty: "Dr. Ananya Menon", description: "Supervised and unsupervised learning techniques, neural networks, and pattern recognition algorithms." },
-        { code: "CS306E", title: "Cloud Native Computing & Microservices", credits: 4, category: "Professional Elective I", faculty: "Prof. Vikram Shah", description: "Containerization using Docker, Kubernetes orchestration, microservices design, and CI/CD pipelines." },
-        { code: "CS307E", title: "Cyber Security & Information Assurance", credits: 4, category: "Professional Elective I", faculty: "Dr. Raghav Iyer", description: "Network security protocols, cryptographic primitives, threat modeling, and defensive architecture." },
-      ],
-    },
-    4: {
-      core: [
-        { code: "CS401", title: "Operating Systems Architecture", credits: 4, category: "Core Theory", faculty: "Prof. Vikram Shah" },
-        { code: "CS402", title: "Database Management Systems", credits: 4, category: "Core Theory", faculty: "Dr. Priya Nair" },
-        { code: "CS403", title: "Theory of Computation & Automata", credits: 3, category: "Core Theory", faculty: "Dr. Raghav Iyer" },
-        { code: "CS404L", title: "OS & DBMS Laboratory", credits: 2, category: "Core Lab", faculty: "Prof. Vikram Shah" },
-      ],
-      electives: [
-        { code: "CS405E", title: "Computer Networks & Security", credits: 4, category: "Professional Elective II", faculty: "Dr. Ananya Menon", description: "TCP/IP protocol suite, routing algorithms, wireless networks, and packet analysis." },
-        { code: "CS406E", title: "Full Stack Web Engineering (React & Node)", credits: 4, category: "Professional Elective II", faculty: "Prof. Arjun Rao", description: "Modern Web UI development, RESTful APIs, asynchronous server programming, and state management." },
-        { code: "CS407E", title: "Computer Graphics & Virtual Reality", credits: 4, category: "Professional Elective II", faculty: "Dr. Priya Nair", description: "3D rendering pipelines, ray tracing, OpenGL/WebGL, and interactive VR simulations." },
-      ],
-    },
-    5: {
-      core: [
-        { code: "CS501", title: "Compiler Design & Program Analysis", credits: 4, category: "Core Theory", faculty: "Dr. Raghav Iyer" },
-        { code: "CS502", title: "Software Engineering & Agile Methodologies", credits: 3, category: "Core Theory", faculty: "Dr. Ananya Menon" },
-        { code: "CS503L", title: "Compiler & Software Engineering Lab", credits: 2, category: "Core Lab", faculty: "Dr. Raghav Iyer" },
-      ],
-      electives: [
-        { code: "CS504E", title: "Deep Learning & Artificial Neural Networks", credits: 4, category: "Professional Elective III", faculty: "Dr. Ananya Menon", description: "Convolutional Neural Networks (CNN), Recurrent Networks (RNN), Transformers, and PyTorch frameworks." },
-        { code: "CS505E", title: "Big Data Analytics & Distributed Systems", credits: 4, category: "Professional Elective III", faculty: "Prof. Vikram Shah", description: "Hadoop ecosystem, Apache Spark, MapReduce, and large-scale parallel processing." },
-        { code: "CS506E", title: "DevOps & Infrastructure Automation", credits: 4, category: "Professional Elective III", faculty: "Prof. Arjun Rao", description: "Infrastructure as Code (Terraform), Ansible, CI/CD pipelines, and monitoring tools." },
-      ],
-    },
-    6: {
-      core: [
-        { code: "CS601", title: "Distributed Cloud Architecture", credits: 4, category: "Core Theory", faculty: "Prof. Vikram Shah" },
-        { code: "CS602", title: "Information & Network Security", credits: 4, category: "Core Theory", faculty: "Dr. Raghav Iyer" },
-        { code: "CS603L", title: "Cloud & Network Security Lab", credits: 2, category: "Core Lab", faculty: "Prof. Vikram Shah" },
-      ],
-      electives: [
-        { code: "CS604E", title: "Natural Language Processing & LLMs", credits: 4, category: "Professional Elective IV", faculty: "Dr. Ananya Menon", description: "Tokenization, attention mechanisms, BERT/GPT architectures, and prompt engineering." },
-        { code: "CS605E", title: "Blockchain & Smart Contract Development", credits: 4, category: "Professional Elective IV", faculty: "Dr. Priya Nair", description: "Ethereum, Solidity smart contracts, consensus mechanisms, and decentralized applications (dApps)." },
-        { code: "CS606E", title: "Internet of Things (IoT) & Embedded Systems", credits: 4, category: "Professional Elective IV", faculty: "Prof. Arjun Rao", description: "Microcontroller programming, sensor integration, MQTT protocols, and IoT edge analytics." },
-      ],
-    },
-    7: {
-      core: [
-        { code: "CS701", title: "High Performance Computing", credits: 4, category: "Core Theory", faculty: "Dr. Raghav Iyer" },
-        { code: "CS702P", title: "Major Capstone Project - Phase 1", credits: 4, category: "Project", faculty: "Dr. Ananya Menon" },
-      ],
-      electives: [
-        { code: "CS703E", title: "Quantum Computing & Information", credits: 4, category: "Professional Elective V", faculty: "Dr. Raghav Iyer", description: "Qubits, quantum gates, Shor's & Grover's algorithms, and Qiskit quantum simulations." },
-        { code: "CS704E", title: "Autonomous Mobile Robotics", credits: 4, category: "Professional Elective V", faculty: "Prof. Arjun Rao", description: "ROS framework, kinematics, SLAM (Simultaneous Localization and Mapping), and motion planning." },
-      ],
-    },
-    8: {
-      core: [
-        { code: "CS801P", title: "Major Capstone Project - Phase 2 & Industry Internship", credits: 12, category: "Project", faculty: "Dr. Ananya Menon" },
-      ],
-      electives: [
-        { code: "CS802E", title: "Enterprise Systems & AI Operations (MLOps)", credits: 4, category: "Professional Elective VI", faculty: "Prof. Vikram Shah", description: "Model deployment pipelines, model monitoring, A/B testing, and enterprise AI management." },
-      ],
-    },
-  };
+
 
   const [results, setResults] = useState<StudentResultsDTO | null>(null);
   const [resultsError, setResultsError] = useState<string | null>(null);
@@ -4453,7 +2481,6 @@ function StudentDashboard({
       .map((part) => part[0]?.toUpperCase())
       .join("") || "ST";
 
-  const currentSemData = semesterCoursesData[currentSemesterNum] ?? semesterCoursesData[3];
   // Registered subjects come from the COE subject catalog on the server
   const [mySubjects, setMySubjects] = useState<RegisteredSubjectDTO[]>([]);
   useEffect(() => {
@@ -4466,17 +2493,18 @@ function StudentDashboard({
     category: sub.category,
     faculty: sub.faculty,
   }));
-  const currentElectiveOptions = currentSemData.electives ?? [];
+  // Elective offers are not published from the server yet, so none are listed
+  const currentElectiveOptions: { code: string; title: string; credits: number; category: string; faculty: string; description: string }[] = [];
   const totalCoreCredits = currentCoreSubjects.reduce((acc, c) => acc + c.credits, 0);
 
   const activeElectiveObj =
     currentElectiveOptions.find((e) => e.code === selectedElective) ?? currentElectiveOptions[0] ?? {
-      code: "CS305E",
-      title: "Machine Learning & Intelligent Systems",
-      credits: 4,
-      category: "Professional Elective I",
-      faculty: "Dr. Ananya Menon",
-      description: "Supervised and unsupervised learning techniques."
+      code: "",
+      title: "",
+      credits: 0,
+      category: "",
+      faculty: "",
+      description: "",
     };
 
   const handleSubmitElective = () => {
@@ -5353,13 +3381,13 @@ export default function Home() {
     name: string;
     semester: number;
   }>({
-    reg: "KVELL2025CSE018",
-    name: "Rohan Sharma",
+    reg: "",
+    name: "",
     semester: 1,
   });
   const [activeHod, setActiveHod] = useState<{ name: string; department: string }>({
-    name: "JAYAPRADHA",
-    department: "COMPUTER SCIENCE AND ENGINEERING",
+    name: "",
+    department: "",
   });
 
   // A saved staff profile: show the new name (HOD header reads activeHod; the staff shell reads the stored user)

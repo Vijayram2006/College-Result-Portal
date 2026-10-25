@@ -24,8 +24,6 @@ import { downloadWorkbook } from "../utils/downloadWorkbook";
 import { addAuditLog, adminResultsApi, apiErrorMessage, studentsApi, RowError } from "../services/api";
 import { getRealLocalTimestamp } from "../utils/dateUtils";
 import { getStoredDepartments, Department } from "./Departments";
-import { aidsSem1Students } from "../data/aidsStudents";
-import { cseSem1Students, bmeSem1Students } from "../data/dummyMarksData";
 import { getSystemConfig, SystemConfig } from "../utils/systemConfig";
 
 // Date formatter for DOB parsing (supports string, Date instance, and Excel serial numbers)
@@ -190,67 +188,7 @@ export const getDeptUploadedStudents = (dept: string): any[] => {
     console.error("Error reading dept students", e);
   }
 
-  // Pre-seeded students ONLY apply to Engineering college
-  if (isEngineeringCollege()) {
-    // 1. AIDS Semester 1 official students (50 students)
-    if (k === "aids" || k.includes("artificial intelligence")) {
-      return aidsSem1Students.map((s, idx) => ({
-        "Register Number": s.regNo,
-        "Name": s.name,
-        "DOB": "2005-06-15",
-        "Department": "ADS",
-        "Category": (idx >= 45 ? "lateral" : "regular") as StudentCategory,
-        "Year": "1st Year",
-        regNo: s.regNo,
-        studentName: s.name,
-        dob: "2005-06-15",
-        dept: "ADS",
-        deptKey: "aids",
-        category: (idx >= 45 ? "lateral" : "regular") as StudentCategory,
-        year: "1st Year",
-      }));
-    }
-
-    // 2. CSE Semester 1 official students (20 students)
-    if (k === "cse" || k.includes("computer science")) {
-      return cseSem1Students.map((s) => ({
-        "Register Number": s.regNo,
-        "Name": s.name,
-        "DOB": s.dob || "2005-04-18",
-        "Department": "CSE",
-        "Category": s.category as StudentCategory,
-        "Year": "1st Year",
-        regNo: s.regNo,
-        studentName: s.name,
-        dob: s.dob || "2005-04-18",
-        dept: "CSE",
-        deptKey: "cse",
-        category: s.category as StudentCategory,
-        year: "1st Year",
-      }));
-    }
-
-    // 3. BME Semester 1 official students (15 students)
-    if (k === "bme" || k.includes("biomedical")) {
-      return bmeSem1Students.map((s) => ({
-        "Register Number": s.regNo,
-        "Name": s.name,
-        "DOB": s.dob || "2005-08-22",
-        "Department": "BME",
-        "Category": s.category as StudentCategory,
-        "Year": "1st Year",
-        regNo: s.regNo,
-        studentName: s.name,
-        dob: s.dob || "2005-08-22",
-        dept: "BME",
-        deptKey: "bme",
-        category: s.category as StudentCategory,
-        year: "1st Year",
-      }));
-    }
-  }
-
-  // Nursing, Pharmacy, and other departments start clean with 0 students
+  // Nothing is pre-filled: only the class lists the COE uploads
   return [];
 };
 
@@ -722,11 +660,9 @@ export const ResultsUpload: React.FC = () => {
 
   const handleDownloadTemplate = () => {
     const sampleData = [
-      { "Register Number": "1", "Name": "Aarav Sharma", "DOB": "2004-05-14", "Category": "Regular" },
-      { "Register Number": "2", "Name": "Meera Nair", "DOB": "2004-08-22", "Category": "Regular" },
-      { "Register Number": "4", "Name": "Rohan Gupta", "DOB": "2003-11-30", "Category": "Regular" },
-      { "Register Number": "5", "Name": "Priyanka Sen", "DOB": "2004-02-18", "Category": "Regular" },
-      { "Register Number": "3", "Name": "Vignesh Kumar", "DOB": "2003-09-12", "Category": "Lateral" },
+      // Format example only (replace with the real class list)
+      { "Register Number": "1", "Name": "STUDENT NAME", "DOB": "YYYY-MM-DD", "Category": "Regular" },
+      { "Register Number": "2", "Name": "STUDENT NAME", "DOB": "YYYY-MM-DD", "Category": "Lateral" },
     ];
     const ws = XLSX.utils.json_to_sheet(sampleData);
     const wb = XLSX.utils.book_new();
@@ -1500,7 +1436,7 @@ export const ResultsUpload: React.FC = () => {
                   required
                   value={addRegNo}
                   onChange={(e) => setAddRegNo(e.target.value.toUpperCase())}
-                  placeholder="e.g. 3 or KVELL2025CSE003"
+                  placeholder="Serial or full register number"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E1D8] bg-[#F8F5EE] text-[#0B192C] font-mono font-bold text-sm focus:outline-none focus:ring-2 focus:ring-[#0B192C]"
                 />
                 <span className="text-[10px] text-gray-500 mt-1 block">

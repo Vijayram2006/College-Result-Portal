@@ -65,156 +65,29 @@ export interface DeanExamNotification {
 const STORAGE_TIMETABLE_KEY = "kvell_exam_timetable";
 const STORAGE_NOTIF_KEY = "kvell_exam_notifications";
 
-export const INITIAL_TIMETABLE: ExamTimetableSlot[] = [
-  {
-    id: "TT-001",
-    date: "2026-10-24",
-    day: "Saturday",
-    session: "FN (10:00 AM - 01:00 PM)",
-    deptKey: "aids",
-    deptCode: "ADS",
-    deptName: "Artificial Intelligence & Data Science",
-    subjectCode: "AI602",
-    subjectTitle: "Deep Learning & Neural Architectures",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    registeredCount: 50,
-    qpStatus: "FORWARDED_TO_EXAM_CELL",
-    qpFacultyAuthor: "Prof. K. Venkatesh",
-  },
-  {
-    id: "TT-002",
-    date: "2026-10-24",
-    day: "Saturday",
-    session: "FN (10:00 AM - 01:00 PM)",
-    deptKey: "cse",
-    deptCode: "CSE",
-    deptName: "Computer Science & Engineering",
-    subjectCode: "CS601",
-    subjectTitle: "Data Structures & Algorithms",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    registeredCount: 20,
-    qpStatus: "FORWARDED_TO_EXAM_CELL",
-    qpFacultyAuthor: "Dr. Ananya Menon",
-  },
-  {
-    id: "TT-003",
-    date: "2026-10-24",
-    day: "Saturday",
-    session: "FN (10:00 AM - 01:00 PM)",
-    deptKey: "bme",
-    deptCode: "BME",
-    deptName: "Biomedical Engineering",
-    subjectCode: "BM603",
-    subjectTitle: "Biomedical Instrumentation & Sensors",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    registeredCount: 28,
-    qpStatus: "FORWARDED_TO_EXAM_CELL",
-    qpFacultyAuthor: "Dr. Meenakshi S.",
-  },
-  {
-    id: "TT-004",
-    date: "2026-10-26",
-    day: "Monday",
-    session: "FN (10:00 AM - 01:00 PM)",
-    deptKey: "bt",
-    deptCode: "BT",
-    deptName: "Biotechnology",
-    subjectCode: "BT601",
-    subjectTitle: "Molecular Biology & Genetic Engineering",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    registeredCount: 25,
-    qpStatus: "HOD_APPROVED",
-    qpFacultyAuthor: "Dr. Kavitha Raman",
-  },
-  {
-    id: "TT-005",
-    date: "2026-10-26",
-    day: "Monday",
-    session: "AN (02:00 PM - 05:00 PM)",
-    deptKey: "ece",
-    deptCode: "ECE",
-    deptName: "Electronics & Communication Engineering",
-    subjectCode: "EC604",
-    subjectTitle: "Digital Signal Processing & VLSI Design",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    registeredCount: 35,
-    qpStatus: "SUBMITTED_TO_HOD",
-    qpFacultyAuthor: "Dr. P. Suresh",
-  },
-  {
-    id: "TT-006",
-    date: "2026-10-28",
-    day: "Wednesday",
-    session: "FN (10:00 AM - 01:00 PM)",
-    deptKey: "mech",
-    deptCode: "MECH",
-    deptName: "Mechanical Engineering",
-    subjectCode: "ME602",
-    subjectTitle: "Thermodynamics & Heat Transfer",
-    semester: "Semester I",
-    academicYear: "2026-2027",
-    registeredCount: 48,
-    qpStatus: "NOT_SUBMITTED",
-    qpFacultyAuthor: "Dr. V. Karthik",
-  },
-];
+/** Nothing is pre-filled: the Dean publishes the real timetable. */
+export const INITIAL_TIMETABLE: ExamTimetableSlot[] = [];
 
-export const INITIAL_NOTIFICATIONS: DeanExamNotification[] = [
-  {
-    id: "NOTIF-2026-001",
-    refNo: "KVCET/COE/2026/CIR-EXAM-088",
-    title: "Urgent: Submission of Question Papers for End Semester Autonomous Examinations (Nov/Dec 2026)",
-    issueDate: "2026-10-20",
-    deadline: "2026-10-23 05:00 PM",
-    academicYear: "2026-2027",
-    semester: "Semester I",
-    targetDepartments: ["ADS", "CSE", "BME", "BT", "ECE", "MECH"],
-    message:
-      "All course instructors and designated faculty members are hereby instructed to prepare and submit 2 sets (Set A & Set B) of Question Papers along with Detailed Answer Keys & Scheme of Valuation on or before the deadline. Strict adherence to Bloom's Taxonomy and Outcome-Based Education (OBE) metrics is mandatory.",
-    senderName: "Dr. Meera Krishnan",
-    senderRole: "Dean of Academics",
-    guidelines: [
-      "2 Distinct Sets (Set A and Set B) must be submitted for each course.",
-      "Part A: 10 Questions x 2 Marks = 20 Marks (Cognitive Level K1/K2).",
-      "Part B: 5 Either/Or Questions x 13 Marks = 65 Marks (Cognitive Level K3/K4).",
-      "Part C: 1 Compulsory Application/Case Study x 15 Marks = 15 Marks (Cognitive Level K5/K6).",
-      "Each question must clearly designate Course Outcome (CO1 - CO5) and Bloom's Revised Taxonomy level.",
-      "Upload question papers securely via the Faculty Portal with complete answer schemes.",
-    ],
-    status: "ACTIVE",
-    deliveredAt: "2026-10-20 10:00 AM",
-    readCount: 18,
-  },
-];
+/** Nothing is pre-filled: the Dean publishes the real notifications. */
+export const INITIAL_NOTIFICATIONS: DeanExamNotification[] = [];
 
 export function safeLoadTimetable(): ExamTimetableSlot[] {
   try {
     const raw = localStorage.getItem(STORAGE_TIMETABLE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_TIMETABLE_KEY, JSON.stringify(INITIAL_TIMETABLE));
-      return INITIAL_TIMETABLE;
-    }
+    if (!raw) return [];
     return JSON.parse(raw);
   } catch {
-    return INITIAL_TIMETABLE;
+    return [];
   }
 }
 
 export function safeLoadNotifications(): DeanExamNotification[] {
   try {
     const raw = localStorage.getItem(STORAGE_NOTIF_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_NOTIF_KEY, JSON.stringify(INITIAL_NOTIFICATIONS));
-      return INITIAL_NOTIFICATIONS;
-    }
+    if (!raw) return [];
     return JSON.parse(raw);
   } catch {
-    return INITIAL_NOTIFICATIONS;
+    return [];
   }
 }
 
@@ -261,7 +134,7 @@ export const ExamTimetableNotificationView: React.FC<ExamTimetableNotificationVi
   const [newDept, setNewDept] = useState("aids");
   const [newSubjectCode, setNewSubjectCode] = useState("AI603");
   const [newSubjectTitle, setNewSubjectTitle] = useState("Natural Language Processing");
-  const [newFaculty, setNewFaculty] = useState("Prof. K. Venkatesh");
+  const [newFaculty, setNewFaculty] = useState("");
   const [newStudentsCount, setNewStudentsCount] = useState(50);
 
   const saveTimetableData = (data: ExamTimetableSlot[]) => {
@@ -1181,7 +1054,7 @@ export const ExamTimetableNotificationView: React.FC<ExamTimetableNotificationVi
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Prof. K. Venkatesh"
+                  placeholder="Faculty name"
                   value={newFaculty}
                   onChange={(e) => setNewFaculty(e.target.value)}
                   className="w-full px-3 py-2 bg-[#F8F5EE] border border-[#E5E1D8] rounded-xl"

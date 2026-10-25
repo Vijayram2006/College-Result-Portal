@@ -205,7 +205,7 @@ export const WorkflowChartTrackerView: React.FC<WorkflowChartTrackerViewProps> =
       title: "Paper Valuation Assignment to Faculty",
       role: "Dean",
       status: "COMPLETED",
-      description: "Central COE masks real student names and 14-digit register numbers behind encrypted dummy barcodes (e.g. DMY-84291) to guarantee strict blind evaluation.",
+      description: "Central COE masks real student names and 14-digit register numbers behind encrypted dummy barcodes (e.g. AS-1A2B3C4D) to guarantee strict blind evaluation.",
       targetNav: "paper-correction",
       metric: "98 Scripts Barcoded",
       formula: "Student Credentials Concealed · Masking Flap Sealed",

@@ -42,7 +42,7 @@ public class MarkService {
     public record MarkRequest(String deptKey, String semester, String subjectCode, String regNo,
                               String assessmentType, List<Double> partA, Map<String, Question> partBC,
                               String examinerName, String examinerDesignation, Integer expectedVersion,
-                              Map<String, String> remarks) {
+                              Map<String, String> remarks, List<String> notAttempted) {
     }
 
     /** One row of the Mark Entry roster; matches the admin panel's StudentMarkData. */
@@ -51,8 +51,13 @@ public class MarkService {
                               String resultStatus, List<Double> partA, Map<String, Question> partBC,
                               String assessmentType, String deptKey, String deptName, String semester,
                               String subjectCode, String subjectTitle, String examinerName,
-                              String examinerDesignation, int version, Map<String, String> remarks) {
+                              String examinerDesignation, int version, Map<String, String> remarks,
+                              List<String> notAttempted) {
     }
+
+    /** A box the student did not attempt (NA): "A1".."A10" in Part A, "11a.i".."16b.iii" in Part B / C. */
+    private static final java.util.regex.Pattern NOT_ATTEMPTED_KEY =
+            java.util.regex.Pattern.compile("A([1-9]|10)|1[1-6][ab][.](i|ii|iii)");
 
     private static final tools.jackson.databind.ObjectMapper JSON = new tools.jackson.databind.ObjectMapper();
 
@@ -98,7 +103,7 @@ public class MarkService {
         return db.sql("""
                         SELECT s.reg_no, s.name, s.dob, s.category, m.assessment_type, m.part_a, m.part_bc,
                                m.part_a_total, m.part_bc_total, m.grand_total, m.grade, m.passed,
-                               m.examiner_name, m.examiner_designation, m.version, m.remarks::text AS remarks,
+                               m.examiner_name, m.examiner_designation, m.version, m.remarks::text AS remarks, m.not_attempted,
                                m.dept_key, d.name AS dept_name, m.semester, m.subject_code, m.subject_title
                         FROM marks m
                         JOIN students s ON s.reg_no = m.reg_no
@@ -116,7 +121,7 @@ public class MarkService {
         return db.sql("""
                         SELECT s.reg_no, s.name, CAST(NULL AS DATE) AS dob, s.category, m.assessment_type, m.part_a, m.part_bc,
                                m.part_a_total, m.part_bc_total, m.grand_total, m.grade, m.passed,
-                               m.examiner_name, m.examiner_designation, m.version, m.remarks::text AS remarks,
+                               m.examiner_name, m.examiner_designation, m.version, m.remarks::text AS remarks, m.not_attempted,
                                m.dept_key, d.name AS dept_name, m.semester, m.subject_code, m.subject_title
                         FROM marks m
                         JOIN students s ON s.reg_no = m.reg_no
@@ -141,7 +146,7 @@ public class MarkService {
         return db.sql("""
                         SELECT s.reg_no, s.name, s.dob, s.category, m.assessment_type, m.part_a, m.part_bc,
                                m.part_a_total, m.part_bc_total, m.grand_total, m.grade, m.passed,
-                               m.examiner_name, m.examiner_designation, m.version, m.remarks::text AS remarks
+                               m.examiner_name, m.examiner_designation, m.version, m.remarks::text AS remarks, m.not_attempted
                         FROM students s
                         LEFT JOIN marks m ON m.reg_no = s.reg_no AND m.dept_key = s.dept_key
                                          AND m.semester = s.semester AND m.subject_code = :code
@@ -182,6 +187,7 @@ public class MarkService {
                     new double[] {partBC[q * 6 + 3], partBC[q * 6 + 4], partBC[q * 6 + 5]});
         }
         GradeCalculator.Grade grade = GradeCalculator.grade(partATotal, partBCTotal);
+        String[] notAttempted = notAttempted(req.notAttempted(), partA, partBC);
         if (user.role() == CurrentUser.Role.FACULTY) {
             checkPartLocks(deptKey, sem, code, regNo, assessment, partA, partBC);
         }
@@ -202,9 +208,9 @@ public class MarkService {
         db.sql("""
                         INSERT INTO marks (dept_key, semester, subject_code, subject_title, reg_no, assessment_type,
                                            part_a, part_bc, part_a_total, part_bc_total, grand_total, grade, passed,
-                                           examiner_name, examiner_designation, entered_by, remarks)
+                                           examiner_name, examiner_designation, entered_by, remarks, not_attempted)
                         VALUES (?, ?, ?, ?, ?, ?, CAST(? AS NUMERIC[]), CAST(? AS NUMERIC[]), ?, ?, ?, ?, ?, ?, ?, ?,
-                                CAST(? AS JSONB))
+                                CAST(? AS JSONB), ?)
                         ON CONFLICT (dept_key, semester, subject_code, reg_no, assessment_type) DO UPDATE SET
                             subject_title = EXCLUDED.subject_title,
                             part_a = EXCLUDED.part_a, part_bc = EXCLUDED.part_bc,
@@ -212,12 +218,13 @@ public class MarkService {
                             grand_total = EXCLUDED.grand_total, grade = EXCLUDED.grade, passed = EXCLUDED.passed,
                             examiner_name = EXCLUDED.examiner_name,
                             examiner_designation = EXCLUDED.examiner_designation, remarks = EXCLUDED.remarks,
-                            entered_by = EXCLUDED.entered_by, entered_at = now(), version = marks.version + 1
+                            entered_by = EXCLUDED.entered_by, entered_at = now(), version = marks.version + 1,
+                            not_attempted = EXCLUDED.not_attempted
                         """)
                 .params(deptKey, sem, code, title, regNo, assessment, pgArray(partA), pgArray(partBC),
                         BigDecimal.valueOf(partATotal), BigDecimal.valueOf(partBCTotal), grade.total(),
                         grade.letter(), grade.passed(), examiner, designation, user.username(),
-                        JSON.writeValueAsString(cleanRemarks(req.remarks())))
+                        JSON.writeValueAsString(cleanRemarks(req.remarks())), notAttempted)
                 .update();
         audit.record(user.username(), user.name(), "ENTERED_STUDENT_MARKS", regNo + " (" + studentName + ")",
                 "Entered " + assessment + " marks in " + code + " " + title + ": total " + grade.total()
@@ -229,6 +236,33 @@ public class MarkService {
                         + ", total " + grade.total() + ", grade " + grade.letter());
         return roster(deptKey, Semesters.label(sem), code, assessment).stream().filter(m -> m.regNo().equals(regNo))
                 .findFirst().orElseThrow();
+    }
+
+    /**
+     * The not-attempted boxes, checked and sorted: each must be a known box and hold 0 (an NA box with marks is a
+     * data-entry mistake). Part B / C boxes are flattened as in partBC: q11(a.i, a.ii, a.iii, b.i, b.ii, b.iii), ...
+     */
+    static String[] notAttempted(List<String> keys, double[] partA, double[] partBC) {
+        if (keys == null) return new String[0];
+        java.util.TreeSet<String> out = new java.util.TreeSet<>();
+        for (String raw : keys) {
+            String key = raw == null ? "" : raw.trim();
+            if (!NOT_ATTEMPTED_KEY.matcher(key).matches()) throw ApiException.badRequest("Unknown question " + key);
+            double value;
+            if (key.startsWith("A")) {
+                value = partA[Integer.parseInt(key.substring(1)) - 1];
+            } else {
+                int q = Integer.parseInt(key.substring(0, 2));
+                int sub = switch (key.substring(4)) { case "i" -> 0; case "ii" -> 1; default -> 2; };
+                value = partBC[(q - FIRST_BC_QUESTION) * 6 + (key.charAt(2) == 'b' ? 3 : 0) + sub];
+            }
+            if (value != 0) {
+                throw ApiException.badRequest("Question " + (key.startsWith("A") ? key.substring(1) : key)
+                        + " is marked not attempted (NA) but has marks");
+            }
+            out.add(key);
+        }
+        return out.toArray(new String[0]);
     }
 
     public String subjectTitle(String deptKey, int sem, String code) {
@@ -325,7 +359,7 @@ public class MarkService {
         if (assessment == null) {
             return new StudentMark(regNo, rs.getString("name"), dob, rs.getString("category"), false, 0, 0, 0, "—",
                     "FAIL", zeros(PART_A_QUESTIONS), emptyBC(), null, deptKey, deptName, Semesters.label(sem), code,
-                    title, null, null, 0, Map.of());
+                    title, null, null, 0, Map.of(), List.of());
         }
         // A row saved with the wrong number of values (an older or outside writer) must not break the whole roster:
         // missing values read as 0 and extra ones are ignored, so the COE can open the student and save it again.
@@ -343,7 +377,12 @@ public class MarkService {
                 rs.getInt("grand_total"), rs.getString("grade"), rs.getBoolean("passed") ? "PASS" : "FAIL", partA,
                 partBC, assessment, deptKey, deptName, Semesters.label(sem), code, title,
                 rs.getString("examiner_name"), rs.getString("examiner_designation"), rs.getInt("version"),
-                readRemarks(rs.getString("remarks")));
+                readRemarks(rs.getString("remarks")), notAttemptedList(rs.getArray("not_attempted")));
+    }
+
+    private static List<String> notAttemptedList(java.sql.Array array) throws SQLException {
+        if (array == null) return List.of();
+        return List.of((String[]) array.getArray());
     }
 
     /** The list padded with zeros, or cut, to exactly length values. */
