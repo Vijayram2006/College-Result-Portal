@@ -29,9 +29,11 @@ import {
   Clock,
   ShieldCheck,
   ShieldAlert,
+  Printer,
 } from "lucide-react";
 import { apiErrorMessage, authApi, facultyApi, type FacultySubjectDTO } from "../services/api";
 import { getRealLocalTimestamp } from "../utils/dateUtils";
+import { printMarkStatement } from "../lib/markStatementPrint";
 
 export interface Department {
   key: string;
@@ -921,6 +923,30 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
               </p>
             </div>
 
+            <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
+            {/* Statement of marks for this subject and assessment (dummy numbers); a script without marks prints as ABSENT */}
+            <button
+              type="button"
+              onClick={() => {
+                const ok = printMarkStatement({
+                  collegeKey: me?.collegeKey,
+                  collegeName: me?.collegeName,
+                  department: activeDept.name,
+                  semester,
+                  subjectCode: effectiveSubjectCode,
+                  subjectTitle: activeSubject?.title ?? "",
+                  assessment: targetAssessment,
+                  rows: students,
+                  anonymous: true,
+                });
+                if (!ok) alert("The browser blocked the print window. Allow pop-ups for this site and try again.");
+              }}
+              className="px-5 py-3 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-white font-black text-xs shadow-lg transition flex items-center gap-2 active:scale-95"
+            >
+              <Printer size={16} className="text-[#D4A72C]" />
+              <span>PRINT STATEMENT OF MARKS</span>
+            </button>
+
             {/* ENTER MARK Button: Prominently displayed when student is clicked */}
             {selectedStudent && (
               <div className="animate-in fade-in duration-200">
@@ -937,6 +963,7 @@ export const FacultyMarkEntry: React.FC<FacultyMarkEntryProps> = ({ onToast }) =
                 </button>
               </div>
             )}
+            </div>
           </div>
 
           {/* Student List Table */}
