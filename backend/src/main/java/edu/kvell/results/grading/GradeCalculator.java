@@ -17,7 +17,7 @@ public final class GradeCalculator {
     public static final int FIRST_BC_QUESTION = 11;
     public static final int LAST_BC_QUESTION = 16;
     public static final double SUBDIVISION_MAX = 16;
-    public static final int PASS_MARK = 40;
+    public static final int PASS_MARK = 45;
 
     public record Grade(int total, String letter, int points, boolean passed) {
     }

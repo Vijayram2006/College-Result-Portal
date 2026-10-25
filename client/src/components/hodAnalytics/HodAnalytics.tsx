@@ -919,7 +919,7 @@ const Overview: React.FC<{
   }, [deptT, subjT, compT, studT, riskT]);
 
   const gradeData = A.GRADES.map((g) => ({ grade: g, count: stat.grades[g] || 0, pct: A.pct(stat.grades[g] || 0, stat.scripts) }));
-  const rangeData = A.RANGES.map((r, i) => ({ label: r.label, count: stat.ranges[i], fail: r.min < 40 })).reverse();
+  const rangeData = A.RANGES.map((r, i) => ({ label: r.label, count: stat.ranges[i], fail: r.min < 45 })).reverse();
 
   return (
     <div className="space-y-5">
@@ -947,7 +947,7 @@ const Overview: React.FC<{
             ))}
           </ul>
         </Card>
-        <Card title="Grade distribution" subtitle="Answer scripts in each grade (O ≥ 90 … F < 40)" className="xl:col-span-2">
+        <Card title="Grade distribution" subtitle="Answer scripts in each grade (O ≥ 90 … F < 45)" className="xl:col-span-2">
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={gradeData} margin={{ top: 20, right: 10 }}>
               <CartesianGrid vertical={false} stroke={GRID} />
