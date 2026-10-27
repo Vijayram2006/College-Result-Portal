@@ -1508,6 +1508,12 @@
             "format": "int32",
             "type": "integer"
           },
+          "notAttempted": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "partA": {
             "items": {
               "format": "double",
@@ -3058,6 +3064,12 @@
           },
           "name": {
             "type": "string"
+          },
+          "notAttempted": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "partA": {
             "items": {
