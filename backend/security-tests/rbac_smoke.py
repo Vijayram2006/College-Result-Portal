@@ -51,7 +51,16 @@ def login(user, pw, role):
         st, body, _ = call("POST", "/auth/login", {"username": user, "password": pw, "role": role,
                                                     "otp": totp(os.environ["TOTP_" + user])})
     assert st == 200, (user, st, body)
-    return body["token"], body["user"]
+    token, view = body["token"], body["user"]
+    # Seeded accounts start with a password that must be changed before anything else (this session stays valid)
+    if view.get("mustChangePassword"):
+        st, changed, _ = call("POST", "/auth/change-password", {"currentPassword": pw, "newPassword": pw + "Nx7"},
+                              token=token)
+        assert st == 200, (user, "change-password", st, changed)
+        if user in PW:
+            PW[user] = pw + "Nx7"
+        view = changed
+    return token, view
 
 
 # --- Sign in every role. The COE must set up two-step sign-in first.
@@ -85,7 +94,8 @@ check("forged token -> 401", st == 401, st)
 ROLE_DENIED = {
     "student": (student, ["/admin/dashboard", "/admin/students", "/hod/overview", "/faculty/overview", "/super-admin/officers"]),
     "faculty": (fac, ["/admin/dashboard", "/admin/students", "/hod/overview", "/student/me/results", "/super-admin/officers"]),
-    "hod": (hod, ["/admin/dashboard", "/admin/students", "/faculty/overview", "/student/me/results", "/super-admin/officers"]),
+    # (an HOD also does mark entry, so the faculty area is open to them)
+    "hod": (hod, ["/admin/dashboard", "/admin/students", "/student/me/results", "/super-admin/officers"]),
     "college COE": (admin, ["/super-admin/officers", "/super-admin/config", "/student/me/results", "/hod/overview"]),
 }
 for role, (tok, paths) in ROLE_DENIED.items():

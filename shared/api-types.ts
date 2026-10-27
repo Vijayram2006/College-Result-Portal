@@ -2572,6 +2572,7 @@ export interface components {
             examinerName?: string;
             /** Format: int32 */
             expectedVersion?: number;
+            notAttempted?: string[];
             partA?: number[];
             partBC?: {
                 [key: string]: components["schemas"]["Question"];
@@ -3146,6 +3147,7 @@ export interface components {
             grandTotal?: number;
             hasMarks?: boolean;
             name?: string;
+            notAttempted?: string[];
             partA?: number[];
             /** Format: double */
             partATotal?: number;
