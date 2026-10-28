@@ -111,7 +111,7 @@ public class AuthService {
                        @Value("${app.auth.token-hours}") long tokenHours,
                        @Value("${app.auth.admin-idle-minutes:30}") long adminIdleMinutes,
                        @Value("${app.auth.idle-minutes:120}") long idleMinutes,
-                       @Value("${app.auth.mfa-required:true}") boolean mfaRequired) {
+                       @Value("${app.auth.mfa-required:false}") boolean mfaRequired) {
         this.db = db;
         this.encoder = encoder;
         this.rateLimiter = rateLimiter;
@@ -157,8 +157,9 @@ public class AuthService {
         }
 
         UserRow user = found.get();
-        // Controllers of Examinations confirm with a code from their authenticator app (or a recovery code)
-        if (portal == Role.ADMIN && user.enabled() && user.totpEnabled()) {
+        // Controllers of Examinations confirm with a code from their authenticator app (or a recovery code) when
+        // two-step sign-in is switched on (MFA_REQUIRED=true); otherwise the password alone signs in
+        if (mfaRequired && portal == Role.ADMIN && user.enabled() && user.totpEnabled()) {
             String otp = request.otp() == null ? "" : request.otp().trim();
             if (otp.isEmpty()) {
                 throw new ApiException(HttpStatus.UNAUTHORIZED, "Enter the 6-digit code from your authenticator app.",

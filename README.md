@@ -40,7 +40,7 @@ cd admin-panel && npm ci && npm run dev
 ```
 
 Windows: `start-demo.ps1` does all of this (it reads the passwords from a private `.env` outside the repository).
-COE accounts must set up two-step sign-in (an authenticator app) at their first sign-in.
+COE accounts sign in with their password only; set `MFA_REQUIRED=true` to make them use an authenticator app.
 
 ## Tests
 

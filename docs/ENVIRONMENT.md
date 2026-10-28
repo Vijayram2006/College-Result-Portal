@@ -15,7 +15,7 @@ a value.** Defaults are in `backend/src/main/resources/application.properties`.
 | `CORS_ORIGINS` | yes | Comma-separated browser origins allowed to call the API (no `*`) | the two Vercel URLs |
 | `CLIENT_IP_HEADER` | yes on Render | Header holding the visitor's real address behind the CDN. **Empty when browsers reach the backend directly** | `CF-Connecting-IP` |
 | `FORWARD_HEADERS_STRATEGY` | no | `native` behind a private reverse proxy | `none` |
-| `MFA_REQUIRED` | no | Two-step sign-in required for COE / Chief COE | `true` |
+| `MFA_REQUIRED` | no | Two-step sign-in (authenticator app) for COE / Chief COE; off unless `true` | `false` |
 | `ADMIN_IDLE_MINUTES` / `IDLE_MINUTES` | no | Session idle timeout for COEs / everyone else | `30` / `120` |
 | `RATE_LIMIT_PUBLIC` / `RATE_LIMIT_SIGNED_IN` | no | Requests per visitor per minute | `120` / `600` |
 | `AUDIT_RETENTION_YEARS` / `NOTIFICATION_RETENTION_DAYS` | no | Retention policy | `7` / `365` |
