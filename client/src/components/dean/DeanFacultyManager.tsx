@@ -5,7 +5,7 @@ import { apiClient, apiErrorMessage } from "../../services/api";
 /**
  * The Associate Dean adds the college's faculty: the details are verified by the Dean and become a faculty sign-in
  * of their own (username = staff ID), with one department and the subjects they handle. Mark entry and the CO sheet
- * then show the faculty member only those subjects; paper correction shows the bundles the Dean allots.
+ * then show the faculty member only those subjects; paper correction shows the bundles the COE allots.
  */
 
 type HandlingSubject = { semester: string; code: string; title: string };

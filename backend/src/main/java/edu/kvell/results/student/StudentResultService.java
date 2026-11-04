@@ -63,7 +63,11 @@ public class StudentResultService {
 
     public List<RegisteredSubject> subjectsFor(String regNo) {
         return db.sql("""
-                        SELECT j.code, j.title, j.credits, j.category, j.faculty
+                        SELECT j.code, j.title, j.credits, j.category,
+                               -- the faculty the HOD allotted to the subject (faculty_subjects); the catalog text is only a fallback
+                               coalesce((SELECT string_agg(DISTINCT u.display_name, ', ') FROM faculty_subjects f JOIN users u ON u.id = f.user_id
+                                         WHERE f.dept_key = j.dept_key AND f.semester = j.semester AND f.subject_code = j.code),
+                                        nullif(nullif(trim(j.faculty), ''), 'Faculty In-Charge'), 'Not allotted yet') AS faculty
                         FROM students s
                         JOIN subjects j ON j.dept_key = s.dept_key AND j.semester = s.semester
                         WHERE s.reg_no = ? AND j.status = 'COE FINALIZED'

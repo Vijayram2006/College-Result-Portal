@@ -24,7 +24,8 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Shared documents of the examination workflow screens: the exam timetable and the Dean's notifications, the
- * paper-correction allotments and the evaluators' work, and the three-tier revaluation records. Each is one JSON
+ * classroom allocations and the three-tier revaluation records (paper-correction allotments have their own table,
+ * see PaperAllotmentService). Each is one JSON
  * document per college, read by the college's staff and written only by the roles that own it, so every user of the
  * college sees the same data (instead of a copy in one browser).
  */
@@ -37,8 +38,6 @@ public class WorkflowDocumentController {
             "kvell_exam_timetable", Set.of(Role.DEAN, Role.ADMIN),
             "kvell_exam_notifications", Set.of(Role.DEAN, Role.ADMIN),
             "kvell_classroom_allocations", Set.of(Role.ADMIN), // REQ-06: the COE only; the Associate Dean reads it
-            "kvell_paper_correction_assignments", Set.of(Role.DEAN, Role.ADMIN, Role.FACULTY, Role.HOD),
-            "kvell_faculty_evaluated_scripts", Set.of(Role.DEAN, Role.ADMIN, Role.FACULTY, Role.HOD),
             "kvell_revaluation_3tier_records_v3", Set.of(Role.DEAN, Role.ADMIN));
     static final Set<Role> READERS = Set.of(Role.DEAN, Role.ADMIN, Role.HOD, Role.FACULTY);
     static final int MAX_CHARS = 2_000_000;

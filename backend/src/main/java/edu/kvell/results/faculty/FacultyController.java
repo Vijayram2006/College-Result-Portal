@@ -68,6 +68,7 @@ public class FacultyController {
                                                                  @RequestParam String assessment,
                                                                  @RequestParam(required = false) String dept) {
         dept = access.deptFor(dept, semester, subject);
+        requireInBundle(dept, semester, subject, assessment, regNo);
         String reg = anonymous.resolve(dept, semester, subject, assessment, regNo);
         org.springframework.http.ResponseEntity<byte[]> pdf = scripts.file(dept, semester, subject, reg, assessment);
         String code = regNo.trim().toUpperCase(java.util.Locale.ROOT);
@@ -168,7 +169,20 @@ public class FacultyController {
                                          @RequestParam(required = false) String dept) {
         // Faculty evaluate anonymously: dummy numbers in a shuffled order
         dept = access.deptFor(dept, semester, subject);
-        return anonymous.evaluationOrder(dept, semester, subject, assessment);
+        // An allotted evaluator gets only their own bundle of the scripts
+        return access.bundle(anonymous.evaluationOrder(dept, semester, subject, assessment), dept, semester, subject,
+                assessment);
+    }
+
+    /** Refuses a script outside the signed-in evaluator's bundle (the COE's paper-correction allotment). */
+    private void requireInBundle(String dept, String semester, String subject, String assessment, String dummyCode) {
+        String code = dummyCode == null ? "" : dummyCode.trim().toUpperCase(java.util.Locale.ROOT);
+        boolean mine = access.bundle(anonymous.evaluationOrder(dept, semester, subject, assessment), dept, semester,
+                subject, assessment).stream().anyMatch(m -> m.regNo().equals(code));
+        if (!mine) {
+            throw new edu.kvell.results.common.ApiException(org.springframework.http.HttpStatus.FORBIDDEN,
+                    "Answer script " + code + " is not in your paper-correction bundle");
+        }
     }
 
     @PutMapping("/marks")
@@ -176,6 +190,7 @@ public class FacultyController {
         CurrentUser user = CurrentUser.get();
         // An allotted evaluator may mark another department's scripts (r.dept()); otherwise their own department
         String dept = access.deptFor(r.deptKey(), r.semester(), r.subjectCode());
+        requireInBundle(dept, r.semester(), r.subjectCode(), r.assessmentType(), r.regNo());
         // regNo is the script's dummy number
         String reg = anonymous.resolve(dept, r.semester(), r.subjectCode(), r.assessmentType(), r.regNo());
         if (db.sql("""
@@ -219,8 +234,9 @@ public class FacultyController {
     @PostMapping("/forward")
     ResultBatchService.ResultBatch forward(@RequestBody ResultBatchService.ForwardRequest r, HttpServletRequest http) {
         CurrentUser user = CurrentUser.get();
-        // An allotted evaluator forwards the subject of whichever department the Dean allotted it from
+        // An allotted evaluator forwards the subject of whichever department the COE allotted it from
         String dept = access.deptFor(r.deptKey(), r.semester(), r.subjectCode());
+        access.requireAllottedAssessment(dept, r.semester(), r.subjectCode(), r.assessmentType());
         ResultBatchService.ResultBatch b = results.forward(new ResultBatchService.ForwardRequest(dept,
                 r.semester(), r.subjectCode(), r.academicYear(), r.assessmentType()), user, http.getRemoteAddr());
         // The students' names and register numbers stay hidden from faculty

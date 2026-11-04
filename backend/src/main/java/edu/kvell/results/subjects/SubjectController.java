@@ -38,6 +38,12 @@ public class SubjectController {
                 .body(subjects.create(subject, CurrentUser.get(), http.getRemoteAddr()));
     }
 
+    @PutMapping("/{id}")
+    SubjectService.SubjectItem update(@PathVariable long id, @RequestBody SubjectService.SubjectItem subject,
+                                      HttpServletRequest http) {
+        return subjects.update(id, subject, CurrentUser.get(), http.getRemoteAddr());
+    }
+
     @PutMapping("/{id}/status")
     SubjectService.SubjectItem setStatus(@PathVariable long id, @RequestBody Map<String, String> body,
                                          HttpServletRequest http) {

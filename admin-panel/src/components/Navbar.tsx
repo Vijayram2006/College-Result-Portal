@@ -1,3 +1,4 @@
+import { officeOf } from "../utils/panel";
 import React, { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { Menu } from "lucide-react";
 import { Link } from "wouter";
@@ -156,7 +157,7 @@ const CollegeBanner: React.FC<NavbarProps> = ({ setMobileOpen, title }) => {
           <div ref={name.box} className="relative flex flex-1 items-center min-w-0 self-stretch">
             <div className="min-w-0">
               <span className="hidden sm:inline-flex items-center gap-1 bg-[#D4A72C] text-[#0B192C] text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-widest mb-1">
-                Office of the Controller of Examinations
+                {officeOf(currentUser?.role)?.name ?? "Office of the Controller of Examinations"}
               </span>
               <h1
                 className={`font-display font-black ${wraps ? "leading-snug" : "leading-tight whitespace-nowrap"}`}
@@ -186,7 +187,7 @@ const CollegeBanner: React.FC<NavbarProps> = ({ setMobileOpen, title }) => {
         <div className="flex items-center gap-3 sm:gap-4 shrink-0">
           <NotificationBell />
           <Link href="/admin/profile" title="My profile" className="hidden xl:block text-right pl-3 border-l border-white/20 hover:opacity-80">
-            <span className="block text-xs font-bold text-white whitespace-nowrap">{currentUser?.name || college.coeTitle}</span>
+            <span className="block text-xs font-bold text-white whitespace-nowrap">{currentUser?.name || (officeOf(currentUser?.role)?.name ?? college.coeTitle)}</span>
             <span className="block text-[10px] font-mono text-white/60">{currentUser?.username || ""}</span>
           </Link>
         </div>

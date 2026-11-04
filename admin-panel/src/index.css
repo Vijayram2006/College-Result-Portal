@@ -46,3 +46,8 @@ input::-ms-clear {
   display: none;
 }
 /* end of KVELL design tokens */
+
+/* Sign-in pages use the computer's own system font (Segoe UI on Windows); the pages after sign-in keep Manrope / DM Sans */
+.login-font, .login-font * {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" !important;
+}

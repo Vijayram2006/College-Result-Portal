@@ -5,6 +5,8 @@ import path from "path";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // The Office Portal (VITE_PANEL=office, port 3004) runs from the same code; its own cache avoids clashes
+  cacheDir: process.env.VITE_PANEL === "office" ? "node_modules/.vite-office" : "node_modules/.vite",
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

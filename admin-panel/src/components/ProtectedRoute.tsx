@@ -1,6 +1,7 @@
 import React from "react";
 import { Redirect, useLocation } from "wouter";
 import { adminAuthApi } from "../services/api";
+import { OFFICE_PANEL, OFFICE_ROLES, OFFICES, officeOf } from "../utils/panel";
 
 interface ProtectedRouteProps {
   component: React.ComponentType<any>;
@@ -15,10 +16,16 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ component: Compo
   const currentUser = adminAuthApi.getCurrentUser();
 
   // Route protection: requires authentication AND authorized COE role
-  const allowedRoles = ["SUPER_ADMIN", "ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY"];
+  // The COE panel takes COE logins; the Office Portal (OFFICE_PANEL) takes only office logins
+  const allowedRoles = OFFICE_PANEL ? OFFICE_ROLES : ["SUPER_ADMIN", "ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY"];
   if (!token || !currentUser || !allowedRoles.includes(currentUser.role)) {
     return <Redirect to="/admin/login" />;
   }
+  // An officer sees only their own office pages (and their profile); COEs see no office pages
+  const office = officeOf(currentUser.role);
+  const officePage = OFFICES.find((o) => location.startsWith(o.basePath));
+  if (office && officePage !== office && location !== "/admin/profile") return <Redirect to={office.home} />;
+  if (!office && officePage) return <Redirect to="/admin/dashboard" />;
   if (currentUser.role === "SUPER_ADMIN" && NOT_FOR_SUPER_ADMIN.includes(location)) {
     return <Redirect to="/admin/super-admin" />;
   }

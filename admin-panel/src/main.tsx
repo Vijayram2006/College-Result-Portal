@@ -4,6 +4,10 @@ import App from "./App";
 import "./index.css";
 import { ServerWakeBanner, wakeServer } from "./components/ServerWake";
 
+import { OFFICE_PANEL } from "./utils/panel";
+
+if (OFFICE_PANEL) document.title = "KVELL University — Office Portal";
+
 // Start the hosted server as soon as the panel opens (it sleeps when idle on the free plan)
 wakeServer();
 

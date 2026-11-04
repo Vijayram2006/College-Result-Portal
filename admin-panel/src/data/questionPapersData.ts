@@ -1,7 +1,8 @@
 import { cachedQuestionPapers } from "../services/questionPapersApi";
 
-export type HierarchyRole = "Faculty" | "HOD" | "AD" | "COE" | "Chief COE";
-export type HierarchyStageNumber = 1 | 2 | 3 | 4 | 5;
+export type HierarchyRole = "Faculty" | "HOD" | "AD" | "COE";
+// The COE gives the final approval; the Chief COE only monitors
+export type HierarchyStageNumber = 1 | 2 | 3 | 4;
 
 export interface StageSignature {
   stageNumber: HierarchyStageNumber;
@@ -67,15 +68,13 @@ export interface QuestionPaperItem {
   hodName: string; // Stage 2: HOD DAC Scrutiny
   adName: string; // Stage 3: Associate Dean Academic Scrutiny
   coeName: string; // Stage 4: COE Examination Wing
-  chiefCoeName: string; // Stage 5: Chief COE / Super Admin
-  currentStageNumber: HierarchyStageNumber; // 1 to 5
+  currentStageNumber: HierarchyStageNumber; // 1 to 4
   currentStageRole: HierarchyRole;
   status:
     | "PENDING_HOD_REVIEW"
     | "PENDING_AD_REVIEW"
     | "PENDING_COE_REVIEW"
-    | "PENDING_CHIEF_COE"
-    | "CHIEF_COE_APPROVED"
+    | "COE_APPROVED"
     | "RETURNED_TO_FACULTY"
     | "RETURNED_TO_HOD"
     | "RETURNED_TO_AD"
@@ -141,19 +140,16 @@ export function sanitizeQuestionPaper(p: any): QuestionPaperItem {
   const hodName = p.hodName || "";
   const adName = p.adName || "";
   const coeName = p.coeName || "";
-  const chiefCoeName = p.chiefCoeName || "";
 
   let currentStageNumber: HierarchyStageNumber = 1;
-  if (typeof p.currentStageNumber === "number" && p.currentStageNumber >= 1 && p.currentStageNumber <= 5) {
+  if (typeof p.currentStageNumber === "number" && p.currentStageNumber >= 1 && p.currentStageNumber <= 4) {
     currentStageNumber = p.currentStageNumber as HierarchyStageNumber;
   } else if (p.status === "PENDING_HOD_REVIEW") {
     currentStageNumber = 2;
   } else if (p.status === "PENDING_AD_REVIEW") {
     currentStageNumber = 3;
-  } else if (p.status === "PENDING_COE_REVIEW") {
+  } else if (p.status === "PENDING_COE_REVIEW" || p.status === "COE_APPROVED") {
     currentStageNumber = 4;
-  } else if (p.status === "CHIEF_COE_APPROVED" || p.status === "PENDING_CHIEF_COE") {
-    currentStageNumber = 5;
   }
 
   const currentStageRole: HierarchyRole =
@@ -164,9 +160,7 @@ export function sanitizeQuestionPaper(p: any): QuestionPaperItem {
       ? "HOD"
       : currentStageNumber === 3
       ? "AD"
-      : currentStageNumber === 4
-      ? "COE"
-      : "Chief COE");
+      : "COE");
 
   const status = p.status || "DRAFT";
   const num = (v: unknown) => (typeof v === "number" ? v : 0);
@@ -178,13 +172,12 @@ export function sanitizeQuestionPaper(p: any): QuestionPaperItem {
 
   // Without a recorded trail, show only who holds the paper at each stage (no invented dates, seals or remarks)
   const stage = (n: HierarchyStageNumber): StageSignature["status"] =>
-    n < currentStageNumber || (n === 5 && status === "CHIEF_COE_APPROVED") ? "COMPLETED" : n === currentStageNumber ? "CURRENT" : "PENDING";
+    n < currentStageNumber || (n === 4 && status === "COE_APPROVED") ? "COMPLETED" : n === currentStageNumber ? "CURRENT" : "PENDING";
   const defaultTrail: StageSignature[] = [
     { stageNumber: 1, stageRole: "Faculty", officerTitle: "Subject Instructor", officerName: facultyName, status: stage(1), timestamp: p.dateSubmitted || undefined },
     { stageNumber: 2, stageRole: "HOD", officerTitle: "Head of Department", officerName: hodName, status: stage(2) },
     { stageNumber: 3, stageRole: "AD", officerTitle: "Associate Dean (Academics)", officerName: adName, status: stage(3), timestamp: p.forwardedDate || undefined, remarks: p.adRemarks || undefined },
     { stageNumber: 4, stageRole: "COE", officerTitle: "Controller of Examinations", officerName: coeName, status: stage(4), sealOrReference: p.coeReferenceNo },
-    { stageNumber: 5, stageRole: "Chief COE", officerTitle: "Chief University Controller", officerName: chiefCoeName, status: stage(5), sealOrReference: p.chiefCoeSealNo },
   ];
   const hierarchyTrail = Array.isArray(p.hierarchyTrail) && p.hierarchyTrail.length > 0 ? p.hierarchyTrail : defaultTrail;
 
@@ -205,7 +198,6 @@ export function sanitizeQuestionPaper(p: any): QuestionPaperItem {
     hodName,
     adName,
     coeName,
-    chiefCoeName,
     currentStageNumber,
     currentStageRole,
     status,

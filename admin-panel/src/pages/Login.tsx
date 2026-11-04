@@ -15,11 +15,16 @@ import {
   Crown,
 } from "lucide-react";
 import { adminAuthApi, apiErrorMessage, type CaptchaChallenge } from "../services/api";
+import { OFFICE_PANEL, OFFICE_PORTAL_URL, officeOf } from "../utils/panel";
+import { OfficeLogin } from "./OfficeLogin";
 import { refreshDepartments } from "./Departments";
 
 const kvellSealLogo = "/kvell-logo.png";
 
-export const Login: React.FC = () => {
+/** The Office Portal (port 3004) has its own sign-in page; the COE panel keeps this one. */
+export const Login: React.FC = () => (OFFICE_PANEL ? <OfficeLogin /> : <CoeLogin />);
+
+const CoeLogin: React.FC = () => {
   const [, navigate] = useLocation();
   const [username, setUsername] = useState("ADMIN");
   const [password, setPassword] = useState("");
@@ -44,7 +49,10 @@ export const Login: React.FC = () => {
         captchaAnswer: captcha ? captchaAnswer : undefined,
       });
       const allowedRoles = ["SUPER_ADMIN", "ADMIN", "COE_ENGINEERING", "COE_NURSING", "COE_PHARMACY"];
-      if (allowedRoles.includes(res.role)) {
+      if (officeOf(res.role)) {
+        adminAuthApi.logout();
+        setError("Office officers (Accounts and others) sign in to the Office Portal: " + OFFICE_PORTAL_URL);
+      } else if (allowedRoles.includes(res.role)) {
         if (!res.user.mfaSetupRequired) await refreshDepartments().catch(() => undefined);
         navigate(res.role === "SUPER_ADMIN" ? "/admin/super-admin" : "/admin/dashboard");
       } else {
@@ -69,7 +77,7 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B192C] text-[#172033] font-sans flex flex-col justify-between selection:bg-[#D4A72C] selection:text-[#0B192C]">
+    <div className="login-font min-h-screen bg-[#0B192C] text-[#172033] font-sans flex flex-col justify-between selection:bg-[#D4A72C] selection:text-[#0B192C]">
       {/* Top Banner Bar */}
       <div className="bg-[#060D17] text-white border-b border-[#D4A72C]/20 text-[11px] py-1.5 px-4 sm:px-8 flex flex-wrap items-center justify-between gap-2 z-50">
         <div className="flex items-center gap-2">
@@ -305,7 +313,7 @@ export const Login: React.FC = () => {
                             Chief COE
                           </span>
                         </span>
-                        <span className="block text-[10px] font-mono text-[#8C6D1F]">User ID: COE</span>
+                        <span className="block text-[10px] font-mono text-[#8A6410]">User ID: COE</span>
                       </span>
                     </span>
                     <span className="text-[10px] bg-[#D4A72C] text-[#0B192C] font-black px-2.5 py-1 rounded-full shadow-sm">
@@ -372,6 +380,7 @@ export const Login: React.FC = () => {
                       Separate data
                     </span>
                   </button>
+
                 </div>
               </div>
 

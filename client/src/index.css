@@ -121,7 +121,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(212, 167, 44
   background-image: linear-gradient(rgba(11, 25, 44, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(11, 25, 44, .035) 1px, transparent 1px);
   background-size: 28px 28px;
 }
-.gold-sheen { background: linear-gradient(115deg, #D4A72C 0%, #E7C45F 48%, #B88715 100%); }
+.gold-sheen { background: linear-gradient(115deg, #D4A72C 0%, #E2B53A 48%, #B08014 100%); }
 .soft-shadow { box-shadow: 0 14px 40px rgba(11, 25, 44, .055); }
 .card-shadow { box-shadow: 0 8px 24px rgba(11, 25, 44, .045), 0 1px 2px rgba(11, 25, 44, .03); }
 
@@ -152,3 +152,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(212, 167, 44
   background-size: 28px 28px;
 }
 .login-shell input::selection { background: rgba(212, 167, 44, .25); }
+
+/* Sign-in pages use the computer's own system font (Segoe UI on Windows); the pages after sign-in keep Manrope / DM Sans */
+.login-font, .login-font * {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" !important;
+}

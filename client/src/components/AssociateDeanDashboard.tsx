@@ -75,6 +75,9 @@ import { MarkApprovalsView } from "./MarkApprovalsView";
 import { NotificationBell } from "./NotificationBell";
 import { FacultyBanner } from "./FacultyBanner";
 import { PaperCorrectionView } from "./dean/PaperCorrectionView";
+import { CompletionReport, LeaveInbox, PerformanceReview } from "./erp/ErpViews";
+import { collegeBrand } from "../lib/collegeBrand";
+import { BarChart3 as ErpChartIcon, CalendarDays as ErpCalendarIcon, NotebookPen as ErpLogIcon } from "lucide-react";
 import { RevaluationThreeTierReviewView } from "./dean/RevaluationThreeTierReviewView";
 import { ExamTimetableNotificationView } from "./dean/ExamTimetableNotificationView";
 import { WorkflowChartTrackerView } from "./dean/WorkflowChartTrackerView";
@@ -126,7 +129,7 @@ class QuestionPaperErrorBoundary extends React.Component<
             Question Paper Review Component Recovery
           </h3>
           <p className="text-xs text-slate-600 max-w-md mx-auto">
-            Detected cached data variation from previous browser session. Click below to load the verified 5-stage Academic Question Paper Scrutiny portal.
+            Detected cached data variation from previous browser session. Click below to load the verified 4-stage Academic Question Paper Scrutiny portal.
           </p>
           <button
             onClick={() => {
@@ -404,6 +407,30 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* ERP: HOD leave approvals, subject completion and faculty performance */}
+            <div className="pt-2 space-y-1">
+              <span className="text-[10px] font-extrabold text-white/60 uppercase tracking-widest px-3.5">Academics</span>
+              {([
+                ["erp-leave", "Leave Approvals (HOD)", ErpCalendarIcon],
+                ["erp-completion", "Subject Completion", ErpLogIcon],
+                ["erp-performance", "Faculty Performance", ErpChartIcon],
+              ] as const).map(([key, label, Icon]) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    setActiveNav(key);
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left cursor-pointer ${
+                    activeNav === key ? "bg-[#D4A72C] text-[#0B192C]" : "text-white/80 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  <Icon size={15} />
+                  <span>{label}</span>
+                </button>
+              ))}
             </div>
 
             {/* Results Collapsible Menu */}
@@ -718,8 +745,8 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
         {/* Mobile Top App Bar */}
         {/* The same navy college banner as every other portal */}
         <FacultyBanner
-          collegeName={myCollegeName}
-          logoUrl="/kvell-logo.png"
+          collegeName={collegeBrand().name}
+          logoUrl={collegeBrand().logoUrl}
           userName={myName}
           username={me?.username ?? ""}
           tag={`OFFICE OF THE ${myTitle.toUpperCase()}`}
@@ -813,7 +840,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                       Question Paper Review
                     </span>
                     <p className="text-xs text-gray-500 mt-1">
-                      5-stage scrutiny of HOD submitted QP sets &amp; COE forwarding.
+                      4-stage scrutiny of HOD submitted QP sets &amp; COE forwarding.
                     </p>
                     <span className="text-[10px] font-black text-amber-800 mt-3 inline-block">
                       Open Module &rarr;
@@ -851,7 +878,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                       Paper Correction
                     </span>
                     <p className="text-xs text-gray-500 mt-1">
-                      Faculty answer script allocation &amp; valuation progress tracking.
+                      Valuation progress of the faculty the COE allotted (view only).
                     </p>
                     <span className="text-[10px] font-black text-[#0B192C] mt-3 inline-block">
                       Open Module &rarr;
@@ -890,6 +917,12 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
 
           {/* ANSWER SCRIPTS VIEW (Matching Image 3 with View instead of Upload) */}
           {activeNav === "answer-scripts" && <DeanAnswerScriptsView />}
+
+          {activeNav === "erp-leave" && (
+            <LeaveInbox title="HOD leave approvals" detail="Leave requests of the HODs of the college." onToast={showToast} />
+          )}
+          {activeNav === "erp-completion" && <CompletionReport />}
+          {activeNav === "erp-performance" && <PerformanceReview dean onToast={showToast} />}
 
           {/* PAPER CORRECTION VIEW (Staff Allocation & Equal Mapping Engine) */}
           {activeNav === "paper-correction" && (

@@ -4,6 +4,11 @@ export type CollegeKey = "engineering" | "nursing" | "pharmacy";
 
 export type AdminRole = "SUPER_ADMIN" | "ADMIN" | "COE_ENGINEERING" | "COE_NURSING" | "COE_PHARMACY";
 
+/** The Accounts office (fees) signs in to the same officers panel and sees only the Accounts menu. */
+export const ACCOUNTS_ROLES = ["ACCOUNTS_STAFF", "ACCOUNTS_HEAD"];
+export const isAccounts = (user: { role?: string } | null | undefined) => !!user?.role && ACCOUNTS_ROLES.includes(user.role);
+export const isAccountsHead = (user: { role?: string } | null | undefined) => user?.role === "ACCOUNTS_HEAD";
+
 export interface CollegeConfig {
   key: CollegeKey;
   name: string;

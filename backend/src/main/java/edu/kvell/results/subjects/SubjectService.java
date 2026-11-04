@@ -101,6 +101,34 @@ public class SubjectService {
         return get(id);
     }
 
+    /**
+     * COE edit of a subject's title, category, credits and catalog faculty text. The code, department and semester stay
+     * fixed (marks, allotments and results are keyed on them). Results already published keep the credits they were
+     * published with; the new credits apply from the next publish.
+     */
+    @Transactional
+    public SubjectItem update(long id, SubjectItem in, CurrentUser user, String ip) {
+        SubjectItem old = get(id);
+        String title = in.title() == null ? old.title() : in.title().trim();
+        if (title.isEmpty() || title.length() > 160) throw ApiException.badRequest("Subject title is required");
+        String category = in.category() == null ? old.category() : in.category().trim();
+        if (!CATEGORIES.contains(category)) throw ApiException.badRequest("Unknown subject category");
+        int credits = in.credits() == null ? old.credits() : in.credits();
+        if (credits < 0 || credits > 20) throw ApiException.badRequest("Credits must be between 0 and 20");
+        String faculty = in.faculty() == null || in.faculty().isBlank() ? old.faculty() : in.faculty().trim();
+        db.sql("UPDATE subjects SET title = ?, category = ?, credits = ?, faculty = ? WHERE id = ?")
+                .params(title, category, credits, truncate(faculty, 120), id).update();
+        StringBuilder what = new StringBuilder();
+        if (!title.equals(old.title())) what.append(" title \"").append(old.title()).append("\" -> \"").append(title).append("\";");
+        if (!category.equals(old.category())) what.append(" category ").append(old.category()).append(" -> ").append(category).append(";");
+        if (credits != old.credits()) what.append(" credits ").append(old.credits()).append(" -> ").append(credits).append(";");
+        if (!faculty.equals(old.faculty())) what.append(" faculty text updated;");
+        audit.record(user.username(), user.name(), "EDITED_SUBJECT", old.code() + " - " + title,
+                "Edited " + old.deptKey().toUpperCase(Locale.ROOT) + " " + old.semester() + ":"
+                        + (what.length() == 0 ? " no change." : what.toString()), ip);
+        return get(id);
+    }
+
     @Transactional
     public SubjectItem setStatus(long id, String status, CurrentUser user, String ip) {
         if (status == null || !STATUSES.contains(status.trim())) throw ApiException.badRequest("Unknown subject status");

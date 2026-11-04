@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class NotificationService {
 
-    public enum Audience { COE, HOD, FACULTY, STUDENT, DEAN }
+    public enum Audience { COE, HOD, FACULTY, STUDENT, DEAN, ACCOUNTS }
 
     public record Item(long id, String title, String message, String link, String createdAt, boolean read) {
     }
@@ -34,8 +34,19 @@ public class NotificationService {
                         INSERT INTO notifications (college_key, audience, dept_key, semester, title, message, link)
                         SELECT d.college_key, ?, ?, ?, ?, ?, ? FROM departments d WHERE d.dept_key = ?
                         """)
-                .params(audience.name(), audience == Audience.COE || audience == Audience.DEAN ? null : deptKey, semester, title, message, link,
+                .params(audience.name(), audience == Audience.COE || audience == Audience.DEAN || audience == Audience.ACCOUNTS ? null : deptKey, semester, title, message, link,
                         deptKey)
+                .update();
+    }
+
+    /** Sends a notification to one user (shown to them only), e.g. an evaluator's paper-correction allotment. */
+    public void notifyUser(long userId, Audience audience, String deptKey, Integer semester, String title, String message,
+                           String link) {
+        db.sql("""
+                        INSERT INTO notifications (college_key, audience, dept_key, semester, title, message, link, user_id)
+                        SELECT d.college_key, ?, ?, ?, ?, ?, ?, ? FROM departments d WHERE d.dept_key = ?
+                        """)
+                .params(audience.name(), deptKey, semester, title, message, link, userId, deptKey)
                 .update();
     }
 
@@ -88,9 +99,15 @@ public class NotificationService {
 
     /** Which notifications a user may see: by role, college and department (students also by semester). */
     private static String target(CurrentUser user) {
+        // A notification addressed to one user is shown to that user only
+        return " (" + audience(user) + ") AND (n.user_id IS NULL OR n.user_id = :uid) ";
+    }
+
+    private static String audience(CurrentUser user) {
         return switch (user.role()) {
             case SUPER_ADMIN, ADMIN -> " n.audience = 'COE' AND n.college_key = :college ";
             case DEAN -> " n.audience = 'DEAN' AND n.college_key = :college ";
+            case ACCOUNTS -> " n.audience = 'ACCOUNTS' AND n.college_key = :college ";
             case ADMISSION -> " FALSE ";
             case HOD -> " n.audience = 'HOD' AND n.dept_key = :dept ";
             case FACULTY -> " n.audience = 'FACULTY' AND n.dept_key = :dept ";

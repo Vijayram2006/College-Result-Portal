@@ -67,6 +67,10 @@ public class DemoDataSeeder implements ApplicationRunner {
                 {"PHARM", "pharmacy", "Pharmacy"}}) {
             createOfficer("ADEAN_" + c[0], "Associate Dean (" + c[2] + ")", "DEAN", "ASSOCIATE_DEAN", c[1], deanPassword);
         }
+        // Accounts office (fees): staff enter, the head approves; they sign in to the officers panel
+        createOfficer("ACCOUNTS_STAFF", "Accounts Staff (Engineering)", "ACCOUNTS", null, "engineering", adminPassword);
+        createOfficer("ACCOUNTS_HEAD", "Accounts Head (Engineering)", "ACCOUNTS", null, "engineering", adminPassword);
+        db.sql("UPDATE users SET accounts_head = TRUE WHERE username = 'ACCOUNTS_HEAD' AND NOT accounts_head").update();
         List<String> depts = db.sql("SELECT dept_key FROM departments ORDER BY dept_key").query(String.class).list();
         depts.forEach(this::createDepartmentLogins);
     }

@@ -27,9 +27,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Question papers and their five-stage approval: 1 Faculty (submits) → 2 HOD (scrutiny) → 3 Associate Dean (review)
- * → 4 College COE (forwards, chooses the set) → 5 Chief COE (releases with a seal number). Any stage after the first
- * can send a paper back to an earlier one with a reason. Every move is checked here (who may act on which status),
+ * Question papers and their four-stage approval: 1 Faculty (submits) → 2 HOD (scrutiny) → 3 Associate Dean (review)
+ * → 4 College COE (chooses the set and gives the final approval with a reference number). The Chief COE only monitors:
+ * they see every paper but cannot approve or return one. Any stage after the first can send a paper back to an
+ * earlier one with a reason. Every move is checked here (who may act on which status),
  * recorded in the audit log and announced to the next stage. Papers are confidential: each person sees only the
  * papers of their own department (faculty, HOD) or college (Associate Dean, COE).
  */
@@ -45,12 +46,14 @@ public class QuestionPaperService {
                              Attachment pdf, String remarks) {
     }
 
-    /** action: APPROVE (HOD, Associate Dean), FORWARD (COE), RELEASE (Chief COE) or RETURN (to returnTo). */
+    /** action: APPROVE (HOD, Associate Dean, COE; FORWARD is the COE's older name for it) or RETURN (to returnTo). */
     public record ActionRequest(String action, String remarks, String returnTo, String set,
                                 Map<String, Object> hodDeclaration, Integer expectedVersion) {
     }
 
-    static final List<String> STAGE_ROLES = List.of("Faculty", "HOD", "AD", "COE", "Chief COE");
+    static final List<String> STAGE_ROLES = List.of("Faculty", "HOD", "AD", "COE");
+    /** The COE's approval is final. */
+    static final String APPROVED = "COE_APPROVED";
     static final Set<String> EXAM_TYPES = Set.of("End Semester Examination", "Internal Assessment - I",
             "Internal Assessment - II", "Model Examination");
     static final int MAX_PDF_BYTES = 15 * 1024 * 1024;
@@ -162,7 +165,7 @@ public class QuestionPaperService {
         int next = hod ? 3 : 2;
         List<Map<String, Object>> trail = trail(p);
         sign(trail, hod ? 2 : 1, user, "COMPLETED", null, c.remarks() == null ? "Corrected and resubmitted" : c.remarks());
-        for (int s = next; s <= 5; s++) mark(trail, s, "PENDING");
+        for (int s = next; s <= trail.size(); s++) mark(trail, s, "PENDING");
         mark(trail, next, "CURRENT");
         db.sql("""
                         UPDATE question_papers SET subject_code = :code, subject_title = :title, semester = :sem,
@@ -192,6 +195,10 @@ public class QuestionPaperService {
     @Transactional
     public Map<String, Object> act(long id, ActionRequest req, CurrentUser user, String ip) {
         if (req == null || req.action() == null) throw ApiException.badRequest("Choose an action");
+        if (user.role() == CurrentUser.Role.SUPER_ADMIN) {
+            throw new ApiException(HttpStatus.FORBIDDEN,
+                    "The Chief COE monitors question papers; the COE gives the final approval");
+        }
         Map<String, Object> p = load(id, user);
         int version = ((Number) p.get("version")).intValue();
         if (req.expectedVersion() != null && req.expectedVersion() != version) {
@@ -227,14 +234,9 @@ public class QuestionPaperService {
             for (int s = to + 1; s < actorStage; s++) mark(trail, s, "PENDING");
             mark(trail, to, "CURRENT");
         } else {
-            String expected = switch (actorStage) {
-                case 2 -> "APPROVE";
-                case 3 -> "APPROVE";
-                case 4 -> "FORWARD";
-                case 5 -> "RELEASE";
-                default -> "";
-            };
-            if (!expected.equals(action)) {
+            boolean allowed = actorStage >= 2 && actorStage <= 4
+                    && ("APPROVE".equals(action) || (actorStage == 4 && "FORWARD".equals(action)));
+            if (!allowed) {
                 throw new ApiException(HttpStatus.FORBIDDEN, "Your role cannot " + action.toLowerCase(Locale.ROOT)
                         + " question papers");
             }
@@ -246,36 +248,26 @@ public class QuestionPaperService {
                 seal = "COE/QP/" + OffsetDateTime.now(IST).getYear() + "/" + String.format("%05d", id) + "-"
                         + String.format("%04d", RANDOM.nextInt(10_000));
             }
-            if (actorStage == 5) {
-                seal = "CHIEF/SEAL/" + OffsetDateTime.now(IST).getYear() + "/" + String.format("%05d", id) + "-"
-                        + String.format("%04d", RANDOM.nextInt(10_000));
-            }
             sign(trail, actorStage, user, "COMPLETED", seal, remarks);
-            if (actorStage < 5) {
+            if (actorStage < 4) {
                 newStage = actorStage + 1;
-                newStatus = switch (newStage) {
-                    case 3 -> "PENDING_AD_REVIEW";
-                    case 4 -> "PENDING_COE_REVIEW";
-                    default -> "PENDING_CHIEF_COE";
-                };
+                newStatus = newStage == 3 ? "PENDING_AD_REVIEW" : "PENDING_COE_REVIEW";
                 mark(trail, newStage, "CURRENT");
             } else {
-                newStage = 5;
-                newStatus = "CHIEF_COE_APPROVED";
+                newStage = 4;
+                newStatus = APPROVED;
             }
         }
         db.sql("""
                         UPDATE question_papers SET status = :status, stage = :stage, trail = CAST(:trail AS JSONB),
                             content = CAST(:content AS JSONB), set_label = :set,
                             coe_reference_no = coalesce(CAST(:ref AS VARCHAR), coe_reference_no),
-                            chief_seal_no = coalesce(CAST(:chief AS VARCHAR), chief_seal_no),
                             remarks = coalesce(CAST(:remarks AS VARCHAR), remarks), version = version + 1, updated_at = now()
                         WHERE id = :id AND version = :version
                         """)
                 .param("status", newStatus).param("stage", newStage).param("trail", write(trail))
                 .param("content", write(content)).param("set", set)
                 .param("ref", actorStage == 4 && !"RETURN".equals(action) ? seal : null)
-                .param("chief", actorStage == 5 && !"RETURN".equals(action) ? seal : null)
                 .param("remarks", remarks).param("id", id).param("version", version).update();
         String code = (String) p.get("subject_code");
         audit.record(user.username(), user.name(), "QUESTION_PAPER_" + action, "QP-" + id,
@@ -284,27 +276,26 @@ public class QuestionPaperService {
         if ("RETURN".equals(action)) {
             announce((String) p.get("dept_key"), newStage, code + " question paper returned",
                     "The " + STAGE_ROLES.get(actorStage - 1) + " returned " + code + ": " + remarks);
-        } else if (newStage <= 5 && !"CHIEF_COE_APPROVED".equals(newStatus)) {
+        } else if (!APPROVED.equals(newStatus)) {
             announce((String) p.get("dept_key"), newStage, code + " question paper waiting for you",
                     code + " " + p.get("subject_title") + " was approved by the " + STAGE_ROLES.get(actorStage - 1)
                             + " and is waiting for your review.");
         } else {
-            announce((String) p.get("dept_key"), 1, code + " question paper released",
-                    "The Chief COE released " + code + " (" + set + ") for the examination.");
+            announce((String) p.get("dept_key"), 1, code + " question paper approved",
+                    "The COE approved " + code + " (" + set + ") for the examination.");
         }
         return get(id, user);
     }
 
     // ---------------------------------------------------------------- rules
 
-    /** The stage a user acts at: HOD 2, Associate Dean 3, college COE 4, Chief COE 5 (faculty 1). */
+    /** The stage a user acts at: HOD 2, Associate Dean 3, college COE 4 (faculty 1; the Chief COE only monitors). */
     static int actorStage(CurrentUser user) {
         return switch (user.role()) {
             case FACULTY -> 1;
             case HOD -> 2;
             case DEAN -> 3;
             case ADMIN -> 4;
-            case SUPER_ADMIN -> 5;
             default -> 0;
         };
     }
@@ -315,7 +306,6 @@ public class QuestionPaperService {
             case 2 -> "PENDING_HOD_REVIEW".equals(status) || "RETURNED_TO_HOD".equals(status);
             case 3 -> "PENDING_AD_REVIEW".equals(status) || "RETURNED_TO_AD".equals(status);
             case 4 -> "PENDING_COE_REVIEW".equals(status) || "RETURNED_TO_COE".equals(status);
-            case 5 -> "PENDING_CHIEF_COE".equals(status);
             default -> false;
         };
     }
@@ -344,7 +334,7 @@ public class QuestionPaperService {
             case FACULTY -> new Scope(departments.college(), user.deptKey(), user.username());
             case HOD -> new Scope(departments.college(), user.deptKey(), null);
             case DEAN, ADMIN -> new Scope(departments.college(), null, null);
-            // The Chief COE releases the papers of all three colleges (or the one being inspected)
+            // The Chief COE monitors the papers of all three colleges (or the one being inspected)
             case SUPER_ADMIN -> new Scope(CurrentUser.collegeOrNull(), null, null);
             default -> throw new ApiException(HttpStatus.FORBIDDEN, "Question papers are not available to this account");
         };
@@ -398,7 +388,7 @@ public class QuestionPaperService {
         v.put("coeName", officer(trail, 4));
         v.put("chiefCoeName", officer(trail, 5));
         v.put("currentStageNumber", stage);
-        v.put("currentStageRole", STAGE_ROLES.get(stage - 1));
+        v.put("currentStageRole", STAGE_ROLES.get(Math.min(stage, STAGE_ROLES.size()) - 1));
         v.put("status", status);
         v.put("semester", Semesters.label(((Number) p.get("semester")).intValue()));
         v.put("academicYear", p.get("academic_year"));
@@ -407,14 +397,13 @@ public class QuestionPaperService {
         v.put("set", p.get("set_label"));
         v.put("dateSubmitted", created.atZoneSameInstant(IST).format(DATE));
         v.put("timeSubmitted", created.atZoneSameInstant(IST).format(TIME));
-        boolean atCoe = stage >= 4 || "CHIEF_COE_APPROVED".equals(status);
+        boolean atCoe = stage >= 4 || APPROVED.equals(status);
         v.put("forwardedToCoe", atCoe);
         if (atCoe) v.put("forwardedDate", stamp(trail, 3));
         if (p.get("coe_reference_no") != null) v.put("coeReferenceNo", p.get("coe_reference_no"));
-        if (p.get("chief_seal_no") != null) {
-            v.put("chiefCoeSealNo", p.get("chief_seal_no"));
-            v.put("approvedBy", officer(trail, 5));
-        }
+        if (APPROVED.equals(status)) v.put("approvedBy", officer(trail, 4));
+        // Papers the Chief COE released before the COE's approval became final keep their seal number
+        if (p.get("chief_seal_no") != null) v.put("chiefCoeSealNo", p.get("chief_seal_no"));
         v.put("hierarchyTrail", trail);
         if (p.get("pdf_name") != null) {
             Map<String, Object> att = new LinkedHashMap<>();
@@ -442,19 +431,21 @@ public class QuestionPaperService {
     }
 
     private static String officer(List<Map<String, Object>> trail, int stage) {
+        if (stage > trail.size()) return "";
         Object name = trail.get(stage - 1).get("officerName");
         return name == null ? "" : name.toString();
     }
 
     private static String stamp(List<Map<String, Object>> trail, int stage) {
+        if (stage > trail.size()) return null;
         Object t = trail.get(stage - 1).get("timestamp");
         return t == null ? null : t.toString();
     }
 
     private static List<Map<String, Object>> emptyTrail() {
         List<Map<String, Object>> trail = new ArrayList<>();
-        String[] titles = {"Faculty", "Head of Department", "Associate Dean", "Controller of Examinations", "Chief COE"};
-        for (int s = 1; s <= 5; s++) {
+        String[] titles = {"Faculty", "Head of Department", "Associate Dean", "Controller of Examinations"};
+        for (int s = 1; s <= titles.length; s++) {
             Map<String, Object> e = new LinkedHashMap<>();
             e.put("stageNumber", s);
             e.put("stageRole", STAGE_ROLES.get(s - 1));
@@ -558,7 +549,8 @@ public class QuestionPaperService {
 
     private List<Map<String, Object>> trail(Map<String, Object> p) {
         List<Map<String, Object>> t = read(p.get("trail"), new TypeReference<ArrayList<Map<String, Object>>>() { });
-        return t.size() == 5 ? t : emptyTrail();
+        // Four stages; papers the Chief COE released before V27 keep their fifth (Chief COE) entry
+        return t != null && t.size() >= STAGE_ROLES.size() ? t : emptyTrail();
     }
 
     private <T> T read(Object value, TypeReference<T> type) {

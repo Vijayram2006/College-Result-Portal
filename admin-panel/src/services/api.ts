@@ -694,6 +694,11 @@ export const subjectsApi = {
     return res.data;
   },
 
+  async update(id: string, subject: Partial<SubjectRecord>): Promise<SubjectRecord> {
+    const res = await apiClient.put<SubjectRecord>(`/admin/subjects/${id}`, subject);
+    return res.data;
+  },
+
   async setStatus(id: string, status: SubjectRecord["status"]): Promise<SubjectRecord> {
     const res = await apiClient.put<SubjectRecord>(`/admin/subjects/${id}/status`, { status });
     return res.data;

@@ -44,8 +44,9 @@ import {
   ShieldAlert,
 } from "lucide-react";
 
-export type HierarchyRole = "Faculty" | "HOD" | "AD" | "COE" | "Chief COE";
-export type HierarchyStageNumber = 1 | 2 | 3 | 4 | 5;
+export type HierarchyRole = "Faculty" | "HOD" | "AD" | "COE";
+// The COE gives the final approval; the Chief COE only monitors
+export type HierarchyStageNumber = 1 | 2 | 3 | 4;
 
 export interface StageSignature {
   stageNumber: HierarchyStageNumber;
@@ -111,15 +112,13 @@ export interface QuestionPaperItem {
   hodName: string; // Stage 2: HOD DAC Scrutiny
   adName: string; // Stage 3: Associate Dean Academic Scrutiny
   coeName: string; // Stage 4: COE Examination Wing
-  chiefCoeName: string; // Stage 5: Chief COE / Super Admin
-  currentStageNumber: HierarchyStageNumber; // 1 to 5
+  currentStageNumber: HierarchyStageNumber; // 1 to 4
   currentStageRole: HierarchyRole;
   status:
     | "PENDING_HOD_REVIEW"
     | "PENDING_AD_REVIEW"
     | "PENDING_COE_REVIEW"
-    | "PENDING_CHIEF_COE"
-    | "CHIEF_COE_APPROVED"
+    | "COE_APPROVED"
     | "RETURNED_TO_FACULTY"
     | "RETURNED_TO_HOD"
     | "RETURNED_TO_AD"
@@ -185,19 +184,16 @@ export function sanitizeQuestionPaper(p: any): QuestionPaperItem {
   const hodName = p.hodName || "";
   const adName = p.adName || "";
   const coeName = p.coeName || "";
-  const chiefCoeName = p.chiefCoeName || "";
 
   let currentStageNumber: HierarchyStageNumber = 1;
-  if (typeof p.currentStageNumber === "number" && p.currentStageNumber >= 1 && p.currentStageNumber <= 5) {
+  if (typeof p.currentStageNumber === "number" && p.currentStageNumber >= 1 && p.currentStageNumber <= 4) {
     currentStageNumber = p.currentStageNumber as HierarchyStageNumber;
   } else if (p.status === "PENDING_HOD_REVIEW") {
     currentStageNumber = 2;
   } else if (p.status === "PENDING_AD_REVIEW") {
     currentStageNumber = 3;
-  } else if (p.status === "PENDING_COE_REVIEW") {
+  } else if (p.status === "PENDING_COE_REVIEW" || p.status === "COE_APPROVED") {
     currentStageNumber = 4;
-  } else if (p.status === "CHIEF_COE_APPROVED" || p.status === "PENDING_CHIEF_COE") {
-    currentStageNumber = 5;
   }
 
   const currentStageRole: HierarchyRole =
@@ -208,9 +204,7 @@ export function sanitizeQuestionPaper(p: any): QuestionPaperItem {
       ? "HOD"
       : currentStageNumber === 3
       ? "AD"
-      : currentStageNumber === 4
-      ? "COE"
-      : "Chief COE");
+      : "COE");
 
   const status = p.status || "DRAFT";
   const num = (v: unknown) => (typeof v === "number" ? v : 0);
@@ -222,13 +216,12 @@ export function sanitizeQuestionPaper(p: any): QuestionPaperItem {
 
   // Without a recorded trail, show only who holds the paper at each stage (no invented dates, seals or remarks)
   const stage = (n: HierarchyStageNumber): StageSignature["status"] =>
-    n < currentStageNumber || (n === 5 && status === "CHIEF_COE_APPROVED") ? "COMPLETED" : n === currentStageNumber ? "CURRENT" : "PENDING";
+    n < currentStageNumber || (n === 4 && status === "COE_APPROVED") ? "COMPLETED" : n === currentStageNumber ? "CURRENT" : "PENDING";
   const defaultTrail: StageSignature[] = [
     { stageNumber: 1, stageRole: "Faculty", officerTitle: "Subject Instructor", officerName: facultyName, status: stage(1), timestamp: p.dateSubmitted || undefined },
     { stageNumber: 2, stageRole: "HOD", officerTitle: "Head of Department", officerName: hodName, status: stage(2) },
     { stageNumber: 3, stageRole: "AD", officerTitle: "Associate Dean (Academics)", officerName: adName, status: stage(3), timestamp: p.forwardedDate || undefined, remarks: p.adRemarks || undefined },
     { stageNumber: 4, stageRole: "COE", officerTitle: "Controller of Examinations", officerName: coeName, status: stage(4), sealOrReference: p.coeReferenceNo },
-    { stageNumber: 5, stageRole: "Chief COE", officerTitle: "Chief University Controller", officerName: chiefCoeName, status: stage(5), sealOrReference: p.chiefCoeSealNo },
   ];
   const hierarchyTrail = Array.isArray(p.hierarchyTrail) && p.hierarchyTrail.length > 0 ? p.hierarchyTrail : defaultTrail;
 
@@ -249,7 +242,6 @@ export function sanitizeQuestionPaper(p: any): QuestionPaperItem {
     hodName,
     adName,
     coeName,
-    chiefCoeName,
     currentStageNumber,
     currentStageRole,
     status,
@@ -320,7 +312,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
 
   // Quick Action Confirm Modal
   const [confirmDialog, setConfirmDialog] = useState<{
-    action: "forward_coe" | "forward_chief_coe" | "chief_coe_release" | "return_hod" | "return_faculty";
+    action: "forward_coe" | "return_hod" | "return_faculty";
     paper: QuestionPaperItem;
   } | null>(null);
 
@@ -336,10 +328,10 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
     const total = papers.length;
     const stage2Hod = papers.filter((p) => p.currentStageNumber === 2).length;
     const stage3Ad = papers.filter((p) => p.currentStageNumber === 3).length;
-    const stage4Coe = papers.filter((p) => p.currentStageNumber === 4).length;
-    const stage5Chief = papers.filter((p) => p.status === "CHIEF_COE_APPROVED").length;
+    const stage4Coe = papers.filter((p) => p.status === "PENDING_COE_REVIEW" || p.status === "RETURNED_TO_COE").length;
+    const coeApproved = papers.filter((p) => p.status === "COE_APPROVED").length;
     const returned = papers.filter((p) => (p.status || "").startsWith("RETURNED_TO")).length;
-    return { total, stage2Hod, stage3Ad, stage4Coe, stage5Chief, returned };
+    return { total, stage2Hod, stage3Ad, stage4Coe, coeApproved, returned };
   }, [papers]);
 
   // Filtered List with defensive optional chaining
@@ -349,8 +341,8 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
       const matchStage =
         selectedStage === "all" ||
         (selectedStage === "ad" && p.currentStageNumber === 3) ||
-        (selectedStage === "coe" && p.currentStageNumber === 4) ||
-        (selectedStage === "chief" && p.status === "CHIEF_COE_APPROVED") ||
+        (selectedStage === "coe" && (p.status === "PENDING_COE_REVIEW" || p.status === "RETURNED_TO_COE")) ||
+        (selectedStage === "approved" && p.status === "COE_APPROVED") ||
         (selectedStage === "returned" && (p.status || "").startsWith("RETURNED_TO"));
 
       const q = searchQuery.trim().toLowerCase();
@@ -402,18 +394,6 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
       `Question paper ${p.subjectCode} approved by the Associate Dean and forwarded to the COE.`);
   };
 
-  // Stage 4 -> Stage 5: COE forwards to the Chief COE
-  const handleCoeForwardToChiefCOE = (paperId: string) => {
-    void runAction(paperId, "FORWARD", {}, (p) =>
-      `Question paper ${p.subjectCode} forwarded to the Chief COE (reference ${p.coeReferenceNo}).`);
-  };
-
-  // Stage 5: Chief COE releases the paper with the seal
-  const handleChiefCoeAuthorizeRelease = (paperId: string) => {
-    void runAction(paperId, "RELEASE", {}, (p) =>
-      `Question paper ${p.subjectCode} released by the Chief COE (seal ${p.chiefCoeSealNo}).`);
-  };
-
   // Return to an earlier stage with the reason
   const handleReturnPaper = (paperId: string, returnTarget: "HOD" | "Faculty", returnRemarks?: string) => {
     const finalRemarks = returnRemarks?.trim() || deanNotesInput.trim();
@@ -432,14 +412,14 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
           {loadError || "Loading question papers..."}
         </div>
       )}
-      {/* Top Banner - 5-Stage Hierarchy Governance */}
+      {/* Top Banner - 4-Stage Hierarchy Governance */}
       <div className="bg-white text-[#0B192C] rounded-3xl p-6 sm:p-8 shadow-sm border border-[#D4A72C]/30 relative overflow-hidden space-y-6">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="bg-[#D4A72C]/20 text-[#D4A72C] border border-[#D4A72C]/40 text-[10px] font-black uppercase px-3 py-1 rounded tracking-wider shadow-xs flex items-center gap-1.5">
                 <ShieldCheck size={13} />
-                5-STAGE EXAMINATION GOVERNANCE HIERARCHY
+                4-STAGE EXAMINATION GOVERNANCE HIERARCHY
               </span>
               <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black uppercase px-2.5 py-1 rounded tracking-wider">
                 PORT 3000 / 3002 PIPELINE
@@ -452,9 +432,9 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
             <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
               Standardized linear governance:{" "}
               <strong className="text-[#D4A72C]">
-                1. Faculty Author ➔ 2. HOD (DAC Scrutiny) ➔ 3. Associate Dean (AD Moderation) ➔ 4. COE (Logistics) ➔ 5. Chief COE (Executive Master Seal)
+                1. Faculty Author ➔ 2. HOD (DAC Scrutiny) ➔ 3. Associate Dean (AD Moderation) ➔ 4. COE (Final Approval)
               </strong>
-              . At Stage 3, the Associate Dean conducts rigorous academic moderation before authorizing transmission to the COE.
+              . At Stage 3, the Associate Dean conducts rigorous academic moderation before authorizing transmission to the COE. The COE gives the final approval; the Chief COE only monitors.
             </p>
           </div>
 
@@ -470,7 +450,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
           </div>
         </div>
 
-        {/* 5-Step Visual Stepper Ribbon */}
+        {/* 4-Step Visual Stepper Ribbon */}
         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 overflow-x-auto">
           <div className="flex items-center justify-between min-w-[700px] text-xs">
             {/* Step 1: Faculty */}
@@ -519,22 +499,10 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
               </span>
               <div>
                 <p className="font-extrabold text-[#0B192C] text-[11px]">COE</p>
-                <p className="text-[10px] text-slate-600">Logistics &amp; Confidential Sets</p>
+                <p className="text-[10px] text-slate-600">Confidential Sets &amp; Final Approval</p>
               </div>
             </div>
 
-            <ArrowRight size={14} className="text-slate-600 shrink-0" />
-
-            {/* Step 5: Chief COE */}
-            <div className="flex items-center gap-2.5">
-              <span className="h-7 w-7 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-black flex items-center justify-center shrink-0">
-                <Crown size={13} />
-              </span>
-              <div>
-                <p className="font-extrabold text-[#0B192C] text-[11px]">Chief COE</p>
-                <p className="text-[10px] text-slate-600">Dr. Sathish Master Seal</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -602,28 +570,28 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
           </div>
         </div>
 
-        {/* Card 3: Stage 5 Chief COE Master Release */}
+        {/* Card 3: Approved by the COE (final) */}
         <div
-          onClick={() => setSelectedStage("chief")}
+          onClick={() => setSelectedStage("approved")}
           className="bg-white p-5 rounded-3xl border border-[#E5E1D8] shadow-xs cursor-pointer hover:border-emerald-500 transition flex flex-col justify-between"
         >
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[10px] font-extrabold uppercase text-emerald-700 tracking-wider">
-                STAGE 5: CHIEF COE MASTER SEAL
+                APPROVED BY COE (FINAL)
               </span>
               <span className="font-display font-black text-3xl text-emerald-700 mt-1 block">
-                {stats.stage5Chief}
+                {stats.coeApproved}
               </span>
             </div>
             <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center shrink-0">
-              <Crown size={20} />
+              <CheckCircle2 size={20} />
             </div>
           </div>
           <div className="mt-3 pt-2.5 border-t border-emerald-100 flex items-center justify-between text-[11px] font-bold text-emerald-700">
-            <span>Officially Released for Conduction</span>
+            <span>Cleared for the Examination</span>
             <span className="flex items-center gap-0.5">
-              Filter Stage 5 <ChevronRight size={12} />
+              Filter Approved <ChevronRight size={12} />
             </span>
           </div>
         </div>
@@ -689,7 +657,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
             <option value="all">All Stages ({papers.length})</option>
             <option value="ad">Stage 3: Associate Dean Review ({stats.stage3Ad})</option>
             <option value="coe">Stage 4: COE Examination Wing ({stats.stage4Coe})</option>
-            <option value="chief">Stage 5: Chief COE Master Release ({stats.stage5Chief})</option>
+            <option value="approved">Approved by COE ({stats.coeApproved})</option>
             <option value="returned">Returned for Revision ({stats.returned})</option>
           </select>
         </div>
@@ -760,7 +728,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
             {filteredPapers.map((paper) => {
               const isAtAdStage = paper.currentStageNumber === 3 && paper.status === "PENDING_AD_REVIEW";
               const isAtCoeStage = paper.currentStageNumber === 4 && paper.status === "PENDING_COE_REVIEW";
-              const isChiefApproved = paper.status === "CHIEF_COE_APPROVED";
+              const isCoeApproved = paper.status === "COE_APPROVED";
               const isReturned = paper.status.startsWith("RETURNED_TO");
 
               return (
@@ -796,16 +764,22 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                           STAGE 4: APPROVED BY AD ➔ WITH COE
                         </span>
                       )}
-                      {isChiefApproved && (
+                      {isCoeApproved && (
                         <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-800 border border-emerald-300 flex items-center gap-1">
-                          <Crown size={12} className="text-emerald-700" />
-                          STAGE 5: MASTER SEAL RELEASED (CHIEF COE)
+                          <CheckCircle2 size={12} className="text-emerald-700" />
+                          STAGE 4: APPROVED BY COE (FINAL)
                         </span>
                       )}
                       {isReturned && (
                         <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/15 text-rose-800 border border-rose-300 flex items-center gap-1">
                           <AlertCircle size={12} className="text-rose-700" />
-                          {paper.status === "RETURNED_TO_HOD" ? "RETURNED TO STAGE 2 (HOD)" : "RETURNED TO STAGE 1 (FACULTY)"}
+                          {paper.status === "RETURNED_TO_AD"
+                            ? "RETURNED TO STAGE 3 (ASSOCIATE DEAN)"
+                            : paper.status === "RETURNED_TO_HOD"
+                            ? "RETURNED TO STAGE 2 (HOD)"
+                            : paper.status === "RETURNED_TO_COE"
+                            ? "RETURNED TO STAGE 4 (COE)"
+                            : "RETURNED TO STAGE 1 (FACULTY)"}
                         </span>
                       )}
 
@@ -840,15 +814,15 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                       </div>
                     </div>
 
-                    {/* 5-Stage Mini Progress Bar */}
+                    {/* 4-Stage Mini Progress Bar */}
                     <div className="bg-[#FAF8F5] p-3 rounded-2xl border border-gray-200/90 space-y-1.5">
                       <div className="flex items-center justify-between text-[10px] font-extrabold uppercase text-gray-500">
                         <span>Governance Custody:</span>
                         <span className="text-[#0B192C] font-mono">
-                          Current: {paper.currentStageRole} (Stage {paper.currentStageNumber}/5)
+                          Current: {paper.currentStageRole} (Stage {paper.currentStageNumber}/4)
                         </span>
                       </div>
-                      <div className="grid grid-cols-5 gap-1.5 text-center text-[10px] font-extrabold">
+                      <div className="grid grid-cols-4 gap-1.5 text-center text-[10px] font-extrabold">
                         {paper.hierarchyTrail.map((sig) => {
                           const isDone = sig.status === "COMPLETED";
                           const isCur = sig.status === "CURRENT";
@@ -906,7 +880,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                     {paper.adRemarks && (
                       <div
                         className={`text-xs p-3 rounded-2xl border ${
-                          isChiefApproved
+                          isCoeApproved
                             ? "bg-emerald-50/70 border-emerald-200 text-emerald-900"
                             : isReturned
                             ? "bg-rose-50/70 border-rose-200 text-rose-900"
@@ -964,27 +938,11 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                       </button>
                     )}
 
-                    {/* Stage 4 Action: Forward to Chief COE */}
-                    {isAtCoeStage && (
-                      <button
-                        onClick={() =>
-                          setConfirmDialog({
-                            action: "forward_chief_coe",
-                            paper,
-                          })
-                        }
-                        className="px-3.5 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-black transition shadow flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Crown size={14} />
-                        <span>COE ➔ Chief COE</span>
-                      </button>
-                    )}
-
-                    {/* Stage 5 Action: Released */}
-                    {isChiefApproved && (
+                    {/* Approved by the COE: final */}
+                    {isCoeApproved && (
                       <div className="flex items-center gap-1 text-[11px] font-black text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
                         <Lock size={12} />
-                        <span>Released by Chief COE</span>
+                        <span>Approved by COE</span>
                       </div>
                     )}
                   </div>
@@ -1045,7 +1003,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                 }`}
               >
                 <ShieldCheck size={14} className="text-[#D4A72C]" />
-                <span>5-Stage Governance Trail</span>
+                <span>4-Stage Governance Trail</span>
               </button>
 
               <button
@@ -1122,13 +1080,13 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
 
             {/* Modal Body Scrollable Area */}
             <div className="p-5 sm:p-7 overflow-y-auto flex-1 space-y-6">
-              {/* TAB: 5-Stage Governance Trail */}
+              {/* TAB: 4-Stage Governance Trail */}
               {activeModalTab === "hierarchy" && (
                 <div className="space-y-6">
                   <div className="p-4 rounded-2xl bg-[#0B192C] text-white border border-[#D4A72C]/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                       <span className="text-[10px] font-black uppercase text-[#D4A72C] tracking-widest block">
-                        PERMISSION PIPELINE: FACULTY ➔ HOD ➔ AD ➔ COE ➔ CHIEF COE
+                        PERMISSION PIPELINE: FACULTY ➔ HOD ➔ AD ➔ COE (FINAL)
                       </span>
                       <h3 className="font-display font-extrabold text-base text-white mt-0.5">
                         Chain of Custody &amp; Verification Signatures
@@ -1194,7 +1152,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                     </div>
                   </div>
 
-                  {/* 5-Stage Step Cards */}
+                  {/* 4-Stage Step Cards */}
                   <div className="space-y-4">
                     {activePaperModal.hierarchyTrail.map((sig) => {
                       const isCompleted = sig.status === "COMPLETED";
@@ -1776,17 +1734,17 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                         ? "Stage 3 (Associate Dean Review)"
                         : activePaperModal.status === "PENDING_COE_REVIEW"
                         ? "Stage 4 (Transmitted to COE)"
-                        : activePaperModal.status === "PENDING_CHIEF_COE"
-                        ? "Stage 5 (With Chief COE Dr. Sathish)"
-                        : activePaperModal.status === "CHIEF_COE_APPROVED"
-                        ? "Stage 5 Complete (Master University Seal Release)"
+                        : activePaperModal.status === "COE_APPROVED"
+                        ? "Stage 4 Complete (Approved by COE)"
+                        : activePaperModal.status === "PENDING_HOD_REVIEW"
+                        ? "Stage 2 (HOD Scrutiny)"
                         : "Returned for Revision"}
                     </strong>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
                     {/* Return Options */}
-                    {activePaperModal.status !== "CHIEF_COE_APPROVED" && (
+                    {(activePaperModal.status === "PENDING_AD_REVIEW" || activePaperModal.status === "RETURNED_TO_AD") && (
                       <button
                         onClick={() => handleReturnPaper(activePaperModal.id, "HOD", deanNotesInput)}
                         disabled={isProcessingAction}
@@ -1806,30 +1764,6 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                       >
                         <ShieldCheck size={16} />
                         <span>Approve &amp; Forward to COE (Stage 4)</span>
-                      </button>
-                    )}
-
-                    {/* Stage 4: COE Forward to Chief COE Simulation */}
-                    {activePaperModal.currentStageNumber === 4 && (
-                      <button
-                        onClick={() => handleCoeForwardToChiefCOE(activePaperModal.id)}
-                        disabled={isProcessingAction}
-                        className="px-4 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-black transition shadow flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                      >
-                        <Send size={15} />
-                        <span>Endorse &amp; Forward to Chief COE (Stage 5)</span>
-                      </button>
-                    )}
-
-                    {/* Stage 5: Chief COE Final Release Simulation */}
-                    {activePaperModal.currentStageNumber === 5 && activePaperModal.status !== "CHIEF_COE_APPROVED" && (
-                      <button
-                        onClick={() => handleChiefCoeAuthorizeRelease(activePaperModal.id)}
-                        disabled={isProcessingAction}
-                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-black transition shadow-lg flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                      >
-                        <Crown size={16} />
-                        <span>Chief COE Master Seal Release</span>
                       </button>
                     )}
 
@@ -1859,11 +1793,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
               </div>
               <div>
                 <h3 className="font-display font-extrabold text-base text-[#0B192C]">
-                  {confirmDialog.action === "forward_coe"
-                    ? "Advance to Stage 4 (COE)?"
-                    : confirmDialog.action === "forward_chief_coe"
-                    ? "Advance to Stage 5 (Chief COE)?"
-                    : "Authorize Master University Release?"}
+                  Advance to Stage 4 (COE)?
                 </h3>
                 <p className="text-xs text-gray-500 font-mono mt-0.5">
                   {confirmDialog.paper.subjectCode} - {confirmDialog.paper.subjectTitle}
@@ -1872,11 +1802,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
             </div>
 
             <p className="text-xs text-gray-600 leading-relaxed">
-              {confirmDialog.action === "forward_coe"
-                ? `You are certifying that the question paper has passed Associate Dean academic scrutiny. An official COE dispatch reference will be generated and custody transferred to Controller of Examinations.`
-                : confirmDialog.action === "forward_chief_coe"
-                ? `COE verification complete. Paper is being forwarded to Chief COE (Dr. Sathish) for final executive clearance.`
-                : `Chief COE Dr. Sathish is applying the final Master University Seal, authorizing official printing and examination conduction.`}
+              You are certifying that the question paper has passed Associate Dean academic scrutiny. Custody is transferred to the Controller of Examinations for the final approval.
             </p>
 
             <div className="flex items-center justify-end gap-2.5 pt-2">
@@ -1887,15 +1813,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  if (confirmDialog.action === "forward_coe") {
-                    handleAdApproveAndForwardToCOE(confirmDialog.paper.id);
-                  } else if (confirmDialog.action === "forward_chief_coe") {
-                    handleCoeForwardToChiefCOE(confirmDialog.paper.id);
-                  } else {
-                    handleChiefCoeAuthorizeRelease(confirmDialog.paper.id);
-                  }
-                }}
+                onClick={() => handleAdApproveAndForwardToCOE(confirmDialog.paper.id)}
                 className="px-5 py-2.5 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow transition cursor-pointer"
               >
                 Confirm &amp; Advance

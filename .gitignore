@@ -115,3 +115,6 @@ temp/
 
 # Vercel CLI project link
 .vercel
+
+# Local build classpath dump
+backend/classpath.txt

@@ -1,8 +1,8 @@
 import { apiClient } from "./api";
 
 /**
- * Keeps the examination workflow screens' data (exam timetable, Dean's notifications, paper-correction allotments
- * and evaluations, three-tier revaluation records) on the server, shared by everyone in the college. The screens keep
+ * Keeps the examination workflow screens' data (exam timetable, Dean's notifications, classroom allocations,
+ * three-tier revaluation records) on the server, shared by everyone in the college. The screens keep
  * reading and writing these keys in localStorage; this module loads the server's copies into it after sign-in,
  * sends each change back to the server, and picks up other users' changes every 20 seconds.
  */
@@ -10,8 +10,6 @@ export const SHARED_KEYS = [
   "kvell_exam_timetable",
   "kvell_exam_notifications",
   "kvell_classroom_allocations",
-  "kvell_paper_correction_assignments",
-  "kvell_faculty_evaluated_scripts",
   "kvell_revaluation_3tier_records_v3",
 ];
 

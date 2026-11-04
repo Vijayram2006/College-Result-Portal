@@ -14,7 +14,8 @@ public record CurrentUser(long id, String username, String name, Role role, Stri
     /** SUPER_ADMIN: the overall university COE; also has every ADMIN right, in whichever college it inspects. */
     /** DEAN: an Associate Dean or Dean of one college (read-only oversight, question-paper and mark approvals).
      *  ADMISSION: a former admission officer (the admission cell was removed; kept so old rows still load, cannot sign in). */
-    public enum Role { SUPER_ADMIN, ADMIN, HOD, STUDENT, FACULTY, DEAN, ADMISSION }
+    /** ACCOUNTS: the Accounts office (fees), signs in to the officers panel; users.accounts_head marks who approves. */
+    public enum Role { SUPER_ADMIN, ADMIN, HOD, STUDENT, FACULTY, DEAN, ADMISSION, ACCOUNTS }
 
     public static CurrentUser get() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

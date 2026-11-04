@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { adminAuthApi } from "../services/api";
 import { getActiveCollege, isSuperAdmin, SUPER_ADMIN_CONFIG } from "../utils/rbac";
+import { officeOf } from "../utils/panel";
 import { UNIVERSITY_BAR_HEIGHT } from "./Navbar";
 import { safeLoadQuestionPapers } from "../data/questionPapersData";
 import { refreshQuestionPapers } from "../services/questionPapersApi";
@@ -42,24 +43,28 @@ interface SidebarProps {
   setMobileOpen: (open: boolean) => void;
 }
 
+
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) => {
   const [location, navigate] = useLocation();
   const [resultsOpen, setResultsOpen] = useState(true);
-  const [qpCounts, setQpCounts] = useState({ pendingCoe: 0, pendingChief: 0 });
+  const [qpCounts, setQpCounts] = useState({ pendingCoe: 0 });
 
   const currentUser = adminAuthApi.getCurrentUser();
   const college = getActiveCollege();
   const isSuper = isSuperAdmin(currentUser);
+  // An office officer (Office Portal) sees only the menu of their office
+  const office = officeOf(currentUser?.role);
+  const accountsUser = !!office;
 
   React.useEffect(() => {
     const updateCounts = () => {
       const papers = safeLoadQuestionPapers();
       const pendingCoe = papers.filter((p) => p.status === "PENDING_COE_REVIEW").length;
-      const pendingChief = papers.filter((p) => p.status === "PENDING_CHIEF_COE").length;
-      setQpCounts({ pendingCoe, pendingChief });
+      setQpCounts({ pendingCoe });
     };
     updateCounts();
-    void refreshQuestionPapers();
+    // Question papers are the COE's; the Accounts office has no access to them
+    if (!accountsUser) void refreshQuestionPapers();
     window.addEventListener("kvell_qp_updated", updateCounts);
     window.addEventListener("storage", updateCounts);
     return () => {
@@ -130,6 +135,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
 
           {/* Navigation Links */}
           <nav className="p-4 space-y-1.5 overflow-y-auto max-h-[calc(100vh-180px)]">
+            {/* An office (Accounts, ...): only its own menu */}
+            {accountsUser && (
+              <>
+                <div className="pt-1 pb-1">
+                  <span className="text-[10px] font-extrabold text-white/70 uppercase tracking-widest px-3.5">{office!.name}</span>
+                </div>
+                {office!.menu.map(([path, label, Icon]) => (
+                  <Link
+                    key={path}
+                    href={path}
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${
+                      isActive(path) ? "bg-[#D4A72C] text-[#0B192C] shadow-md" : "text-white/80 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <Icon size={17} />
+                    <span>{label}</span>
+                  </Link>
+                ))}
+              </>
+            )}
+            {!accountsUser && (
+            <>
             {/* The Chief COE's home is the university console, shown as "Dashboard"; college COEs get their college dashboard */}
             <Link
               href={isSuper ? "/admin/super-admin" : "/admin/dashboard"}
@@ -223,6 +251,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
                     <span>Answer Scripts</span>
                   </Link>
 
+                  {/* Paper-correction allotment: the college COE allots the evaluators */}
+                  {!isSuper && (
+                    <Link
+                      href="/admin/paper-allotment"
+                      onClick={() => setMobileOpen(false)}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                        isActive("/admin/paper-allotment")
+                          ? "bg-[#D4A72C] text-[#0B192C] font-bold"
+                          : "text-white/70 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      <ClipboardList size={14} />
+                      <span>Paper Correction Allotment</span>
+                    </Link>
+                  )}
+
                   <Link
                     href="/admin/hall-allotment"
                     onClick={() => setMobileOpen(false)}
@@ -305,7 +349,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
                 <FileCheck size={17} />
                 <span>Question Papers</span>
               </div>
-              {(isSuper ? qpCounts.pendingChief : qpCounts.pendingCoe) > 0 && (
+              {!isSuper && qpCounts.pendingCoe > 0 && (
                 <span
                   className={`text-[10px] font-black px-1.5 py-0.2 rounded-full ${
                     isActive("/admin/question-papers")
@@ -313,7 +357,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
                       : "bg-[#D4A72C] text-[#0B192C]"
                   }`}
                 >
-                  {isSuper ? qpCounts.pendingChief : qpCounts.pendingCoe}
+                  {qpCounts.pendingCoe}
                 </span>
               )}
             </Link>
@@ -409,6 +453,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
               <ClipboardList size={17} />
               <span>Audit Logs</span>
             </Link>
+
+            </>
+            )}
 
             <Link
               href="/admin/profile"

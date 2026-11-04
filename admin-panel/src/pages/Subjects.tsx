@@ -66,6 +66,7 @@ export const SubjectsPage: React.FC = () => {
 
   // Modal State for Adding New Subject
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editing, setEditing] = useState<SubjectItem | null>(null);
   const [newCode, setNewCode] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [newCategory, setNewCategory] = useState<"" | "Core Mandatory" | "Professional Elective" | "Open Elective">("");
@@ -465,21 +466,32 @@ export const SubjectsPage: React.FC = () => {
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
+                          onClick={() => setEditing({ ...sub })}
+                          className="px-2.5 py-1 rounded-lg border border-[#0B192C]/30 text-[#0B192C] font-extrabold text-[10px] hover:bg-[#F8F5EE] transition shadow-sm flex items-center gap-1"
+                          title="Edit title, category, credits"
+                        >
+                          <Edit3 size={12} /> Edit
+                        </button>
+                        <button
                           onClick={async () => {
+                            const finalized = sub.status === "COE FINALIZED";
+                            // Withdrawing hides the subject from the students' My Subjects
+                            if (finalized && !window.confirm(`Withdraw COE approval of ${sub.code} ${sub.title}? Students of ${sub.department} will no longer see it in My Subjects until it is approved again.`)) return;
                             try {
-                              await subjectsApi.setStatus(
-                                sub.id,
-                                sub.status === "COE FINALIZED" ? "PENDING APPROVAL" : "COE FINALIZED"
-                              );
+                              await subjectsApi.setStatus(sub.id, finalized ? "PENDING APPROVAL" : "COE FINALIZED");
                               await subjectsChanged();
                             } catch (err) {
                               alert(apiErrorMessage(err, "Could not change the subject status."));
                             }
                           }}
-                          className="px-2.5 py-1 rounded-lg bg-[#0B192C] text-white font-extrabold text-[10px] hover:bg-[#152744] transition shadow-sm"
-                          title="Toggle COE Approval"
+                          className={`px-2.5 py-1 rounded-lg font-extrabold text-[10px] transition shadow-sm ${
+                            sub.status === "COE FINALIZED"
+                              ? "border border-amber-300 text-amber-800 hover:bg-amber-50"
+                              : "bg-[#0B192C] text-white hover:bg-[#152744]"
+                          }`}
+                          title={sub.status === "COE FINALIZED" ? "Withdraw COE approval" : "Approve (COE finalize)"}
                         >
-                          Toggle COE
+                          {sub.status === "COE FINALIZED" ? "Withdraw approval" : "Approve"}
                         </button>
                         <button
                           onClick={() => handleDeleteSubject(sub.id, sub.title)}
@@ -497,6 +509,63 @@ export const SubjectsPage: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* EDIT SUBJECT MODAL (code, department and semester stay fixed) */}
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B192C]/60 p-4 backdrop-blur-md">
+          <div role="dialog" aria-modal="true" aria-label="Edit subject" className="w-full max-w-lg rounded-3xl border border-[#D4A72C]/40 bg-white p-7 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-2.5 text-[#0B192C]">
+                <div className="p-2 rounded-xl bg-[#0B192C] text-[#D4A72C]"><Edit3 size={18} /></div>
+                <div>
+                  <h3 className="font-display text-lg font-black">Edit {editing.code}</h3>
+                  <p className="text-[11px] font-bold text-gray-500">{editing.department} · {editing.semester}</p>
+                </div>
+              </div>
+              <button aria-label="Close" onClick={() => setEditing(null)} className="p-2 rounded-full hover:bg-slate-100"><X size={18} /></button>
+            </div>
+            <div className="mt-5 space-y-4">
+              <label className="block text-xs font-black text-gray-600 uppercase tracking-wider">Subject title
+                <input className="mt-1.5 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#D4A72C]"
+                  value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <label className="block text-xs font-black text-gray-600 uppercase tracking-wider">Category
+                  <select className="mt-1.5 w-full rounded-xl border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#D4A72C]"
+                    value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value as SubjectItem["category"] })}>
+                    {["Core Mandatory", "Professional Elective", "Open Elective"].map((c) => <option key={c}>{c}</option>)}
+                  </select>
+                </label>
+                <label className="block text-xs font-black text-gray-600 uppercase tracking-wider">Credits
+                  <input type="number" min={0} max={20} className="mt-1.5 w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#D4A72C]"
+                    value={editing.credits} onChange={(e) => setEditing({ ...editing, credits: Number(e.target.value) })} />
+                </label>
+              </div>
+              <p className="text-[11px] font-semibold text-gray-500">
+                The course code, department and semester cannot change. Results already published keep their old credits; the new credits apply from the next publish.
+              </p>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600" onClick={() => setEditing(null)}>Cancel</button>
+              <button
+                disabled={!editing.title.trim() || editing.credits < 0 || editing.credits > 20}
+                onClick={async () => {
+                  try {
+                    await subjectsApi.update(editing.id, { title: editing.title.trim(), category: editing.category, credits: editing.credits });
+                    setEditing(null);
+                    await subjectsChanged();
+                  } catch (err) {
+                    alert(apiErrorMessage(err, "Could not save the subject."));
+                  }
+                }}
+                className="px-5 py-2.5 rounded-xl bg-[#0B192C] text-[#D4A72C] font-extrabold text-xs hover:bg-[#152744] disabled:opacity-40"
+              >
+                Save changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ADD SUBJECT MODAL */}
       {isAddOpen && (

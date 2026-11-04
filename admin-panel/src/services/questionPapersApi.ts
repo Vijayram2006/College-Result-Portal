@@ -105,7 +105,7 @@ export async function resubmitQuestionPaper(id: string, input: PaperInput): Prom
   return remember((await apiClient.put<QuestionPaperItem>(`/question-papers/${id}`, input, { timeout: 60000 })).data);
 }
 
-export type PaperAction = "APPROVE" | "RETURN" | "FORWARD" | "RELEASE";
+export type PaperAction = "APPROVE" | "RETURN" | "FORWARD";
 
 export async function questionPaperAction(
   paper: QuestionPaperItem,

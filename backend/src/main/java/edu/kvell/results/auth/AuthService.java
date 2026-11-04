@@ -159,7 +159,7 @@ public class AuthService {
         UserRow user = found.get();
         // Controllers of Examinations confirm with a code from their authenticator app (or a recovery code) when
         // two-step sign-in is switched on (MFA_REQUIRED=true); otherwise the password alone signs in
-        if (mfaRequired && portal == Role.ADMIN && user.enabled() && user.totpEnabled()) {
+        if (mfaRequired && portal == Role.ADMIN && user.enabled() && user.totpEnabled()) { // COE and Accounts
             String otp = request.otp() == null ? "" : request.otp().trim();
             if (otp.isEmpty()) {
                 throw new ApiException(HttpStatus.UNAUTHORIZED, "Enter the 6-digit code from your authenticator app.",
@@ -212,7 +212,7 @@ public class AuthService {
                         FROM auth_tokens t JOIN users u ON u.id = t.user_id
                         LEFT JOIN departments d ON d.dept_key = u.dept_key
                         WHERE t.token_hash = :hash AND t.expires_at > now() AND u.enabled
-                          AND t.last_used_at > now() - make_interval(mins => CASE WHEN u.role IN ('ADMIN', 'SUPER_ADMIN', 'DEAN', 'ADMISSION')
+                          AND t.last_used_at > now() - make_interval(mins => CASE WHEN u.role IN ('ADMIN', 'SUPER_ADMIN', 'DEAN', 'ADMISSION', 'ACCOUNTS')
                                                                       THEN :adminIdle ELSE :idle END)
                         """)
                 .param("hash", hash).param("adminIdle", (int) adminIdleMinutes).param("idle", (int) idleMinutes)
@@ -232,7 +232,7 @@ public class AuthService {
     }
 
     private static boolean isOfficer(Role role) {
-        return role == Role.ADMIN || role == Role.SUPER_ADMIN;
+        return role == Role.ADMIN || role == Role.SUPER_ADMIN || role == Role.ACCOUNTS;
     }
 
     /** A current authenticator code (never one already used) or an unused recovery code. */
@@ -417,7 +417,8 @@ public class AuthService {
                         SELECT u.id, u.username, u.password_hash, u.role, u.display_name, u.dept_key,
                                d.name AS dept_name, u.reg_no, s.dob, u.enabled,
                                coalesce(u.college_key, d.college_key) AS college_key, u.must_change_password,
-                               u.totp_enabled, u.totp_secret, u.totp_last_step, u.officer_title
+                               u.totp_enabled, u.totp_secret, u.totp_last_step,
+                               CASE WHEN u.accounts_head THEN 'ACCOUNTS_HEAD' ELSE u.officer_title END AS officer_title
                         FROM users u
                         LEFT JOIN departments d ON d.dept_key = u.dept_key
                         LEFT JOIN students s ON s.reg_no = u.reg_no
@@ -443,9 +444,10 @@ public class AuthService {
         }
         // Associate Dean and Dean share the DEAN role; the title tells them apart
         String role = "ADMIN".equals(u.role()) ? "COE_" + college.toUpperCase(Locale.ROOT)
+                : "ACCOUNTS".equals(u.role()) ? ("ACCOUNTS_HEAD".equals(u.officerTitle()) ? "ACCOUNTS_HEAD" : "ACCOUNTS_STAFF")
                 : "DEAN".equals(u.role()) ? (u.officerTitle() == null ? "ASSOCIATE_DEAN" : u.officerTitle())
                 : u.role();
-        boolean officer = "ADMIN".equals(u.role());
+        boolean officer = "ADMIN".equals(u.role()) || "ACCOUNTS".equals(u.role());
         return new UserView(u.id(), u.username(), u.displayName(), role, u.deptKey(), u.deptName(), u.regNo(),
                 college, COLLEGE_NAMES.getOrDefault(college, college), u.mustChangePassword(), u.totpEnabled(),
                 officer && mfaRequired && !u.totpEnabled());
@@ -473,7 +475,10 @@ public class AuthService {
     /** The login form's portal tab. */
     /** The admin portal is for college COEs and the Super Admin; every other portal takes only its own role. */
     private static boolean portalAccepts(Role portal, String accountRole) {
-        if (portal == Role.ADMIN) return "ADMIN".equals(accountRole) || "SUPER_ADMIN".equals(accountRole);
+        // The officers panel: college COEs, the Super Admin and the Accounts office
+        if (portal == Role.ADMIN) {
+            return "ADMIN".equals(accountRole) || "SUPER_ADMIN".equals(accountRole) || "ACCOUNTS".equals(accountRole);
+        }
         return portal.name().equals(accountRole);
     }
 

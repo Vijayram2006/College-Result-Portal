@@ -116,12 +116,13 @@ export const HodQuestionPaperScrutinyView: React.FC<HodQuestionPaperScrutinyView
         (p) =>
           p.status === "PENDING_AD_REVIEW" ||
           p.status === "PENDING_COE_REVIEW" ||
-          p.status === "PENDING_CHIEF_COE"
+          p.status === "RETURNED_TO_AD" ||
+          p.status === "RETURNED_TO_COE"
       ),
     [deptPapers]
   );
-  const approvedChiefCoePapers = useMemo(
-    () => deptPapers.filter((p) => p.status === "CHIEF_COE_APPROVED"),
+  const approvedCoePapers = useMemo(
+    () => deptPapers.filter((p) => p.status === "COE_APPROVED"),
     [deptPapers]
   );
   const returnedPapers = useMemo(
@@ -138,7 +139,7 @@ export const HodQuestionPaperScrutinyView: React.FC<HodQuestionPaperScrutinyView
     let list = deptPapers;
     if (activeFilterTab === "pending") list = pendingHodPapers;
     else if (activeFilterTab === "forwarded") list = forwardedToAdPapers;
-    else if (activeFilterTab === "approved") list = approvedChiefCoePapers;
+    else if (activeFilterTab === "approved") list = approvedCoePapers;
     else if (activeFilterTab === "returned") list = returnedPapers;
 
     if (searchQuery) {
@@ -157,7 +158,7 @@ export const HodQuestionPaperScrutinyView: React.FC<HodQuestionPaperScrutinyView
     activeFilterTab,
     pendingHodPapers,
     forwardedToAdPapers,
-    approvedChiefCoePapers,
+    approvedCoePapers,
     returnedPapers,
     searchQuery,
   ]);
@@ -371,7 +372,7 @@ export const HodQuestionPaperScrutinyView: React.FC<HodQuestionPaperScrutinyView
             }`}
           >
             <ShieldCheck size={14} />
-            <span>Chief COE Sealed ({approvedChiefCoePapers.length})</span>
+            <span>COE Approved ({approvedCoePapers.length})</span>
           </button>
           <button
             onClick={() => setActiveFilterTab("returned")}
@@ -423,8 +424,7 @@ export const HodQuestionPaperScrutinyView: React.FC<HodQuestionPaperScrutinyView
             const isPendingHod = paper.status === "PENDING_HOD_REVIEW" || paper.status === "RETURNED_TO_HOD";
             const isPendingAd = paper.status === "PENDING_AD_REVIEW";
             const isPendingCoe = paper.status === "PENDING_COE_REVIEW";
-            const isPendingChiefCoe = paper.status === "PENDING_CHIEF_COE";
-            const isApproved = paper.status === "CHIEF_COE_APPROVED";
+            const isApproved = paper.status === "COE_APPROVED";
             const isReturned = paper.status === "RETURNED_TO_FACULTY" || paper.status === "RETURNED_TO_HOD";
 
             return (
@@ -477,14 +477,9 @@ export const HodQuestionPaperScrutinyView: React.FC<HodQuestionPaperScrutinyView
                         <Building2 size={11} /> COE Logistics Room
                       </span>
                     )}
-                    {isPendingChiefCoe && (
-                      <span className="px-3 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-100 text-purple-900 border border-purple-200 flex items-center gap-1">
-                        <Award size={11} /> Awaiting Chief COE Release
-                      </span>
-                    )}
                     {isApproved && (
                       <span className="px-3 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-600 text-white flex items-center gap-1 shadow-xs">
-                        <ShieldCheck size={11} /> Chief COE Master Seal Authorized
+                        <ShieldCheck size={11} /> Approved by COE (Final)
                       </span>
                     )}
                     {isReturned && (
@@ -516,10 +511,10 @@ export const HodQuestionPaperScrutinyView: React.FC<HodQuestionPaperScrutinyView
                     )}
                   </div>
 
-                  {/* 5-Stage Stepper Preview */}
+                  {/* 4-Stage Stepper Preview */}
                   <div className="pt-2">
                     <div className="flex items-center gap-1 text-[10px]">
-                      {["Faculty Author", "HOD DAC", "Associate Dean", "COE Office", "Chief COE"].map((step, idx) => {
+                      {["Faculty Author", "HOD DAC", "Associate Dean", "COE Office"].map((step, idx) => {
                         const stepNum = idx + 1;
                         const sig = paper.hierarchyTrail?.[idx];
                         const isDone = sig?.status === "COMPLETED";
@@ -543,7 +538,7 @@ export const HodQuestionPaperScrutinyView: React.FC<HodQuestionPaperScrutinyView
                               <span>{step}</span>
                               {isDone && <Check size={10} />}
                             </div>
-                            {idx < 4 && <span className="text-slate-300">➔</span>}
+                            {idx < 3 && <span className="text-slate-300">➔</span>}
                           </React.Fragment>
                         );
                       })}

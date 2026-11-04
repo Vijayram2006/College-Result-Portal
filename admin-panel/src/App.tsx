@@ -1,3 +1,4 @@
+import { OFFICE_PANEL, OFFICES } from "./utils/panel";
 import React, { Suspense, lazy, useEffect, useState } from "react";
 import { Route, Switch, Redirect, useLocation } from "wouter";
 import { Sidebar } from "./components/Sidebar";
@@ -32,6 +33,8 @@ const FacultyMasterPage = lazy(() => import("./pages/FacultyMaster").then((m) =>
 const InternalMarksPage = lazy(() => import("./components/CoAssessment").then((m) => ({ default: () => <m.CoAssessment mode="admin" /> })));
 const HallAllotmentPage = lazy(() => import("./pages/HallAllotment").then((m) => ({ default: m.HallAllotmentPage })));
 const WithheldResultsPage = lazy(() => import("./pages/WithheldResults").then((m) => ({ default: m.WithheldResultsPage })));
+const AccountsPage = lazy(() => import("./pages/Accounts").then((m) => ({ default: m.AccountsPage })));
+const PaperAllotmentPage = lazy(() => import("./pages/PaperAllotment").then((m) => ({ default: m.PaperAllotmentPage })));
 const QuestionPapersPage = lazy(() => import("./pages/QuestionPapers").then((m) => ({ default: m.QuestionPapersPage })));
 
 const pageTitles: Record<string, string> = {
@@ -41,6 +44,17 @@ const pageTitles: Record<string, string> = {
   "/admin/departments": "University Department Directory & Management",
   "/admin/question-papers": "Question Paper Logistics & Master Release Hub",
   "/admin/hall-allotment": "Examination Classroom Allotment",
+  "/admin/paper-allotment": "Paper Correction Allotment",
+  "/admin/accounts/dashboard": "Accounts",
+  "/admin/accounts/fee-heads": "Fee Heads",
+  "/admin/accounts/fee-structure": "Fee Structure",
+  "/admin/accounts/exam-fees": "End-Semester Exam Fees",
+  "/admin/accounts/rates": "Bus Routes & Hostel Rooms",
+  "/admin/accounts/services": "Student Bus & Hostel",
+  "/admin/accounts/dues": "Student Dues",
+  "/admin/accounts/payments": "Payments & Receipts",
+  "/admin/accounts/approvals": "Concessions, Scholarships & Refunds",
+  "/admin/accounts/reports": "Reports & Tally Export",
   "/admin/results/withheld": "Withheld Results",
   "/admin/results": "Result Management Hub",
   "/admin/results/upload": "Student Data",
@@ -257,6 +271,22 @@ export const App: React.FC = () => {
         )}
       </Route>
 
+      <Route path="/admin/accounts/:section">
+        {() => (
+          <AdminLayout>
+            <ProtectedRoute component={AccountsPage} />
+          </AdminLayout>
+        )}
+      </Route>
+
+      <Route path="/admin/paper-allotment">
+        {() => (
+          <AdminLayout>
+            <ProtectedRoute component={PaperAllotmentPage} />
+          </AdminLayout>
+        )}
+      </Route>
+
       <Route path="/admin/question-papers">
         {() => (
           <AdminLayout>
@@ -275,11 +305,11 @@ export const App: React.FC = () => {
 
       {/* Fallback Redirect */}
       <Route path="/">
-        <Redirect to="/admin/dashboard" />
+        <Redirect to={OFFICE_PANEL ? OFFICES[0].home : "/admin/dashboard"} />
       </Route>
 
       <Route path="/admin">
-        <Redirect to="/admin/dashboard" />
+        <Redirect to={OFFICE_PANEL ? OFFICES[0].home : "/admin/dashboard"} />
       </Route>
 
       {/* Any other address: a real "not found" page instead of silently jumping elsewhere */}

@@ -112,14 +112,12 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
         return (
           p.status === "PENDING_AD_REVIEW" ||
           p.status === "PENDING_COE_REVIEW" ||
-          p.status === "PENDING_CHIEF_COE"
+          p.status === "RETURNED_TO_HOD" ||
+          p.status === "RETURNED_TO_AD" ||
+          p.status === "RETURNED_TO_COE"
         );
-      if (activeTab === "approved") return p.status === "CHIEF_COE_APPROVED";
-      if (activeTab === "returned")
-        return (
-          p.status === "RETURNED_TO_FACULTY" ||
-          p.status === "RETURNED_TO_HOD"
-        );
+      if (activeTab === "approved") return p.status === "COE_APPROVED";
+      if (activeTab === "returned") return p.status === "RETURNED_TO_FACULTY";
 
       return true;
     });
@@ -136,9 +134,11 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
         (p) =>
           p.status === "PENDING_AD_REVIEW" ||
           p.status === "PENDING_COE_REVIEW" ||
-          p.status === "PENDING_CHIEF_COE"
+          p.status === "RETURNED_TO_HOD" ||
+          p.status === "RETURNED_TO_AD" ||
+          p.status === "RETURNED_TO_COE"
       ).length,
-      approved: list.filter((p) => p.status === "CHIEF_COE_APPROVED").length,
+      approved: list.filter((p) => p.status === "COE_APPROVED").length,
       returned: list.filter((p) => p.status === "RETURNED_TO_FACULTY").length,
     };
   }, [papers]);
@@ -429,13 +429,13 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
         </div>
       )}
 
-      {/* 5 Hierarchy Steps Quick Infographic */}
+      {/* 4 Hierarchy Steps Quick Infographic */}
       <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs">
         <p className="text-[11px] font-black uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
           <Layers size={14} className="text-[#D4A72C]" />
-          <span>OFFICIAL UNIVERSITY 5-STAGE QUESTION PAPER APPROVAL HIERARCHY</span>
+          <span>OFFICIAL UNIVERSITY 4-STAGE QUESTION PAPER APPROVAL HIERARCHY</span>
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-2 text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-xs">
           <div className="p-3 rounded-xl bg-[#D4A72C]/10 border border-[#D4A72C]/40">
             <span className="font-mono font-black text-[10px] text-[#0B192C] bg-[#D4A72C] px-1.5 py-0.5 rounded">STAGE 1</span>
             <p className="font-black text-[#0B192C] mt-1.5">Faculty Author</p>
@@ -454,12 +454,7 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
           <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-200">
             <span className="font-mono font-black text-[10px] text-indigo-900 bg-indigo-200 px-1.5 py-0.5 rounded">STAGE 4</span>
             <p className="font-black text-indigo-950 mt-1.5">COE Examination Wing</p>
-            <p className="text-[10px] text-slate-600">Confidential room set allocation &amp; encryption</p>
-          </div>
-          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-            <span className="font-mono font-black text-[10px] text-emerald-900 bg-emerald-200 px-1.5 py-0.5 rounded">STAGE 5</span>
-            <p className="font-black text-emerald-950 mt-1.5">Chief COE Master Release</p>
-            <p className="text-[10px] text-slate-600">Master University Seal &amp; final authorization</p>
+            <p className="text-[10px] text-slate-600">Confidential room set allocation &amp; final approval</p>
           </div>
         </div>
       </div>
@@ -532,12 +527,12 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-extrabold uppercase tracking-wider opacity-75">
-              CHIEF COE APPROVED
+              COE APPROVED
             </span>
             <ShieldCheck size={18} className={activeTab === "approved" ? "text-white" : "text-emerald-500"} />
           </div>
           <p className="text-2xl font-black mt-1 text-emerald-600">{stats.approved}</p>
-          <p className="text-[10px] opacity-75 mt-0.5">Master Seal Released</p>
+          <p className="text-[10px] opacity-75 mt-0.5">Final approval given</p>
         </div>
 
         <div
@@ -623,8 +618,7 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
             const isPendingHod = paper.status === "PENDING_HOD_REVIEW";
             const isPendingAd = paper.status === "PENDING_AD_REVIEW";
             const isPendingCoe = paper.status === "PENDING_COE_REVIEW";
-            const isPendingChiefCoe = paper.status === "PENDING_CHIEF_COE";
-            const isApproved = paper.status === "CHIEF_COE_APPROVED";
+            const isApproved = paper.status === "COE_APPROVED";
             const isReturned = paper.status === "RETURNED_TO_FACULTY";
 
             return (
@@ -716,16 +710,10 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
                         <span>Stage 4: COE Logistics &amp; Set Allocation</span>
                       </span>
                     )}
-                    {isPendingChiefCoe && (
-                      <span className="px-3.5 py-1 rounded-full text-xs font-black uppercase bg-purple-100 text-purple-900 border border-purple-300 flex items-center gap-1.5 shadow-xs">
-                        <Award size={13} className="text-purple-600" />
-                        <span>Stage 5: Awaiting Chief COE Release</span>
-                      </span>
-                    )}
                     {isApproved && (
                       <span className="px-3.5 py-1 rounded-full text-xs font-black uppercase bg-emerald-100 text-emerald-950 border border-emerald-300 flex items-center gap-1.5 shadow-xs">
                         <ShieldCheck size={13} className="text-emerald-700" />
-                        <span>Chief COE Master Seal Authorized</span>
+                        <span>Approved by COE (Final)</span>
                       </span>
                     )}
                     {isReturned && (
@@ -737,9 +725,9 @@ export const FacultyQuestionPaperView: React.FC<FacultyQuestionPaperViewProps> =
                   </div>
                 </div>
 
-                {/* 5-Stage Stepper */}
+                {/* 4-Stage Stepper */}
                 <div className="py-4 border-b border-slate-100">
-                  <div className="grid grid-cols-5 gap-2 text-center">
+                  <div className="grid grid-cols-4 gap-2 text-center">
                     {(Array.isArray(paper.hierarchyTrail) ? paper.hierarchyTrail : []).map((sig, idx) => {
                       const isDone = sig.status === "COMPLETED";
                       const isCurrent = sig.status === "CURRENT";

@@ -31,7 +31,7 @@ export interface StatementData {
 }
 
 const NAVY: [number, number, number] = [11, 25, 44];
-const GOLD: [number, number, number] = [212, 167, 44];
+const GOLD: [number, number, number] = [208, 108, 44]; // the Engineering college orange (#D4A72C)
 
 async function imageAsDataUrl(src: string): Promise<string | null> {
   try {

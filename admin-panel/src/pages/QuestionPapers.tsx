@@ -58,15 +58,15 @@ export const QuestionPapersPage: React.FC = () => {
   const college = getActiveCollege();
   const isSuper = isSuperAdmin(currentUser);
 
-  // Allow user to toggle between COE View (Stage 4) and Chief COE View (Stage 5)
+  // The COE gives the final approval (stage 4); the Chief COE only monitors the papers
   const activeRoleView: "COE" | "Chief COE" = isSuper ? "Chief COE" : "COE";
 
   const { papers, loading, error: loadError } = useQuestionPapers();
   const [busy, setBusy] = useState(false);
   const [selectedDept, setSelectedDept] = useState<string>("all");
   const [selectedStageTab, setSelectedStageTab] = useState<
-    "all" | "pending_coe" | "pending_chief_coe" | "approved" | "returned"
-  >(isSuper ? "pending_chief_coe" : "pending_coe");
+    "all" | "pending_coe" | "approved" | "returned"
+  >(isSuper ? "all" : "pending_coe");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [viewPaper, setViewPaper] = useState<QuestionPaperItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -95,7 +95,7 @@ export const QuestionPapersPage: React.FC = () => {
 
   // Confirmation Modal
   const [confirmDialog, setConfirmDialog] = useState<{
-    action: "forward_chief_coe" | "chief_coe_approve";
+    action: "coe_approve";
     paper: QuestionPaperItem;
   } | null>(null);
 
@@ -126,10 +126,9 @@ export const QuestionPapersPage: React.FC = () => {
   const stats = useMemo(() => {
     const total = papers.length;
     const pendingCoe = papers.filter((p) => p.status === "PENDING_COE_REVIEW").length;
-    const pendingChief = papers.filter((p) => p.status === "PENDING_CHIEF_COE").length;
-    const masterApproved = papers.filter((p) => p.status === "CHIEF_COE_APPROVED").length;
+    const approved = papers.filter((p) => p.status === "COE_APPROVED").length;
     const returned = papers.filter((p) => p.status.startsWith("RETURNED")).length;
-    return { total, pendingCoe, pendingChief, masterApproved, returned };
+    return { total, pendingCoe, approved, returned };
   }, [papers]);
 
   // Filtered List
@@ -137,8 +136,7 @@ export const QuestionPapersPage: React.FC = () => {
     return papers.filter((p) => {
       // Stage tab filter
       if (selectedStageTab === "pending_coe" && p.status !== "PENDING_COE_REVIEW") return false;
-      if (selectedStageTab === "pending_chief_coe" && p.status !== "PENDING_CHIEF_COE") return false;
-      if (selectedStageTab === "approved" && p.status !== "CHIEF_COE_APPROVED") return false;
+      if (selectedStageTab === "approved" && p.status !== "COE_APPROVED") return false;
       if (selectedStageTab === "returned" && !p.status.startsWith("RETURNED")) return false;
 
       // Department filter
@@ -180,20 +178,12 @@ export const QuestionPapersPage: React.FC = () => {
     }
   };
 
-  // COE forwards to the Chief COE (Stage 4 -> 5) with the chosen set
-  const handleCoeForwardToChiefCOE = async (paperId: string) => {
+  // The COE approves the paper with the chosen set; this is the final approval
+  const handleCoeApprove = async (paperId: string) => {
     const paper = papers.find((p) => p.id === paperId);
     if (!paper) return;
-    await runAction(paper, "FORWARD", { set: allocatedSet, remarks: dispatchNote.trim().slice(0, 500) || undefined }, (p) =>
-      `Question Paper ${p.subjectCode} forwarded to the Chief COE (Ref: ${p.coeReferenceNo}).`);
-    setConfirmDialog(null);
-  };
-
-  // Chief COE releases the paper with the seal (Stage 5)
-  const handleChiefCoeAuthorizeRelease = async (paperId: string) => {
-    const paper = papers.find((p) => p.id === paperId);
-    if (!paper) return;
-    await runAction(paper, "RELEASE", {}, (p) => `Seal ${p.chiefCoeSealNo}: ${p.subjectCode} released for the examination.`);
+    await runAction(paper, "APPROVE", { set: allocatedSet, remarks: dispatchNote.trim().slice(0, 500) || undefined }, (p) =>
+      `Question Paper ${p.subjectCode} approved (Ref: ${p.coeReferenceNo}).`);
     setConfirmDialog(null);
   };
 
@@ -252,7 +242,7 @@ export const QuestionPapersPage: React.FC = () => {
                 <span className="bg-[#D4A72C] text-[#0B192C] font-black text-[10px] tracking-wider uppercase px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1">
                   {activeRoleView === "Chief COE" ? (
                     <>
-                      <Crown size={12} /> STAGE 5 SUPREME CONSOLE
+                      <Crown size={12} /> CHIEF COE MONITORING
                     </>
                   ) : (
                     <>
@@ -264,18 +254,18 @@ export const QuestionPapersPage: React.FC = () => {
                   AUTONOMOUS REGULATION 2021
                 </span>
                 <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
-                  5-STAGE PERMISSION WORKFLOW
+                  4-STAGE APPROVAL WORKFLOW
                 </span>
               </div>
 
               <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                <span>Question Paper Logistics & Master Release Hub</span>
+                <span>Question Paper Approval Hub</span>
               </h1>
 
               <p className="text-xs text-slate-300 mt-1 max-w-2xl font-normal leading-relaxed">
                 {activeRoleView === "Chief COE"
-                  ? "Executive authorization center for Dr. Sathish (Chief COE). Review complete academic and DAC audit trails, verify confidentiality certifications, and issue cryptographic Master University Seals for final examination conduction."
-                  : "Controller of Examinations (COE) wing. Conduct confidential room scrutiny, verify Bloom's taxonomy balances, allocate examination sets (Set A / Set B), and endorse papers for Chief COE executive clearance."}
+                  ? "Monitor the question papers of every college: where each paper is in the Faculty → HOD → Associate Dean → COE approval, and its full audit trail. The COE gives the final approval; the Chief COE only monitors."
+                  : "Controller of Examinations (COE) wing. Conduct confidential room scrutiny, verify Bloom's taxonomy balances, allocate examination sets (Set A / Set B), and give the final approval."}
               </p>
             </div>
           </div>
@@ -307,7 +297,7 @@ export const QuestionPapersPage: React.FC = () => {
 
               <button
                 onClick={() => {
-                  setSelectedStageTab("pending_chief_coe");
+                  setSelectedStageTab("all");
                 }}
                 className={`px-3.5 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 ${
                   activeRoleView === "Chief COE"
@@ -316,12 +306,7 @@ export const QuestionPapersPage: React.FC = () => {
                 }`}
               >
                 <Crown size={14} />
-                <span>Chief COE (Stage 5)</span>
-                {stats.pendingChief > 0 && (
-                  <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-400 text-black animate-pulse">
-                    {stats.pendingChief}
-                  </span>
-                )}
+                <span>Chief COE (Monitoring)</span>
               </button>
             </div>
           </div>
@@ -368,28 +353,12 @@ export const QuestionPapersPage: React.FC = () => {
               >
                 4
               </span>
-              <span>COE Set Allocation</span>
+              <span>COE Final Approval</span>
             </div>
-            <ChevronRight size={14} className="text-white/40 shrink-0" />
 
-            <div
-              className={`flex items-center gap-2 shrink-0 px-3 py-1 rounded-xl transition ${
-                activeRoleView === "Chief COE"
-                  ? "bg-gradient-to-r from-amber-400 to-[#D4A72C] text-[#0B192C] font-black ring-2 ring-amber-400/50"
-                  : "bg-white/10 text-white font-bold"
-              }`}
-            >
-              <span
-                className={`w-5 h-5 rounded-full font-black flex items-center justify-center text-[10px] ${
-                  activeRoleView === "Chief COE" ? "bg-[#0B192C] text-amber-400" : "bg-white/20 text-white"
-                }`}
-              >
-                5
-              </span>
-              <span className="flex items-center gap-1">
-                <Crown size={12} />
-                Chief COE Master Seal
-              </span>
+            <div className="flex items-center gap-2 shrink-0 text-white/70 font-bold">
+              <Eye size={12} />
+              <span>Chief COE monitors</span>
             </div>
           </div>
         </div>
@@ -427,37 +396,37 @@ export const QuestionPapersPage: React.FC = () => {
           </div>
         </div>
 
-        {/* KPI 2: Stage 5 Pending */}
+        {/* KPI 2: Returned for revision */}
         <div
           onClick={() => {
-            setSelectedStageTab("pending_chief_coe");
+            setSelectedStageTab("returned");
           }}
           className={`p-5 rounded-3xl border-2 transition cursor-pointer shadow-sm flex flex-col justify-between ${
-            selectedStageTab === "pending_chief_coe"
-              ? "bg-purple-50 border-purple-500 ring-2 ring-purple-500/40"
-              : "bg-white border-slate-200 hover:border-purple-400"
+            selectedStageTab === "returned"
+              ? "bg-red-50 border-red-500 ring-2 ring-red-500/40"
+              : "bg-white border-slate-200 hover:border-red-400"
           }`}
         >
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider block">
-                Pending Chief COE (Stage 5)
+                Returned for Revision
               </span>
               <span className="text-3xl font-black text-[#0B192C] mt-1 block">
-                {stats.pendingChief}
+                {stats.returned}
               </span>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">
-              <Crown size={24} />
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 text-red-600 flex items-center justify-center shrink-0">
+              <RotateCcw size={24} />
             </div>
           </div>
-          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-purple-700">
-            <span>Awaiting Master Seal</span>
+          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-red-700">
+            <span>Sent Back to an Earlier Stage</span>
             <ChevronRight size={14} />
           </div>
         </div>
 
-        {/* KPI 3: Master Approved & Sealed */}
+        {/* KPI 3: Approved by the COE (final) */}
         <div
           onClick={() => setSelectedStageTab("approved")}
           className={`p-5 rounded-3xl border-2 transition cursor-pointer shadow-sm flex flex-col justify-between ${
@@ -469,10 +438,10 @@ export const QuestionPapersPage: React.FC = () => {
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider block">
-                Master University Sealed
+                Approved by COE (Final)
               </span>
               <span className="text-3xl font-black text-emerald-700 mt-1 block">
-                {stats.masterApproved}
+                {stats.approved}
               </span>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
@@ -535,18 +504,15 @@ export const QuestionPapersPage: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setSelectedStageTab("pending_chief_coe")}
+              onClick={() => setSelectedStageTab("returned")}
               className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
-                selectedStageTab === "pending_chief_coe"
-                  ? "bg-purple-900 text-purple-200 shadow"
+                selectedStageTab === "returned"
+                  ? "bg-red-700 text-white shadow"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
-              <Crown size={14} />
-              <span>Chief COE Master Seal Queue (Stage 5)</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-purple-500 text-white font-black">
-                {stats.pendingChief}
-              </span>
+              <RotateCcw size={14} />
+              <span>Returned ({stats.returned})</span>
             </button>
 
             <button
@@ -558,7 +524,7 @@ export const QuestionPapersPage: React.FC = () => {
               }`}
             >
               <CheckCircle2 size={14} />
-              <span>Master Sealed ({stats.masterApproved})</span>
+              <span>Approved ({stats.approved})</span>
             </button>
 
             <button
@@ -633,8 +599,7 @@ export const QuestionPapersPage: React.FC = () => {
           <div className="divide-y divide-slate-100">
             {filteredPapers.map((paper) => {
               const isStage4Waiting = paper.status === "PENDING_COE_REVIEW";
-              const isStage5Waiting = paper.status === "PENDING_CHIEF_COE";
-              const isApproved = paper.status === "CHIEF_COE_APPROVED";
+              const isApproved = paper.status === "COE_APPROVED";
 
               return (
                 <div
@@ -663,16 +628,10 @@ export const QuestionPapersPage: React.FC = () => {
                           Stage 4: Pending COE Set Allocation
                         </span>
                       )}
-                      {isStage5Waiting && (
-                        <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-800 border border-purple-500/30 flex items-center gap-1 animate-pulse">
-                          <Crown size={11} />
-                          Stage 5: Pending Chief COE Master Seal
-                        </span>
-                      )}
                       {isApproved && (
                         <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-800 border border-emerald-500/30 flex items-center gap-1">
                           <Award size={11} />
-                          Master Sealed &amp; University Released
+                          Approved by COE (Final)
                         </span>
                       )}
                       {paper.pdfAttachment && (
@@ -722,7 +681,7 @@ export const QuestionPapersPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Middle Column: 5-Stage Step Indicators */}
+                  {/* Middle Column: 4-Stage Step Indicators */}
                   <div className="shrink-0 flex items-center gap-1.5 bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
                     {paper.hierarchyTrail.map((sig) => {
                       const isDone = sig.status === "COMPLETED";
@@ -778,39 +737,23 @@ export const QuestionPapersPage: React.FC = () => {
                       </button>
                     )}
 
-                    {/* COE Quick Forward Button */}
+                    {/* COE Quick Approve Button */}
                     {activeRoleView === "COE" && isStage4Waiting && (
                       <button
                         onClick={() => {
                           setViewPaper(paper);
                           setConfirmDialog({
-                            action: "forward_chief_coe",
+                            action: "coe_approve",
                             paper,
                           });
                         }}
                         className="px-4 py-2.5 rounded-xl bg-[#0B192C] hover:bg-[#152744] text-[#D4A72C] text-xs font-black transition flex items-center gap-1.5 cursor-pointer shadow-md"
                       >
                         <ShieldCheck size={14} />
-                        <span>Allocate Set &amp; Forward</span>
+                        <span>Allocate Set &amp; Approve</span>
                       </button>
                     )}
 
-                    {/* Chief COE Master Seal Quick Button */}
-                    {activeRoleView === "Chief COE" && isStage5Waiting && (
-                      <button
-                        onClick={() => {
-                          setViewPaper(paper);
-                          setConfirmDialog({
-                            action: "chief_coe_approve",
-                            paper,
-                          });
-                        }}
-                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-[#D4A72C] hover:from-amber-600 hover:to-amber-500 text-[#0B192C] text-xs font-black transition flex items-center gap-1.5 cursor-pointer shadow-md"
-                      >
-                        <Crown size={14} />
-                        <span>Affix Master Seal</span>
-                      </button>
-                    )}
                   </div>
                 </div>
               );
@@ -903,19 +846,19 @@ export const QuestionPapersPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* 5-STAGE AUDIT TRAIL TIMELINE */}
+              {/* 4-STAGE AUDIT TRAIL TIMELINE */}
               <div className="bg-slate-50 p-5 rounded-3xl border border-slate-200 space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="font-display font-black text-xs text-[#0B192C] uppercase tracking-wider flex items-center gap-1.5">
                     <ShieldCheck size={15} className="text-[#D4A72C]" />
-                    5-Stage Custody &amp; Permission Trail
+                    4-Stage Custody &amp; Approval Trail
                   </h4>
                   <span className="text-[10px] font-bold text-slate-500 font-mono">
-                    Faculty → HOD → AD → COE → Chief COE
+                    Faculty → HOD → AD → COE (final)
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
                   {viewPaper.hierarchyTrail.map((sig) => {
                     const isDone = sig.status === "COMPLETED";
                     const isCurrent = sig.status === "CURRENT";
@@ -1163,7 +1106,7 @@ export const QuestionPapersPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* ACTION EXECUTION ZONE: COE SET ALLOCATION / CHIEF COE RELEASE */}
+              {/* ACTION EXECUTION ZONE: COE SET ALLOCATION & FINAL APPROVAL / CHIEF COE MONITORING */}
               <div className="bg-[#0B192C] text-white p-6 rounded-3xl border border-[#D4A72C]/40 space-y-4">
                 <div className="flex items-center justify-between border-b border-white/10 pb-3">
                   <div className="flex items-center gap-2">
@@ -1174,8 +1117,8 @@ export const QuestionPapersPage: React.FC = () => {
                     )}
                     <h4 className="font-display font-black text-sm text-white">
                       {activeRoleView === "Chief COE"
-                        ? "Stage 5 Chief COE Executive Seal Authorization"
-                        : "Stage 4 COE Confidential Room Set Allocation"}
+                        ? "Chief COE Monitoring (view only)"
+                        : "Stage 4 COE Set Allocation & Final Approval"}
                     </h4>
                   </div>
                   <span className="text-[10px] font-bold text-[#D4A72C] font-mono uppercase">
@@ -1183,8 +1126,23 @@ export const QuestionPapersPage: React.FC = () => {
                   </span>
                 </div>
 
-                {/* COE View Controls */}
-                {activeRoleView === "COE" && (
+                {/* COE View Controls: only while the paper is waiting for the COE */}
+                {activeRoleView === "COE" && !(viewPaper.status === "PENDING_COE_REVIEW" || viewPaper.status === "RETURNED_TO_COE") && (
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      {viewPaper.status === "COE_APPROVED"
+                        ? `Approved by the COE${viewPaper.coeReferenceNo ? ` (Ref: ${viewPaper.coeReferenceNo})` : ""}. No further approval is needed.`
+                        : `This paper is with the ${viewPaper.currentStageRole === "AD" ? "Associate Dean" : viewPaper.currentStageRole} and is not waiting for the COE yet.`}
+                    </p>
+                    <button
+                      onClick={() => setViewPaper(null)}
+                      className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white"
+                    >
+                      Close
+                    </button>
+                  </div>
+                )}
+                {activeRoleView === "COE" && (viewPaper.status === "PENDING_COE_REVIEW" || viewPaper.status === "RETURNED_TO_COE") && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* Set Allocation */}
@@ -1227,7 +1185,7 @@ export const QuestionPapersPage: React.FC = () => {
                           type="text"
                           value={dispatchNote}
                           onChange={(e) => setDispatchNote(e.target.value)}
-                          placeholder="e.g. Set A primary allocation confirmed. Forwarded to Chief COE."
+                          placeholder="e.g. Set A primary allocation confirmed."
                           className="w-full bg-white/10 border border-white/20 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D4A72C]"
                         />
                       </div>
@@ -1258,63 +1216,35 @@ export const QuestionPapersPage: React.FC = () => {
                         <button
                           onClick={() =>
                             setConfirmDialog({
-                              action: "forward_chief_coe",
+                              action: "coe_approve",
                               paper: viewPaper,
                             })
                           }
                           className="px-6 py-2.5 rounded-xl bg-[#D4A72C] hover:bg-amber-400 text-[#0B192C] text-xs font-black transition shadow-lg flex items-center gap-2 cursor-pointer"
                         >
-                          <Send size={15} />
-                          <span>Endorse &amp; Forward to Chief COE</span>
+                          <CheckCircle2 size={15} />
+                          <span>Approve Question Paper (Final)</span>
                         </button>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Chief COE View Controls */}
+                {/* Chief COE: monitoring only, no approval or return */}
                 {activeRoleView === "Chief COE" && (
-                  <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-xs text-slate-300 leading-relaxed">
-                      As Chief Controller of Examinations (Dr. Sathish), applying the Master University Seal is the final step in the autonomous examination governance pipeline. Upon release, question paper custody is authorized for confidential printing and invigilation dispatch.
+                      {viewPaper.status === "COE_APPROVED"
+                        ? `Approved by the COE${viewPaper.coeReferenceNo ? ` (Ref: ${viewPaper.coeReferenceNo})` : ""}.`
+                        : `Waiting for the ${viewPaper.currentStageRole === "AD" ? "Associate Dean" : viewPaper.currentStageRole}.`}{" "}
+                      The COE gives the final approval; the Chief COE monitors the papers and their trail.
                     </p>
-
-                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                      <button
-                        onClick={() =>
-                          setReturnModal({
-                            paperId: viewPaper.id,
-                            targetStage: "COE",
-                          })
-                        }
-                        className="px-4 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold border border-red-500/40 transition flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <RotateCcw size={14} />
-                        <span>Return to COE Wing</span>
-                      </button>
-
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => setViewPaper(null)}
-                          className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white"
-                        >
-                          Close
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            setConfirmDialog({
-                              action: "chief_coe_approve",
-                              paper: viewPaper,
-                            })
-                          }
-                          className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-[#D4A72C] hover:from-amber-500 hover:to-amber-400 text-[#0B192C] text-xs font-black transition shadow-lg flex items-center gap-2 cursor-pointer"
-                        >
-                          <Crown size={15} />
-                          <span>Affix Master University Seal &amp; Authorize Release</span>
-                        </button>
-                      </div>
-                    </div>
+                    <button
+                      onClick={() => setViewPaper(null)}
+                      className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white"
+                    >
+                      Close
+                    </button>
                   </div>
                 )}
               </div>
@@ -1329,19 +1259,13 @@ export const QuestionPapersPage: React.FC = () => {
           <div className="bg-white max-w-md w-full rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center gap-3">
               <div
-                className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                  confirmDialog.action === "chief_coe_approve"
-                    ? "bg-amber-100 text-[#0B192C]"
-                    : "bg-blue-100 text-blue-700"
-                }`}
+                className="h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 bg-emerald-100 text-emerald-700"
               >
-                {confirmDialog.action === "chief_coe_approve" ? <Crown size={24} /> : <Send size={24} />}
+                <CheckCircle2 size={24} />
               </div>
               <div>
                 <h3 className="font-display font-extrabold text-base text-[#0B192C]">
-                  {confirmDialog.action === "chief_coe_approve"
-                    ? "Authorize Master University Seal?"
-                    : "Endorse & Forward to Chief COE?"}
+                  Approve this question paper?
                 </h3>
                 <p className="text-xs text-slate-500 font-mono">
                   {confirmDialog.paper.subjectCode} • {confirmDialog.paper.subjectTitle}
@@ -1350,9 +1274,7 @@ export const QuestionPapersPage: React.FC = () => {
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              {confirmDialog.action === "chief_coe_approve"
-                ? `You are acting as Chief COE Dr. Sathish. This action generates the official Master University Examination Seal and marks the paper as officially approved for printing and examination conduction.`
-                : `COE room allocation (${allocatedSet}) confirmed. An official COE dispatch reference will be generated and custody transferred to Chief COE (Dr. Sathish).`}
+              {`COE room allocation (${allocatedSet}) confirmed. An official COE reference number will be generated and the paper is approved for printing and the examination. This is the final approval.`}
             </p>
 
             <div className="flex items-center justify-end gap-2.5 pt-2">
@@ -1363,18 +1285,8 @@ export const QuestionPapersPage: React.FC = () => {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  if (confirmDialog.action === "forward_chief_coe") {
-                    handleCoeForwardToChiefCOE(confirmDialog.paper.id);
-                  } else {
-                    handleChiefCoeAuthorizeRelease(confirmDialog.paper.id);
-                  }
-                }}
-                className={`px-5 py-2.5 rounded-xl text-xs font-black shadow transition cursor-pointer ${
-                  confirmDialog.action === "chief_coe_approve"
-                    ? "bg-[#D4A72C] hover:bg-amber-400 text-[#0B192C]"
-                    : "bg-[#0B192C] hover:bg-[#152744] text-[#D4A72C]"
-                }`}
+                onClick={() => handleCoeApprove(confirmDialog.paper.id)}
+                className="px-5 py-2.5 rounded-xl text-xs font-black shadow transition cursor-pointer bg-[#0B192C] hover:bg-[#152744] text-[#D4A72C]"
               >
                 Confirm &amp; Proceed
               </button>
@@ -1446,7 +1358,7 @@ export const QuestionPapersPage: React.FC = () => {
                 <div>
                   <h3 className="font-bold text-sm text-white">{pdfModalOpen.fileName}</h3>
                   <span className="text-[10px] text-slate-400">
-                    {activeRoleView === "Chief COE" ? "Stage 5 • Chief COE Master University Audit" : "Stage 4 • Controller of Examinations Moderation"}
+                    {activeRoleView === "Chief COE" ? "Chief COE • Monitoring (view only)" : "Stage 4 • Controller of Examinations Moderation"}
                   </span>
                 </div>
               </div>

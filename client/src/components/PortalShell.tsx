@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ChevronRight, KeyRound, LogOut, UserRound, X, type LucideIcon } from "lucide-react";
 import { FacultyBanner } from "./FacultyBanner";
+import { collegeBrand } from "../lib/collegeBrand";
 
 /**
  * The frame every signed-in portal shares (faculty, HOD, student; the COE admin panel, the Associate Dean and the
@@ -185,7 +186,7 @@ export const PortalShell: React.FC<PortalShellProps> = ({
       <div className="flex min-w-0 flex-1 flex-col">
         <FacultyBanner
           collegeName={bannerTitle}
-          logoUrl="/kvell-logo.png"
+          logoUrl={collegeBrand().logoUrl}
           userName={bannerUser}
           username={bannerUserSub}
           tag={bannerTag}

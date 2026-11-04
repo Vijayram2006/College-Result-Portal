@@ -4,6 +4,7 @@
     2. the Spring Boot backend      http://localhost:8080
     3. the student / HOD portal     http://localhost:3000
     4. the admin control panel      http://localhost:3002/admin/login
+    5. the Office Portal            http://localhost:3004/admin/login   (Accounts; later Admission, AO, Transport)
 
   Secrets are read from files outside the repo (never committed):
     ..\..\result-portal\.env              DB_USER, DB_PASSWORD, DB_PORT
@@ -112,6 +113,12 @@ if (-not (Test-Port 3002)) {
     Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "npx vite --host 127.0.0.1 --port 3002 --strictPort" `
         -WorkingDirectory (Join-Path $root "admin-panel") -WindowStyle Minimized
 }
+Write-Host "[5/5] Office Portal (port 3004)..." -ForegroundColor Cyan
+if (-not (Test-Port 3004)) {
+    # The same admin-panel code in Office Portal mode (its own sign-in page and menus)
+    Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "set VITE_PANEL=office&& npx vite --host 127.0.0.1 --port 3004 --strictPort" `
+        -WorkingDirectory (Join-Path $root "admin-panel") -WindowStyle Minimized
+}
 $ok3000 = Wait-Http "http://127.0.0.1:3000/" 60 @(200)
 $ok3002 = Wait-Http "http://127.0.0.1:3002/admin/login" 60 @(200)
 if (-not ($ok3000 -and $ok3002)) { throw "A frontend did not start (3000: $ok3000, 3002: $ok3002)" }
@@ -119,6 +126,7 @@ if (-not ($ok3000 -and $ok3002)) { throw "A frontend did not start (3000: $ok300
 Write-Host ""
 Write-Host "KVELL Result Portal is running:" -ForegroundColor Green
 Write-Host "  Admin control panel : http://localhost:3002/admin/login   (user ADMIN)"
+Write-Host "  Office Portal       : http://localhost:3004/admin/login   (Accounts: ACCOUNTS_STAFF, ACCOUNTS_HEAD)"
 Write-Host "  Student / HOD portal: http://localhost:3000               (students: Reg No + DOB; HOD: HODCSE, ...; Assoc. Dean: ADEAN_ENG)"
 Write-Host "  Passwords           : $(Resolve-Path (Join-Path $SecretsDir 'demo-logins.env'))"
 Start-Process "http://localhost:3002/admin/login"

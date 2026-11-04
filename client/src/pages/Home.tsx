@@ -17,6 +17,7 @@ import { QuestionPaperReviewView, safeLoadQuestionPapers } from "../components/d
 import { FacultyQuestionPaperView } from "../components/FacultyQuestionPaperView";
 import { MarkApprovalsView } from "../components/MarkApprovalsView";
 import { PortalShell } from "../components/PortalShell";
+import { collegeBrand } from "../lib/collegeBrand";
 import { FacultyPaperCorrectionView } from "../components/FacultyPaperCorrectionView";
 import { HodQuestionPaperScrutinyView } from "../components/HodQuestionPaperScrutinyView";
 import {
@@ -99,8 +100,23 @@ import {
   UserPlus,
   Users,
   UsersRound,
+  Wallet,
+  NotebookPen,
   X,
 } from "lucide-react";
+import {
+  ClassInchargeAdmin,
+  CompletionReport,
+  FacultyLogbook,
+  LeaveApply,
+  LeaveInbox,
+  MyClassView,
+  MyScorecard,
+  PerformanceReview,
+  StudentFees,
+  useMyClasses,
+  myDept,
+} from "../components/erp/ErpViews";
 import {
   CartesianGrid,
   Line,
@@ -135,7 +151,11 @@ type PageKey =
   | "noticeboard"
   | "internal-marks"
   | "paper-correction"
-  | "question-paper";
+  | "question-paper"
+  | "my-class"
+  | "leave"
+  | "logbook"
+  | "my-performance";
 
 interface NavItem {
   key: PageKey;
@@ -204,6 +224,11 @@ const roleNav: Record<Role, NavItem[]> = {
     { key: "paper-correction", label: "Paper Correction", icon: FileText },
     { key: "hall-allotment", label: "Hall Allotment", icon: LayoutDashboard },
     { key: "question-paper", label: "Question Papers", icon: FileCheck },
+    // ERP: My Class appears only for a class in-charge (see AppShell)
+    { key: "my-class", label: "My Class", icon: UsersRound },
+    { key: "logbook", label: "Logbook", icon: NotebookPen },
+    { key: "leave", label: "Leave", icon: CalendarDays },
+    { key: "my-performance", label: "My Performance", icon: BarChart3 },
   ],
   HOD: [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -521,7 +546,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <button
             onClick={() => onNavigate("marks")}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-[#D4A72C] hover:bg-[#b08014] text-[#0B192C] px-5 py-2.5 text-xs font-black shadow-md transition cursor-pointer"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-[#D4A72C] hover:bg-[#B08014] text-[#0B192C] px-5 py-2.5 text-xs font-black shadow-md transition cursor-pointer"
           >
             <PenLine size={16} strokeWidth={2.5} />
             <span>Enter Internal Marks</span>
@@ -879,7 +904,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
                     <button
                       type="button"
                       onClick={() => onNavigate("marks")}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#D4A72C] hover:bg-[#b58615] px-4 py-2 text-xs font-black text-[#0B192C] transition shadow-xs active:scale-95 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#D4A72C] hover:bg-[#B08014] px-4 py-2 text-xs font-black text-[#0B192C] transition shadow-xs active:scale-95 cursor-pointer"
                     >
                       <PenLine size={13} />
                       <span>Enter Marks</span>
@@ -980,7 +1005,7 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
                     setShowRosterModal(false);
                     onNavigate("marks");
                   }}
-                  className="rounded-xl bg-[#D4A72C] hover:bg-[#b08014] px-4 py-2 text-xs font-black text-[#0B192C] transition shadow-xs"
+                  className="rounded-xl bg-[#D4A72C] hover:bg-[#B08014] px-4 py-2 text-xs font-black text-[#0B192C] transition shadow-xs"
                 >
                   Open Marks Entry
                 </button>
@@ -1207,7 +1232,7 @@ function HodPortalDashboard({
   department?: string;
 }) {
   const kvellSealLogo = "/kvell-logo.png";
-  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "markEntry" | "internals" | "hallAllotment" | "studentResult" | "questionPapers" | "markApprovals" | "notifications">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "markEntry" | "internals" | "hallAllotment" | "studentResult" | "questionPapers" | "markApprovals" | "notifications" | "leaveApprovals" | "myLeave" | "classIncharge" | "logbook" | "facultyPerformance">("dashboard");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [deanBroadcastNotifs, setDeanBroadcastNotifs] = useState<DeanExamNotification[]>(() => safeLoadNotifications());
   const [pendingFacultyQpCount, setPendingFacultyQpCount] = useState<number>(() => {
@@ -1271,6 +1296,11 @@ function HodPortalDashboard({
         { key: "markApprovals", label: "Mark Approvals", icon: CheckSquare },
         { key: "hallAllotment", label: "Hall Allotment", icon: LayoutDashboard },
         { key: "notifications", label: "Exam Notifications", icon: Bell, badge: deanBroadcastNotifs.length },
+        { key: "classIncharge", label: "Class In-charge", icon: UsersRound },
+        { key: "leaveApprovals", label: "Leave Approvals", icon: CheckSquare },
+        { key: "myLeave", label: "My Leave", icon: CalendarDays },
+        { key: "logbook", label: "Subject Completion", icon: NotebookPen },
+        { key: "facultyPerformance", label: "Faculty Performance", icon: BarChart3 },
       ]}
       active={activeTab}
       onNavigate={(k) => setActiveTab(k as typeof activeTab)}
@@ -1280,7 +1310,7 @@ function HodPortalDashboard({
       userName={hodName}
       userSub={`HOD · ${department}`}
       bannerTag={`HOD PORTAL · ${department}`}
-      bannerTitle={authApi.currentUser()?.collegeName ?? "KVELL University"}
+      bannerTitle={collegeBrand().name}
       bannerSubtitle="Department results, internal marks, question paper scrutiny and approval of forwarded marks"
       bannerUser={hodName}
       bannerUserSub={authApi.currentUser()?.username ?? ""}
@@ -1379,7 +1409,7 @@ function HodPortalDashboard({
                     <button
                       type="button"
                       onClick={() => setActiveTab("questionPapers")}
-                      className="px-4 py-2 rounded-xl bg-[#D4A72C] hover:bg-[#b08014] text-[#0B192C] font-black text-xs transition flex items-center gap-1.5 cursor-pointer shadow-md"
+                      className="px-4 py-2 rounded-xl bg-[#D4A72C] hover:bg-[#B08014] text-[#0B192C] font-black text-xs transition flex items-center gap-1.5 cursor-pointer shadow-md"
                     >
                       <span>Stage 2 DAC Scrutiny</span>
                       <ArrowRight size={14} />
@@ -1571,6 +1601,16 @@ function HodPortalDashboard({
         ) : activeTab === "hallAllotment" ? (
           /* Tab: the COE's hall allotment for the department; the HOD validates it for the faculty */
           <HallPlansView mode="hod" deptKey={authApi.currentUser()?.departmentKey} />
+        ) : activeTab === "classIncharge" ? (
+          <ClassInchargeAdmin />
+        ) : activeTab === "leaveApprovals" ? (
+          <LeaveInbox title="Faculty leave approvals" detail="Leave requests of your department's faculty. Approving suggests a substitute for each class they miss." />
+        ) : activeTab === "myLeave" ? (
+          <LeaveApply />
+        ) : activeTab === "logbook" ? (
+          <CompletionReport fixedDept={myDept()} />
+        ) : activeTab === "facultyPerformance" ? (
+          <PerformanceReview />
         ) : activeTab === "markApprovals" ? (
           /* Tab: forwarded marks waiting for the HOD's approval (when the Chief COE requires it) */
           <MarkApprovalsView role="hod" />
@@ -1647,7 +1687,9 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
   const [toast, setToast] = useState<string | null>(null);
   const [globalSearch, setGlobalSearch] = useState("");
 
-  const currentRoleNav = roleNav[role] || roleNav["Faculty"];
+  // "My Class" shows only while this faculty member is a class in-charge
+  const myClasses = useMyClasses();
+  const currentRoleNav = (roleNav[role] || roleNav["Faculty"]).filter((item) => item.key !== "my-class" || myClasses.length > 0);
   const activeNav =
     currentRoleNav.find((item) => item.key === activePage) ?? currentRoleNav[0];
   const meta = roleMeta[role] || roleMeta["Faculty"];
@@ -1696,6 +1738,14 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
             department={facultyCollege?.collegeName || authApi.currentUser()?.departmentName || ""}
           />
         );
+      case "my-class":
+        return <MyClassView onToast={setToast} />;
+      case "logbook":
+        return <FacultyLogbook onToast={setToast} />;
+      case "leave":
+        return <LeaveApply onToast={setToast} />;
+      case "my-performance":
+        return <MyScorecard />;
       case "verification":
       case "noticeboard":
         return (
@@ -1709,7 +1759,7 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
       default:
         return <FacultyDashboard onNavigate={navigate} />;
     }
-  }, [activePage, role]);
+  }, [activePage, role, myClasses.length]);
 
   return (
     <div className="flex min-h-screen bg-[#F8F5EE] text-[#172033] selection:bg-[#D4A72C] selection:text-[#0B192C]">
@@ -1840,8 +1890,8 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
         {/* TOP NAVBAR HEADER: faculty get the COE portal's college banner */}
         {role === "Faculty" ? (
           <FacultyBanner
-            collegeName={facultyCollege?.collegeName ?? authApi.currentUser()?.collegeName ?? "KVELL University"}
-            logoUrl={facultyCollege?.logoUrl || "/kvell-logo.png"}
+            collegeName={collegeBrand().name}
+            logoUrl={collegeBrand().logoUrl}
             userName={authApi.currentUser()?.name ?? "Faculty"}
             username={authApi.currentUser()?.username ?? ""}
             onOpenMenu={() => setSidebarOpen(true)}
@@ -2046,7 +2096,7 @@ function LoginPage({
   const kvellSealLogo = "/kvell-logo.png";
 
   return (
-    <div className="min-h-screen bg-[#0B192C] text-[#172033] font-sans flex flex-col justify-between selection:bg-[#D4A72C] selection:text-[#0B192C]">
+    <div className="login-font min-h-screen bg-[#0B192C] text-[#172033] font-sans flex flex-col justify-between selection:bg-[#D4A72C] selection:text-[#0B192C]">
       {/* Top Banner Bar */}
       <div className="bg-[#060D17] text-white border-b border-[#D4A72C]/20 text-[11px] py-1.5 px-4 sm:px-8 flex flex-wrap items-center justify-between gap-2 z-50">
         <div className="flex items-center gap-2">
@@ -2406,7 +2456,7 @@ function StudentDashboard({
   initialSemester?: number;
   onLogout: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "result" | "internals" | "quizzes" | "subjects">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "result" | "internals" | "quizzes" | "subjects" | "fees" | "leave">("dashboard");
   const [currentSemesterNum, setCurrentSemesterNum] = useState<number>(initialSemester);
 
   useEffect(() => {
@@ -2606,6 +2656,8 @@ function StudentDashboard({
         { key: "subjects", label: "My Subjects", icon: BookOpen },
         { key: "internals", label: "Course Exit Survey", icon: ClipboardCheck },
         { key: "quizzes", label: "Online Quiz", icon: CheckSquare },
+        { key: "fees", label: "Fees", icon: Wallet },
+        { key: "leave", label: "Leave", icon: CalendarDays },
       ]}
       active={activeTab}
       onNavigate={(k) => setActiveTab(k as typeof activeTab)}
@@ -2615,11 +2667,12 @@ function StudentDashboard({
       userName={studentName}
       userSub={`Register: ${studentReg}`}
       bannerTag={`STUDENT PORTAL · SEMESTER ${semRoman}`}
-      bannerTitle="KVELL Deemed to be University"
+      bannerTitle={collegeBrand().name}
       bannerSubtitle="Examination results, internal marks and registered subjects"
       bannerUser={studentName}
       bannerUserSub={studentReg}
-      onBellLink={(link) => (link === "result" ? setActiveTab("result") : undefined)}
+      onBellLink={(link) => (link === "result" ? setActiveTab("result") : link === "fees" ? setActiveTab("fees")
+        : link === "leave" ? setActiveTab("leave") : undefined)}
       accountButtons={false}
       onLogout={onLogout}
     >
@@ -2742,7 +2795,7 @@ function StudentDashboard({
                 </div>
                 <button
                   onClick={() => setActiveTab("result")}
-                  className="bg-[#D4A72C] hover:bg-[#c29624] text-[#0B192C] font-extrabold text-xs sm:text-sm px-6 py-3 rounded-xl shadow transition duration-150 flex items-center gap-2"
+                  className="bg-[#D4A72C] hover:bg-[#B08014] text-[#0B192C] font-extrabold text-xs sm:text-sm px-6 py-3 rounded-xl shadow transition duration-150 flex items-center gap-2"
                 >
                   <FileText size={16} />
                   Open Result Module
@@ -2752,6 +2805,10 @@ function StudentDashboard({
             </div>
 
           </div>
+        ) : activeTab === "fees" ? (
+          <div className="w-full max-w-7xl"><StudentFees onToast={(m) => { setNotificationMsg(m); setTimeout(() => setNotificationMsg(null), 5000); }} /></div>
+        ) : activeTab === "leave" ? (
+          <div className="w-full max-w-7xl"><LeaveApply onToast={(m) => { setNotificationMsg(m); setTimeout(() => setNotificationMsg(null), 5000); }} /></div>
         ) : activeTab === "internals" ? (
           /* Course exit survey: the student rates each course outcome; it feeds the CO attainment */
           <StudentExitSurvey />
@@ -3058,7 +3115,7 @@ function StudentDashboard({
                   (isGradeDownloadAllowed ? (
                     <button
                       onClick={handleDownloadGradeCard}
-                      className="px-4 py-2 bg-[#D4A72C] hover:bg-[#c29624] text-[#0B192C] font-extrabold text-xs rounded-xl shadow transition flex items-center gap-2"
+                      className="px-4 py-2 bg-[#D4A72C] hover:bg-[#B08014] text-[#0B192C] font-extrabold text-xs rounded-xl shadow transition flex items-center gap-2"
                     >
                       <Download size={15} />
                       <span>Download Grade Sheet (PDF)</span>

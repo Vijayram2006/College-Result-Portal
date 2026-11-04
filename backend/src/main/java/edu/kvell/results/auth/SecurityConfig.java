@@ -46,6 +46,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/logout",
                                 "/api/public/client-errors").permitAll()
+                        // The payment gateway's webhook (checked by its signature, see FeeService)
+                        .requestMatchers(HttpMethod.POST, "/api/public/payments/razorpay-webhook").permitAll()
                         // API description (OpenAPI): only when app.api-docs.enabled, see application.properties
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
@@ -64,6 +66,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/hod/**").hasRole("HOD")
                         .requestMatchers("/api/student/**").hasRole("STUDENT")
+                        // The Accounts office (fees); the ERP routes (/api/erp/**) check the role in the code
+                        .requestMatchers("/api/accounts/**").hasRole("ACCOUNTS")
                         // The HOD enters marks too (mark entry and the CO sheet of their department)
                         .requestMatchers("/api/faculty/**").hasAnyRole("FACULTY", "HOD")
                         .requestMatchers("/api/**").authenticated()

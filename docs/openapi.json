@@ -106,6 +106,30 @@
         },
         "type": "object"
       },
+      "AllotRequest": {
+        "properties": {
+          "assessment": {
+            "type": "string"
+          },
+          "dept": {
+            "type": "string"
+          },
+          "evaluatorIds": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "Analytics": {
         "properties": {
           "batches": {
@@ -157,6 +181,66 @@
               "type": "string"
             },
             "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "Approval": {
+        "properties": {
+          "amount": {
+            "type": "number"
+          },
+          "decidedBy": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "regNo": {
+            "type": "string"
+          },
+          "requestedAt": {
+            "type": "string"
+          },
+          "requestedBy": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "AssignRequest": {
+        "properties": {
+          "facultyUserId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "fromDate": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "toDate": {
+            "type": "string"
           }
         },
         "type": "object"
@@ -337,6 +421,44 @@
         },
         "type": "object"
       },
+      "Bundle": {
+        "properties": {
+          "average": {
+            "format": "double",
+            "type": "number"
+          },
+          "deptCode": {
+            "type": "string"
+          },
+          "evaluated": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "evaluatorId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "first": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "last": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scripts": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "ChangePasswordRequest": {
         "properties": {
           "currentPassword": {
@@ -344,6 +466,56 @@
           },
           "newPassword": {
             "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ClassRow": {
+        "properties": {
+          "inchargeId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "inchargeName": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          },
+          "semester": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "students": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "temporaryId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "temporaryName": {
+            "type": "string"
+          },
+          "temporaryTo": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Clearance": {
+        "properties": {
+          "busPassBlocked": {
+            "type": "boolean"
+          },
+          "hallTicketBlocked": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "overdue": {
+            "type": "number"
           }
         },
         "type": "object"
@@ -447,6 +619,49 @@
         },
         "type": "object"
       },
+      "Completion": {
+        "properties": {
+          "behind": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "covered": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "faculty": {
+            "type": "string"
+          },
+          "lagging": {
+            "type": "boolean"
+          },
+          "lastEntry": {
+            "type": "string"
+          },
+          "percent": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "semester": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "subjectCode": {
+            "type": "string"
+          },
+          "subjectTitle": {
+            "type": "string"
+          },
+          "topics": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "Component": {
         "properties": {
           "max": {
@@ -456,6 +671,27 @@
           "weight": {
             "format": "double",
             "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "ConcessionRequest": {
+        "properties": {
+          "amount": {
+            "type": "number"
+          },
+          "demandId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "regNo": {
+            "type": "string"
           }
         },
         "type": "object"
@@ -579,6 +815,37 @@
         },
         "type": "object"
       },
+      "Dashboard": {
+        "properties": {
+          "collectedMonth": {
+            "type": "number"
+          },
+          "collectedToday": {
+            "type": "number"
+          },
+          "gateway": {
+            "type": "string"
+          },
+          "head": {
+            "type": "boolean"
+          },
+          "outstanding": {
+            "type": "number"
+          },
+          "overdue": {
+            "type": "number"
+          },
+          "overdueStudents": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "pendingApprovals": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "DashboardStats": {
         "properties": {
           "departments": {
@@ -628,6 +895,64 @@
           "totalStudents": {
             "format": "int32",
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "DecideRequest": {
+        "properties": {
+          "approve": {
+            "type": "boolean"
+          },
+          "remarks": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Decision": {
+        "properties": {
+          "approve": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "Demand": {
+        "properties": {
+          "academicYear": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "balance": {
+            "type": "number"
+          },
+          "concession": {
+            "type": "number"
+          },
+          "dueDate": {
+            "type": "string"
+          },
+          "head": {
+            "type": "string"
+          },
+          "headCode": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "overdue": {
+            "type": "boolean"
+          },
+          "paid": {
+            "type": "number"
+          },
+          "structure": {
+            "type": "string"
           }
         },
         "type": "object"
@@ -720,6 +1045,20 @@
         },
         "type": "object"
       },
+      "Dept": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "DeptStep": {
         "properties": {
           "deptKey": {
@@ -808,6 +1147,105 @@
         },
         "type": "object"
       },
+      "Entry": {
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "editable": {
+            "type": "boolean"
+          },
+          "faculty": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "method": {
+            "type": "string"
+          },
+          "period": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "remarks": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          },
+          "topic": {
+            "type": "string"
+          },
+          "topicId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "EntryRequest": {
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "dept": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "period": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "remarks": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "topicId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "topicText": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Evaluator": {
+        "properties": {
+          "deptCode": {
+            "type": "string"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "designation": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "Experience": {
         "properties": {
           "months": {
@@ -834,6 +1272,21 @@
             "type": "string"
           },
           "reason": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Faculty": {
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "username": {
             "type": "string"
           }
         },
@@ -1216,6 +1669,44 @@
         },
         "type": "object"
       },
+      "Head": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "category": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "HeadRequest": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "category": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "HistoryItem": {
         "properties": {
           "changedAt": {
@@ -1273,61 +1764,27 @@
       },
       "Item": {
         "properties": {
-          "assessmentType": {
-            "type": "string"
-          },
-          "batchId": {
-            "type": "string"
-          },
-          "deanApprovedAt": {
-            "type": "string"
-          },
-          "deanApprovedBy": {
-            "type": "string"
-          },
-          "departmentName": {
-            "type": "string"
-          },
-          "deptKey": {
-            "type": "string"
-          },
-          "forwardedAt": {
-            "type": "string"
-          },
-          "forwardedBy": {
-            "type": "string"
-          },
-          "hodApprovedAt": {
-            "type": "string"
-          },
-          "hodApprovedBy": {
-            "type": "string"
-          },
-          "passPercentage": {
-            "format": "double",
+          "amount": {
             "type": "number"
           },
-          "returnReason": {
+          "head": {
             "type": "string"
           },
-          "returnedBy": {
-            "type": "string"
-          },
-          "semester": {
-            "type": "string"
-          },
-          "students": {
-            "format": "int32",
+          "headId": {
+            "format": "int64",
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ItemRequest": {
+        "properties": {
+          "amount": {
+            "type": "number"
           },
-          "subjectCode": {
-            "type": "string"
-          },
-          "subjectTitle": {
-            "type": "string"
-          },
-          "waitingForYou": {
-            "type": "boolean"
+          "headId": {
+            "format": "int64",
+            "type": "integer"
           }
         },
         "type": "object"
@@ -1417,6 +1874,127 @@
           },
           "valueNode": {
             "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "Leave": {
+        "properties": {
+          "applicant": {
+            "type": "string"
+          },
+          "applicantRole": {
+            "type": "string"
+          },
+          "approverRole": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "days": {
+            "type": "number"
+          },
+          "decidedAt": {
+            "type": "string"
+          },
+          "decidedBy": {
+            "type": "string"
+          },
+          "decisionRemarks": {
+            "type": "string"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "fromDate": {
+            "type": "string"
+          },
+          "halfDay": {
+            "type": "string"
+          },
+          "hasAttachment": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "leaveCode": {
+            "type": "string"
+          },
+          "leaveName": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "regNo": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "substitutions": {
+            "items": {
+              "$ref": "#/components/schemas/Substitution"
+            },
+            "type": "array"
+          },
+          "toDate": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "LeaveType": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "needsAttachment": {
+            "type": "boolean"
+          },
+          "remaining": {
+            "type": "number"
+          },
+          "used": {
+            "type": "number"
+          },
+          "yearlyDays": {
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "Ledger": {
+        "properties": {
+          "clearance": {
+            "$ref": "#/components/schemas/Clearance"
+          },
+          "demands": {
+            "items": {
+              "$ref": "#/components/schemas/Demand"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parentPhone": {
+            "type": "string"
+          },
+          "payments": {
+            "items": {
+              "$ref": "#/components/schemas/Payment"
+            },
+            "type": "array"
+          },
+          "regNo": {
+            "type": "string"
           }
         },
         "type": "object"
@@ -1545,6 +2123,23 @@
         },
         "type": "object"
       },
+      "Measure": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "weight": {
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
       "MfaEnableRequest": {
         "properties": {
           "code": {
@@ -1587,6 +2182,93 @@
           "maxGraceMarks": {
             "format": "int32",
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "MyBundle": {
+        "properties": {
+          "allottedAt": {
+            "type": "string"
+          },
+          "allottedBy": {
+            "type": "string"
+          },
+          "assessment": {
+            "type": "string"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "deptName": {
+            "type": "string"
+          },
+          "evaluated": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "first": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "last": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "scripts": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "subjectCode": {
+            "type": "string"
+          },
+          "subjectEvaluated": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "subjectScripts": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "subjectTitle": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "MyClass": {
+        "properties": {
+          "deptKey": {
+            "type": "string"
+          },
+          "deptName": {
+            "type": "string"
+          },
+          "pendingLeaves": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "section": {
+            "type": "string"
+          },
+          "semester": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "semesterLabel": {
+            "type": "string"
+          },
+          "students": {
+            "items": {
+              "$ref": "#/components/schemas/Student"
+            },
+            "type": "array"
+          },
+          "temporary": {
+            "type": "boolean"
           }
         },
         "type": "object"
@@ -1665,6 +2347,26 @@
             "type": "string"
           },
           "username": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Order": {
+        "properties": {
+          "amount": {
+            "type": "number"
+          },
+          "gateway": {
+            "type": "string"
+          },
+          "keyId": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "studentName": {
             "type": "string"
           }
         },
@@ -1786,6 +2488,68 @@
       "PasswordReset": {
         "properties": {
           "password": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PayRequest": {
+        "properties": {
+          "demandIds": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "Payment": {
+        "properties": {
+          "amount": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "gateway": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "paidAt": {
+            "type": "string"
+          },
+          "paymentId": {
+            "type": "string"
+          },
+          "receiptNo": {
+            "type": "string"
+          },
+          "refunded": {
+            "type": "number"
+          },
+          "regNo": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "studentName": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PhoneRequest": {
+        "properties": {
+          "parentPhone": {
             "type": "string"
           }
         },
@@ -2299,6 +3063,21 @@
         },
         "type": "object"
       },
+      "RefundRequest": {
+        "properties": {
+          "amount": {
+            "type": "number"
+          },
+          "paymentId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "RegisteredSubject": {
         "properties": {
           "category": {
@@ -2338,6 +3117,14 @@
             "type": "string"
           },
           "scaleDescription": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "RemarksRequest": {
+        "properties": {
+          "remarks": {
             "type": "string"
           }
         },
@@ -2623,32 +3410,72 @@
         },
         "type": "object"
       },
-      "Script": {
+      "Score": {
         "properties": {
-          "dummyCode": {
+          "code": {
             "type": "string"
           },
-          "evaluated": {
-            "type": "boolean"
-          },
-          "grade": {
+          "detail": {
             "type": "string"
           },
-          "partATotal": {
+          "name": {
+            "type": "string"
+          },
+          "score": {
             "format": "double",
             "type": "number"
           },
-          "partBCTotal": {
-            "format": "double",
+          "weight": {
             "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "Scorecard": {
+        "properties": {
+          "academicYear": {
+            "type": "string"
           },
-          "position": {
-            "format": "int32",
-            "type": "integer"
+          "computedAt": {
+            "type": "string"
+          },
+          "deanBy": {
+            "type": "string"
+          },
+          "deanRemarks": {
+            "type": "string"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "hodBy": {
+            "type": "string"
+          },
+          "hodRemarks": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scores": {
+            "items": {
+              "$ref": "#/components/schemas/Score"
+            },
+            "type": "array"
+          },
+          "term": {
+            "type": "string"
           },
           "total": {
-            "format": "int32",
+            "format": "double",
+            "type": "number"
+          },
+          "userId": {
+            "format": "int64",
             "type": "integer"
+          },
+          "username": {
+            "type": "string"
           }
         },
         "type": "object"
@@ -2752,6 +3579,20 @@
             "type": "string"
           },
           "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "SectionRequest": {
+        "properties": {
+          "regNos": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "section": {
             "type": "string"
           }
         },
@@ -2944,6 +3785,94 @@
         },
         "type": "object"
       },
+      "Structure": {
+        "properties": {
+          "academicYear": {
+            "type": "string"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "deptName": {
+            "type": "string"
+          },
+          "dueDate": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Item"
+            },
+            "type": "array"
+          },
+          "status": {
+            "type": "string"
+          },
+          "students": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "studyYear": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "StructureRequest": {
+        "properties": {
+          "academicYear": {
+            "type": "string"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "dueDate": {
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItemRequest"
+            },
+            "type": "array"
+          },
+          "studyYear": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Student": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "onLeaveToday": {
+            "type": "boolean"
+          },
+          "regNo": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "StudentAttainment": {
         "properties": {
           "activity": {
@@ -3008,6 +3937,42 @@
               "type": "number"
             },
             "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "StudentDue": {
+        "properties": {
+          "amount": {
+            "type": "number"
+          },
+          "balance": {
+            "type": "number"
+          },
+          "concession": {
+            "type": "number"
+          },
+          "deptKey": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "overdue": {
+            "type": "number"
+          },
+          "paid": {
+            "type": "number"
+          },
+          "regNo": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          },
+          "semester": {
+            "format": "int32",
+            "type": "integer"
           }
         },
         "type": "object"
@@ -3270,6 +4235,37 @@
         },
         "type": "object"
       },
+      "SubjectAllotment": {
+        "properties": {
+          "allottedAt": {
+            "type": "string"
+          },
+          "allottedBy": {
+            "type": "string"
+          },
+          "bundles": {
+            "items": {
+              "$ref": "#/components/schemas/Bundle"
+            },
+            "type": "array"
+          },
+          "evaluated": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "scripts": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "subjectCode": {
+            "type": "string"
+          },
+          "subjectTitle": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "SubjectInput": {
         "properties": {
           "code": {
@@ -3319,6 +4315,20 @@
             "type": "integer"
           },
           "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Substitution": {
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "subjectCode": {
+            "type": "string"
+          },
+          "substitute": {
             "type": "string"
           }
         },
@@ -3442,6 +4452,26 @@
         },
         "type": "object"
       },
+      "SyllabusRequest": {
+        "properties": {
+          "dept": {
+            "type": "string"
+          },
+          "semester": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "units": {
+            "items": {
+              "$ref": "#/components/schemas/UnitInput"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "SystemConfig": {
         "properties": {
           "academicSession": {
@@ -3537,6 +4567,87 @@
         },
         "type": "object"
       },
+      "Topic": {
+        "properties": {
+          "covered": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "plannedDate": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "topicNo": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "TopicInput": {
+        "properties": {
+          "plannedDate": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Unit": {
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "plannedHours": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/Topic"
+            },
+            "type": "array"
+          },
+          "unitNo": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "UnitInput": {
+        "properties": {
+          "plannedHours": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/TopicInput"
+            },
+            "type": "array"
+          },
+          "unitNo": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "UserView": {
         "properties": {
           "collegeKey": {
@@ -3575,6 +4686,17 @@
           },
           "username": {
             "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "WeightRequest": {
+        "properties": {
+          "weights": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object"
           }
         },
         "type": "object"
@@ -3701,9 +4823,671 @@
         ]
       }
     },
+    "/api/accounts/approvals": {
+      "get": {
+        "operationId": "approvals",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Approval"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/concessions": {
+      "post": {
+        "operationId": "requestConcession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConcessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Approval"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/concessions/{id}/decide": {
+      "post": {
+        "operationId": "decideConcession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Decision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/dashboard": {
+      "get": {
+        "operationId": "dashboard_1",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dashboard"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/departments": {
+      "get": {
+        "operationId": "departments",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Dept"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/dues": {
+      "get": {
+        "operationId": "dues",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "overdueOnly",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StudentDue"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/fee-heads": {
+      "get": {
+        "operationId": "heads",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Head"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      },
+      "post": {
+        "operationId": "addHead",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Head"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/fee-heads/{id}": {
+      "put": {
+        "operationId": "editHead",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Head"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/fee-structures": {
+      "get": {
+        "operationId": "structures",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Structure"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      },
+      "post": {
+        "operationId": "addStructure",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StructureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Structure"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/fee-structures/{id}": {
+      "put": {
+        "operationId": "editStructure",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StructureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Structure"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/fee-structures/{id}/publish": {
+      "post": {
+        "operationId": "publish_1",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Structure"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/payments": {
+      "get": {
+        "operationId": "payments",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Payment"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/receipts/{receiptNo}": {
+      "get": {
+        "operationId": "receipt_1",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "receiptNo",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "format": "byte",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/refunds": {
+      "post": {
+        "operationId": "requestRefund",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Approval"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/refunds/{id}/decide": {
+      "post": {
+        "operationId": "decideRefund",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Decision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/students/{regNo}": {
+      "get": {
+        "operationId": "ledger",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "regNo",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ledger"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/students/{regNo}/parent-phone": {
+      "put": {
+        "operationId": "parentPhone",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "regNo",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
+    "/api/accounts/tally-export": {
+      "get": {
+        "operationId": "tally",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "format": "byte",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "accounts-controller"
+        ]
+      }
+    },
     "/api/admin/answer-scripts": {
       "delete": {
-        "operationId": "delete_2",
+        "operationId": "delete_3",
         "parameters": [
           {
             "in": "query",
@@ -3756,7 +5540,7 @@
         ]
       },
       "get": {
-        "operationId": "list_7",
+        "operationId": "list_8",
         "parameters": [
           {
             "in": "query",
@@ -4183,7 +5967,7 @@
     },
     "/api/admin/departments": {
       "get": {
-        "operationId": "list_6",
+        "operationId": "list_7",
         "responses": {
           "200": {
             "content": {
@@ -4234,7 +6018,7 @@
     },
     "/api/admin/departments/{key}": {
       "delete": {
-        "operationId": "delete_1",
+        "operationId": "delete_2",
         "parameters": [
           {
             "in": "path",
@@ -4295,7 +6079,7 @@
     },
     "/api/admin/faculty-master": {
       "get": {
-        "operationId": "list_5",
+        "operationId": "list_6",
         "parameters": [
           {
             "in": "query",
@@ -4356,7 +6140,7 @@
     },
     "/api/admin/faculty-master/{id}": {
       "delete": {
-        "operationId": "delete",
+        "operationId": "delete_1",
         "parameters": [
           {
             "in": "path",
@@ -4647,7 +6431,7 @@
     },
     "/api/admin/hall-plans/{id}": {
       "delete": {
-        "operationId": "delete_6",
+        "operationId": "delete_7",
         "parameters": [
           {
             "in": "path",
@@ -5044,6 +6828,161 @@
         ]
       }
     },
+    "/api/admin/paper-allotments": {
+      "delete": {
+        "operationId": "cancel",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assessment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "paper-allotment-controller"
+        ]
+      },
+      "get": {
+        "operationId": "list_2",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assessment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SubjectAllotment"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "paper-allotment-controller"
+        ]
+      },
+      "put": {
+        "operationId": "allot",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectAllotment"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "paper-allotment-controller"
+        ]
+      }
+    },
+    "/api/admin/paper-allotments/evaluators": {
+      "get": {
+        "operationId": "evaluators",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Evaluator"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "paper-allotment-controller"
+        ]
+      }
+    },
     "/api/admin/publish": {
       "post": {
         "operationId": "publishDepartment",
@@ -5288,7 +7227,7 @@
     },
     "/api/admin/results/{id}": {
       "delete": {
-        "operationId": "delete_5",
+        "operationId": "delete_6",
         "parameters": [
           {
             "in": "path",
@@ -5341,7 +7280,7 @@
     },
     "/api/admin/revaluation": {
       "get": {
-        "operationId": "inbox_1",
+        "operationId": "inbox_2",
         "responses": {
           "200": {
             "content": {
@@ -5546,7 +7485,7 @@
     },
     "/api/admin/students/{regNo}": {
       "delete": {
-        "operationId": "delete_4",
+        "operationId": "delete_5",
         "parameters": [
           {
             "in": "path",
@@ -5591,7 +7530,7 @@
         ]
       },
       "get": {
-        "operationId": "list_4",
+        "operationId": "list_5",
         "parameters": [
           {
             "in": "query",
@@ -5676,7 +7615,7 @@
     },
     "/api/admin/subjects/{id}": {
       "delete": {
-        "operationId": "delete_3",
+        "operationId": "delete_4",
         "parameters": [
           {
             "in": "path",
@@ -5951,7 +7890,7 @@
     },
     "/api/auth/me": {
       "get": {
-        "operationId": "me",
+        "operationId": "me_1",
         "responses": {
           "200": {
             "content": {
@@ -6069,7 +8008,7 @@
     },
     "/api/dean/faculty": {
       "get": {
-        "operationId": "list_3",
+        "operationId": "list_4",
         "responses": {
           "200": {
             "content": {
@@ -6120,7 +8059,7 @@
     },
     "/api/dean/faculty/subjects": {
       "get": {
-        "operationId": "subjects_2",
+        "operationId": "subjects_3",
         "parameters": [
           {
             "in": "query",
@@ -6254,7 +8193,7 @@
     },
     "/api/dean/mark-approvals": {
       "get": {
-        "operationId": "list_9",
+        "operationId": "list_11",
         "responses": {
           "200": {
             "content": {
@@ -6345,9 +8284,611 @@
         ]
       }
     },
-    "/api/dean/paper-correction/scripts": {
+    "/api/dean/paper-allotments": {
       "get": {
-        "operationId": "scripts",
+        "operationId": "deanList",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assessment",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SubjectAllotment"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "paper-allotment-controller"
+        ]
+      }
+    },
+    "/api/erp/classes": {
+      "get": {
+        "operationId": "classes",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ClassRow"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "class-incharge-controller"
+        ]
+      }
+    },
+    "/api/erp/classes/faculty": {
+      "get": {
+        "operationId": "faculty",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Faculty"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "class-incharge-controller"
+        ]
+      }
+    },
+    "/api/erp/classes/incharge": {
+      "put": {
+        "operationId": "assign",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "class-incharge-controller"
+        ]
+      }
+    },
+    "/api/erp/classes/mine": {
+      "get": {
+        "operationId": "mine_5",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MyClass"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "class-incharge-controller"
+        ]
+      }
+    },
+    "/api/erp/classes/sections": {
+      "put": {
+        "operationId": "sections",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "format": "int32",
+                    "type": "integer"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "class-incharge-controller"
+        ]
+      }
+    },
+    "/api/erp/classes/temporary": {
+      "post": {
+        "operationId": "temporary",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "class-incharge-controller"
+        ]
+      }
+    },
+    "/api/erp/fees": {
+      "get": {
+        "operationId": "mine_4",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Summary"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "fee-controller"
+        ]
+      }
+    },
+    "/api/erp/fees/clearance": {
+      "get": {
+        "operationId": "clearance",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "regNo",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Clearance"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "fee-controller"
+        ]
+      }
+    },
+    "/api/erp/fees/pay": {
+      "post": {
+        "operationId": "pay",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "fee-controller"
+        ]
+      }
+    },
+    "/api/erp/fees/pay/{orderId}/test-confirm": {
+      "post": {
+        "operationId": "testConfirm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orderId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "fee-controller"
+        ]
+      }
+    },
+    "/api/erp/fees/receipts/{receiptNo}": {
+      "get": {
+        "operationId": "receipt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "receiptNo",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "format": "byte",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "fee-controller"
+        ]
+      }
+    },
+    "/api/erp/leave": {
+      "post": {
+        "operationId": "apply_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Leave"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "leave-controller"
+        ]
+      }
+    },
+    "/api/erp/leave/inbox": {
+      "get": {
+        "operationId": "inbox_1",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Leave"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "leave-controller"
+        ]
+      }
+    },
+    "/api/erp/leave/mine": {
+      "get": {
+        "operationId": "mine_3",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Leave"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "leave-controller"
+        ]
+      }
+    },
+    "/api/erp/leave/types": {
+      "get": {
+        "operationId": "types",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LeaveType"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "leave-controller"
+        ]
+      }
+    },
+    "/api/erp/leave/{id}/attachment": {
+      "get": {
+        "operationId": "attachment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "format": "byte",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "leave-controller"
+        ]
+      }
+    },
+    "/api/erp/leave/{id}/cancel": {
+      "post": {
+        "operationId": "cancel_1",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Leave"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "leave-controller"
+        ]
+      }
+    },
+    "/api/erp/leave/{id}/decide": {
+      "post": {
+        "operationId": "decide",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Leave"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "leave-controller"
+        ]
+      }
+    },
+    "/api/erp/logbook/completion": {
+      "get": {
+        "operationId": "completion",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "semester",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Completion"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "logbook-controller"
+        ]
+      }
+    },
+    "/api/erp/logbook/entries": {
+      "get": {
+        "operationId": "entries",
         "parameters": [
           {
             "in": "query",
@@ -6372,10 +8913,175 @@
             "schema": {
               "type": "string"
             }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Entry"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "logbook-controller"
+        ]
+      },
+      "post": {
+        "operationId": "add",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "logbook-controller"
+        ]
+      }
+    },
+    "/api/erp/logbook/entries/{id}": {
+      "delete": {
+        "operationId": "delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "logbook-controller"
+        ]
+      },
+      "put": {
+        "operationId": "edit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "logbook-controller"
+        ]
+      }
+    },
+    "/api/erp/logbook/subjects": {
+      "get": {
+        "operationId": "subjects_2",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Subject"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "logbook-controller"
+        ]
+      }
+    },
+    "/api/erp/logbook/syllabus": {
+      "get": {
+        "operationId": "syllabus",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "in": "query",
-            "name": "assessment",
+            "name": "semester",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
             "required": true,
             "schema": {
               "type": "string"
@@ -6388,7 +9094,7 @@
               "*/*": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/Script"
+                    "$ref": "#/components/schemas/Unit"
                   },
                   "type": "array"
                 }
@@ -6398,7 +9104,186 @@
           }
         },
         "tags": [
-          "paper-correction-progress-controller"
+          "logbook-controller"
+        ]
+      },
+      "put": {
+        "operationId": "saveSyllabus",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyllabusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Unit"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "logbook-controller"
+        ]
+      }
+    },
+    "/api/erp/performance": {
+      "get": {
+        "operationId": "list_10",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dept",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Scorecard"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "performance-controller"
+        ]
+      }
+    },
+    "/api/erp/performance/me": {
+      "get": {
+        "operationId": "me",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Scorecard"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "performance-controller"
+        ]
+      }
+    },
+    "/api/erp/performance/measures": {
+      "get": {
+        "operationId": "measures",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Measure"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "performance-controller"
+        ]
+      },
+      "put": {
+        "operationId": "weights",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WeightRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Measure"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "performance-controller"
+        ]
+      }
+    },
+    "/api/erp/performance/{userId}/remarks": {
+      "post": {
+        "operationId": "remarks",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemarksRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Scorecard"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "performance-controller"
         ]
       }
     },
@@ -6999,6 +9884,29 @@
         ]
       }
     },
+    "/api/faculty/paper-allotments": {
+      "get": {
+        "operationId": "mine_2",
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MyBundle"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "paper-allotment-controller"
+        ]
+      }
+    },
     "/api/faculty/published-results": {
       "get": {
         "operationId": "publishedResults",
@@ -7576,7 +10484,7 @@
     },
     "/api/hod/mark-approvals": {
       "get": {
-        "operationId": "list_10",
+        "operationId": "list_12",
         "responses": {
           "200": {
             "content": {
@@ -7880,6 +10788,49 @@
         ]
       }
     },
+    "/api/public/payments/razorpay-webhook": {
+      "post": {
+        "operationId": "webhook",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Razorpay-Signature",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "fee-controller"
+        ]
+      }
+    },
     "/api/public/summary": {
       "get": {
         "operationId": "summary",
@@ -7922,7 +10873,7 @@
     },
     "/api/question-papers": {
       "get": {
-        "operationId": "list_2",
+        "operationId": "list_3",
         "responses": {
           "200": {
             "content": {
@@ -8737,7 +11688,7 @@
     },
     "/api/workflow-docs": {
       "get": {
-        "operationId": "list_8",
+        "operationId": "list_9",
         "responses": {
           "200": {
             "content": {
