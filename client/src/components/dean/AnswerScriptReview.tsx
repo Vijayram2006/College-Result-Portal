@@ -183,7 +183,7 @@ const esc = (s: string) =>
  * Officer. Call it directly from a click, or the browser blocks the new tab.
  */
 /** The university letterhead: KVELL logo, the college and university names, address, the college's logo. */
-function letterhead(collegeKey: string | undefined, collegeName: string | undefined, origin: string): string {
+export function letterhead(collegeKey: string | undefined, collegeName: string | undefined, origin: string): string {
   const key = collegeKey === "nursing" || collegeKey === "pharmacy" ? collegeKey : "engineering";
   const college =
     key === "engineering"

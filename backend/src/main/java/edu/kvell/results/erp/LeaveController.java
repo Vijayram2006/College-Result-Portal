@@ -32,9 +32,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Leave approval. The approver follows from the applicant's role: student → their class in-charge (whoever is in-charge
- * today, so a temporary in-charge approves while the regular one is away), faculty → HOD, HOD → Associate Dean. Staff
- * leave types with a yearly limit use leave_balances; an approved faculty leave gets a substitute suggested for each of
- * their subjects on each leave day.
+ * today, so a temporary in-charge approves while the regular one is away). Staff leave goes through two steps:
+ * faculty → HOD (recommends and forwards) → Associate Dean (approves); HOD → Associate Dean (recommends and forwards)
+ * → Dean (approves). A rejection at any step ends the request. An hourly permission (PERM) is decided in one step by
+ * the first approver. Staff leave types with a yearly limit use leave_balances; an approved faculty leave gets a
+ * substitute suggested for each of their subjects on each leave day.
  */
 @RestController
 @RequestMapping("/api/erp/leave")
@@ -48,7 +50,8 @@ public class LeaveController {
     }
 
     public record ApplyRequest(String leaveCode, String fromDate, String toDate, String halfDay, String reason,
-                               String attachmentName, String attachmentType, String attachmentBase64) {
+                               String attachmentName, String attachmentType, String attachmentBase64, String fromTime,
+                               String toTime) {
     }
 
     public record DecideRequest(Boolean approve, String remarks) {
@@ -60,8 +63,20 @@ public class LeaveController {
     public record Leave(long id, String applicant, String applicantRole, String regNo, String deptKey, String leaveCode,
                         String leaveName, String fromDate, String toDate, String halfDay, BigDecimal days, String reason,
                         boolean hasAttachment, String approverRole, String status, String decidedBy, String decidedAt,
-                        String decisionRemarks, String createdAt, List<Substitution> substitutions) {
+                        String decisionRemarks, String createdAt, List<Substitution> substitutions, String fromTime,
+                        String toTime, BigDecimal hours, String forwardedBy, String forwardedRole, String forwardedAt,
+                        String forwardRemarks) {
     }
+
+    public record Step(String action, String actor, String remarks, String at) {
+    }
+
+    /** What the official leave form prints. */
+    public record Form(Leave leave, String applicantName, String username, String designation, String deptName,
+                       String collegeName, BigDecimal allowed, BigDecimal usedThisYear, List<Step> steps) {
+    }
+
+    static final String PERMISSION = "PERM";
 
     private final JdbcClient db;
     private final ErpSupport erp;
@@ -94,12 +109,27 @@ public class LeaveController {
                         ORDER BY t.code
                         """).param("uid", me.id()).param("year", year).param("who", student ? "STUDENT" : "STAFF")
                 .query((rs, n) -> {
+                    String code = rs.getString("code");
+                    if (PERMISSION.equals(code)) {
+                        // Permissions are counted per month (yearlyDays carries the monthly limit)
+                        BigDecimal perMonth = BigDecimal.valueOf(erp.intSetting("leave.permission_per_month", 2));
+                        BigDecimal used = BigDecimal.valueOf(permissionsInMonth(me.id(), ErpSupport.today()));
+                        return new LeaveType(code, rs.getString("name"), perMonth, false, used, perMonth.subtract(used).max(BigDecimal.ZERO));
+                    }
                     BigDecimal limit = rs.getBigDecimal("yearly_days");
                     BigDecimal used = rs.getBigDecimal("used");
-                    return new LeaveType(rs.getString("code"), rs.getString("name"), limit, rs.getBoolean("needs_attachment"),
+                    return new LeaveType(code, rs.getString("name"), limit, rs.getBoolean("needs_attachment"),
                             used, limit == null || student ? null : limit.subtract(used).max(BigDecimal.ZERO));
                 })
                 .list();
+    }
+
+    private int permissionsInMonth(long userId, LocalDate day) {
+        LocalDate first = day.withDayOfMonth(1);
+        return db.sql("""
+                        SELECT count(*) FROM leave_requests WHERE applicant_id = ? AND leave_code = 'PERM'
+                          AND status IN ('APPROVED', 'PENDING') AND from_date BETWEEN ? AND ?
+                        """).params(userId, first, first.plusMonths(1).minusDays(1)).query(Integer.class).single();
     }
 
     @PostMapping
@@ -116,11 +146,34 @@ public class LeaveController {
         LocalDate to = ClassInchargeController.date(req.toDate(), "To date");
         if (to.isBefore(from)) throw ApiException.badRequest("To date is before the from date");
         if (from.isBefore(ErpSupport.today().minusDays(30))) throw ApiException.badRequest("From date is too far in the past");
+        boolean permission = PERMISSION.equals(code);
         String half = req.halfDay() == null || req.halfDay().isBlank() ? null : req.halfDay().trim().toUpperCase(Locale.ROOT);
         if (half != null && !half.equals("FN") && !half.equals("AN")) throw ApiException.badRequest("Half day: FN or AN");
         if (half != null && !from.equals(to)) throw ApiException.badRequest("A half-day leave is for one date");
-        BigDecimal days = half != null ? new BigDecimal("0.5") : BigDecimal.valueOf(workingDays(from, to));
-        if (days.signum() == 0) throw ApiException.badRequest("The dates are all Sundays");
+        java.time.LocalTime fromTime = null;
+        java.time.LocalTime toTime = null;
+        BigDecimal hours = null;
+        BigDecimal days;
+        if (permission) {
+            if (!from.equals(to)) throw ApiException.badRequest("A permission is for one date");
+            if (half != null) throw ApiException.badRequest("A permission is in hours, not a half day");
+            if (from.getDayOfWeek() == DayOfWeek.SUNDAY) throw ApiException.badRequest("The date is a Sunday");
+            fromTime = time(req.fromTime(), "From time");
+            toTime = time(req.toTime(), "To time");
+            if (!toTime.isAfter(fromTime)) throw ApiException.badRequest("The to time is before the from time");
+            long minutes = java.time.Duration.between(fromTime, toTime).toMinutes();
+            int maxHours = erp.intSetting("leave.permission_max_hours", 2);
+            if (minutes > maxHours * 60L) throw ApiException.badRequest("A permission is at most " + maxHours + " hours");
+            hours = BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 1, java.math.RoundingMode.HALF_UP);
+            int perMonth = erp.intSetting("leave.permission_per_month", 2);
+            if (permissionsInMonth(me.id(), from) >= perMonth) {
+                throw ApiException.badRequest("You have used all " + perMonth + " permissions of this month");
+            }
+            days = BigDecimal.ZERO;
+        } else {
+            days = half != null ? new BigDecimal("0.5") : BigDecimal.valueOf(workingDays(from, to));
+            if (days.signum() == 0) throw ApiException.badRequest("The dates are all Sundays");
+        }
         String reason = req.reason() == null ? "" : req.reason().trim();
         if (reason.length() < 5 || reason.length() > 500) throw ApiException.badRequest("Reason: 5 to 500 characters");
 
@@ -165,27 +218,67 @@ public class LeaveController {
                     "Your class has no class in-charge yet. Please ask your HOD."));
             approver = "CLASS_INCHARGE";
         } else {
-            approver = me.role() == Role.FACULTY ? "HOD" : "DEAN";
+            approver = me.role() == Role.FACULTY ? "HOD" : "ASSOCIATE_DEAN";
         }
         long id = db.sql("""
                         INSERT INTO leave_requests (applicant_id, applicant_role, dept_key, reg_no, leave_code, from_date, to_date,
-                            half_day, days, reason, attachment, attachment_name, attachment_type, academic_year, approver_role)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+                            half_day, days, reason, attachment, attachment_name, attachment_type, academic_year, approver_role,
+                            from_time, to_time, hours)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
                         """).params(me.id(), me.role().name(), deptKey, student ? me.regNo() : null, code, from, to, half, days,
                         reason, file, file == null ? null : clip(req.attachmentName(), 160),
-                        file == null ? null : req.attachmentType(), year, approver)
+                        file == null ? null : req.attachmentType(), year, approver, fromTime, toTime, hours)
                 .query(Long.class).single();
         action(id, "APPLIED", me.name(), reason);
-        String what = me.name() + " applied for " + type.get("name") + " (" + days + " day" + (days.compareTo(BigDecimal.ONE) == 0 ? "" : "s")
-                + ", " + from + (from.equals(to) ? "" : " to " + to) + ").";
+        String what = me.name() + " applied for " + type.get("name") + " (" + (permission
+                ? hours.stripTrailingZeros().toPlainString() + " h on " + from + ", " + fromTime + " to " + toTime
+                : days + " day" + (days.compareTo(BigDecimal.ONE) == 0 ? "" : "s") + ", " + from + (from.equals(to) ? "" : " to " + to)) + ").";
         switch (approver) {
             case "CLASS_INCHARGE" -> notifications.notifyUser(inchargeId, Audience.FACULTY,
                     db.sql("SELECT dept_key FROM users WHERE id = ?").param(inchargeId).query(String.class).single(), null,
                     "Student leave request: " + me.regNo(), what + " Approve or reject it in My Class.", "my-class");
-            case "HOD" -> notifications.notify(Audience.HOD, deptKey, null, "Faculty leave request", what + " Open Leave to decide.", "leave");
-            default -> notifications.notify(Audience.DEAN, deptKey, null, "HOD leave request", what + " Open Leave to decide.", "leave");
+            case "HOD" -> notifications.notify(Audience.HOD, deptKey, null, "Faculty leave request", what
+                    + (permission ? " Open Leave to decide." : " Open Leave to recommend it to the Associate Dean or reject it."), "leave");
+            default -> notifyOfficers("ASSOCIATE_DEAN", deptKey, "HOD leave request", what
+                    + (permission ? " Open Leave to decide." : " Open Leave to recommend it to the Dean or reject it."));
         }
         return get(id);
+    }
+
+    /** Notifies the Associate Dean(s) or Dean(s) of the department's college. */
+    private void notifyOfficers(String title, String deptKey, String subject, String message) {
+        List<Long> ids = db.sql("""
+                        SELECT u.id FROM users u JOIN departments d ON d.college_key = u.college_key
+                        WHERE d.dept_key = ? AND u.role = 'DEAN' AND u.enabled AND coalesce(u.officer_title, 'ASSOCIATE_DEAN') = ?
+                        """).params(deptKey, title).query(Long.class).list();
+        for (Long id : ids) notifications.notifyUser(id, Audience.DEAN, deptKey, null, subject, message, "leave");
+    }
+
+    /** The step of the chain the signed-in user decides: CLASS_INCHARGE, HOD, ASSOCIATE_DEAN or DEAN. */
+    String stageOf(CurrentUser me) {
+        return switch (me.role()) {
+            case HOD -> "HOD";
+            case DEAN -> "DEAN".equals(db.sql("SELECT officer_title FROM users WHERE id = ?").param(me.id())
+                    .query(String.class).optional().orElse(null)) ? "DEAN" : "ASSOCIATE_DEAN";
+            default -> "CLASS_INCHARGE";
+        };
+    }
+
+    static String label(String stage) {
+        return switch (stage) {
+            case "CLASS_INCHARGE" -> "class in-charge";
+            case "ASSOCIATE_DEAN" -> "Associate Dean";
+            case "DEAN" -> "Dean";
+            default -> stage;
+        };
+    }
+
+    static java.time.LocalTime time(String v, String what) {
+        try {
+            return java.time.LocalTime.parse(v == null ? "" : v.trim());
+        } catch (java.time.format.DateTimeParseException e) {
+            throw ApiException.badRequest(what + ": choose a time");
+        }
     }
 
     @GetMapping("/mine")
@@ -208,9 +301,17 @@ public class LeaveController {
     @GetMapping("/inbox")
     List<Leave> inbox() {
         CurrentUser me = ErpSupport.require(Role.FACULTY, Role.HOD, Role.DEAN);
+        String stage = stageOf(me);
         List<Leave> all = switch (me.role()) {
-            case HOD -> list("r.approver_role = 'HOD' AND r.dept_key = :dept", Map.of("dept", me.deptKey()));
-            case DEAN -> list("r.approver_role = 'DEAN' AND " + departments.inCollege("r.dept_key"), Map.of());
+            // The HOD's step: every faculty request of the department (also the ones already forwarded)
+            case HOD -> list("r.applicant_role = 'FACULTY' AND r.dept_key = :dept", Map.of("dept", me.deptKey()));
+            // Associate Dean: faculty requests the HOD forwarded, and the HODs' own requests
+            case DEAN -> "ASSOCIATE_DEAN".equals(stage)
+                    ? list("((r.applicant_role = 'FACULTY' AND r.forwarded_role = 'HOD') OR r.applicant_role = 'HOD') AND "
+                            + departments.inCollege("r.dept_key"), Map.of())
+                    // Dean: HOD requests the Associate Dean forwarded
+                    : list("r.applicant_role = 'HOD' AND r.forwarded_role = 'ASSOCIATE_DEAN' AND "
+                            + departments.inCollege("r.dept_key"), Map.of());
             default -> list("""
                     r.approver_role = 'CLASS_INCHARGE' AND EXISTS (SELECT 1 FROM students s WHERE s.reg_no = r.reg_no
                       AND EXISTS (SELECT 1 FROM class_incharge c WHERE c.faculty_user_id = :uid AND c.dept_key = s.dept_key
@@ -225,8 +326,10 @@ public class LeaveController {
                 return erp.isIncharge(me.id(), c.deptKey(), c.semester(), c.section());
             }).toList();
         }
-        List<Leave> out = new ArrayList<>(all.stream().filter(l -> "PENDING".equals(l.status())).toList());
-        out.addAll(all.stream().filter(l -> !"PENDING".equals(l.status())).limit(50).toList());
+        // Waiting for me first, then the rest (forwarded, decided)
+        java.util.function.Predicate<Leave> mine = l -> "PENDING".equals(l.status()) && stage.equals(l.approverRole());
+        List<Leave> out = new ArrayList<>(all.stream().filter(mine).toList());
+        out.addAll(all.stream().filter(mine.negate()).limit(100).toList());
         return out;
     }
 
@@ -245,7 +348,8 @@ public class LeaveController {
                 yield erp.isIncharge(me.id(), c.deptKey(), c.semester(), c.section());
             }
             case "HOD" -> me.role() == Role.HOD && me.deptKey().equals(r.get("dept_key"));
-            default -> me.role() == Role.DEAN && db.sql("SELECT count(*) FROM departments WHERE dept_key = ? AND college_key = ?")
+            default -> me.role() == Role.DEAN && approver.equals(stageOf(me))
+                    && db.sql("SELECT count(*) FROM departments WHERE dept_key = ? AND college_key = ?")
                     .params(r.get("dept_key"), me.collegeKey()).query(Integer.class).single() > 0;
         };
         if (!allowed) throw new ApiException(HttpStatus.FORBIDDEN, "You are not the approver of this request");
@@ -254,14 +358,34 @@ public class LeaveController {
         boolean approve = Boolean.TRUE.equals(req.approve());
         String remarks = req.remarks() == null ? null : clip(req.remarks().trim(), 500);
         if (!approve && (remarks == null || remarks.length() < 3)) throw ApiException.badRequest("Give the reason for rejecting");
+        String role = (String) r.get("applicant_role");
+        String dept = (String) r.get("dept_key");
+        // First step of a staff leave: the HOD / Associate Dean recommends and forwards it to the next approver
+        String next = PERMISSION.equals(r.get("leave_code")) ? null
+                : "FACULTY".equals(role) && "HOD".equals(approver) ? "ASSOCIATE_DEAN"
+                : "HOD".equals(role) && "ASSOCIATE_DEAN".equals(approver) ? "DEAN" : null;
+        if (approve && next != null) {
+            db.sql("""
+                            UPDATE leave_requests SET approver_role = ?, forwarded_by = ?, forwarded_role = ?, forwarded_at = now(),
+                                forward_remarks = ? WHERE id = ?
+                            """).params(next, me.name(), approver, remarks, id).update();
+            action(id, "FORWARDED", me.name(), remarks);
+            String who = db.sql("SELECT display_name FROM users WHERE id = ?").param(applicant).query(String.class).single();
+            String what = who + "'s leave from " + r.get("from_date") + " to " + r.get("to_date") + " was recommended by " + me.name()
+                    + " (" + label(approver) + ")" + (remarks == null ? "" : ": " + remarks) + ".";
+            notifyOfficers(next, dept, ("FACULTY".equals(role) ? "Faculty" : "HOD") + " leave forwarded", what + " Open Leave to decide.");
+            notifications.notifyUser(applicant, "HOD".equals(role) ? Audience.HOD : Audience.FACULTY, dept, null,
+                    "Leave recommended", "Your leave from " + r.get("from_date") + " to " + r.get("to_date") + " was recommended by "
+                            + me.name() + " and is now with the " + label(next) + ".", "leave");
+            audit.record(me.username(), me.name(), "FORWARDED_LEAVE", "LEAVE-" + id, what, http.getRemoteAddr());
+            return get(id);
+        }
         db.sql("""
                         UPDATE leave_requests SET status = ?, decided_by = ?, decided_at = now(), decision_remarks = ?
                         WHERE id = ?
                         """).params(approve ? "APPROVED" : "REJECTED", me.name(), remarks, id).update();
         action(id, approve ? "APPROVED" : "REJECTED", me.name(), remarks);
 
-        String role = (String) r.get("applicant_role");
-        String dept = (String) r.get("dept_key");
         if (approve && !"STUDENT".equals(role)) {
             // Leave balance (types with a yearly limit)
             db.sql("""
@@ -284,6 +408,44 @@ public class LeaveController {
         audit.record(me.username(), me.name(), approve ? "APPROVED_LEAVE" : "REJECTED_LEAVE", "LEAVE-" + id, msg, http.getRemoteAddr());
         return get(id);
     }
+
+    /** The data of the official leave form of an approved request: the applicant or anyone in the approval chain. */
+    @GetMapping("/{id}/form")
+    Form form(@PathVariable long id) {
+        CurrentUser me = ErpSupport.require(Role.STUDENT, Role.FACULTY, Role.HOD, Role.DEAN);
+        boolean mine = db.sql("SELECT count(*) FROM leave_requests WHERE id = ? AND applicant_id = ?").params(id, me.id())
+                .query(Integer.class).single() > 0;
+        if (!mine && (me.role() == Role.STUDENT || inbox().stream().noneMatch(l -> l.id() == id))) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You do not have access to this");
+        }
+        Leave l = get(id);
+        if (!"APPROVED".equals(l.status())) throw ApiException.conflict("The leave form is available once the leave is approved");
+        Map<String, Object> u = db.sql("""
+                        SELECT u.display_name, u.username, coalesce(u.designation, CASE r.applicant_role WHEN 'HOD' THEN 'Head of the Department'
+                                   WHEN 'STUDENT' THEN 'Student' ELSE 'Faculty' END) AS designation,
+                               coalesce(d.name, '') AS dept_name, coalesce(d.college_key, 'engineering') AS college_key, r.applicant_id,
+                               r.academic_year
+                        FROM leave_requests r JOIN users u ON u.id = r.applicant_id LEFT JOIN departments d ON d.dept_key = r.dept_key
+                        WHERE r.id = ?
+                        """).param(id).query().singleRow();
+        BigDecimal allowed = db.sql("SELECT yearly_days FROM leave_types WHERE code = ?").param(l.leaveCode())
+                .query(BigDecimal.class).optional().orElse(null);
+        BigDecimal used = db.sql("""
+                        SELECT coalesce(sum(days), 0) FROM leave_requests WHERE applicant_id = ? AND leave_code = ? AND academic_year = ?
+                          AND status = 'APPROVED'
+                        """).params(u.get("applicant_id"), l.leaveCode(), u.get("academic_year")).query(BigDecimal.class).single();
+        List<Step> steps = db.sql("SELECT action, actor, remarks, at FROM leave_actions WHERE request_id = ? ORDER BY at, id")
+                .param(id).query((rs, n) -> new Step(rs.getString(1), rs.getString(2), rs.getString(3),
+                        ErpSupport.display(rs.getObject(4, java.time.OffsetDateTime.class)))).list();
+        String college = (String) u.get("college_key");
+        return new Form(l, (String) u.get("display_name"), (String) u.get("username"), (String) u.get("designation"),
+                (String) u.get("dept_name"), COLLEGE_NAMES.getOrDefault(college, college), allowed, used, steps);
+    }
+
+    static final Map<String, String> COLLEGE_NAMES = Map.of(
+            "engineering", "Karpaga Vinayaga College of Engineering and Technology",
+            "nursing", "Karpaga Vinayaga College of Nursing",
+            "pharmacy", "Karpaga Vinayaga Institute for Pharmaceutical Sciences");
 
     @GetMapping("/{id}/attachment")
     ResponseEntity<byte[]> attachment(@PathVariable long id) {
@@ -353,7 +515,9 @@ public class LeaveController {
         return db.sql("""
                         SELECT r.id, u.display_name, r.applicant_role, r.reg_no, r.dept_key, r.leave_code, t.name AS leave_name,
                                r.from_date, r.to_date, r.half_day, r.days, r.reason, r.attachment IS NOT NULL AS has_file,
-                               r.approver_role, r.status, r.decided_by, r.decided_at, r.decision_remarks, r.created_at
+                               r.approver_role, r.status, r.decided_by, r.decided_at, r.decision_remarks, r.created_at,
+                               to_char(r.from_time, 'HH24:MI') AS from_time, to_char(r.to_time, 'HH24:MI') AS to_time, r.hours,
+                               r.forwarded_by, r.forwarded_role, r.forwarded_at, r.forward_remarks
                         FROM leave_requests r JOIN users u ON u.id = r.applicant_id JOIN leave_types t ON t.code = r.leave_code
                         WHERE """ + " " + where + " " + """
                          ORDER BY r.created_at DESC LIMIT 300
@@ -370,7 +534,9 @@ public class LeaveController {
                             rs.getString("reason"), rs.getBoolean("has_file"), rs.getString("approver_role"), rs.getString("status"),
                             rs.getString("decided_by"), ErpSupport.display(rs.getObject("decided_at", java.time.OffsetDateTime.class)),
                             rs.getString("decision_remarks"), ErpSupport.display(rs.getObject("created_at", java.time.OffsetDateTime.class)),
-                            subs);
+                            subs, rs.getString("from_time"), rs.getString("to_time"), rs.getBigDecimal("hours"),
+                            rs.getString("forwarded_by"), rs.getString("forwarded_role"),
+                            ErpSupport.display(rs.getObject("forwarded_at", java.time.OffsetDateTime.class)), rs.getString("forward_remarks"));
                 })
                 .list();
     }

@@ -196,7 +196,14 @@ public class PerformanceController {
         }
 
         if (!subjects.isEmpty()) {
+            // From the first class of their lesson plans (not the start of the term, before classes began)
             LocalDate start = ErpSupport.termStart(today);
+            LocalDate firstClass = db.sql("""
+                            SELECT min(t.planned_date) FROM faculty_subjects f
+                            JOIN syllabus_units su ON su.dept_key = f.dept_key AND su.semester = f.semester AND su.subject_code = f.subject_code
+                            JOIN syllabus_topics t ON t.unit_id = su.id WHERE f.user_id = ?
+                            """).param(userId).query(LocalDate.class).optional().orElse(null);
+            if (firstClass != null && firstClass.isAfter(start) && !firstClass.isAfter(today)) start = firstClass;
             int working = 0;
             for (LocalDate d = start; !d.isAfter(today); d = d.plusDays(1)) if (d.getDayOfWeek() != DayOfWeek.SUNDAY) working++;
             int logged = db.sql("SELECT count(DISTINCT entry_date) FROM logbook_entries WHERE faculty_id = ? AND entry_date BETWEEN ? AND ?")
@@ -214,14 +221,17 @@ public class PerformanceController {
         score.put("LEAVE", Math.max(0, 100 - leaveDays.doubleValue() * 5));
         detail.put("LEAVE", leaveDays.stripTrailingZeros().toPlainString() + " leave days this year");
 
-        if (!subjects.isEmpty()) {
-            int forwarded = db.sql("""
-                            SELECT count(*) FROM faculty_subjects f WHERE f.user_id = ? AND EXISTS (SELECT 1 FROM result_batches b
-                              WHERE b.dept_key = f.dept_key AND b.semester = f.semester AND b.subject_code = f.subject_code
-                                AND b.forwarded_at IS NOT NULL)
-                            """).param(userId).query(Integer.class).single();
-            score.put("MARKS_ON_TIME", forwarded * 100.0 / subjects.size());
-            detail.put("MARKS_ON_TIME", forwarded + " of " + subjects.size() + " subjects forwarded");
+        // Only subjects whose marks exist (uploaded); before any examination nothing is due yet
+        int[] fw = db.sql("""
+                        SELECT count(*) FILTER (WHERE EXISTS (SELECT 1 FROM result_batches b WHERE b.dept_key = f.dept_key
+                                   AND b.semester = f.semester AND b.subject_code = f.subject_code)),
+                               count(*) FILTER (WHERE EXISTS (SELECT 1 FROM result_batches b WHERE b.dept_key = f.dept_key
+                                   AND b.semester = f.semester AND b.subject_code = f.subject_code AND b.forwarded_at IS NOT NULL))
+                        FROM faculty_subjects f WHERE f.user_id = ?
+                        """).param(userId).query((rs, k) -> new int[] {rs.getInt(1), rs.getInt(2)}).single();
+        if (fw[0] > 0) {
+            score.put("MARKS_ON_TIME", fw[1] * 100.0 / fw[0]);
+            detail.put("MARKS_ON_TIME", fw[1] + " of " + fw[0] + " subjects forwarded to the COE");
         }
 
         Map<String, Object> fb = db.sql("""

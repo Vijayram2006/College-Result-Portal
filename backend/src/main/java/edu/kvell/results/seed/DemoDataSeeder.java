@@ -67,6 +67,8 @@ public class DemoDataSeeder implements ApplicationRunner {
                 {"PHARM", "pharmacy", "Pharmacy"}}) {
             createOfficer("ADEAN_" + c[0], "Associate Dean (" + c[2] + ")", "DEAN", "ASSOCIATE_DEAN", c[1], deanPassword);
         }
+        // Dean of the engineering college: final approver of the HODs' leave (after the Associate Dean)
+        createOfficer("DEAN_ENG", "Dean (Engineering)", "DEAN", "DEAN", "engineering", deanPassword);
         // Accounts office (fees): staff enter, the head approves; they sign in to the officers panel
         createOfficer("ACCOUNTS_STAFF", "Accounts Staff (Engineering)", "ACCOUNTS", null, "engineering", adminPassword);
         createOfficer("ACCOUNTS_HEAD", "Accounts Head (Engineering)", "ACCOUNTS", null, "engineering", adminPassword);

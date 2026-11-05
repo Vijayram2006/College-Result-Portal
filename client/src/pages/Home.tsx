@@ -13,6 +13,7 @@ import { useSystemConfig, isStudentPortalClosed, isRevaluationOpen } from "../ut
 import type { PublishedBatch } from "../utils/publishedResults";
 import { FacultyMarkEntry, clearFacultyPharmacyAndNursingData } from "../components/FacultyMarkEntry";
 import { AssociateDeanDashboard } from "../components/AssociateDeanDashboard";
+import { DeanPortal } from "../components/DeanPortal";
 import { QuestionPaperReviewView, safeLoadQuestionPapers } from "../components/dean/QuestionPaperReviewView";
 import { FacultyQuestionPaperView } from "../components/FacultyQuestionPaperView";
 import { MarkApprovalsView } from "../components/MarkApprovalsView";
@@ -1299,7 +1300,7 @@ function HodPortalDashboard({
         { key: "classIncharge", label: "Class In-charge", icon: UsersRound },
         { key: "leaveApprovals", label: "Leave Approvals", icon: CheckSquare },
         { key: "myLeave", label: "My Leave", icon: CalendarDays },
-        { key: "logbook", label: "Subject Completion", icon: NotebookPen },
+        { key: "logbook", label: "Subject Allocation & Completion", icon: NotebookPen },
         { key: "facultyPerformance", label: "Faculty Performance", icon: BarChart3 },
       ]}
       active={activeTab}
@@ -1604,7 +1605,7 @@ function HodPortalDashboard({
         ) : activeTab === "classIncharge" ? (
           <ClassInchargeAdmin />
         ) : activeTab === "leaveApprovals" ? (
-          <LeaveInbox title="Faculty leave approvals" detail="Leave requests of your department's faculty. Approving suggests a substitute for each class they miss." />
+          <LeaveInbox title="Faculty leave approvals" detail="Leave of your department's faculty: recommend it to the Associate Dean (who gives the final approval) or reject it with a reason. Permissions (hours) you decide alone." />
         ) : activeTab === "myLeave" ? (
           <LeaveApply />
         ) : activeTab === "logbook" ? (
@@ -2070,8 +2071,9 @@ function LoginPage({
         onAuthenticated("Faculty");
       } else if (selectedRole === "Dean") {
         // The Associate Dean (or Dean) of the college reviews question papers and follows the college's results
-        await authApi.login(username.trim(), password, "dean", challenge());
-        onAuthenticated("Associate Dean");
+        const res = await authApi.login(username.trim(), password, "dean", challenge());
+        // The Dean has an own portal; the Associate Dean the full college dashboard
+        onAuthenticated(res.user.role === "DEAN" ? "Dean" : "Associate Dean");
       } else {
         const res = await authApi.login(username.trim(), password, "hod", challenge());
         onAuthenticated("HOD", undefined, {
@@ -2199,7 +2201,7 @@ function LoginPage({
                   className="h-16 w-16 mx-auto rounded-full bg-white p-1 border-2 border-[#D4A72C] shadow-md"
                 />
                 <h2 className="font-extrabold text-xl text-[#0B192C] mt-2.5">
-                  {selectedRole === "Student" ? "Student Result Portal" : selectedRole === "HOD" ? "HOD Department Portal" : selectedRole === "Dean" ? "Associate Dean Portal" : "Faculty Portal"}
+                  {selectedRole === "Student" ? "Student Result Portal" : selectedRole === "HOD" ? "HOD Department Portal" : selectedRole === "Dean" ? "Dean / Associate Dean Portal" : "Faculty Portal"}
                 </h2>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
                   Select your role and enter credentials to sign in
@@ -2327,7 +2329,7 @@ function LoginPage({
                 ) : (
                   <div>
                     <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
-                      {selectedRole === "Dean" ? "ASSOCIATE DEAN USERNAME" : "HOD USERNAME / ID"}
+                      {selectedRole === "Dean" ? "DEAN / ASSOCIATE DEAN USERNAME" : "HOD USERNAME / ID"}
                     </label>
                     <div className="relative">
                       <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -3502,7 +3504,18 @@ export default function Home() {
     );
   }
 
-  if (authenticatedRole === "Associate Dean" || authenticatedRole === "Dean") {
+  if (authenticatedRole === "Dean") {
+    return (
+      <DeanPortal
+        onLogout={() => {
+          authApi.logout();
+          setAuthenticatedRole(null);
+        }}
+      />
+    );
+  }
+
+  if (authenticatedRole === "Associate Dean") {
     return (
       <AssociateDeanDashboard
         onLogout={() => {

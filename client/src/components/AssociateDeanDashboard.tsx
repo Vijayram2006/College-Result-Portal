@@ -413,7 +413,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
             <div className="pt-2 space-y-1">
               <span className="text-[10px] font-extrabold text-white/60 uppercase tracking-widest px-3.5">Academics</span>
               {([
-                ["erp-leave", "Leave Approvals (HOD)", ErpCalendarIcon],
+                ["erp-leave", "Leave Approvals", ErpCalendarIcon],
                 ["erp-completion", "Subject Completion", ErpLogIcon],
                 ["erp-performance", "Faculty Performance", ErpChartIcon],
               ] as const).map(([key, label, Icon]) => (
@@ -919,7 +919,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
           {activeNav === "answer-scripts" && <DeanAnswerScriptsView />}
 
           {activeNav === "erp-leave" && (
-            <LeaveInbox title="HOD leave approvals" detail="Leave requests of the HODs of the college." onToast={showToast} />
+            <LeaveInbox title="Leave approvals" detail="Faculty leave recommended by their HOD: you give the final approval. HODs' own leave: you recommend it to the Dean (or reject it). Permissions of HODs are decided by you alone." onToast={showToast} />
           )}
           {activeNav === "erp-completion" && <CompletionReport />}
           {activeNav === "erp-performance" && <PerformanceReview dean onToast={showToast} />}
