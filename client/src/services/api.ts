@@ -1292,5 +1292,100 @@ export const attendanceApi = {
     return (await apiClient.get<StudentAbsentDetailsView>("/attendance/student/absent-details", { params: { regNo, subjectCode } })).data;
   },
 };
+import type {
+  CreateGrievanceJsonDTO,
+  GrievanceActionDTO,
+  GrievanceDetailDTO,
+  GrievanceSummaryDTO,
+  RecipientDTO,
+} from "../components/grievance/GrievanceTypes";
 
+export const grievanceApi = {
+  // Student
+  async getRecipients(): Promise<RecipientDTO[]> {
+    return (await apiClient.get<RecipientDTO[]>("/student/grievances/recipients")).data;
+  },
+  async createGrievanceJson(data: CreateGrievanceJsonDTO): Promise<GrievanceSummaryDTO> {
+    return (await apiClient.post<GrievanceSummaryDTO>("/student/grievances", data)).data;
+  },
+  async createGrievance(formData: FormData): Promise<GrievanceSummaryDTO> {
+    const token = localStorage.getItem("kvell_auth_token");
+    const res = await fetch(`${API_ROOT}/v1/student/grievances`, {
+      method: "POST",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw { response: { status: res.status, data: err } };
+    }
+    return await res.json();
+  },
+  async getMyGrievances(): Promise<GrievanceSummaryDTO[]> {
+    return (await apiClient.get<GrievanceSummaryDTO[]>("/student/grievances")).data;
+  },
+  async getStudentGrievanceDetail(id: number): Promise<GrievanceDetailDTO> {
+    return (await apiClient.get<GrievanceDetailDTO>(`/student/grievances/${id}`)).data;
+  },
 
+  // Faculty
+  async getFacultyGrievances(): Promise<GrievanceSummaryDTO[]> {
+    return (await apiClient.get<GrievanceSummaryDTO[]>("/faculty/grievances")).data;
+  },
+  async getFacultyGrievanceDetail(id: number): Promise<GrievanceDetailDTO> {
+    return (await apiClient.get<GrievanceDetailDTO>(`/faculty/grievances/${id}`)).data;
+  },
+  async facultyAction(id: number, action: GrievanceActionDTO): Promise<GrievanceDetailDTO> {
+    return (await apiClient.post<GrievanceDetailDTO>(`/faculty/grievances/${id}/action`, action)).data;
+  },
+
+  // HOD
+  async getHodGrievances(): Promise<GrievanceSummaryDTO[]> {
+    return (await apiClient.get<GrievanceSummaryDTO[]>("/hod/grievances")).data;
+  },
+  async getHodGrievanceDetail(id: number): Promise<GrievanceDetailDTO> {
+    return (await apiClient.get<GrievanceDetailDTO>(`/hod/grievances/${id}`)).data;
+  },
+  async hodAction(id: number, action: GrievanceActionDTO): Promise<GrievanceDetailDTO> {
+    return (await apiClient.post<GrievanceDetailDTO>(`/hod/grievances/${id}/action`, action)).data;
+  },
+
+  // Dean / Associate Dean
+  async getDeanGrievances(): Promise<GrievanceSummaryDTO[]> {
+    return (await apiClient.get<GrievanceSummaryDTO[]>("/dean/grievances")).data;
+  },
+  async getDeanGrievanceDetail(id: number): Promise<GrievanceDetailDTO> {
+    return (await apiClient.get<GrievanceDetailDTO>(`/dean/grievances/${id}`)).data;
+  },
+  async deanAction(id: number, action: GrievanceActionDTO): Promise<GrievanceDetailDTO> {
+    return (await apiClient.post<GrievanceDetailDTO>(`/dean/grievances/${id}/action`, action)).data;
+  },
+  async getDeanPendingAlerts(): Promise<GrievanceSummaryDTO[]> {
+    return (await apiClient.get<GrievanceSummaryDTO[]>("/dean/grievances/pending-alerts")).data;
+  },
+
+  // Get attachment Blob for preview / print
+  async getAttachmentBlob(id: number): Promise<Blob> {
+    const res = await apiClient.get(`/grievances/${id}/attachment`, {
+      responseType: "blob",
+    });
+    return new Blob([res.data]);
+  },
+
+  // Download attachment
+  async downloadAttachment(id: number, fileName: string): Promise<void> {
+    const res = await apiClient.get(`/grievances/${id}/attachment`, {
+      responseType: "blob",
+    });
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  },
+};

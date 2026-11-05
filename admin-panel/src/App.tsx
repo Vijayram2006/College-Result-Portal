@@ -35,6 +35,7 @@ const HallAllotmentPage = lazy(() => import("./pages/HallAllotment").then((m) =>
 const WithheldResultsPage = lazy(() => import("./pages/WithheldResults").then((m) => ({ default: m.WithheldResultsPage })));
 const AccountsPage = lazy(() => import("./pages/Accounts").then((m) => ({ default: m.AccountsPage })));
 const PaperAllotmentPage = lazy(() => import("./pages/PaperAllotment").then((m) => ({ default: m.PaperAllotmentPage })));
+const CircularsPage = lazy(() => import("./pages/Circulars").then((m) => ({ default: m.CircularsPage })));
 const HallTicketsPage = lazy(() => import("./pages/HallTickets").then((m) => ({ default: m.HallTicketsPage })));
 const ExamEligibilityPage = lazy(() => import("./pages/ExamEligibility").then((m) => ({ default: m.ExamEligibilityPage })));
 const QuestionPapersPage = lazy(() => import("./pages/QuestionPapers").then((m) => ({ default: m.QuestionPapersPage })));
@@ -47,6 +48,7 @@ const pageTitles: Record<string, string> = {
   "/admin/question-papers": "Question Paper Logistics & Master Release Hub",
   "/admin/hall-allotment": "Examination Classroom Allotment",
   "/admin/hall-tickets": "Hall Tickets",
+  "/admin/circulars": "COE Examination Circulars Desk",
   "/admin/exam-eligibility": "Exam Eligibility & Fines",
   "/admin/paper-allotment": "Paper Correction Allotment",
   "/admin/accounts/dashboard": "Accounts",
@@ -239,6 +241,14 @@ export const App: React.FC = () => {
         {() => (
           <AdminLayout>
             <ProtectedRoute component={InternalMarksPage} />
+          </AdminLayout>
+        )}
+      </Route>
+
+      <Route path="/admin/circulars">
+        {() => (
+          <AdminLayout>
+            <ProtectedRoute component={CircularsPage} />
           </AdminLayout>
         )}
       </Route>

@@ -164,7 +164,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
               onClick={() => setMobileOpen(false)}
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${
                 isActive(isSuper ? "/admin/super-admin" : "/admin/dashboard")
-                  ? "bg-[#D4A72C] text-[#0B192C] shadow-md"
+                  ? "bg-[#D4A72C] text-[#0B192C] shadow-md font-black"
                   : "text-white/80 hover:bg-white/10 hover:text-white"
               }`}
             >
@@ -172,9 +172,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
               <span>Dashboard</span>
             </Link>
 
-
-
-            {/* Results Management Section */}
             <div className="pt-3 pb-1">
               <span className="text-[10px] font-extrabold text-white/70 uppercase tracking-widest px-3.5">
                 Examination & Results
@@ -392,6 +389,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
               )}
             </Link>
 
+            {/* Circulars Navigation Link */}
+            <Link
+              href="/admin/circulars"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${
+                isActive("/admin/circulars")
+                  ? "bg-[#D4A72C] text-[#0B192C] shadow-md font-black"
+                  : "text-white/80 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <Send size={17} />
+              <span>Circulars</span>
+            </Link>
             
             {/* Departments and subjects are managed by each college's COE; the Chief COE does not see them */}
             {!isSuper && (

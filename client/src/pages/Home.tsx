@@ -45,6 +45,9 @@ import { StudentAbsentDetailsModule } from "../components/attendance/StudentAbse
 import { StudentHallTicket } from "../components/halltickets/StudentHallTicket";
 import { StudentCertificateRequests } from "../components/certificates/StudentCertificateRequests";
 import { HodCertificateRequests } from "../components/certificates/HodCertificateRequests";
+import { GrievanceStudentView } from "../components/grievance/GrievanceStudentView";
+import { GrievanceReviewView } from "../components/grievance/GrievanceReviewView";
+import { CircularHodView, CircularFacultyView, CircularCoeView, CircularStudentView } from "../components/circular";
 import {
   Activity,
   AlertCircle,
@@ -62,6 +65,7 @@ import {
   CalendarDays,
   CalendarCheck,
   CalendarX,
+  MessageSquare,
   Check,
   CheckCircle2,
   CheckSquare,
@@ -172,7 +176,9 @@ type PageKey =
   | "mentoring"
   | "course-materials"
   | "attendance"
-  | "absent-details";
+  | "absent-details"
+  | "grievance"
+  | "circular";
 
 interface NavItem {
   key: PageKey;
@@ -245,6 +251,8 @@ const roleNav: Record<Role, NavItem[]> = {
     { key: "course-materials", label: "Course Materials", icon: BookOpen },
     { key: "mentoring", label: "Mentoring", icon: UsersRound },
     { key: "reports", label: "Report Download", icon: Download },
+    { key: "grievance", label: "Grievance", icon: MessageSquare },
+    { key: "circular", label: "Circulars", icon: Send },
     // ERP: My Class appears only for a class in-charge (see AppShell)
     { key: "my-class", label: "My Class", icon: UsersRound },
     { key: "logbook", label: "Logbook", icon: NotebookPen },
@@ -283,6 +291,7 @@ const roleNav: Record<Role, NavItem[]> = {
   ],
   Admin: [
     { key: "question-paper", label: "Question Papers Hub", icon: FileCheck },
+    { key: "circular", label: "Circulars Desk", icon: Send },
     { key: "students", label: "Students Directory", icon: UsersRound },
     { key: "admin", label: "User Access & Add Student", icon: UserPlus },
     { key: "electives", label: "Create Elective Group", icon: BookOpen },
@@ -1447,7 +1456,7 @@ function HodPortalDashboard({
   department?: string;
 }) {
   const kvellSealLogo = "/kvell-logo.png";
-  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "markEntry" | "internals" | "hallAllotment" | "studentResult" | "questionPapers" | "markApprovals" | "notifications" | "leaveApprovals" | "myLeave" | "classIncharge" | "logbook" | "facultyPerformance" | "studentList" | "courseMaterials" | "mentoring" | "attendance" | "reports" | "certificates">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "markEntry" | "internals" | "hallAllotment" | "studentResult" | "questionPapers" | "markApprovals" | "notifications" | "leaveApprovals" | "myLeave" | "classIncharge" | "logbook" | "facultyPerformance" | "studentList" | "courseMaterials" | "mentoring" | "attendance" | "reports" | "certificates" | "grievance" | "circular">("dashboard");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [deanBroadcastNotifs, setDeanBroadcastNotifs] = useState<DeanExamNotification[]>(() => safeLoadNotifications());
   const [pendingFacultyQpCount, setPendingFacultyQpCount] = useState<number>(() => {
@@ -1521,6 +1530,8 @@ function HodPortalDashboard({
         { key: "courseMaterials", label: "Course Materials", icon: BookOpen },
         { key: "mentoring", label: "Mentoring System", icon: UsersRound },
         { key: "certificates", label: "Certificate Requests", icon: FileCheck },
+        { key: "grievance", label: "Grievance", icon: MessageSquare },
+        { key: "circular", label: "Circulars", icon: Send },
         { key: "reports", label: "Report Download", icon: Download },
       ]}
       active={activeTab}
@@ -1538,6 +1549,8 @@ function HodPortalDashboard({
       onBellLink={(link) =>
         link === "mentoring" ? setActiveTab("mentoring")
           : link === "certificates" ? setActiveTab("certificates")
+          : link === "grievance" ? setActiveTab("grievance")
+          : link === "circular" ? setActiveTab("circular")
           : link === "attendance" ? setActiveTab("attendance")
           : link === "mark-approvals" ? setActiveTab("markApprovals")
           : link === "question-paper" ? setActiveTab("questionPapers") : undefined
@@ -1812,6 +1825,10 @@ function HodPortalDashboard({
           </div>
         ) : activeTab === "certificates" ? (
           <div className="w-full max-w-7xl"><HodCertificateRequests /></div>
+        ) : activeTab === "grievance" ? (
+          <GrievanceReviewView role="HOD" />
+        ) : activeTab === "circular" ? (
+          <CircularHodView deptKey={authApi.currentUser()?.departmentKey || "cse"} deptName={department} hodName={hodName} />
         ) : activeTab === "studentList" ? (
           <StudentListView students={overview?.students ?? []} department={department} />
         ) : activeTab === "courseMaterials" ? (
@@ -1987,6 +2004,19 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
         return <MyScorecard />;
       case "attendance":
         return <FacultyAttendanceModule />;
+      case "grievance":
+        return <GrievanceReviewView role="FACULTY" />;
+      case "circular":
+        if (role === "Admin") {
+          return <CircularCoeView coeName={authApi.currentUser()?.name || "Controller of Examinations"} onToast={setToast} />;
+        }
+        return (
+          <CircularFacultyView
+            deptKey={authApi.currentUser()?.departmentKey || "cse"}
+            deptName={authApi.currentUser()?.departmentName || facultyCollege?.collegeName || ""}
+            facultyName={authApi.currentUser()?.name || "Faculty Member"}
+          />
+        );
       case "mentoring":
         return <MentoringModule mode="faculty" deptKey={authApi.currentUser()?.departmentKey} collegeKey={authApi.currentUser()?.collegeKey} />;
       case "course-materials":
@@ -2713,7 +2743,7 @@ function StudentDashboard({
   initialSemester?: number;
   onLogout: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "result" | "internals" | "quizzes" | "subjects" | "fees" | "leave" | "attendance" | "absentDetails" | "mentoring" | "materials" | "reports" | "hallTicket" | "certificates">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "result" | "internals" | "quizzes" | "subjects" | "fees" | "leave" | "attendance" | "absentDetails" | "mentoring" | "materials" | "reports" | "hallTicket" | "certificates" | "grievance" | "circular">("dashboard");
   const [absentSubjectFilter, setAbsentSubjectFilter] = useState<string>("ALL");
   const [currentSemesterNum, setCurrentSemesterNum] = useState<number>(initialSemester);
 
@@ -2918,6 +2948,8 @@ function StudentDashboard({
         { key: "materials", label: "Course Materials", icon: BookOpen },
         { key: "hallTicket", label: "Hall Ticket", icon: FileCheck },
         { key: "certificates", label: "Certificates", icon: GraduationCap },
+        { key: "grievance", label: "Grievance", icon: MessageSquare },
+        { key: "circular", label: "Circulars", icon: Send },
         { key: "reports", label: "Reports", icon: Download },
         { key: "internals", label: "Course Exit Survey", icon: ClipboardCheck },
         { key: "quizzes", label: "Online Quiz", icon: CheckSquare },
@@ -2938,7 +2970,7 @@ function StudentDashboard({
       bannerUserSub={studentReg}
       onBellLink={(link) => (link === "result" ? setActiveTab("result") : link === "fees" ? setActiveTab("fees")
         : link === "leave" ? setActiveTab("leave") : link === "mentoring" ? setActiveTab("mentoring")
-        : link === "hall-ticket" ? setActiveTab("hallTicket") : link === "certificates" ? setActiveTab("certificates")
+        : link === "hall-ticket" ? setActiveTab("hallTicket") : link === "grievance" ? setActiveTab("grievance") : link === "circular" ? setActiveTab("circular") : link === "certificates" ? setActiveTab("certificates")
         : link === "attendance" ? setActiveTab("attendance") : link === "materials" ? setActiveTab("materials") : undefined)}
       accountButtons={false}
       onLogout={onLogout}
@@ -3081,6 +3113,16 @@ function StudentDashboard({
           <div className="w-full max-w-7xl"><StudentHallTicket /></div>
         ) : activeTab === "certificates" ? (
           <div className="w-full max-w-7xl"><StudentCertificateRequests /></div>
+        ) : activeTab === "grievance" ? (
+          <GrievanceStudentView />
+        ) : activeTab === "circular" ? (
+          <CircularStudentView
+            deptKey={authApi.currentUser()?.departmentKey || "cse"}
+            deptName={authApi.currentUser()?.departmentName || ""}
+            studentYear={currentSemesterNum <= 2 ? "1st Year" : currentSemesterNum <= 4 ? "2nd Year" : currentSemesterNum <= 6 ? "3rd Year" : "4th Year"}
+            studentName={studentName || "Student"}
+            regNo={studentReg}
+          />
         ) : activeTab === "absentDetails" ? (
           <div className="w-full max-w-7xl"><StudentAbsentDetailsModule studentReg={studentReg} initialSubjectFilter={absentSubjectFilter} /></div>
         ) : activeTab === "mentoring" ? (

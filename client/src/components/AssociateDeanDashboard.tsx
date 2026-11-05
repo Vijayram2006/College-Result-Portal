@@ -88,7 +88,9 @@ import { MentoringModule } from "./MentoringModule";
 import { CourseMaterialModule } from "./CourseMaterialModule";
 import { ReportsDownloadCenter } from "./ReportsDownloadCenter";
 import { AdeanAttendanceModule } from "./attendance/AdeanAttendanceModule";
-import { Calendar, GitFork, CalendarCheck } from "lucide-react";
+import { Calendar, GitFork, CalendarCheck, MessageSquare } from "lucide-react";
+import { GrievanceReviewView } from "./grievance/GrievanceReviewView";
+import { CircularDeanView } from "./circular";
 
 export interface AssociateDeanDashboardProps {
   onLogout: () => void;
@@ -310,6 +312,24 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
               <CheckSquare size={17} />
               <span>Mark Approvals</span>
             </button>
+
+            {/* Grievances and circulars */}
+            {([["grievance", "Grievance", MessageSquare], ["circular", "Circulars", Send]] as const).map(([key, label, Icon]) => (
+              <button
+                key={key}
+                onClick={() => {
+                  setActiveNav(key);
+                  setMobileSidebarOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left cursor-pointer ${activeNav === key
+                    ? "bg-[#EAB308] text-[#0B192C] shadow-md font-extrabold"
+                    : "text-white/80 hover:bg-white/10 hover:text-white"
+                  }`}
+              >
+                <Icon size={17} />
+                <span>{label}</span>
+              </button>
+            ))}
 
             {/* Monthly attendance approval & publication */}
             <button
@@ -807,6 +827,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
           onBellLink={(link) =>
             link === "mentoring" ? setActiveNav("mentoring")
               : link === "attendance-approval" ? setActiveNav("attendance-approval")
+              : link === "grievance" ? setActiveNav("grievance") : link === "circular" ? setActiveNav("circular")
               : link === "leave" ? setActiveNav("erp-leave")
               : link === "question-paper" ? setActiveNav("question-paper-review")
                 : link === "mark-approvals" ? setActiveNav("mark-approvals") : undefined
@@ -1029,6 +1050,8 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
 
           {/* Mentoring Governance View */}
           {activeNav === "mentoring" && <MentoringModule mode="dean" />}
+          {activeNav === "grievance" && <GrievanceReviewView role="DEAN" />}
+          {activeNav === "circular" && <CircularDeanView deanName={myName} onToast={showToast} />}
 
           {/* Attendance Approval & Publication View */}
           {activeNav === "attendance-approval" && <AdeanAttendanceModule />}
