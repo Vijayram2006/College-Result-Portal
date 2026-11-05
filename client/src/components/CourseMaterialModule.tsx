@@ -22,6 +22,8 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import {
+  apiClient,
+  apiErrorMessage,
   courseMaterialsApi,
   type CourseMaterialView,
   type SubjectCoverageView,
@@ -439,16 +441,7 @@ export function CourseMaterialModule({ mode, onToast, deptKey = "cse", semester 
         courseMaterialsApi.getCoverage(deptKey).catch(() => [] as SubjectCoverageView[]),
       ]);
 
-      // Merge backend materials with any resilient locally published materials
-      const localMaterials = getLocalPublishedMaterials();
-      const combined = [
-        ...localMaterials.filter(
-          (lm) => !matList.some((m) => m.id === lm.id || (m.fileName === lm.fileName && m.title === lm.title))
-        ),
-        ...matList,
-      ];
-
-      setMaterials(combined);
+      setMaterials(matList);
       setCoverage(covList);
 
       // Automatically keep uploadSubjectId aligned with first available subject
@@ -521,8 +514,8 @@ export function CourseMaterialModule({ mode, onToast, deptKey = "cse", semester 
   const processSelectedFile = (file: File) => {
     if (!file) return;
 
-    if (file.size > 30 * 1024 * 1024) {
-      showToast("File is larger than 30 MB. Please choose a smaller file.", "warning");
+    if (file.size > 15 * 1024 * 1024) {
+      showToast("File is larger than 15 MB. Please choose a smaller file.", "warning");
       return;
     }
 
@@ -571,6 +564,17 @@ export function CourseMaterialModule({ mode, onToast, deptKey = "cse", semester 
     reader.readAsDataURL(file);
   };
 
+  const fetchServerFile = async (m: CourseMaterialView) => {
+    const res = await apiClient.get<Blob>(m.fileUrl, { responseType: "blob" });
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(res.data);
+    });
+    return { dataUrl, fileName: m.fileName || "document.pdf" };
+  };
+
   // View / Preview a material (Students & Faculty)
   const handleView = async (m: CourseMaterialView) => {
     try {
@@ -580,6 +584,13 @@ export function CourseMaterialModule({ mode, onToast, deptKey = "cse", semester 
       let fileData: { dataUrl: string; fileName: string; fileType?: string } | null = null;
       if (m.fileUrl && m.fileUrl.startsWith("data:")) {
         fileData = { dataUrl: m.fileUrl, fileName: m.fileName || "document.pdf" };
+      }
+      if (!fileData && m.fileUrl && m.fileUrl.startsWith("/")) {
+        fileData = await fetchServerFile(m);
+      }
+      if (!fileData && m.fileUrl && /^https?:\/\//.test(m.fileUrl)) {
+        window.open(m.fileUrl, "_blank", "noopener");
+        return;
       }
       if (!fileData) {
         fileData = await getFileFromVault(`id_${m.id}`);
@@ -644,6 +655,13 @@ export function CourseMaterialModule({ mode, onToast, deptKey = "cse", semester 
       let fileData: { dataUrl: string; fileName: string; fileType?: string } | null = null;
       if (m.fileUrl && m.fileUrl.startsWith("data:")) {
         fileData = { dataUrl: m.fileUrl, fileName: m.fileName || "document.pdf" };
+      }
+      if (!fileData && m.fileUrl && m.fileUrl.startsWith("/")) {
+        fileData = await fetchServerFile(m);
+      }
+      if (!fileData && m.fileUrl && /^https?:\/\//.test(m.fileUrl)) {
+        window.open(m.fileUrl, "_blank", "noopener");
+        return;
       }
       if (!fileData) {
         fileData = await getFileFromVault(`id_${m.id}`);
@@ -787,29 +805,11 @@ export function CourseMaterialModule({ mode, onToast, deptKey = "cse", semester 
     try {
       publishedItem = await courseMaterialsApi.upload(payload);
     } catch (apiErr: any) {
-      console.warn("Backend API upload error, falling back to persistent client vault:", apiErr);
-      // Fallback: create client-side published material so faculty is never blocked
-      publishedItem = {
-        id: Date.now(),
-        subjectId: effectiveSubjectId,
-        subjectCode: matchedSubject?.subjectCode || "CS3301",
-        subjectTitle: matchedSubject?.subjectTitle || "Course Study Material",
-        facultyId: 1,
-        facultyName: matchedSubject?.faculty || "Faculty In-Charge",
-        deptKey: uploadDepts.length > 1 ? uploadDepts.join(", ").toUpperCase() : (deptKey || "cse").toLowerCase(),
-        semester: uploadSemester || matchedSubject?.semester || uploadUnit,
-        section: uploadSection,
-        unitNumber: uploadUnit,
-        materialType: uploadType,
-        title: uploadTitle.trim(),
-        description: uploadDesc.trim(),
-        fileName: attachedFile.fileName,
-        fileUrl: attachedFile.dataUrl,
-        fileSizeKb: Math.max(1, Math.round(attachedFile.fileSize / 1024)),
-        isPublished: true,
-        downloadCount: 0,
-        createdAt: new Date().toISOString(),
-      };
+      const msg = apiErrorMessage(apiErr, "The material could not be published.");
+      setPublishError(msg);
+      showToast(msg, "danger");
+      setIsPublishing(false);
+      return;
     }
 
     try {
@@ -818,7 +818,6 @@ export function CourseMaterialModule({ mode, onToast, deptKey = "cse", semester 
         await saveFileToVault(`id_${publishedItem.id}`, vaultRecord);
         await saveFileToVault(`fn_${attachedFile.fileName}`, vaultRecord);
         await saveFileToVault(`title_${uploadTitle.trim()}`, vaultRecord);
-        saveLocalMaterial(publishedItem);
 
         // Prepend immediately to materials state
         setMaterials((prev) => [
@@ -846,7 +845,7 @@ export function CourseMaterialModule({ mode, onToast, deptKey = "cse", semester 
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this resource?")) return;
     try {
-      await courseMaterialsApi.delete(id).catch(() => {});
+      await courseMaterialsApi.delete(id);
       // Also remove from local list
       const local = getLocalPublishedMaterials().filter((m) => m.id !== id);
       localStorage.setItem(LOCAL_MATERIALS_KEY, JSON.stringify(local));
