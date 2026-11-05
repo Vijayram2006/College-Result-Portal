@@ -26,6 +26,7 @@ import {
   Check,
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import { DepartmentOptions } from "../DepartmentOptions";
 
 export interface ExamTimetableSlot {
   id: string;
@@ -470,13 +471,7 @@ export const ExamTimetableNotificationView: React.FC<ExamTimetableNotificationVi
                 onChange={(e) => setSelectedDeptFilter(e.target.value)}
                 className="px-3 py-2 text-xs bg-[#F8F5EE] border border-[#E5E1D8] rounded-xl text-gray-700 font-bold focus:outline-none"
               >
-                <option value="all">All Departments (12)</option>
-                <option value="aids">AI &amp; DS</option>
-                <option value="cse">CSE</option>
-                <option value="bme">BME</option>
-                <option value="bt">Biotechnology</option>
-                <option value="ece">ECE</option>
-                <option value="mech">Mechanical</option>
+                <DepartmentOptions allValue="all" />
               </select>
 
               {/* Date filter */}
@@ -1003,12 +998,7 @@ export const ExamTimetableNotificationView: React.FC<ExamTimetableNotificationVi
                   onChange={(e) => setNewDept(e.target.value)}
                   className="w-full px-3 py-2 bg-[#F8F5EE] border border-[#E5E1D8] rounded-xl font-bold"
                 >
-                  <option value="aids">Artificial Intelligence &amp; Data Science (AIDS)</option>
-                  <option value="cse">Computer Science &amp; Engineering (CSE)</option>
-                  <option value="bme">Biomedical Engineering (BME)</option>
-                  <option value="bt">Biotechnology (BT)</option>
-                  <option value="ece">Electronics &amp; Communication (ECE)</option>
-                  <option value="mech">Mechanical Engineering (MECH)</option>
+                  <DepartmentOptions />
                 </select>
               </div>
 

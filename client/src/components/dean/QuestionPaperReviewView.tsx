@@ -43,6 +43,7 @@ import {
   UserCheck,
   ShieldAlert,
 } from "lucide-react";
+import { DepartmentOptions } from "../DepartmentOptions";
 
 export type HierarchyRole = "Faculty" | "HOD" | "AD" | "COE";
 // The COE gives the final approval; the Chief COE only monitors
@@ -635,12 +636,7 @@ export const QuestionPaperReviewView: React.FC<QuestionPaperReviewViewProps> = (
             onChange={(e) => setSelectedDept(e.target.value)}
             className="w-full text-xs font-bold text-[#0B192C] bg-[#F8F5EE] border border-[#E5E1D8] rounded-xl px-3 py-2 focus:outline-none focus:border-[#D4A72C]"
           >
-            <option value="all">All Departments (12)</option>
-            <option value="cse">Computer Science &amp; Engineering</option>
-            <option value="aids">Artificial Intelligence &amp; Data Science</option>
-            <option value="bme">Biomedical Engineering</option>
-            <option value="ece">Electronics &amp; Communication</option>
-            <option value="mech">Mechanical Engineering</option>
+            <DepartmentOptions allValue="all" />
           </select>
         </div>
 

@@ -24,6 +24,7 @@ import {
   type AttendanceBatchSummaryItem,
   type MonthlyBatchDetail
 } from "../../services/api";
+import { deptCode } from "../../hooks/useDepartments";
 
 const MONTH_NAMES = [
   "", "January", "February", "March", "April", "May", "June",
@@ -131,7 +132,7 @@ export function HodAttendanceModule({ deptKey = "cse", hodName = "Dr. S. Jayapra
                 HOD ATTENDANCE SCRUTINY
               </span>
               <span className="text-xs font-semibold text-slate-300">
-                Department Scrutiny &bull; {deptKey.toUpperCase()}
+                Department Scrutiny &bull; {deptCode(deptKey)}
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-white mt-1.5 flex items-center gap-2.5">
@@ -205,7 +206,7 @@ export function HodAttendanceModule({ deptKey = "cse", hodName = "Dr. S. Jayapra
           <h3 className="text-sm font-bold text-slate-900">
             Monthly Department Attendance Submissions ({filteredBatches.length})
           </h3>
-          <span className="text-xs text-slate-500 font-medium">Department: {deptKey.toUpperCase()}</span>
+          <span className="text-xs text-slate-500 font-medium">Department: {deptCode(deptKey)}</span>
         </div>
 
         <div className="overflow-x-auto">

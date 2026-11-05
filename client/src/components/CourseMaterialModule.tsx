@@ -28,6 +28,8 @@ import {
   type CourseMaterialView,
   type SubjectCoverageView,
 } from "../services/api";
+import { DepartmentOptions } from "./DepartmentOptions";
+import { deptCode, useDepartments, departmentLabel } from "../hooks/useDepartments";
 
 type MaterialCategory = "NOTE" | "SLIDES" | "LAB_MANUAL" | "QUESTION_BANK" | "REFERENCE";
 
@@ -182,7 +184,7 @@ function generateCourseMaterialPdf(m: CourseMaterialView): Blob {
   doc.setFontSize(8.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(71, 85, 105);
-  doc.text(`Department: ${(m.deptKey || "CSE").toUpperCase()} | Semester: ${m.semester} | Unit: Unit ${m.unitNumber}`, margin + 14, 118);
+  doc.text(`Department: ${deptCode(m.deptKey || "cse")} | Semester: ${m.semester} | Unit: Unit ${m.unitNumber}`, margin + 14, 118);
   doc.text(`Resource: ${m.title}`, margin + 14, 132);
   doc.text(`Faculty In-Charge: ${m.facultyName} | Category: ${m.materialType.replace(/_/g, " ")} | Ref: DOC-${m.id.toString().padStart(6, "0")}`, margin + 14, 146);
 
@@ -380,6 +382,7 @@ interface CourseMaterialModuleProps {
 }
 
 export function CourseMaterialModule({ mode, onToast, deptKey = "cse", semester = "ALL" }: CourseMaterialModuleProps) {
+  const departmentsList = useDepartments();
   const [materials, setMaterials] = useState<CourseMaterialView[]>([]);
   const [coverage, setCoverage] = useState<SubjectCoverageView[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1030,11 +1033,7 @@ export function CourseMaterialModule({ mode, onToast, deptKey = "cse", semester 
             className="px-3 py-2 rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 focus:outline-none cursor-pointer"
             aria-label="Filter by Department"
           >
-            <option value="ALL">All Departments</option>
-            <option value="cse">CSE (Computer Science)</option>
-            <option value="aids">AIDS (Data Science)</option>
-            <option value="ece">ECE (Electronics)</option>
-            <option value="mech">Mechanical</option>
+            <DepartmentOptions allValue="ALL" />
           </select>
 
           {/* Semester Dropdown (Requirement 2.1) */}
@@ -1138,7 +1137,7 @@ export function CourseMaterialModule({ mode, onToast, deptKey = "cse", semester 
                 {/* Dept, Sem, Section telemetry badges (Requirement 2.1) */}
                 <div className="flex flex-wrap items-center gap-1.5 my-1.5">
                   <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
-                    Dept: {m.deptKey?.toUpperCase() || "CSE"}
+                    Dept: {deptCode(m.deptKey) || "CSE"}
                   </span>
                   <span className="text-[10px] font-bold bg-amber-50 text-amber-800 px-2 py-0.5 rounded border border-amber-200">
                     Sem {m.semester}
@@ -1241,12 +1240,7 @@ export function CourseMaterialModule({ mode, onToast, deptKey = "cse", semester 
                   Target Departments (Multi-Department Selection) <span className="text-rose-500">*</span>
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                  {[
-                    { key: "cse", label: "CSE (Computer Science)" },
-                    { key: "aids", label: "AIDS (Data Science)" },
-                    { key: "ece", label: "ECE (Electronics)" },
-                    { key: "mech", label: "MECH (Mechanical)" },
-                  ].map((d) => (
+                  {departmentsList.map((x) => ({ key: x.key, label: departmentLabel(x) })).map((d) => (
                     <label key={d.key} className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
                       <input
                         type="checkbox"

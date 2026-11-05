@@ -51,6 +51,8 @@ import {
   type EscalatedMentorRequestView,
   type MenteeAcademicProfile,
 } from "../services/api";
+import { DepartmentOptions } from "./DepartmentOptions";
+import { deptCode } from "../hooks/useDepartments";
 
 interface MentoringModuleProps {
   mode: "student" | "faculty" | "hod" | "dean" | "admin";
@@ -1447,7 +1449,7 @@ export function MentoringModule({
                       </span>
                     </div>
                     <p className="text-slate-500 text-[11px] mt-0.5">
-                      {viewingMenteeProfile.yearLabel} · Sem {viewingMenteeProfile.semester} · {viewingMenteeProfile.deptKey?.toUpperCase()} · {viewingMenteeProfile.email}
+                      {viewingMenteeProfile.yearLabel} · Sem {viewingMenteeProfile.semester} · {deptCode(viewingMenteeProfile.deptKey)} · {viewingMenteeProfile.email}
                     </p>
                   </div>
                 </div>
@@ -2439,7 +2441,7 @@ export function MentoringModule({
                       Two-Tier Automated Governance
                     </p>
                     <p className="text-[11px] text-indigo-800 leading-relaxed">
-                      This algorithm automatically pairs unassigned students in <strong>{deptKey.toUpperCase()}</strong> with
+                      This algorithm automatically pairs unassigned students in <strong>{deptCode(deptKey)}</strong> with
                       available departmental faculty mentors, balancing the student-to-mentor ratio. All allocations will be
                       batched together and forwarded to the <strong>Associate Dean (ADEAN)</strong> for batch verification.
                     </p>
@@ -2630,7 +2632,7 @@ export function MentoringModule({
 
                     {deptFaculty.length === 0 ? (
                       <p className="text-[11px] text-slate-400 italic text-center py-2">
-                        No faculty mentors found for department {deptKey.toUpperCase()}.
+                        No faculty mentors found for department {deptCode(deptKey)}.
                       </p>
                     ) : unassignedStudents.length === 0 ? (
                       <p className="text-[11px] text-slate-400 italic text-center py-2">
@@ -3107,11 +3109,7 @@ export function MentoringModule({
               onChange={(e) => setDeanDeptFilter(e.target.value)}
               className="px-3 py-1.5 rounded-xl border border-slate-200 font-bold text-slate-700 text-xs self-start sm:self-auto"
             >
-              <option value="ALL">All Departments</option>
-              <option value="cse">CSE (Computer Science)</option>
-              <option value="aids">AIDS (Data Science)</option>
-              <option value="ece">ECE (Electronics)</option>
-              <option value="mech">Mechanical</option>
+              <DepartmentOptions allValue="ALL" />
             </select>
           </div>
 
@@ -3458,7 +3456,7 @@ export function MentoringModule({
                   </span>
                 </div>
                 <p className="text-slate-500 text-[11px] mt-0.5">
-                  Dept: {selectedBatchDetails.deptKey.toUpperCase()} · AY {selectedBatchDetails.academicYear} · {selectedBatchDetails.studentCount} Mentees
+                  Dept: {deptCode(selectedBatchDetails.deptKey)} · AY {selectedBatchDetails.academicYear} · {selectedBatchDetails.studentCount} Mentees
                 </p>
               </div>
               <button

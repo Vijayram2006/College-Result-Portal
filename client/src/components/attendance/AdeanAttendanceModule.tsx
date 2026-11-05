@@ -25,6 +25,8 @@ import {
   type AttendanceBatchSummaryItem,
   type MonthlyBatchDetail
 } from "../../services/api";
+import { DepartmentOptions } from "../DepartmentOptions";
+import { deptCode } from "../../hooks/useDepartments";
 
 const MONTH_NAMES = [
   "", "January", "February", "March", "April", "May", "June",
@@ -180,12 +182,7 @@ export function AdeanAttendanceModule() {
               onChange={(e) => setDeptFilter(e.target.value)}
               className="bg-slate-900 border border-white/20 rounded-xl px-3 py-2 text-white font-semibold focus:outline-none focus:border-[#D4A72C]"
             >
-              <option value="ALL">All Departments</option>
-              <option value="cse">CSE - Computer Science</option>
-              <option value="aids">AIDS - Artificial Intelligence</option>
-              <option value="ece">ECE - Electronics &amp; Comm</option>
-              <option value="eee">EEE - Electrical &amp; Electronics</option>
-              <option value="mech">MECH - Mechanical</option>
+              <DepartmentOptions allValue="ALL" />
             </select>
 
             <select
@@ -319,7 +316,7 @@ export function AdeanAttendanceModule() {
                   {selectedBatch.subjectCode} - {selectedBatch.subjectTitle}
                 </h3>
                 <p className="text-xs text-slate-300">
-                  Dept: <strong>{selectedBatch.deptKey.toUpperCase()}</strong> &bull; Faculty: <strong>{selectedBatch.facultyName}</strong> &bull; HOD Endorsement: <strong>{selectedBatch.hodName || "HOD"}</strong>
+                  Dept: <strong>{deptCode(selectedBatch.deptKey)}</strong> &bull; Faculty: <strong>{selectedBatch.facultyName}</strong> &bull; HOD Endorsement: <strong>{selectedBatch.hodName || "HOD"}</strong>
                 </p>
               </div>
 

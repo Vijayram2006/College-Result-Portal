@@ -11,6 +11,7 @@ import {
   ShieldAlert,
   User,
 } from "lucide-react";
+import { deptCode } from "../../hooks/useDepartments";
 
 export interface PaperDTO {
   sNo: number;
@@ -102,7 +103,7 @@ export function StudentHallTicket() {
               regNo: t.studentReg || "",
               name: t.studentName || "",
               dob: "-",
-              degreeAndBranch: t.deptName || t.deptKey?.toUpperCase() || "",
+              degreeAndBranch: t.deptName || deptCode(t.deptKey) || "",
               semester: `Semester ${t.semester}`,
               examCentre: "-",
               hallTicketNo: t.hallTicketNo || `HT-${t.studentReg}`,
