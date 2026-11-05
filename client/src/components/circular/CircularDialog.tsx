@@ -117,7 +117,7 @@ export const CircularDialog: React.FC<CircularDialogProps> = ({
 
     try {
       setIsDeleting(true);
-      await deleteCircular(circular.id);
+      if (!(await deleteCircular(circular.id))) return;
       if (onToast) onToast("Circular deleted successfully");
       handleOpenChange(false);
       if (onActionComplete) onActionComplete();

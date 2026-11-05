@@ -95,23 +95,11 @@ export async function refreshCircularsFromServer(): Promise<Circular[]> {
         };
       });
 
-      // Smart merge: keep local circulars that are not on the server yet
-      const local = loadCirculars();
-      const serverIds = new Set(serverMapped.map((c) => c.id));
-      const serverRefs = new Set(serverMapped.map((c) => c.refNo));
-
-      const unsyncedLocal = local.filter(
-        (l) => !serverIds.has(l.id) && !serverRefs.has(l.refNo) && l.id !== "circ-101" && l.id !== "circ-102"
-      );
-
-      const merged = [...serverMapped, ...unsyncedLocal];
-      saveCirculars(merged);
-      return merged;
+      saveCirculars(serverMapped);
+      return serverMapped;
     } else if (res.data && Array.isArray(res.data) && res.data.length === 0) {
-      // Server returned empty list: clear out any old mock data
-      const local = loadCirculars().filter((l) => l.id !== "circ-101" && l.id !== "circ-102" && l.id.startsWith("circ-"));
-      saveCirculars(local);
-      return local;
+      saveCirculars([]);
+      return [];
     }
   } catch (err) {
     // Falls back to local storage if backend offline or still starting
@@ -256,6 +244,7 @@ export async function releaseScheduledCircularNow(circularId: string): Promise<b
     return true;
   } catch (e) {
     console.error("Failed to release scheduled circular now:", e);
+    await refreshCircularsFromServer();
     return false;
   }
 }
@@ -299,12 +288,9 @@ export async function updateCircular(
     }
   } catch (e) {
     console.error("Failed to update circular on server:", e);
+    throw e;
   }
-
-  // Local fallback
-  const updated = current.map((c) => (c.id === circularId ? { ...c, ...data } : c));
-  saveCirculars(updated);
-  return updated.find((c) => c.id === circularId) || null;
+  return current.find((c) => c.id === circularId) || null;
 }
 
 export async function markCircularSeen(circularId: string): Promise<boolean> {
@@ -322,6 +308,7 @@ export async function markCircularSeen(circularId: string): Promise<boolean> {
     }
     return true;
   } catch (e) {
+    await refreshCircularsFromServer();
     return false;
   }
 }
@@ -343,7 +330,8 @@ export async function replyCircularByCoe(circularId: string, reply: string): Pro
     }
     return true;
   } catch (e) {
-    return false;
+    await refreshCircularsFromServer();
+    throw e;
   }
 }
 
@@ -381,8 +369,9 @@ export async function approveCircular(
         });
         await refreshCircularsFromServer();
       }
-    } catch {
-      // Retained locally
+    } catch (e) {
+      await refreshCircularsFromServer();
+      throw e;
     }
   }
   return modified;
@@ -429,20 +418,22 @@ export async function forwardCircular(
       }
     } catch (e) {
       console.error("Failed to forward circular to backend", e);
+      await refreshCircularsFromServer();
+      throw e;
     }
   }
   return modified;
 }
 
 export async function deleteCircular(circularId: string, currentUser?: { id: string; name: string; role: string }): Promise<boolean> {
-  // Synchronize deletion to backend
-  try {
-    const numId = parseInt(circularId, 10);
-    if (!isNaN(numId)) {
+  const numId = parseInt(circularId, 10);
+  if (!isNaN(numId)) {
+    try {
       await apiClient.delete(`/circulars/${numId}`);
+    } catch (e: any) {
+      window.alert(e?.response?.data?.message || "The circular could not be deleted.");
+      return false;
     }
-  } catch {
-    // Local deletion retained
   }
 
   const current = loadCirculars();
@@ -506,8 +497,10 @@ export function updateHodAction(
           });
           await refreshCircularsFromServer();
         }
-      } catch {
-        // Retained locally
+      } catch (e) {
+        console.error("Failed to save the action on the server", e);
+        await refreshCircularsFromServer();
+        window.alert("The action could not be saved. Please try again.");
       }
     })();
   }
@@ -562,7 +555,7 @@ export async function fetchDynamicDepartments(): Promise<DepartmentOption[]> {
     }
   } catch { }
 
-  return DEFAULT_DEPARTMENTS;
+  return [];
 }
 
 export async function fetchDynamicFaculties(deptKey?: string): Promise<FacultyOption[]> {

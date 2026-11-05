@@ -71,7 +71,7 @@ export const CircularDeanView: React.FC<CircularDeanViewProps> = ({
   const [pendingApprovals, setPendingApprovals] = useState<Circular[]>(() =>
     getPendingApprovalsForDean()
   );
-  const [departments, setDepartments] = useState<DepartmentOption[]>(DEFAULT_DEPARTMENTS);
+  const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [loadingDepts, setLoadingDepts] = useState(false);
   const [activeTab, setActiveTab] = useState<"compose" | "history" | "approvals">("compose");
 
@@ -1699,8 +1699,7 @@ export const CircularDeanView: React.FC<CircularDeanViewProps> = ({
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 if (window.confirm(`Are you sure you want to delete circular "${circ.subject}"?`)) {
-                                  await deleteCircular(circ.id);
-                                  if (onToast) onToast("Circular deleted successfully");
+                                  if ((await deleteCircular(circ.id)) && onToast) onToast("Circular deleted successfully");
                                 }
                               }}
                               className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition cursor-pointer"

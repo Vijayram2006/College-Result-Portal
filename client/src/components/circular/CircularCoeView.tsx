@@ -66,7 +66,7 @@ export const CircularCoeView: React.FC<CircularCoeViewProps> = ({
   const [circulars, setCirculars] = useState<Circular[]>(() =>
     getCircularsForCoe()
   );
-  const [departments, setDepartments] = useState<DepartmentOption[]>(DEFAULT_DEPARTMENTS);
+  const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [loadingDepts, setLoadingDepts] = useState(false);
   const [activeTab, setActiveTab] = useState<"compose" | "myCirculars" | "deanDirectives">("compose");
 
