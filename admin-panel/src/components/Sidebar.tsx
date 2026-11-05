@@ -280,6 +280,36 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
                     <span>Hall Allotment</span>
                   </Link>
 
+                  {/* Exam eligibility (attendance and fines) and hall tickets: the college COE */}
+                  {!isSuper && (
+                    <>
+                  <Link
+                    href="/admin/exam-eligibility"
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                      isActive("/admin/exam-eligibility")
+                        ? "bg-[#D4A72C] text-[#0B192C] font-bold"
+                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <ShieldAlert size={14} />
+                    <span>Exam Eligibility</span>
+                  </Link>
+                  <Link
+                    href="/admin/hall-tickets"
+                    onClick={() => setMobileOpen(false)}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
+                      isActive("/admin/hall-tickets")
+                        ? "bg-[#D4A72C] text-[#0B192C] font-bold"
+                        : "text-white/70 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <FileText size={14} />
+                    <span>Hall Tickets</span>
+                  </Link>
+                    </>
+                  )}
+
                   <Link
                     href="/admin/results/withheld"
                     onClick={() => setMobileOpen(false)}

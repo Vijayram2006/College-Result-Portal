@@ -21,6 +21,7 @@ public class GlobalExceptionHandler {
     ResponseEntity<Map<String, Object>> handleApi(ApiException ex) {
         Map<String, Object> body = new java.util.LinkedHashMap<>(ex.getDetails());
         body.put("error", ex.getMessage());
+        body.putIfAbsent("message", ex.getMessage()); // some screens read response.data.message
         return ResponseEntity.status(ex.getStatus()).body(body);
     }
 

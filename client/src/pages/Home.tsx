@@ -42,6 +42,9 @@ import { FacultyAttendanceModule } from "../components/attendance/FacultyAttenda
 import { HodAttendanceModule } from "../components/attendance/HodAttendanceModule";
 import { StudentAttendanceModule } from "../components/attendance/StudentAttendanceModule";
 import { StudentAbsentDetailsModule } from "../components/attendance/StudentAbsentDetailsModule";
+import { StudentHallTicket } from "../components/halltickets/StudentHallTicket";
+import { StudentCertificateRequests } from "../components/certificates/StudentCertificateRequests";
+import { HodCertificateRequests } from "../components/certificates/HodCertificateRequests";
 import {
   Activity,
   AlertCircle,
@@ -1444,7 +1447,7 @@ function HodPortalDashboard({
   department?: string;
 }) {
   const kvellSealLogo = "/kvell-logo.png";
-  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "markEntry" | "internals" | "hallAllotment" | "studentResult" | "questionPapers" | "markApprovals" | "notifications" | "leaveApprovals" | "myLeave" | "classIncharge" | "logbook" | "facultyPerformance" | "studentList" | "courseMaterials" | "mentoring" | "attendance" | "reports">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "markEntry" | "internals" | "hallAllotment" | "studentResult" | "questionPapers" | "markApprovals" | "notifications" | "leaveApprovals" | "myLeave" | "classIncharge" | "logbook" | "facultyPerformance" | "studentList" | "courseMaterials" | "mentoring" | "attendance" | "reports" | "certificates">("dashboard");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [deanBroadcastNotifs, setDeanBroadcastNotifs] = useState<DeanExamNotification[]>(() => safeLoadNotifications());
   const [pendingFacultyQpCount, setPendingFacultyQpCount] = useState<number>(() => {
@@ -1517,6 +1520,7 @@ function HodPortalDashboard({
         { key: "attendance", label: "Attendance Approval", icon: CalendarCheck },
         { key: "courseMaterials", label: "Course Materials", icon: BookOpen },
         { key: "mentoring", label: "Mentoring System", icon: UsersRound },
+        { key: "certificates", label: "Certificate Requests", icon: FileCheck },
         { key: "reports", label: "Report Download", icon: Download },
       ]}
       active={activeTab}
@@ -1533,6 +1537,8 @@ function HodPortalDashboard({
       bannerUserSub={authApi.currentUser()?.username ?? ""}
       onBellLink={(link) =>
         link === "mentoring" ? setActiveTab("mentoring")
+          : link === "certificates" ? setActiveTab("certificates")
+          : link === "attendance" ? setActiveTab("attendance")
           : link === "mark-approvals" ? setActiveTab("markApprovals")
           : link === "question-paper" ? setActiveTab("questionPapers") : undefined
       }
@@ -1804,6 +1810,8 @@ function HodPortalDashboard({
             </div>
           </div>
           </div>
+        ) : activeTab === "certificates" ? (
+          <div className="w-full max-w-7xl"><HodCertificateRequests /></div>
         ) : activeTab === "studentList" ? (
           <StudentListView students={overview?.students ?? []} department={department} />
         ) : activeTab === "courseMaterials" ? (
@@ -2702,7 +2710,7 @@ function StudentDashboard({
   initialSemester?: number;
   onLogout: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "result" | "internals" | "quizzes" | "subjects" | "fees" | "leave" | "attendance" | "absentDetails" | "mentoring" | "materials" | "reports">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "result" | "internals" | "quizzes" | "subjects" | "fees" | "leave" | "attendance" | "absentDetails" | "mentoring" | "materials" | "reports" | "hallTicket" | "certificates">("dashboard");
   const [absentSubjectFilter, setAbsentSubjectFilter] = useState<string>("ALL");
   const [currentSemesterNum, setCurrentSemesterNum] = useState<number>(initialSemester);
 
@@ -2905,6 +2913,8 @@ function StudentDashboard({
         { key: "subjects", label: "My Subjects", icon: BookOpen },
         { key: "mentoring", label: "My Mentor", icon: UsersRound },
         { key: "materials", label: "Course Materials", icon: BookOpen },
+        { key: "hallTicket", label: "Hall Ticket", icon: FileCheck },
+        { key: "certificates", label: "Certificates", icon: GraduationCap },
         { key: "reports", label: "Reports", icon: Download },
         { key: "internals", label: "Course Exit Survey", icon: ClipboardCheck },
         { key: "quizzes", label: "Online Quiz", icon: CheckSquare },
@@ -2924,7 +2934,9 @@ function StudentDashboard({
       bannerUser={studentName}
       bannerUserSub={studentReg}
       onBellLink={(link) => (link === "result" ? setActiveTab("result") : link === "fees" ? setActiveTab("fees")
-        : link === "leave" ? setActiveTab("leave") : link === "mentoring" ? setActiveTab("mentoring") : undefined)}
+        : link === "leave" ? setActiveTab("leave") : link === "mentoring" ? setActiveTab("mentoring")
+        : link === "hall-ticket" ? setActiveTab("hallTicket") : link === "certificates" ? setActiveTab("certificates")
+        : link === "attendance" ? setActiveTab("attendance") : link === "materials" ? setActiveTab("materials") : undefined)}
       accountButtons={false}
       onLogout={onLogout}
     >
@@ -3062,6 +3074,10 @@ function StudentDashboard({
             <StudentAttendanceModule studentReg={studentReg}
               onNavigateToAbsentDetails={(subCode) => { setAbsentSubjectFilter(subCode || "ALL"); setActiveTab("absentDetails"); }} />
           </div>
+        ) : activeTab === "hallTicket" ? (
+          <div className="w-full max-w-7xl"><StudentHallTicket /></div>
+        ) : activeTab === "certificates" ? (
+          <div className="w-full max-w-7xl"><StudentCertificateRequests /></div>
         ) : activeTab === "absentDetails" ? (
           <div className="w-full max-w-7xl"><StudentAbsentDetailsModule studentReg={studentReg} initialSubjectFilter={absentSubjectFilter} /></div>
         ) : activeTab === "mentoring" ? (
