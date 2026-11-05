@@ -37,9 +37,13 @@ export const NotificationBell: React.FC = () => {
       await notificationsApi.markRead(id).catch(() => undefined);
       load();
     }
-    if (link && link.startsWith("/admin")) {
+    if (link) {
       setOpen(false);
-      navigate(link);
+      if (link === "circular" || link === "/admin/circulars") {
+        navigate("/admin/circulars");
+      } else if (link.startsWith("/admin")) {
+        navigate(link);
+      }
     }
   };
 

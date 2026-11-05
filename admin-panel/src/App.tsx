@@ -33,6 +33,7 @@ const InternalMarksPage = lazy(() => import("./components/CoAssessment").then((m
 const HallAllotmentPage = lazy(() => import("./pages/HallAllotment").then((m) => ({ default: m.HallAllotmentPage })));
 const WithheldResultsPage = lazy(() => import("./pages/WithheldResults").then((m) => ({ default: m.WithheldResultsPage })));
 const QuestionPapersPage = lazy(() => import("./pages/QuestionPapers").then((m) => ({ default: m.QuestionPapersPage })));
+const CircularsPage = lazy(() => import("./pages/Circulars").then((m) => ({ default: m.CircularsPage })));
 
 const pageTitles: Record<string, string> = {
   "/admin/super-admin": "Dashboard",
@@ -40,6 +41,7 @@ const pageTitles: Record<string, string> = {
   "/admin/dashboard": "University Admin Dashboard",
   "/admin/departments": "University Department Directory & Management",
   "/admin/question-papers": "Question Paper Logistics & Master Release Hub",
+  "/admin/circulars": "COE Examination Circulars Desk",
   "/admin/hall-allotment": "Examination Classroom Allotment",
   "/admin/results/withheld": "Withheld Results",
   "/admin/results": "Result Management Hub",
@@ -114,180 +116,188 @@ installGlobalErrorReporting();
 export const App: React.FC = () => {
   return (
     <ErrorBoundary>
-    <Suspense fallback={<p className="p-6 text-sm text-slate-500" role="status">Loading…</p>}>
-    <Switch>
-      {/* Public Admin Login Route */}
-      <Route path="/admin/login" component={Login} />
+      <Suspense fallback={<p className="p-6 text-sm text-slate-500" role="status">Loading…</p>}>
+        <Switch>
+          {/* Public Admin Login Route */}
+          <Route path="/admin/login" component={Login} />
 
-      {/* Protected Admin Routes */}
-      <Route path="/admin/super-admin">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={SuperAdminControlPage} />
-          </AdminLayout>
-        )}
-      </Route>
+          {/* Protected Admin Routes */}
+          <Route path="/admin/super-admin">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={SuperAdminControlPage} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      <Route path="/admin/results/revaluation">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={RevaluationRequestsPage} />
-          </AdminLayout>
-        )}
-      </Route>
+          <Route path="/admin/results/revaluation">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={RevaluationRequestsPage} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      <Route path="/admin/dashboard">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={Dashboard} />
-          </AdminLayout>
-        )}
-      </Route>
+          <Route path="/admin/dashboard">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={Dashboard} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      <Route path="/admin/departments">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={DepartmentsPage} />
-          </AdminLayout>
-        )}
-      </Route>
+          <Route path="/admin/departments">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={DepartmentsPage} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      <Route path="/admin/results">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={ResultsPage} />
-          </AdminLayout>
-        )}
-      </Route>
+          <Route path="/admin/results">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={ResultsPage} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      <Route path="/admin/results/upload">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={ResultsUpload} />
-          </AdminLayout>
-        )}
-      </Route>
+          <Route path="/admin/results/upload">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={ResultsUpload} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      <Route path="/admin/results/answer-scripts">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={AnswerScripts} />
-          </AdminLayout>
-        )}
-      </Route>
+          <Route path="/admin/results/answer-scripts">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={AnswerScripts} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      <Route path="/admin/results/validation">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={ResultsValidation} />
-          </AdminLayout>
-        )}
-      </Route>
+          <Route path="/admin/results/validation">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={ResultsValidation} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      <Route path="/admin/results/publish">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={ResultsPublish} />
-          </AdminLayout>
-        )}
-      </Route>
+          <Route path="/admin/results/publish">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={ResultsPublish} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      <Route path="/admin/results/published">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={ResultsPublished} />
-          </AdminLayout>
-        )}
-      </Route>
+          <Route path="/admin/results/published">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={ResultsPublished} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      <Route path="/admin/analytics">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={AnalyticsPage} />
-          </AdminLayout>
-        )}
-      </Route>
+          <Route path="/admin/analytics">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={AnalyticsPage} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      <Route path="/admin/audit-logs">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={AuditLogsPage} />
-          </AdminLayout>
-        )}
-      </Route>
+          <Route path="/admin/audit-logs">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={AuditLogsPage} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      
-      <Route path="/admin/results/internal-marks">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={InternalMarksPage} />
-          </AdminLayout>
-        )}
-      </Route>
 
-      <Route path="/admin/faculty-master">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={FacultyMasterPage} />
-          </AdminLayout>
-        )}
-      </Route>
+          <Route path="/admin/results/internal-marks">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={InternalMarksPage} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      <Route path="/admin/subjects">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={SubjectsPage} />
-          </AdminLayout>
-        )}
-      </Route>
+          <Route path="/admin/faculty-master">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={FacultyMasterPage} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      <Route path="/admin/hall-allotment">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={HallAllotmentPage} />
-          </AdminLayout>
-        )}
-      </Route>
+          <Route path="/admin/subjects">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={SubjectsPage} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      <Route path="/admin/results/withheld">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={WithheldResultsPage} />
-          </AdminLayout>
-        )}
-      </Route>
+          <Route path="/admin/hall-allotment">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={HallAllotmentPage} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      <Route path="/admin/question-papers">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={QuestionPapersPage} />
-          </AdminLayout>
-        )}
-      </Route>
-  
-      <Route path="/admin/profile">
-        {() => (
-          <AdminLayout>
-            <ProtectedRoute component={ProfilePage} />
-          </AdminLayout>
-        )}
-      </Route>
+          <Route path="/admin/results/withheld">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={WithheldResultsPage} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      {/* Fallback Redirect */}
-      <Route path="/">
-        <Redirect to="/admin/dashboard" />
-      </Route>
+          <Route path="/admin/question-papers">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={QuestionPapersPage} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      <Route path="/admin">
-        <Redirect to="/admin/dashboard" />
-      </Route>
+          <Route path="/admin/circulars">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={CircularsPage} />
+              </AdminLayout>
+            )}
+          </Route>
 
-      {/* Any other address: a real "not found" page instead of silently jumping elsewhere */}
-      <Route>
-        <NotFoundPage />
-      </Route>
-    </Switch>
-    </Suspense>
+          <Route path="/admin/profile">
+            {() => (
+              <AdminLayout>
+                <ProtectedRoute component={ProfilePage} />
+              </AdminLayout>
+            )}
+          </Route>
+
+          {/* Fallback Redirect */}
+          <Route path="/">
+            <Redirect to="/admin/dashboard" />
+          </Route>
+
+          <Route path="/admin">
+            <Redirect to="/admin/dashboard" />
+          </Route>
+
+          {/* Any other address: a real "not found" page instead of silently jumping elsewhere */}
+          <Route>
+            <NotFoundPage />
+          </Route>
+        </Switch>
+      </Suspense>
     </ErrorBoundary>
   );
 };

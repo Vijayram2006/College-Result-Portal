@@ -33,6 +33,14 @@ import { HodAnalytics } from "../components/hodAnalytics/HodAnalytics";
 import { CoAssessment } from "../components/CoAssessment";
 import { StudentExitSurvey } from "../components/StudentExitSurvey";
 import { startSharedStore } from "../services/sharedStore";
+import { GrievanceStudentView } from "../components/grievance/GrievanceStudentView";
+import { GrievanceReviewView } from "../components/grievance/GrievanceReviewView";
+import {
+  CircularHodView,
+  CircularFacultyView,
+  CircularCoeView,
+  CircularStudentView,
+} from "../components/circular";
 import {
   Activity,
   AlertCircle,
@@ -63,6 +71,7 @@ import {
   Eye,
   EyeOff,
   Mail,
+  MessageSquare,
   FileBarChart,
   FileCheck,
   FileText,
@@ -135,7 +144,9 @@ type PageKey =
   | "noticeboard"
   | "internal-marks"
   | "paper-correction"
-  | "question-paper";
+  | "question-paper"
+  | "grievance"
+  | "circular";
 
 interface NavItem {
   key: PageKey;
@@ -204,11 +215,15 @@ const roleNav: Record<Role, NavItem[]> = {
     { key: "paper-correction", label: "Paper Correction", icon: FileText },
     { key: "hall-allotment", label: "Hall Allotment", icon: LayoutDashboard },
     { key: "question-paper", label: "Question Papers", icon: FileCheck },
+    { key: "grievance", label: "Grievance", icon: MessageSquare },
+    { key: "circular", label: "Circulars", icon: Send },
   ],
   HOD: [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { key: "noticeboard", label: "Exam Notifications", icon: Bell },
     { key: "question-paper", label: "Question Papers", icon: FileCheck },
+    { key: "grievance", label: "Grievance", icon: MessageSquare },
+    { key: "circular", label: "Circulars", icon: Send },
     { key: "faculty", label: "Faculty", icon: GraduationCap },
     { key: "students", label: "Students", icon: UsersRound },
     { key: "performance", label: "Performance", icon: BarChart3 },
@@ -236,6 +251,7 @@ const roleNav: Record<Role, NavItem[]> = {
     { key: "reports", label: "Reports", icon: FileText },
   ],
   Admin: [
+    { key: "circular", label: "Circulars Desk", icon: Send },
     { key: "question-paper", label: "Question Papers Hub", icon: FileCheck },
     { key: "students", label: "Students Directory", icon: UsersRound },
     { key: "admin", label: "User Access & Add Student", icon: UserPlus },
@@ -1160,13 +1176,12 @@ function StudentResultView({ students }: { students: HodOverviewDTO["students"] 
                 <td className="px-4 py-3.5 text-center font-black text-slate-900">{st.average === null ? "—" : `${st.average}%`}</td>
                 <td className="px-5 py-3.5 text-right">
                   <span
-                    className={`inline-block px-3 py-1 rounded-full text-xs font-black border ${
-                      st.status === "PASS"
-                        ? "bg-green-100 text-green-800 border-green-200"
-                        : st.status === "FAIL"
-                          ? "bg-red-100 text-red-800 border-red-200"
-                          : "bg-slate-100 text-slate-600 border-slate-200"
-                    }`}
+                    className={`inline-block px-3 py-1 rounded-full text-xs font-black border ${st.status === "PASS"
+                      ? "bg-green-100 text-green-800 border-green-200"
+                      : st.status === "FAIL"
+                        ? "bg-red-100 text-red-800 border-red-200"
+                        : "bg-slate-100 text-slate-600 border-slate-200"
+                      }`}
                   >
                     {st.status}
                   </span>
@@ -1207,7 +1222,7 @@ function HodPortalDashboard({
   department?: string;
 }) {
   const kvellSealLogo = "/kvell-logo.png";
-  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "markEntry" | "internals" | "hallAllotment" | "studentResult" | "questionPapers" | "markApprovals" | "notifications">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "markEntry" | "internals" | "hallAllotment" | "studentResult" | "questionPapers" | "markApprovals" | "notifications" | "grievance" | "circular">("dashboard");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [deanBroadcastNotifs, setDeanBroadcastNotifs] = useState<DeanExamNotification[]>(() => safeLoadNotifications());
   const [pendingFacultyQpCount, setPendingFacultyQpCount] = useState<number>(() => {
@@ -1224,7 +1239,7 @@ function HodPortalDashboard({
       try {
         const list = safeLoadQuestionPapers();
         setPendingFacultyQpCount(list.filter((p: any) => p.status === "PENDING_HOD_REVIEW").length);
-      } catch {}
+      } catch { }
       setDeanBroadcastNotifs(safeLoadNotifications());
     };
     window.addEventListener("kvell_qp_updated", updateCount);
@@ -1271,6 +1286,8 @@ function HodPortalDashboard({
         { key: "markApprovals", label: "Mark Approvals", icon: CheckSquare },
         { key: "hallAllotment", label: "Hall Allotment", icon: LayoutDashboard },
         { key: "notifications", label: "Exam Notifications", icon: Bell, badge: deanBroadcastNotifs.length },
+        { key: "grievance", label: "Grievance", icon: MessageSquare },
+        { key: "circular", label: "Circulars", icon: Send },
       ]}
       active={activeTab}
       onNavigate={(k) => setActiveTab(k as typeof activeTab)}
@@ -1286,7 +1303,9 @@ function HodPortalDashboard({
       bannerUserSub={authApi.currentUser()?.username ?? ""}
       onBellLink={(link) =>
         link === "mark-approvals" ? setActiveTab("markApprovals")
-          : link === "question-paper" ? setActiveTab("questionPapers") : undefined
+          : link === "question-paper" ? setActiveTab("questionPapers")
+          : link === "grievance" ? setActiveTab("grievance")
+          : link === "circular" ? setActiveTab("circular") : undefined
       }
       onLogout={onLogout}
       navFooter={
@@ -1426,135 +1445,134 @@ function HodPortalDashboard({
               </div>
             )}
             <div className="bg-white rounded-[2.25rem] p-6 sm:p-9 shadow-sm border border-slate-200 space-y-8">
-            <div>
-              <span className="bg-[#FFF4D6] text-[#8C2F00] text-[10px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full inline-block border border-[#F5D8B4]">
-                📊 RESULT ANALYTICS & FACULTY PERFORMANCE
-              </span>
-              <h2 className="text-2xl font-black text-[#0B192C] mt-2 tracking-tight">
-                Department Pass Percentage & Faculty Analytics
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-                Visual graph of examination pass rates across 1st yr, 2nd yr, 3rd yr, 4th yr and top faculty ranking.
-              </p>
-            </div>
+              <div>
+                <span className="bg-[#FFF4D6] text-[#8C2F00] text-[10px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full inline-block border border-[#F5D8B4]">
+                  📊 RESULT ANALYTICS & FACULTY PERFORMANCE
+                </span>
+                <h2 className="text-2xl font-black text-[#0B192C] mt-2 tracking-tight">
+                  Department Pass Percentage & Faculty Analytics
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
+                  Visual graph of examination pass rates across 1st yr, 2nd yr, 3rd yr, 4th yr and top faculty ranking.
+                </p>
+              </div>
 
-            {/* 2-Column Grid Layout */}
-            <div className="grid lg:grid-cols-2 gap-8 items-start">
-              {/* Left Column: Year-wise Pass Percentage Graph Card */}
-              <div className="bg-[#F8F5EE]/60 border border-slate-200/90 rounded-[2rem] p-6 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
-                  <div>
-                    <h3 className="text-sm font-extrabold text-[#0B192C] flex items-center gap-2">
-                      <BarChart3 className="text-[#8A6410]" size={16} />
-                      Year-wise Pass Percentage Graph
-                    </h3>
-                    <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                      Pass rate (%) of published results by year of study
-                    </p>
+              {/* 2-Column Grid Layout */}
+              <div className="grid lg:grid-cols-2 gap-8 items-start">
+                {/* Left Column: Year-wise Pass Percentage Graph Card */}
+                <div className="bg-[#F8F5EE]/60 border border-slate-200/90 rounded-[2rem] p-6 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+                    <div>
+                      <h3 className="text-sm font-extrabold text-[#0B192C] flex items-center gap-2">
+                        <BarChart3 className="text-[#8A6410]" size={16} />
+                        Year-wise Pass Percentage Graph
+                      </h3>
+                      <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                        Pass rate (%) of published results by year of study
+                      </p>
+                    </div>
+                    {/* Graph Color Indicator Legend */}
+                    <div className="flex items-center gap-3 text-[11px] font-bold">
+                      <span className="flex items-center gap-1.5 text-red-600">
+                        <span className="h-2.5 w-2.5 rounded-full bg-[#EF4444]" /> &lt; 40% (Red)
+                      </span>
+                      <span className="flex items-center gap-1.5 text-green-700">
+                        <span className="h-2.5 w-2.5 rounded-full bg-[#22C55E]" /> &ge; 40% (Green)
+                      </span>
+                    </div>
                   </div>
-                  {/* Graph Color Indicator Legend */}
-                  <div className="flex items-center gap-3 text-[11px] font-bold">
-                    <span className="flex items-center gap-1.5 text-red-600">
-                      <span className="h-2.5 w-2.5 rounded-full bg-[#EF4444]" /> &lt; 40% (Red)
-                    </span>
-                    <span className="flex items-center gap-1.5 text-green-700">
-                      <span className="h-2.5 w-2.5 rounded-full bg-[#22C55E]" /> &ge; 40% (Green)
-                    </span>
-                  </div>
-                </div>
 
-                {/* Threshold Interactive Toggles */}
-                <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-500 bg-white p-3 rounded-xl border border-slate-200">
-                  <span className="uppercase text-[10px] text-slate-500">
-                    {overviewError ??
-                      (overview
-                        ? `Overall ${overview.overallPassPercentage}% pass (${overview.studentsWithResults} students with results):`
-                        : "Loading pass rates...")}
-                  </span>
-                  {yearGraphData.map((yr) => (
-                    <button
-                      key={yr.name}
-                      type="button"
-                      className={`px-2.5 py-1 rounded-lg border transition text-[10px] font-black ${
-                        yr.passPercentage < 40
+                  {/* Threshold Interactive Toggles */}
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-500 bg-white p-3 rounded-xl border border-slate-200">
+                    <span className="uppercase text-[10px] text-slate-500">
+                      {overviewError ??
+                        (overview
+                          ? `Overall ${overview.overallPassPercentage}% pass (${overview.studentsWithResults} students with results):`
+                          : "Loading pass rates...")}
+                    </span>
+                    {yearGraphData.map((yr) => (
+                      <button
+                        key={yr.name}
+                        type="button"
+                        className={`px-2.5 py-1 rounded-lg border transition text-[10px] font-black ${yr.passPercentage < 40
                           ? "bg-red-50 text-red-700 border-red-300 hover:bg-red-100"
                           : "bg-green-50 text-green-700 border-green-300 hover:bg-green-100"
-                      }`}
-                      title={`${yr.students} students with published results`}
-                    >
-                      {yr.name}: {yr.students > 0 ? `${yr.passPercentage}%` : "no results"}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Recharts Bar Chart - Color: Red (<40%), Green (>=40%) */}
-                <div className="h-[300px] pt-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={yearGraphData} margin={{ top: 20, right: 10, left: -20, bottom: 5 }}>
-                      <CartesianGrid stroke="#e2e8f0" vertical={false} strokeDasharray="3 3" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#1e293b", fontSize: 12, fontWeight: 800 }} />
-                      <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="passPercentage" name="Pass Rate (%)" radius={[8, 8, 0, 0]}>
-                        {yearGraphData.map((entry, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={entry.passPercentage < 40 ? "#EF4444" : "#22C55E"}
-                          />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Right Column: Top Pass Percentage Faculty Card (Dark Navy Card) */}
-              <div className="bg-[#0B192C] text-white rounded-[2rem] p-6 shadow-xl border border-slate-800 space-y-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
-                  <div>
-                    <h3 className="text-base font-extrabold text-[#D4A72C] flex items-center gap-2">
-                      🏅 Top Pass Percentage Faculty
-                    </h3>
-                    <p className="text-xs text-slate-400 font-medium mt-1">
-                      Faculty members with highest student pass percentage in their handling courses.
-                    </p>
+                          }`}
+                        title={`${yr.students} students with published results`}
+                      >
+                        {yr.name}: {yr.students > 0 ? `${yr.passPercentage}%` : "no results"}
+                      </button>
+                    ))}
                   </div>
-                  <span className="bg-white/10 text-slate-200 text-xs font-mono font-bold px-3 py-1 rounded-lg border border-white/10 self-start sm:shrink-0 max-w-full">
-                    {department} RANKING
-                  </span>
+
+                  {/* Recharts Bar Chart - Color: Red (<40%), Green (>=40%) */}
+                  <div className="h-[300px] pt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={yearGraphData} margin={{ top: 20, right: 10, left: -20, bottom: 5 }}>
+                        <CartesianGrid stroke="#e2e8f0" vertical={false} strokeDasharray="3 3" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#1e293b", fontSize: 12, fontWeight: 800 }} />
+                        <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="passPercentage" name="Pass Rate (%)" radius={[8, 8, 0, 0]}>
+                          {yearGraphData.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={entry.passPercentage < 40 ? "#EF4444" : "#22C55E"}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
 
-                {/* Faculty Ranking List */}
-                <div className="space-y-3.5">
-                  {topFacultyRanking.length === 0 && (
-                    <p className="text-xs font-semibold text-slate-400 py-6 text-center">
-                      {overview ? "No results have been published for this department yet." : "Loading…"}
-                    </p>
-                  )}
-                  {topFacultyRanking.map((fac) => (
-                    <div
-                      key={fac.rank}
-                      className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between gap-4 hover:bg-white/10 transition shadow-sm"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className={`h-8 w-8 rounded-full font-black text-xs flex items-center justify-center shrink-0 ${fac.rankTone}`}>
-                          {fac.rank}
-                        </span>
-                        <div>
-                          <h4 className="text-sm font-black text-white">{fac.name}</h4>
-                          <p className="text-[11px] font-semibold text-slate-400 mt-0.5">{fac.subject}</p>
+                {/* Right Column: Top Pass Percentage Faculty Card (Dark Navy Card) */}
+                <div className="bg-[#0B192C] text-white rounded-[2rem] p-6 shadow-xl border border-slate-800 space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+                    <div>
+                      <h3 className="text-base font-extrabold text-[#D4A72C] flex items-center gap-2">
+                        🏅 Top Pass Percentage Faculty
+                      </h3>
+                      <p className="text-xs text-slate-400 font-medium mt-1">
+                        Faculty members with highest student pass percentage in their handling courses.
+                      </p>
+                    </div>
+                    <span className="bg-white/10 text-slate-200 text-xs font-mono font-bold px-3 py-1 rounded-lg border border-white/10 self-start sm:shrink-0 max-w-full">
+                      {department} RANKING
+                    </span>
+                  </div>
+
+                  {/* Faculty Ranking List */}
+                  <div className="space-y-3.5">
+                    {topFacultyRanking.length === 0 && (
+                      <p className="text-xs font-semibold text-slate-400 py-6 text-center">
+                        {overview ? "No results have been published for this department yet." : "Loading…"}
+                      </p>
+                    )}
+                    {topFacultyRanking.map((fac) => (
+                      <div
+                        key={fac.rank}
+                        className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between gap-4 hover:bg-white/10 transition shadow-sm"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className={`h-8 w-8 rounded-full font-black text-xs flex items-center justify-center shrink-0 ${fac.rankTone}`}>
+                            {fac.rank}
+                          </span>
+                          <div>
+                            <h4 className="text-sm font-black text-white">{fac.name}</h4>
+                            <p className="text-[11px] font-semibold text-slate-400 mt-0.5">{fac.subject}</p>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-lg font-black text-[#38BDF8]">{fac.passRate}</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">PASS RATE</p>
                         </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-lg font-black text-[#38BDF8]">{fac.passRate}</p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">PASS RATE</p>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
           </div>
         ) : activeTab === "markEntry" ? (
           /* Tab: the HOD enters answer-script marks like the faculty (any subject of the department) */
@@ -1574,6 +1592,14 @@ function HodPortalDashboard({
         ) : activeTab === "markApprovals" ? (
           /* Tab: forwarded marks waiting for the HOD's approval (when the Chief COE requires it) */
           <MarkApprovalsView role="hod" />
+        ) : activeTab === "grievance" ? (
+          <GrievanceReviewView role="HOD" />
+        ) : activeTab === "circular" ? (
+          <CircularHodView
+            deptKey={authApi.currentUser()?.departmentKey || authApi.currentUser()?.departmentName || "cse"}
+            deptName={department}
+            hodName={hodName}
+          />
         ) : activeTab === "notifications" ? (
           /* Tab: the Dean's exam notifications (QP submission, timetable, valuation) */
           <HodExamNotificationsView
@@ -1704,6 +1730,24 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
             onToast={setToast}
             facultyName={authApi.currentUser()?.name || ""}
             department={facultyCollege?.collegeName || meta.department}
+          />
+        );
+      case "grievance":
+        return <GrievanceReviewView role="FACULTY" />;
+      case "circular":
+        if (role === "Admin") {
+          return (
+            <CircularCoeView
+              coeName={authApi.currentUser()?.name || "Controller of Examinations"}
+              onToast={setToast}
+            />
+          );
+        }
+        return (
+          <CircularFacultyView
+            deptKey={authApi.currentUser()?.departmentKey || authApi.currentUser()?.departmentName || "cse"}
+            deptName={facultyCollege?.collegeName || authApi.currentUser()?.departmentName || "Computer Science & Engineering"}
+            facultyName={authApi.currentUser()?.name || "Faculty Member"}
           />
         );
       default:
@@ -1846,85 +1890,86 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
             username={authApi.currentUser()?.username ?? ""}
             onOpenMenu={() => setSidebarOpen(true)}
             onBack={activePage !== "dashboard" ? () => navigate("dashboard") : undefined}
+            onBellLink={(link) => (link === "circular" ? navigate("circular") : link === "grievance" ? navigate("grievance") : undefined)}
           />
         ) : (
-        <header className="sticky top-0 z-20 flex h-[78px] items-center justify-between border-b border-[#E5E1D8] bg-white/90 backdrop-blur-md px-4 sm:px-6 lg:px-8 shadow-sm">
-          <div className="flex min-w-0 items-center gap-3">
-            {activePage !== "dashboard" && (
+          <header className="sticky top-0 z-20 flex h-[78px] items-center justify-between border-b border-[#E5E1D8] bg-white/90 backdrop-blur-md px-4 sm:px-6 lg:px-8 shadow-sm">
+            <div className="flex min-w-0 items-center gap-3">
+              {activePage !== "dashboard" && (
+                <button
+                  onClick={() => navigate("dashboard")}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-[#F8F5EE] text-[#0B192C] shadow-sm transition hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0B192C]/20"
+                  title="Return to Dashboard"
+                  aria-label="Return to Dashboard"
+                >
+                  <ArrowLeft size={18} strokeWidth={2.2} />
+                </button>
+              )}
+
               <button
-                onClick={() => navigate("dashboard")}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-[#F8F5EE] text-[#0B192C] shadow-sm transition hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0B192C]/20"
-                title="Return to Dashboard"
-                aria-label="Return to Dashboard"
+                onClick={() => setSidebarOpen(true)}
+                className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+                aria-label="Open navigation"
               >
-                <ArrowLeft size={18} strokeWidth={2.2} />
+                <Menu size={20} />
               </button>
-            )}
 
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
-              aria-label="Open navigation"
-            >
-              <Menu size={20} />
-            </button>
-
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[11px] font-bold text-[#8A6410] uppercase tracking-wider">
-                <span>Portal</span>
-                <ChevronRight size={12} />
-                <span className="truncate text-slate-600 font-semibold">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-[11px] font-bold text-[#8A6410] uppercase tracking-wider">
+                  <span>Portal</span>
+                  <ChevronRight size={12} />
+                  <span className="truncate text-slate-600 font-semibold">
+                    {activeNav?.label}
+                  </span>
+                </div>
+                <p className="mt-0.5 truncate text-lg font-extrabold text-[#0B192C]">
                   {activeNav?.label}
-                </span>
-              </div>
-              <p className="mt-0.5 truncate text-lg font-extrabold text-[#0B192C]">
-                {activeNav?.label}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-4">
-            <div className="relative hidden md:block">
-              <Search
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                size={15}
-              />
-              <input
-                value={globalSearch}
-                onChange={(event) => setGlobalSearch(event.target.value)}
-                placeholder="Search portal..."
-                className="h-10 w-52 rounded-2xl border border-slate-200 bg-[#F8F5EE] pl-9 pr-3.5 text-xs font-semibold text-[#172033] placeholder:text-slate-400 focus:border-[#0B192C] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0B192C] transition lg:w-64 shadow-sm"
-              />
-            </div>
-
-            <button
-              onClick={() => setToast("Help center is coming soon")}
-              className="hidden rounded-xl p-2 text-slate-500 hover:bg-[#F8F5EE] hover:text-[#0B192C] transition sm:block"
-              aria-label="Help"
-            >
-              <CircleHelp size={18} />
-            </button>
-
-            <NotificationBell />
-
-            <div className="hidden h-8 w-px bg-slate-200 sm:block" />
-
-            <div className="flex items-center gap-2.5 bg-[#F8F5EE] border border-slate-200 px-3 py-1.5 rounded-full shadow-sm">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0B192C] text-[11px] font-black text-[#D4A72C]">
-                {facultyCollege ? (authApi.currentUser()?.name ?? "F")[0] : meta.initials}
-              </div>
-              <div className="hidden text-left lg:block">
-                <p className="text-xs font-extrabold text-[#0B192C]">
-                  {facultyCollege ? authApi.currentUser()?.name ?? facultyCollege.shortName : meta.name}
-                </p>
-                <p className="text-[9px] font-bold text-[#8A6410] uppercase tracking-wider">
-                  {facultyCollege ? `${facultyCollege.collegeName}` : meta.roleLabel}
                 </p>
               </div>
-              <ChevronDown size={14} className="hidden text-slate-400 lg:block" />
             </div>
-          </div>
-        </header>
+
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="relative hidden md:block">
+                <Search
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={15}
+                />
+                <input
+                  value={globalSearch}
+                  onChange={(event) => setGlobalSearch(event.target.value)}
+                  placeholder="Search portal..."
+                  className="h-10 w-52 rounded-2xl border border-slate-200 bg-[#F8F5EE] pl-9 pr-3.5 text-xs font-semibold text-[#172033] placeholder:text-slate-400 focus:border-[#0B192C] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0B192C] transition lg:w-64 shadow-sm"
+                />
+              </div>
+
+              <button
+                onClick={() => setToast("Help center is coming soon")}
+                className="hidden rounded-xl p-2 text-slate-500 hover:bg-[#F8F5EE] hover:text-[#0B192C] transition sm:block"
+                aria-label="Help"
+              >
+                <CircleHelp size={18} />
+              </button>
+
+              <NotificationBell onLink={(link) => (link === "circular" ? navigate("circular") : link === "grievance" ? navigate("grievance") : undefined)} />
+
+              <div className="hidden h-8 w-px bg-slate-200 sm:block" />
+
+              <div className="flex items-center gap-2.5 bg-[#F8F5EE] border border-slate-200 px-3 py-1.5 rounded-full shadow-sm">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0B192C] text-[11px] font-black text-[#D4A72C]">
+                  {facultyCollege ? (authApi.currentUser()?.name ?? "F")[0] : meta.initials}
+                </div>
+                <div className="hidden text-left lg:block">
+                  <p className="text-xs font-extrabold text-[#0B192C]">
+                    {facultyCollege ? authApi.currentUser()?.name ?? facultyCollege.shortName : meta.name}
+                  </p>
+                  <p className="text-[9px] font-bold text-[#8A6410] uppercase tracking-wider">
+                    {facultyCollege ? `${facultyCollege.collegeName}` : meta.roleLabel}
+                  </p>
+                </div>
+                <ChevronDown size={14} className="hidden text-slate-400 lg:block" />
+              </div>
+            </div>
+          </header>
         )}
 
         <main className="flex-1">
@@ -2161,44 +2206,40 @@ function LoginPage({
                 <button
                   type="button"
                   onClick={() => setSelectedRole("Student")}
-                  className={`py-2 text-xs font-black rounded-xl transition ${
-                    selectedRole === "Student"
-                      ? "bg-[#0B192C] text-white shadow-md"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
+                  className={`py-2 text-xs font-black rounded-xl transition ${selectedRole === "Student"
+                    ? "bg-[#0B192C] text-white shadow-md"
+                    : "text-slate-600 hover:text-slate-900"
+                    }`}
                 >
                   🎓 Student
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedRole("HOD")}
-                  className={`py-2 text-xs font-black rounded-xl transition ${
-                    selectedRole === "HOD"
-                      ? "bg-[#0B192C] text-white shadow-md"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
+                  className={`py-2 text-xs font-black rounded-xl transition ${selectedRole === "HOD"
+                    ? "bg-[#0B192C] text-white shadow-md"
+                    : "text-slate-600 hover:text-slate-900"
+                    }`}
                 >
                   👔 HOD
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedRole("Faculty")}
-                  className={`py-2 text-xs font-black rounded-xl transition cursor-pointer ${
-                    selectedRole === "Faculty"
-                      ? "bg-[#0B192C] text-white shadow-md"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
+                  className={`py-2 text-xs font-black rounded-xl transition cursor-pointer ${selectedRole === "Faculty"
+                    ? "bg-[#0B192C] text-white shadow-md"
+                    : "text-slate-600 hover:text-slate-900"
+                    }`}
                 >
                   👨‍🏫 Faculty
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedRole("Dean")}
-                  className={`py-2 text-xs font-black rounded-xl transition cursor-pointer ${
-                    selectedRole === "Dean"
-                      ? "bg-[#0B192C] text-white shadow-md"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
+                  className={`py-2 text-xs font-black rounded-xl transition cursor-pointer ${selectedRole === "Dean"
+                    ? "bg-[#0B192C] text-white shadow-md"
+                    : "text-slate-600 hover:text-slate-900"
+                    }`}
                 >
                   🏛️ Assoc. Dean
                 </button>
@@ -2262,18 +2303,18 @@ function LoginPage({
                     <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
                       FACULTY USERNAME / EXAMINER ID
                     </label>
-                      <div className="relative">
-                        <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="text"
-                          required
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          placeholder="e.g. FACCSE"
-                          className="w-full h-12 pl-11 pr-4 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 focus:bg-white text-xs font-semibold text-[#172033] focus:border-[#0B192C] focus:ring-1 focus:ring-[#0B192C] focus:outline-none transition shadow-sm"
-                        />
-                      </div>
+                    <div className="relative">
+                      <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        required
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="e.g. FACCSE"
+                        className="w-full h-12 pl-11 pr-4 rounded-2xl border border-slate-200 bg-[#F8F5EE]/60 focus:bg-white text-xs font-semibold text-[#172033] focus:border-[#0B192C] focus:ring-1 focus:ring-[#0B192C] focus:outline-none transition shadow-sm"
+                      />
                     </div>
+                  </div>
                 ) : (
                   <div>
                     <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">
@@ -2373,10 +2414,10 @@ function LoginPage({
                   {isStudentPortalLocked
                     ? "Student Portal Offline (COE Locked)"
                     : selectedRole === "Admin"
-                    ? "Open Examination Control Panel"
-                    : submitting
-                      ? "Signing in..."
-                      : `Sign In to ${selectedRole} Portal`}
+                      ? "Open Examination Control Panel"
+                      : submitting
+                        ? "Signing in..."
+                        : `Sign In to ${selectedRole} Portal`}
                 </button>
               </form>
 
@@ -2406,7 +2447,7 @@ function StudentDashboard({
   initialSemester?: number;
   onLogout: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "result" | "internals" | "quizzes" | "subjects">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "result" | "internals" | "quizzes" | "subjects" | "grievance" | "circular">("dashboard");
   const [currentSemesterNum, setCurrentSemesterNum] = useState<number>(initialSemester);
 
   useEffect(() => {
@@ -2606,6 +2647,8 @@ function StudentDashboard({
         { key: "subjects", label: "My Subjects", icon: BookOpen },
         { key: "internals", label: "Course Exit Survey", icon: ClipboardCheck },
         { key: "quizzes", label: "Online Quiz", icon: CheckSquare },
+        { key: "grievance", label: "Grievance", icon: MessageSquare },
+        { key: "circular", label: "Circulars", icon: Send },
       ]}
       active={activeTab}
       onNavigate={(k) => setActiveTab(k as typeof activeTab)}
@@ -2619,7 +2662,7 @@ function StudentDashboard({
       bannerSubtitle="Examination results, internal marks and registered subjects"
       bannerUser={studentName}
       bannerUserSub={studentReg}
-      onBellLink={(link) => (link === "result" ? setActiveTab("result") : undefined)}
+      onBellLink={(link) => (link === "result" ? setActiveTab("result") : link === "circular" ? setActiveTab("circular") : link === "grievance" ? setActiveTab("grievance") : undefined)}
       accountButtons={false}
       onLogout={onLogout}
     >
@@ -2755,6 +2798,24 @@ function StudentDashboard({
         ) : activeTab === "internals" ? (
           /* Course exit survey: the student rates each course outcome; it feeds the CO attainment */
           <StudentExitSurvey />
+        ) : activeTab === "grievance" ? (
+          <GrievanceStudentView />
+        ) : activeTab === "circular" ? (
+          <CircularStudentView
+            deptKey={authApi.currentUser()?.departmentKey || authApi.currentUser()?.departmentName || "cse"}
+            deptName={authApi.currentUser()?.departmentName || "Computer Science & Engineering"}
+            studentYear={
+              currentSemesterNum <= 2
+                ? "1st Year"
+                : currentSemesterNum <= 4
+                  ? "2nd Year"
+                  : currentSemesterNum <= 6
+                    ? "3rd Year"
+                    : "4th Year"
+            }
+            studentName={studentName || "Student"}
+            regNo={studentReg}
+          />
         ) : activeTab === "quizzes" ? (
           /* Online quizzes opened by the subject faculty; the score fills the CO sheet */
           <StudentQuizzes />
@@ -2894,8 +2955,8 @@ function StudentDashboard({
                           key={e.code}
                           onClick={() => setSelectedElective(e.code)}
                           className={`p-5 rounded-2xl border transition cursor-pointer flex flex-wrap items-start justify-between gap-4 ${isSelected
-                              ? "border-[#0B192C] bg-[#0B192C]/5 ring-2 ring-[#0B192C]/20 shadow-sm"
-                              : "border-slate-200 bg-white hover:border-slate-300"
+                            ? "border-[#0B192C] bg-[#0B192C]/5 ring-2 ring-[#0B192C]/20 shadow-sm"
+                            : "border-slate-200 bg-white hover:border-slate-300"
                             }`}
                         >
                           <div className="flex items-start gap-4 min-w-0 flex-1">
@@ -3028,341 +3089,337 @@ function StudentDashboard({
         ) : (
           /* Result Module: Enlarged Official Statement of Marks */
           <>
-          <StudentResultNotes result={latestSemester} />
-          <div className="w-full max-w-7xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+            <StudentResultNotes result={latestSemester} />
+            <div className="w-full max-w-7xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
 
-            {/* Card Dark Header with Grade Sheet Download Control */}
-            <div className="bg-[#0B192C] text-white p-6 sm:p-8 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <img
-                  src={kvellSealLogo}
-                  alt="Seal"
-                  className="h-12 w-12 rounded-full bg-white p-0.5 border-2 border-[#D4A72C]"
-                />
-                <div>
-                  <h3 className="font-extrabold text-base sm:text-lg tracking-wide text-white">
-                    KVELL UNIVERSITY
-                  </h3>
-                  <p className="text-xs font-bold text-[#D4A72C] tracking-wider uppercase mt-0.5">
-                    FACULTY OF ENGINEERING & EMERGING SCIENCES •{" "}
-                    {isInternal ? `INTERNAL ASSESSMENT MARKS (${latestSemester?.assessmentType})` : "OFFICIAL STATEMENT OF MARKS"}
-                  </p>
+              {/* Card Dark Header with Grade Sheet Download Control */}
+              <div className="bg-[#0B192C] text-white p-6 sm:p-8 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <img
+                    src={kvellSealLogo}
+                    alt="Seal"
+                    className="h-12 w-12 rounded-full bg-white p-0.5 border-2 border-[#D4A72C]"
+                  />
+                  <div>
+                    <h3 className="font-extrabold text-base sm:text-lg tracking-wide text-white">
+                      KVELL UNIVERSITY
+                    </h3>
+                    <p className="text-xs font-bold text-[#D4A72C] tracking-wider uppercase mt-0.5">
+                      FACULTY OF ENGINEERING & EMERGING SCIENCES •{" "}
+                      {isInternal ? `INTERNAL ASSESSMENT MARKS (${latestSemester?.assessmentType})` : "OFFICIAL STATEMENT OF MARKS"}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="bg-white/10 text-white border border-white/20 px-4 py-1.5 rounded-xl text-xs sm:text-sm font-mono font-bold">
-                  {studentReg}
-                </span>
-                {/* Grade sheet download, allowed or locked by the Super Admin */}
-                {!isResultsWithheld && studentCourses.length > 0 &&
-                  (isGradeDownloadAllowed ? (
-                    <button
-                      onClick={handleDownloadGradeCard}
-                      className="px-4 py-2 bg-[#D4A72C] hover:bg-[#c29624] text-[#0B192C] font-extrabold text-xs rounded-xl shadow transition flex items-center gap-2"
-                    >
-                      <Download size={15} />
-                      <span>Download Grade Sheet (PDF)</span>
-                    </button>
-                  ) : (
-                    <button
-                      disabled
-                      className="px-4 py-2 bg-slate-800 text-slate-400 font-bold text-xs rounded-xl border border-slate-700 cursor-not-allowed flex items-center gap-2"
-                      title="Grade sheet download is turned off by the Controller of Examinations"
-                    >
-                      <Lock size={14} className="text-amber-400" />
-                      <span>Download Locked by COE</span>
-                    </button>
-                  ))}
-              </div>
-            </div>
-
-            {/* Results withheld by the Super Admin: the server returns no marks while this is on */}
-            {isResultsWithheld && (
-              <div className="m-6 sm:m-8 bg-red-50/90 border-2 border-red-300 rounded-3xl p-8 sm:p-12 text-center shadow-lg space-y-3">
-                <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto text-red-600 shadow-inner">
-                  <ShieldAlert size={36} />
-                </div>
-                <span className="inline-block bg-red-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
-                  Results withheld
-                </span>
-                <h3 className="text-xl sm:text-2xl font-black text-red-950 tracking-tight">
-                  Results are temporarily withheld by the Controller of Examinations
-                </h3>
-                <p className="text-xs sm:text-sm text-red-800 max-w-2xl mx-auto leading-relaxed font-medium">
-                  The results for <strong className="font-mono font-bold text-red-950">{studentReg}</strong> ({studentName}) are on hold
-                  pending verification. They will appear here as soon as they are released.
-                </p>
-              </div>
-            )}
-
-            {/* Candidate Details Box */}
-            <div className="bg-[#F8F5EE] border border-slate-200/80 rounded-2xl p-6 sm:p-8 mx-6 sm:mx-8 mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs sm:text-sm">
-              <div>
-                <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">CANDIDATE NAME</p>
-                <p className="font-black text-[#0B192C] text-base mt-1">{studentName}</p>
-              </div>
-              <div>
-                <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">REGISTER NUMBER</p>
-                <p className="font-black text-[#0B192C] text-base font-mono mt-1">{studentReg}</p>
-              </div>
-              <div>
-                <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">ENGINEERING PROGRAM</p>
-                <p className="font-extrabold text-[#0B192C] mt-1">{programLabel}</p>
-              </div>
-              <div>
-                <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
-                  {isInternal ? "SEMESTER & ASSESSMENT" : "SEMESTER & EXAM MONTH"}
-                </p>
-                <p className="font-extrabold text-[#0B192C] mt-1">
-                  {latestSemester
-                    ? `${latestSemester.semesterLabel} • ${latestSemester.examMonthYear} (Academic Year ${latestSemester.academicYear})`
-                    : "No results published yet"}
-                </p>
-              </div>
-            </div>
-
-            {/* Course Grade Breakdown Table */}
-            <div className="mx-6 sm:mx-8 mt-8 space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-extrabold text-base text-[#0B192C]">
-                  {isInternal ? `${latestSemester?.assessmentType} Marks` : "Course Grade Breakdown"}
-                </h4>
-                {!isInternal && (
-                  <span className="text-xs sm:text-sm font-extrabold text-slate-500">Total Credits: {latestSemester?.totalCredits ?? 0}</span>
-                )}
-              </div>
-
-              {resultEntries.length > 1 && (
-                <div className="flex flex-wrap gap-2">
-                  {resultEntries.map((entry, i) => {
-                    const active = entry === latestSemester;
-                    return (
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="bg-white/10 text-white border border-white/20 px-4 py-1.5 rounded-xl text-xs sm:text-sm font-mono font-bold">
+                    {studentReg}
+                  </span>
+                  {/* Grade sheet download, allowed or locked by the Super Admin */}
+                  {!isResultsWithheld && studentCourses.length > 0 &&
+                    (isGradeDownloadAllowed ? (
                       <button
-                        key={`${entry.semester}-${entry.assessmentType}`}
-                        type="button"
-                        onClick={() => setResultIndex(i)}
-                        className={`px-4 py-2 rounded-xl text-xs font-extrabold border transition ${
-                          active ? "bg-[#0B192C] text-white border-[#0B192C]" : "bg-white text-[#0B192C] border-slate-200 hover:bg-slate-50"
-                        }`}
+                        onClick={handleDownloadGradeCard}
+                        className="px-4 py-2 bg-[#D4A72C] hover:bg-[#c29624] text-[#0B192C] font-extrabold text-xs rounded-xl shadow transition flex items-center gap-2"
                       >
-                        {entry.semesterLabel} • {entry.assessmentType}
+                        <Download size={15} />
+                        <span>Download Grade Sheet (PDF)</span>
                       </button>
-                    );
-                  })}
+                    ) : (
+                      <button
+                        disabled
+                        className="px-4 py-2 bg-slate-800 text-slate-400 font-bold text-xs rounded-xl border border-slate-700 cursor-not-allowed flex items-center gap-2"
+                        title="Grade sheet download is turned off by the Controller of Examinations"
+                      >
+                        <Lock size={14} className="text-amber-400" />
+                        <span>Download Locked by COE</span>
+                      </button>
+                    ))}
+                </div>
+              </div>
+
+              {/* Results withheld by the Super Admin: the server returns no marks while this is on */}
+              {isResultsWithheld && (
+                <div className="m-6 sm:m-8 bg-red-50/90 border-2 border-red-300 rounded-3xl p-8 sm:p-12 text-center shadow-lg space-y-3">
+                  <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto text-red-600 shadow-inner">
+                    <ShieldAlert size={36} />
+                  </div>
+                  <span className="inline-block bg-red-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                    Results withheld
+                  </span>
+                  <h3 className="text-xl sm:text-2xl font-black text-red-950 tracking-tight">
+                    Results are temporarily withheld by the Controller of Examinations
+                  </h3>
+                  <p className="text-xs sm:text-sm text-red-800 max-w-2xl mx-auto leading-relaxed font-medium">
+                    The results for <strong className="font-mono font-bold text-red-950">{studentReg}</strong> ({studentName}) are on hold
+                    pending verification. They will appear here as soon as they are released.
+                  </p>
                 </div>
               )}
 
-              <div className="overflow-auto rounded-2xl border border-slate-200 max-h-[75vh]">
-                <table className="w-full text-left text-xs sm:text-sm">
-                  <thead className="bg-[#0B192C] text-white text-xs font-extrabold uppercase tracking-wider sticky top-0 z-20">
-                    <tr>
-                      <th className="px-5 py-4">COURSE CODE</th>
-                      <th className="px-5 py-4">COURSE TITLE</th>
-                      {!isInternal && <th className="px-5 py-4 text-center">CREDITS</th>}
-                      <th className="px-5 py-4 text-center">MARKS (/100)</th>
-                      <th className="px-5 py-4 text-center">GRADE</th>
-                      {!isInternal && <th className="px-5 py-4 text-center">GRADE POINTS</th>}
-                      <th className="px-5 py-4 text-center">STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
-                    {studentCourses.map((c) => (
-                      <tr key={c.code} className="hover:bg-slate-50/80 transition">
-                        <td className="px-5 py-4 font-mono font-bold text-[#0B192C]">{c.code}</td>
-                        <td className="px-5 py-4 font-extrabold text-slate-900">{c.title}</td>
-                        {!isInternal && <td className="px-5 py-4 text-center text-slate-600">{c.credits}</td>}
-                        <td className="px-5 py-4 text-center font-bold text-slate-800">{c.total}</td>
-                        <td className="px-5 py-4 text-center font-extrabold text-[#0B192C]">{c.grade}</td>
-                        {!isInternal && <td className="px-5 py-4 text-center font-bold text-slate-800">{c.points}</td>}
-                        <td className="px-5 py-4 text-center">
-                          <span
-                            className={`inline-block text-xs font-extrabold px-3 py-1 rounded-full border ${
-                              c.status === "PASS"
-                                ? "bg-green-100 text-green-800 border-green-200"
-                                : "bg-red-100 text-red-800 border-red-200"
-                            }`}
-                          >
-                            {c.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                    {studentCourses.length === 0 && (
-                      <tr>
-                        <td colSpan={isInternal ? 5 : 7} className="px-5 py-10 text-center text-sm font-bold text-slate-500">
-                          {resultsError ?? (results ? "Your results have not been published yet." : "Loading your results...")}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+              {/* Candidate Details Box */}
+              <div className="bg-[#F8F5EE] border border-slate-200/80 rounded-2xl p-6 sm:p-8 mx-6 sm:mx-8 mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs sm:text-sm">
+                <div>
+                  <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">CANDIDATE NAME</p>
+                  <p className="font-black text-[#0B192C] text-base mt-1">{studentName}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">REGISTER NUMBER</p>
+                  <p className="font-black text-[#0B192C] text-base font-mono mt-1">{studentReg}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">ENGINEERING PROGRAM</p>
+                  <p className="font-extrabold text-[#0B192C] mt-1">{programLabel}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">
+                    {isInternal ? "SEMESTER & ASSESSMENT" : "SEMESTER & EXAM MONTH"}
+                  </p>
+                  <p className="font-extrabold text-[#0B192C] mt-1">
+                    {latestSemester
+                      ? `${latestSemester.semesterLabel} • ${latestSemester.examMonthYear} (Academic Year ${latestSemester.academicYear})`
+                      : "No results published yet"}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            {/* Revaluation & answer-script photocopy (window opened by the Super Admin; requests go to the COE) */}
-            {!isResultsWithheld && studentCourses.length > 0 && (
-              <div className="p-6 sm:p-8 m-6 sm:m-8 bg-[#F8F5EE] rounded-3xl border border-slate-200 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
-                      <RotateCcw size={20} />
-                    </div>
-                    <div>
-                      <h4 className="font-extrabold text-sm sm:text-base text-[#0B192C]">Revaluation & Answer Script Photocopy</h4>
-                      <p className="text-xs text-slate-500 font-medium">
-                        For {latestSemester?.semesterLabel} · {latestSemester?.assessmentType}; requests go to the Controller of Examinations
-                      </p>
-                    </div>
-                  </div>
-                  {isRevalWindowOpen ? (
-                    <span className="bg-purple-100 text-purple-800 border border-purple-200 text-xs font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm self-start">
-                      <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
-                      WINDOW OPEN (Fee: ₹{revalFeePerCourse} / course)
-                    </span>
-                  ) : (
-                    <span className="bg-slate-200 text-slate-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 self-start">
-                      <Lock size={12} />
-                      WINDOW CLOSED
-                    </span>
+              {/* Course Grade Breakdown Table */}
+              <div className="mx-6 sm:mx-8 mt-8 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-extrabold text-base text-[#0B192C]">
+                    {isInternal ? `${latestSemester?.assessmentType} Marks` : "Course Grade Breakdown"}
+                  </h4>
+                  {!isInternal && (
+                    <span className="text-xs sm:text-sm font-extrabold text-slate-500">Total Credits: {latestSemester?.totalCredits ?? 0}</span>
                   )}
                 </div>
 
-                {myRevaluations.length > 0 && (
-                  <div className="space-y-2">
-                    {myRevaluations.map((r) => (
-                      <div key={r.id} className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                        <div>
-                          <span className="font-mono font-bold text-[#0B192C]">{r.refId}</span>
-                          <span className="text-slate-500"> · {r.semester} · {r.assessmentType} · {r.subjectCodes.join(", ")} · ₹{r.totalFee}</span>
-                          {r.note && <p className="text-slate-600 mt-1">COE note: {r.note}</p>}
-                        </div>
-                        <span
-                          className={`self-start sm:self-auto px-3 py-1 rounded-full font-extrabold text-[10px] ${
-                            r.status === "COMPLETED"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : r.status === "REJECTED"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-amber-100 text-amber-800"
-                          }`}
+                {resultEntries.length > 1 && (
+                  <div className="flex flex-wrap gap-2">
+                    {resultEntries.map((entry, i) => {
+                      const active = entry === latestSemester;
+                      return (
+                        <button
+                          key={`${entry.semester}-${entry.assessmentType}`}
+                          type="button"
+                          onClick={() => setResultIndex(i)}
+                          className={`px-4 py-2 rounded-xl text-xs font-extrabold border transition ${active ? "bg-[#0B192C] text-white border-[#0B192C]" : "bg-white text-[#0B192C] border-slate-200 hover:bg-slate-50"
+                            }`}
                         >
-                          {r.status === "IN_REVIEW" ? "IN REVIEW" : r.status}
-                        </span>
-                      </div>
-                    ))}
+                          {entry.semesterLabel} • {entry.assessmentType}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 
-                {isRevalWindowOpen ? (
-                  activeRevaluation ? (
-                    <p className="text-xs text-emerald-800 font-semibold">
-                      Your request {activeRevaluation.refId} for these results is being processed.
-                    </p>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-600">
-                        <span>Select the course(s) for answer-script copy and revaluation:</span>
-                        {revalDeadline && (
-                          <span className="text-slate-500">
-                            Deadline: <strong className="text-[#0B192C]">{new Date(revalDeadline).toLocaleString()}</strong>
-                          </span>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {studentCourses.map((c) => {
-                          const isSelected = revalSelectedCourses.includes(c.code);
-                          return (
-                            <label
-                              key={c.code}
-                              className={`p-3.5 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-3 ${
-                                isSelected ? "border-purple-600 bg-purple-50/70 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"
-                              }`}
+                <div className="overflow-auto rounded-2xl border border-slate-200 max-h-[75vh]">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead className="bg-[#0B192C] text-white text-xs font-extrabold uppercase tracking-wider sticky top-0 z-20">
+                      <tr>
+                        <th className="px-5 py-4">COURSE CODE</th>
+                        <th className="px-5 py-4">COURSE TITLE</th>
+                        {!isInternal && <th className="px-5 py-4 text-center">CREDITS</th>}
+                        <th className="px-5 py-4 text-center">MARKS (/100)</th>
+                        <th className="px-5 py-4 text-center">GRADE</th>
+                        {!isInternal && <th className="px-5 py-4 text-center">GRADE POINTS</th>}
+                        <th className="px-5 py-4 text-center">STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+                      {studentCourses.map((c) => (
+                        <tr key={c.code} className="hover:bg-slate-50/80 transition">
+                          <td className="px-5 py-4 font-mono font-bold text-[#0B192C]">{c.code}</td>
+                          <td className="px-5 py-4 font-extrabold text-slate-900">{c.title}</td>
+                          {!isInternal && <td className="px-5 py-4 text-center text-slate-600">{c.credits}</td>}
+                          <td className="px-5 py-4 text-center font-bold text-slate-800">{c.total}</td>
+                          <td className="px-5 py-4 text-center font-extrabold text-[#0B192C]">{c.grade}</td>
+                          {!isInternal && <td className="px-5 py-4 text-center font-bold text-slate-800">{c.points}</td>}
+                          <td className="px-5 py-4 text-center">
+                            <span
+                              className={`inline-block text-xs font-extrabold px-3 py-1 rounded-full border ${c.status === "PASS"
+                                ? "bg-green-100 text-green-800 border-green-200"
+                                : "bg-red-100 text-red-800 border-red-200"
+                                }`}
                             >
-                              <span className="flex items-center gap-3 min-w-0">
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => toggleRevalCourse(c.code)}
-                                  className="h-4 w-4 text-purple-600 rounded focus:ring-purple-500 shrink-0"
-                                />
-                                <span className="min-w-0">
-                                  <span className="font-mono text-xs font-bold text-[#0B192C]">{c.code}</span>
-                                  <span className="block text-xs font-semibold text-slate-700 truncate">{c.title}</span>
-                                </span>
-                              </span>
-                              <span className="text-xs font-mono font-bold text-slate-500 shrink-0">
-                                {c.total} · {c.grade}
-                              </span>
-                            </label>
-                          );
-                        })}
+                              {c.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {studentCourses.length === 0 && (
+                        <tr>
+                          <td colSpan={isInternal ? 5 : 7} className="px-5 py-10 text-center text-sm font-bold text-slate-500">
+                            {resultsError ?? (results ? "Your results have not been published yet." : "Loading your results...")}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Revaluation & answer-script photocopy (window opened by the Super Admin; requests go to the COE) */}
+              {!isResultsWithheld && studentCourses.length > 0 && (
+                <div className="p-6 sm:p-8 m-6 sm:m-8 bg-[#F8F5EE] rounded-3xl border border-slate-200 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                        <RotateCcw size={20} />
                       </div>
-                      <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-                        <div className="text-xs font-semibold text-slate-700">
-                          Selected: <strong className="text-[#0B192C] font-black">{revalSelectedCourses.length}</strong> course(s) · Fee:{" "}
-                          <strong className="text-purple-700 font-black text-sm">₹{revalSelectedCourses.length * revalFeePerCourse}</strong>
-                        </div>
-                        <button
-                          onClick={handleApplyRevaluation}
-                          disabled={revalSelectedCourses.length === 0 || revalBusy}
-                          className="px-6 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-extrabold text-xs flex items-center gap-2 shadow-md transition"
-                        >
-                          <RotateCcw size={14} />
-                          <span>{revalBusy ? "Submitting..." : "Submit Revaluation Request"}</span>
-                        </button>
+                      <div>
+                        <h4 className="font-extrabold text-sm sm:text-base text-[#0B192C]">Revaluation & Answer Script Photocopy</h4>
+                        <p className="text-xs text-slate-500 font-medium">
+                          For {latestSemester?.semesterLabel} · {latestSemester?.assessmentType}; requests go to the Controller of Examinations
+                        </p>
                       </div>
                     </div>
-                  )
+                    {isRevalWindowOpen ? (
+                      <span className="bg-purple-100 text-purple-800 border border-purple-200 text-xs font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm self-start">
+                        <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+                        WINDOW OPEN (Fee: ₹{revalFeePerCourse} / course)
+                      </span>
+                    ) : (
+                      <span className="bg-slate-200 text-slate-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 self-start">
+                        <Lock size={12} />
+                        WINDOW CLOSED
+                      </span>
+                    )}
+                  </div>
+
+                  {myRevaluations.length > 0 && (
+                    <div className="space-y-2">
+                      {myRevaluations.map((r) => (
+                        <div key={r.id} className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                          <div>
+                            <span className="font-mono font-bold text-[#0B192C]">{r.refId}</span>
+                            <span className="text-slate-500"> · {r.semester} · {r.assessmentType} · {r.subjectCodes.join(", ")} · ₹{r.totalFee}</span>
+                            {r.note && <p className="text-slate-600 mt-1">COE note: {r.note}</p>}
+                          </div>
+                          <span
+                            className={`self-start sm:self-auto px-3 py-1 rounded-full font-extrabold text-[10px] ${r.status === "COMPLETED"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : r.status === "REJECTED"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-amber-100 text-amber-800"
+                              }`}
+                          >
+                            {r.status === "IN_REVIEW" ? "IN REVIEW" : r.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {isRevalWindowOpen ? (
+                    activeRevaluation ? (
+                      <p className="text-xs text-emerald-800 font-semibold">
+                        Your request {activeRevaluation.refId} for these results is being processed.
+                      </p>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-600">
+                          <span>Select the course(s) for answer-script copy and revaluation:</span>
+                          {revalDeadline && (
+                            <span className="text-slate-500">
+                              Deadline: <strong className="text-[#0B192C]">{new Date(revalDeadline).toLocaleString()}</strong>
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {studentCourses.map((c) => {
+                            const isSelected = revalSelectedCourses.includes(c.code);
+                            return (
+                              <label
+                                key={c.code}
+                                className={`p-3.5 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-3 ${isSelected ? "border-purple-600 bg-purple-50/70 shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"
+                                  }`}
+                              >
+                                <span className="flex items-center gap-3 min-w-0">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => toggleRevalCourse(c.code)}
+                                    className="h-4 w-4 text-purple-600 rounded focus:ring-purple-500 shrink-0"
+                                  />
+                                  <span className="min-w-0">
+                                    <span className="font-mono text-xs font-bold text-[#0B192C]">{c.code}</span>
+                                    <span className="block text-xs font-semibold text-slate-700 truncate">{c.title}</span>
+                                  </span>
+                                </span>
+                                <span className="text-xs font-mono font-bold text-slate-500 shrink-0">
+                                  {c.total} · {c.grade}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
+                          <div className="text-xs font-semibold text-slate-700">
+                            Selected: <strong className="text-[#0B192C] font-black">{revalSelectedCourses.length}</strong> course(s) · Fee:{" "}
+                            <strong className="text-purple-700 font-black text-sm">₹{revalSelectedCourses.length * revalFeePerCourse}</strong>
+                          </div>
+                          <button
+                            onClick={handleApplyRevaluation}
+                            disabled={revalSelectedCourses.length === 0 || revalBusy}
+                            className="px-6 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-extrabold text-xs flex items-center gap-2 shadow-md transition"
+                          >
+                            <RotateCcw size={14} />
+                            <span>{revalBusy ? "Submitting..." : "Submit Revaluation Request"}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  ) : (
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      The revaluation window is not open at the moment. The Controller of Examinations announces when it opens.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Footer Card */}
+              <div className="bg-[#0B192C] text-white p-6 sm:p-8 mt-10 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center items-center divide-y sm:divide-y-0 sm:divide-x divide-white/10">
+                {isInternal && latestSemester ? (
+                  <>
+                    {/* Internal assessment tests have no SGPA / CGPA */}
+                    <div className="py-3 sm:py-0">
+                      <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">ASSESSMENT</p>
+                      <p className="text-2xl font-black text-white mt-1">{latestSemester.assessmentType}</p>
+                    </div>
+                    <div className="py-3 sm:py-0">
+                      <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">TOTAL MARKS</p>
+                      <p className="text-3xl font-black text-white mt-1">
+                        {latestSemester.totalMarks} <span className="text-base text-white/60">/ {latestSemester.maxMarks}</span>
+                      </p>
+                    </div>
+                    <div className="py-3 sm:py-0">
+                      <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">AVERAGE</p>
+                      <p className="text-3xl font-black text-white mt-1">
+                        {latestSemester.maxMarks ? ((latestSemester.totalMarks * 100) / latestSemester.maxMarks).toFixed(1) : "0"}%
+                      </p>
+                    </div>
+                  </>
                 ) : (
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    The revaluation window is not open at the moment. The Controller of Examinations announces when it opens.
-                  </p>
+                  <>
+                    <div className="py-3 sm:py-0">
+                      <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">SEMESTER SGPA</p>
+                      <p className="text-3xl font-black text-white mt-1">
+                        {latestSemester?.sgpa != null ? Number(latestSemester.sgpa).toFixed(2) : "—"}
+                      </p>
+                    </div>
+                    <div className="py-3 sm:py-0">
+                      <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">CUMULATIVE CGPA</p>
+                      <p className="text-3xl font-black text-white mt-1">{results?.cgpa != null ? Number(results.cgpa).toFixed(2) : "—"}</p>
+                    </div>
+                    <div className="py-3 sm:py-0">
+                      <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">OVERALL RESULT</p>
+                      <p className="text-lg font-black text-[#38BDF8] mt-1 tracking-wide">{results?.overallResult ?? "—"}</p>
+                    </div>
+                  </>
                 )}
               </div>
-            )}
 
-            {/* Footer Card */}
-            <div className="bg-[#0B192C] text-white p-6 sm:p-8 mt-10 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center items-center divide-y sm:divide-y-0 sm:divide-x divide-white/10">
-              {isInternal && latestSemester ? (
-                <>
-                  {/* Internal assessment tests have no SGPA / CGPA */}
-                  <div className="py-3 sm:py-0">
-                    <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">ASSESSMENT</p>
-                    <p className="text-2xl font-black text-white mt-1">{latestSemester.assessmentType}</p>
-                  </div>
-                  <div className="py-3 sm:py-0">
-                    <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">TOTAL MARKS</p>
-                    <p className="text-3xl font-black text-white mt-1">
-                      {latestSemester.totalMarks} <span className="text-base text-white/60">/ {latestSemester.maxMarks}</span>
-                    </p>
-                  </div>
-                  <div className="py-3 sm:py-0">
-                    <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">AVERAGE</p>
-                    <p className="text-3xl font-black text-white mt-1">
-                      {latestSemester.maxMarks ? ((latestSemester.totalMarks * 100) / latestSemester.maxMarks).toFixed(1) : "0"}%
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="py-3 sm:py-0">
-                    <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">SEMESTER SGPA</p>
-                    <p className="text-3xl font-black text-white mt-1">
-                      {latestSemester?.sgpa != null ? Number(latestSemester.sgpa).toFixed(2) : "—"}
-                    </p>
-                  </div>
-                  <div className="py-3 sm:py-0">
-                    <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">CUMULATIVE CGPA</p>
-                    <p className="text-3xl font-black text-white mt-1">{results?.cgpa != null ? Number(results.cgpa).toFixed(2) : "—"}</p>
-                  </div>
-                  <div className="py-3 sm:py-0">
-                    <p className="text-xs font-extrabold text-[#D4A72C] uppercase tracking-wider">OVERALL RESULT</p>
-                    <p className="text-lg font-black text-[#38BDF8] mt-1 tracking-wide">{results?.overallResult ?? "—"}</p>
-                  </div>
-                </>
-              )}
             </div>
-
-          </div>
           </>
         )}
       </div>
@@ -3460,9 +3517,9 @@ export default function Home() {
     <AppShell
       role={authenticatedRole}
       onLogout={() => {
-          authApi.logout();
-          setAuthenticatedRole(null);
-        }}
+        authApi.logout();
+        setAuthenticatedRole(null);
+      }}
     />
   );
 }
