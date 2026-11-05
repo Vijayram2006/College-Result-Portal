@@ -84,7 +84,11 @@ import { WorkflowChartTrackerView } from "./dean/WorkflowChartTrackerView";
 import { HodAnalytics } from "./hodAnalytics/HodAnalytics";
 import { HallPlansView } from "./HallPlansView";
 import { DeanFacultyManager } from "./dean/DeanFacultyManager";
-import { Calendar, GitFork } from "lucide-react";
+import { MentoringModule } from "./MentoringModule";
+import { CourseMaterialModule } from "./CourseMaterialModule";
+import { ReportsDownloadCenter } from "./ReportsDownloadCenter";
+import { AdeanAttendanceModule } from "./attendance/AdeanAttendanceModule";
+import { Calendar, GitFork, CalendarCheck } from "lucide-react";
 
 export interface AssociateDeanDashboardProps {
   onLogout: () => void;
@@ -159,7 +163,13 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
   const myCollegeName = me?.collegeName || "KVELL University";
   const myCollegeShort = (me?.collegeKey || "engineering").toUpperCase();
   // Navigation & View state
-  const [activeNav, setActiveNav] = useState<string>("dashboard");
+  const [activeNav, setActiveNav] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab") || params.get("nav") || window.location.hash.replace("#", "");
+    if (tab === "mentoring") return "mentoring";
+    if (tab) return tab;
+    return "dashboard";
+  });
   const [resultsMenuOpen, setResultsMenuOpen] = useState<boolean>(true);
   const [examinationMenuOpen, setExaminationMenuOpen] = useState<boolean>(true);
   const [analyticsMenuOpen, setAnalyticsMenuOpen] = useState<boolean>(true);
@@ -230,9 +240,8 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
 
       {/* LEFT SIDEBAR - Exactly matching the screenshot */}
       <aside
-        className={`fixed top-0 left-0 bottom-0 z-50 w-72 bg-[#0B192C] text-white flex flex-col justify-between border-r border-[#D4A72C]/20 transition-transform duration-300 ease-in-out lg:translate-x-0 ${
-          mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed top-0 left-0 bottom-0 z-50 w-72 bg-[#0B192C] text-white flex flex-col justify-between border-r border-[#D4A72C]/20 transition-transform duration-300 ease-in-out lg:translate-x-0 ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         <div>
           {/* Top Brand Header */}
@@ -271,11 +280,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                 setActiveNav("dashboard");
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${
-                activeNav === "dashboard"
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${activeNav === "dashboard"
                   ? "bg-[#EAB308] text-[#0B192C] shadow-md font-extrabold"
                   : "text-white/80 hover:bg-white/10 hover:text-white"
-              }`}
+                }`}
             >
               <LayoutDashboard size={17} />
               <span>Dashboard</span>
@@ -294,22 +302,35 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                 setActiveNav("mark-approvals");
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left cursor-pointer ${
-                activeNav === "mark-approvals"
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left cursor-pointer ${activeNav === "mark-approvals"
                   ? "bg-[#EAB308] text-[#0B192C] shadow-md font-extrabold"
                   : "text-white/80 hover:bg-white/10 hover:text-white"
-              }`}
+                }`}
             >
               <CheckSquare size={17} />
               <span>Mark Approvals</span>
+            </button>
+
+            {/* Monthly attendance approval & publication */}
+            <button
+              onClick={() => {
+                setActiveNav("attendance-approval");
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left cursor-pointer ${activeNav === "attendance-approval"
+                  ? "bg-[#EAB308] text-[#0B192C] shadow-md font-extrabold"
+                  : "text-white/80 hover:bg-white/10 hover:text-white"
+                }`}
+            >
+              <CalendarCheck size={17} />
+              <span>Attendance Approval</span>
             </button>
 
             {/* Examination Collapsible Menu */}
             <div>
               <button
                 onClick={() => setExaminationMenuOpen(!examinationMenuOpen)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  [
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${[
                     "examination",
                     "timetable-notifications",
                     "question-paper-review",
@@ -318,7 +339,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                   ].includes(activeNav)
                     ? "text-[#D4A72C] bg-white/5 font-extrabold"
                     : "text-white/80 hover:bg-white/10"
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-3">
                   <GraduationCap size={17} />
@@ -335,11 +356,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                       setActiveNav("timetable-notifications");
                       setMobileSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${
-                      activeNav === "timetable-notifications"
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${activeNav === "timetable-notifications"
                         ? "bg-[#D4A72C] text-[#0B192C] font-bold"
                         : "text-white/70 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2.5">
                       <Calendar size={14} />
@@ -353,11 +373,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                       setActiveNav("question-paper-review");
                       setMobileSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${
-                      activeNav === "question-paper-review"
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${activeNav === "question-paper-review"
                         ? "bg-[#D4A72C] text-[#0B192C] font-bold"
                         : "text-white/70 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2.5">
                       <CheckSquare size={14} />
@@ -376,11 +395,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                       setActiveNav("classroom-allocation");
                       setMobileSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${
-                      activeNav === "classroom-allocation"
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${activeNav === "classroom-allocation"
                         ? "bg-[#D4A72C] text-[#0B192C] font-bold"
                         : "text-white/70 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2.5">
                       <Building2 size={14} />
@@ -394,11 +412,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                       setActiveNav("paper-correction");
                       setMobileSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${
-                      activeNav === "paper-correction"
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${activeNav === "paper-correction"
                         ? "bg-[#D4A72C] text-[#0B192C] font-bold"
                         : "text-white/70 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2.5">
                       <PenLine size={14} />
@@ -437,8 +454,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
             <div>
               <button
                 onClick={() => setResultsMenuOpen(!resultsMenuOpen)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${
-                  activeNav.startsWith("results") || [
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${activeNav.startsWith("results") || [
                     "student-data",
                     "internal-marks",
                     "answer-scripts",
@@ -449,7 +465,7 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                   ].includes(activeNav)
                     ? "text-[#D4A72C] bg-white/5"
                     : "text-white/80 hover:bg-white/10"
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-3">
                   <FileSpreadsheet size={17} />
@@ -466,11 +482,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                       setActiveNav("student-data");
                       setMobileSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition text-left ${
-                      activeNav === "student-data"
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition text-left ${activeNav === "student-data"
                         ? "bg-[#D4A72C] text-[#0B192C] font-bold"
                         : "text-white/70 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <Upload size={14} />
                     <span>Student Data</span>
@@ -482,11 +497,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                       setActiveNav("internal-marks");
                       setMobileSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition text-left ${
-                      activeNav === "internal-marks"
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition text-left ${activeNav === "internal-marks"
                         ? "bg-[#D4A72C] text-[#0B192C] font-bold"
                         : "text-white/70 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <FileCheck size={14} />
                     <span>Internal Marks</span>
@@ -498,11 +512,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                       setActiveNav("answer-scripts");
                       setMobileSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition text-left ${
-                      activeNav === "answer-scripts"
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition text-left ${activeNav === "answer-scripts"
                         ? "bg-[#D4A72C] text-[#0B192C] font-bold"
                         : "text-white/70 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <FileText size={14} />
                     <span>Answer Scripts</span>
@@ -514,11 +527,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                       setActiveNav("published-results");
                       setMobileSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition text-left ${
-                      activeNav === "published-results"
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition text-left ${activeNav === "published-results"
                         ? "bg-[#D4A72C] text-[#0B192C] font-bold"
                         : "text-white/70 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <Globe size={14} />
                     <span>Published Results</span>
@@ -530,11 +542,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                       setActiveNav("revaluation");
                       setMobileSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left ${
-                      activeNav === "revaluation"
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left ${activeNav === "revaluation"
                         ? "bg-[#D4A72C] text-[#0B192C] font-bold"
                         : "text-white/70 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2.5">
                       <Scale size={14} />
@@ -556,11 +567,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                     setAnalyticsMenuOpen(!analyticsMenuOpen);
                   }
                 }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  activeNav.startsWith("analytics")
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${activeNav.startsWith("analytics")
                     ? "text-[#D4A72C] bg-white/5 font-extrabold"
                     : "text-white/80 hover:bg-white/10"
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-3">
                   <BarChart3 size={17} />
@@ -586,11 +596,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                       setActiveNav("analytics-iat1");
                       setMobileSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${
-                      activeNav === "analytics-iat1"
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${activeNav === "analytics-iat1"
                         ? "bg-[#D4A72C] text-[#0B192C] font-bold shadow-xs"
                         : "text-white/70 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <span className="font-bold">IAT-1</span>
@@ -603,11 +612,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                       setActiveNav("analytics-iat2");
                       setMobileSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${
-                      activeNav === "analytics-iat2"
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${activeNav === "analytics-iat2"
                         ? "bg-[#D4A72C] text-[#0B192C] font-bold shadow-xs"
                         : "text-white/70 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <span className="font-bold">IAT-2</span>
@@ -620,11 +628,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                       setActiveNav("analytics-endsem");
                       setMobileSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${
-                      activeNav === "analytics-endsem" || activeNav === "analytics"
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${activeNav === "analytics-endsem" || activeNav === "analytics"
                         ? "bg-[#D4A72C] text-[#0B192C] font-bold shadow-xs"
                         : "text-white/70 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <span className="font-bold">END-SEM</span>
@@ -637,11 +644,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                       setActiveNav("analytics-revaluation");
                       setMobileSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${
-                      activeNav === "analytics-revaluation"
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition text-left cursor-pointer ${activeNav === "analytics-revaluation"
                         ? "bg-[#D4A72C] text-[#0B192C] font-bold shadow-xs"
                         : "text-white/70 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <span className="font-bold">REVALUATION</span>
@@ -663,11 +669,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                 setActiveNav("departments");
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left ${
-                activeNav === "departments"
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left ${activeNav === "departments"
                   ? "bg-[#EAB308] text-[#0B192C] shadow-md font-bold"
                   : "text-white/80 hover:bg-white/10 hover:text-white"
-              }`}
+                }`}
             >
               <Building2 size={17} />
               <span>Departments</span>
@@ -678,11 +683,10 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                 setActiveNav("subjects");
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left ${
-                activeNav === "subjects"
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left ${activeNav === "subjects"
                   ? "bg-[#EAB308] text-[#0B192C] shadow-md font-bold"
                   : "text-white/80 hover:bg-white/10 hover:text-white"
-              }`}
+                }`}
             >
               <BookOpen size={17} />
               <span>Subjects</span>
@@ -700,15 +704,64 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
                 setActiveNav("faculty");
                 setMobileSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left ${
-                activeNav === "faculty"
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left ${activeNav === "faculty"
                   ? "bg-[#EAB308] text-[#0B192C] shadow-md font-bold"
                   : "text-white/80 hover:bg-white/10 hover:text-white"
-              }`}
+                }`}
             >
               <UserCheck size={17} />
               <span>Faculty Master</span>
             </button>
+
+            {/* Section: ACADEMIC GOVERNANCE & REPORTS */}
+            <div className="pt-3 pb-1">
+              <span className="text-[10px] font-extrabold text-white/40 uppercase tracking-widest px-3.5">
+                ACADEMIC GOVERNANCE & REPORTS
+              </span>
+            </div>
+
+            <button
+              onClick={() => {
+                setActiveNav("reports");
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left cursor-pointer ${activeNav === "reports"
+                  ? "bg-[#EAB308] text-[#0B192C] shadow-md font-bold"
+                  : "text-white/80 hover:bg-white/10 hover:text-white"
+                }`}
+            >
+              <Download size={17} />
+              <span>Reports Download Center</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveNav("mentoring");
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left cursor-pointer ${activeNav === "mentoring"
+                  ? "bg-[#EAB308] text-[#0B192C] shadow-md font-bold"
+                  : "text-white/80 hover:bg-white/10 hover:text-white"
+                }`}
+            >
+              <Users size={17} />
+              <span>Mentoring Governance</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveNav("course-materials");
+                setMobileSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition text-left cursor-pointer ${activeNav === "course-materials"
+                  ? "bg-[#EAB308] text-[#0B192C] shadow-md font-bold"
+                  : "text-white/80 hover:bg-white/10 hover:text-white"
+                }`}
+            >
+              <BookOpen size={17} />
+              <span>Course Materials & Syllabus</span>
+            </button>
+
           </nav>
         </div>
 
@@ -752,8 +805,9 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
           tag={`OFFICE OF THE ${myTitle.toUpperCase()}`}
           subtitle="Question paper review, approval of forwarded marks and the college's results (read only)"
           onBellLink={(link) =>
-            link === "question-paper" ? setActiveNav("question-paper-review")
-              : link === "mark-approvals" ? setActiveNav("mark-approvals") : undefined
+            link === "mentoring" ? setActiveNav("mentoring")
+              : link === "question-paper" ? setActiveNav("question-paper-review")
+                : link === "mark-approvals" ? setActiveNav("mark-approvals") : undefined
           }
           onOpenMenu={() => setMobileSidebarOpen(true)}
           onBack={activeNav !== "dashboard" ? () => setActiveNav("dashboard") : undefined}
@@ -970,6 +1024,21 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
           )}
           {/* Revaluation: the analytics above (end semester) plus the college's real revaluation requests */}
           {activeNav === "analytics-revaluation" && <DeanRevaluationView />}
+
+          {/* Mentoring Governance View */}
+          {activeNav === "mentoring" && <MentoringModule mode="dean" />}
+
+          {/* Attendance Approval & Publication View */}
+          {activeNav === "attendance-approval" && <AdeanAttendanceModule />}
+
+          {/* Course Materials & Syllabus Coverage View */}
+          {activeNav === "course-materials" && <CourseMaterialModule mode="dean" />}
+
+
+          {/* Reports Download Center View */}
+          {activeNav === "reports" && (
+            <ReportsDownloadCenter role="Associate Dean" college="Faculty of Engineering" />
+          )}
         </div>
       </main>
 

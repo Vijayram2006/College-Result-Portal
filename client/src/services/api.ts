@@ -643,3 +643,654 @@ export const internalMarksApi = {
     return (await apiClient.get<InternalHistoryItem[]>("/student/internal-marks/history", { params: { subject } })).data;
   },
 };
+
+// â”€â”€ Modules: Mentoring, Course Material, Research Papers, Reports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+export interface MentorInfo {
+  facultyId: number;
+  name: string;
+  username: string;
+  department: string;
+  email: string;
+  phone: string;
+  cabin: string;
+}
+
+export interface MenteeView {
+  regNo: string;
+  name: string;
+  category: string;
+  yearLabel: string;
+  semester: number;
+  deptKey: string;
+  academicYear: string;
+  lastSessionDate: string | null;
+  pendingConcerns: number;
+  arrearsCount?: number;
+  arrearSubjects?: string;
+  attendancePct?: number;
+  iaAverage?: number;
+  activities?: { id: number; activityType: string; title: string; organization: string; achievement: string; academicYear: string; eventDate: string }[];
+}
+
+export interface MentoringSessionView {
+  id: number;
+  facultyId: number;
+  facultyName: string;
+  studentRegNo: string;
+  studentName: string;
+  sessionDate: string;
+  sessionType: string;
+  meetingMode: string;
+  topicsDiscussed: string;
+  guidanceNotes: string;
+  actionItems: string | null;
+  nextReviewDate: string | null;
+  attendanceStatus: string;
+  createdAt: string;
+}
+
+export interface MentoringConcernView {
+  id: number;
+  studentRegNo: string;
+  studentName: string;
+  facultyId: number | null;
+  facultyName: string;
+  title: string;
+  category: string;
+  description: string;
+  status: "SUBMITTED" | "IN_REVIEW" | "RESOLVED" | "ESCALATED_TO_HOD";
+  mentorResponse: string | null;
+  hodRemarks: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StudentMentorDashboard {
+  mentor: MentorInfo | null;
+  sessions: MentoringSessionView[];
+  concerns: MentoringConcernView[];
+  allocationStatus?: "PENDING_ADEAN_APPROVAL" | "APPROVED" | "REJECTED" | "UNASSIGNED";
+  approvalMessage?: string;
+}
+
+export interface MentorStat {
+  facultyId: number;
+  name: string;
+  username: string;
+  menteeCount: number;
+  sessionsCount: number;
+  pendingCount?: number;
+}
+
+export interface HodMentoringOverview {
+  deptKey: string;
+  totalMentees: number;
+  totalMentors: number;
+  totalSessions: number;
+  activeConcerns: number;
+  escalatedConcerns: number;
+  mentors: MentorStat[];
+  pendingApprovals?: number;
+  rejectedCount?: number;
+}
+
+export interface CollegeMentoringOverview {
+  collegeKey: string;
+  totalStudents: number;
+  totalAllocated: number;
+  totalMentors: number;
+  totalSessions: number;
+  pendingConcerns: number;
+  pendingApprovals?: number;
+  departmentBreakdown: HodMentoringOverview[];
+}
+
+export interface AllocationDetailView {
+  id: number;
+  studentRegNo: string;
+  studentName: string;
+  semester: number;
+  facultyId: number;
+  facultyName: string;
+  facultyUsername: string;
+  status: "PENDING_ADEAN_APPROVAL" | "APPROVED" | "REJECTED";
+  academicYear: string;
+  assignedBy: string;
+  adeanRemarks?: string;
+  createdAt: string;
+  approvedAt?: string;
+}
+
+export interface EligibleStudentView {
+  regNo: string;
+  name: string;
+  deptKey: string;
+  semester: number;
+  yearLabel: string;
+  facultyId?: number;
+  facultyName?: string;
+  currentFacultyId?: number;
+  currentFacultyName?: string;
+  allocationStatus: "PENDING_ADEAN_APPROVAL" | "APPROVED" | "REJECTED" | "UNASSIGNED" | "REJECTED_BY_ADEAN";
+}
+
+export interface FacultyOptionView {
+  id: number;
+  name: string;
+  username: string;
+  activeCount?: number;
+  pendingCount?: number;
+  activeMenteeCount: number;
+  pendingMenteeCount: number;
+}
+
+export interface PendingAllocationView {
+  id: number;
+  studentRegNo: string;
+  studentName: string;
+  deptKey: string;
+  semester: number;
+  facultyId: number;
+  facultyName: string;
+  facultyUsername: string;
+  academicYear: string;
+  assignedBy: string;
+  status: string;
+  batchId?: string;
+  createdAt: string;
+}
+
+export interface AllocationReviewResult {
+  approvedCount: number;
+  rejectedCount: number;
+  message: string;
+}
+
+export interface AutoAllocateRequest {
+  deptKey?: string;
+  academicYear?: string;
+  semester?: number;
+  strategy?: "BALANCED" | "ROUND_ROBIN";
+}
+
+export interface AutoAllocateResult {
+  totalAllocated: number;
+  facultyCount: number;
+  batchId: string;
+  message: string;
+  allocations: { studentRegNo: string; facultyId: number }[];
+}
+
+export interface PendingBatchView {
+  batchId: string;
+  deptKey: string;
+  academicYear: string;
+  assignedBy: string;
+  studentCount: number;
+  totalStudents?: number;
+  facultyCount: number;
+  createdAt: string;
+  allocations: PendingAllocationView[];
+}
+
+export interface BatchReviewRequest {
+  batchId: string;
+  action: "APPROVE" | "REJECT";
+  remarks?: string;
+}
+
+export interface StudentMentorChangeRequest {
+  reason: string;
+  queriesAboutMentor?: string;
+  preferredMentorNotes?: string;
+}
+
+export interface EscalatedMentorRequestView {
+  id: number;
+  studentRegNo: string;
+  studentName: string;
+  deptKey: string;
+  semester: number;
+  currentFacultyId?: number;
+  currentFacultyName?: string;
+  title: string;
+  reason?: string;
+  category: string;
+  description: string;
+  queriesAboutMentor?: string;
+  preferredMentorNotes?: string;
+  status: string;
+  mentorResponse?: string;
+  hodRemarks?: string;
+  createdAt: string;
+  escalatedAt?: string;
+}
+
+export interface ResolveMentorChangeRequest {
+  concernId: number;
+  action: "REASSIGN" | "RETAIN" | "RESOLVE";
+  newFacultyId?: number;
+  hodRemarks?: string;
+}
+
+export interface MenteeAcademicProfile {
+  regNo: string;
+  name: string;
+  deptKey: string;
+  semester: number;
+  yearLabel: string;
+  email: string;
+  phone: string;
+  arrearsCount: number;
+  arrearSubjectList: string[];
+  attendancePct: number;
+  totalClasses: number;
+  attendedClasses: number;
+  absentClasses: number;
+  iaAverage: number;
+  subjectMarks: { subjectCode: string; subjectTitle: string; component: string; value: number }[];
+  extracurricularActivities: { id: number; activityType: string; title: string; organization: string; achievement: string; academicYear: string; eventDate: string }[];
+  sessions: MentoringSessionView[];
+  concerns: MentoringConcernView[];
+}
+
+export const mentoringApi = {
+  async getStudentDashboard(): Promise<StudentMentorDashboard> {
+    return (await apiClient.get<StudentMentorDashboard>("/mentoring/student/my-mentor")).data;
+  },
+  async getFacultyMentees(): Promise<MenteeView[]> {
+    return (await apiClient.get<MenteeView[]>("/mentoring/faculty/mentees")).data;
+  },
+  async getSessions(studentRegNo?: string): Promise<MentoringSessionView[]> {
+    return (await apiClient.get<MentoringSessionView[]>("/mentoring/sessions", { params: { studentRegNo } })).data;
+  },
+  async recordSession(payload: {
+    studentRegNo: string;
+    sessionDate?: string;
+    sessionType?: string;
+    meetingMode?: string;
+    topicsDiscussed: string;
+    guidanceNotes: string;
+    actionItems?: string;
+    nextReviewDate?: string;
+  }): Promise<MentoringSessionView> {
+    return (await apiClient.post<MentoringSessionView>("/mentoring/sessions", payload)).data;
+  },
+  async getConcerns(status?: string): Promise<MentoringConcernView[]> {
+    return (await apiClient.get<MentoringConcernView[]>("/mentoring/concerns", { params: { status } })).data;
+  },
+  async submitConcern(payload: { title: string; category?: string; description: string }): Promise<MentoringConcernView> {
+    return (await apiClient.post<MentoringConcernView>("/mentoring/concerns", payload)).data;
+  },
+  async updateConcern(id: number, payload: { status?: string; mentorResponse?: string; hodRemarks?: string }): Promise<MentoringConcernView> {
+    return (await apiClient.put<MentoringConcernView>(`/mentoring/concerns/${id}`, payload)).data;
+  },
+  async getHodOverview(deptKey?: string): Promise<HodMentoringOverview> {
+    return (await apiClient.get<HodMentoringOverview>("/mentoring/hod/overview", { params: { deptKey } })).data;
+  },
+  async getHodAllocations(deptKey?: string): Promise<AllocationDetailView[]> {
+    return (await apiClient.get<AllocationDetailView[]>("/mentoring/hod/allocations", { params: { deptKey } })).data;
+  },
+  async getEligibleStudents(deptKey?: string): Promise<EligibleStudentView[]> {
+    return (await apiClient.get<EligibleStudentView[]>("/mentoring/hod/eligible-students", { params: { deptKey } })).data;
+  },
+  async getDeptFaculty(deptKey?: string): Promise<FacultyOptionView[]> {
+    return (await apiClient.get<FacultyOptionView[]>("/mentoring/hod/faculty", { params: { deptKey } })).data;
+  },
+  async allocateMentors(payload: { deptKey?: string; academicYear?: string; allocations: { studentRegNo: string; facultyId: number }[] }): Promise<void> {
+    await apiClient.post("/mentoring/hod/allocate", payload);
+  },
+  async deleteHodAllocation(id: number): Promise<void> {
+    await apiClient.delete(`/mentoring/hod/allocations/${id}`);
+  },
+  async deleteHodAllocations(ids: number[]): Promise<{ deleted: number }> {
+    return (await apiClient.delete<{ deleted: number }>("/mentoring/hod/allocations", { data: ids })).data;
+  },
+  async getPendingDeanAllocations(deptKey?: string): Promise<PendingAllocationView[]> {
+    return (await apiClient.get<PendingAllocationView[]>("/mentoring/dean/pending-allocations", { params: { deptKey } })).data;
+  },
+  async reviewAllocations(payload: { allocationIds: number[]; action: "APPROVE" | "REJECT"; remarks?: string }): Promise<AllocationReviewResult> {
+    return (await apiClient.post<AllocationReviewResult>("/mentoring/dean/review-allocations", payload)).data;
+  },
+  async getInstitutionalOverview(collegeKey?: string): Promise<CollegeMentoringOverview> {
+    return (await apiClient.get<CollegeMentoringOverview>("/mentoring/institutional/overview", { params: { collegeKey } })).data;
+  },
+  async autoAllocate(payload: AutoAllocateRequest): Promise<AutoAllocateResult> {
+    return (await apiClient.post<AutoAllocateResult>("/mentoring/hod/auto-allocate", payload)).data;
+  },
+  async getPendingBatches(deptKey?: string): Promise<PendingBatchView[]> {
+    return (await apiClient.get<PendingBatchView[]>("/mentoring/dean/pending-batches", { params: { deptKey } })).data;
+  },
+  async reviewBatch(payload: BatchReviewRequest): Promise<AllocationReviewResult> {
+    return (await apiClient.post<AllocationReviewResult>("/mentoring/dean/review-batch", payload)).data;
+  },
+  async getMenteeProfile(regNo: string): Promise<MenteeAcademicProfile> {
+    return (await apiClient.get<MenteeAcademicProfile>(`/mentoring/mentee-profile/${regNo}`)).data;
+  },
+  async submitMentorChangeRequest(payload: StudentMentorChangeRequest): Promise<MentoringConcernView> {
+    return (await apiClient.post<MentoringConcernView>("/mentoring/student/mentor-change-request", payload)).data;
+  },
+  async getEscalatedRequests(deptKey?: string): Promise<EscalatedMentorRequestView[]> {
+    return (await apiClient.get<EscalatedMentorRequestView[]>("/mentoring/hod/escalated-requests", { params: { deptKey } })).data;
+  },
+  async resolveMentorChange(payload: ResolveMentorChangeRequest): Promise<void> {
+    await apiClient.post("/mentoring/hod/resolve-mentor-change", payload);
+  },
+};
+
+export interface CourseMaterialView {
+  id: number;
+  subjectId: number;
+  subjectCode: string;
+  subjectTitle: string;
+  facultyId: number;
+  facultyName: string;
+  deptKey: string;
+  semester: number;
+  section?: string;
+  unitNumber: number;
+  materialType: "NOTE" | "SLIDES" | "LAB_MANUAL" | "QUESTION_BANK" | "REFERENCE";
+  title: string;
+  description: string;
+  fileUrl: string;
+  fileName: string;
+  fileSizeKb: number;
+  isPublished: boolean;
+  downloadCount: number;
+  createdAt: string;
+}
+
+export interface UnitCoverage {
+  unitNumber: number;
+  notesCount: number;
+  slidesCount: number;
+  labCount: number;
+  qbCount: number;
+  totalCount: number;
+}
+
+export interface SubjectCoverageView {
+  subjectId: number;
+  subjectCode: string;
+  subjectTitle: string;
+  faculty: string;
+  semester: number;
+  totalMaterials: number;
+  totalDownloads: number;
+  units: UnitCoverage[];
+}
+
+export const courseMaterialsApi = {
+  async list(params?: { deptKey?: string; semester?: number; section?: string; subjectId?: number; unitNumber?: number; materialType?: string }): Promise<CourseMaterialView[]> {
+    return (await apiClient.get<CourseMaterialView[]>("/coursematerials", { params })).data;
+  },
+  async upload(payload: {
+    subjectId: number;
+    unitNumber: number;
+    materialType?: string;
+    title: string;
+    description?: string;
+    fileUrl?: string;
+    fileName?: string;
+    fileSizeKb?: number;
+    section?: string;
+    deptKeys?: string[];
+    semester?: number;
+  }): Promise<CourseMaterialView> {
+    return (await apiClient.post<CourseMaterialView>("/coursematerials", payload)).data;
+  },
+  async recordDownload(id: number): Promise<void> {
+    await apiClient.post(`/coursematerials/${id}/download`);
+  },
+  async delete(id: number): Promise<void> {
+    await apiClient.delete(`/coursematerials/${id}`);
+  },
+  async getCoverage(deptKey?: string, semester?: number): Promise<SubjectCoverageView[]> {
+    return (await apiClient.get<SubjectCoverageView[]>("/coursematerials/coverage", { params: { deptKey, semester } })).data;
+  },
+};
+
+
+export interface ReportDataset {
+  reportKey: string;
+  title: string;
+  subtitle: string;
+  generatedBy: string;
+  role: string;
+  generatedAt: string;
+  columns: string[];
+  rows: Record<string, any>[];
+  summaryStats: Record<string, any>;
+}
+
+export interface DownloadLogView {
+  id: number;
+  username: string;
+  role: string;
+  reportType: string;
+  fileFormat: string;
+  filtersApplied: string;
+  downloadedAt: string;
+}
+
+export const reportsApi = {
+  async generate(reportKey: string, params?: Record<string, string>): Promise<ReportDataset> {
+    return (await apiClient.get<ReportDataset>("/reports/generate", { params: { reportKey, ...(params || {}) } })).data;
+  },
+  async logDownload(payload: { reportType: string; fileFormat: string; filtersApplied?: string }): Promise<void> {
+    await apiClient.post("/reports/log-download", payload);
+  },
+  async getHistory(): Promise<DownloadLogView[]> {
+    return (await apiClient.get<DownloadLogView[]>("/reports/history")).data;
+  },
+};
+
+
+// =============================================================================
+// ATTENDANCE & ABSENT DETAILS MODULES
+// =============================================================================
+
+export interface AttendanceSubjectOption {
+  id: number;
+  code: string;
+  title: string;
+  semester: number;
+  deptKey: string;
+  faculty: string;
+}
+
+export interface AttendanceStudentRosterItem {
+  regNo: string;
+  name: string;
+  deptKey: string;
+  semester: number;
+  category: string;
+}
+
+export interface AttendanceRecordItem {
+  id: number;
+  regNo: string;
+  studentName: string;
+  attendanceDate: string;
+  sessionSlot: string;
+  status: "PRESENT" | "ABSENT" | "ON_DUTY";
+  remark: string;
+  markedBy: string;
+}
+
+export interface MonthlyStudentSummary {
+  regNo: string;
+  studentName: string;
+  conducted: number;
+  attended: number;
+  absent: number;
+  od: number;
+  percentage: number;
+  eligibilityStatus: "ELIGIBLE" | "CONDONATION" | "SHORTAGE";
+}
+
+export interface MonthlyBatchDetail {
+  batchId: string;
+  deptKey: string;
+  semester: number;
+  subjectCode: string;
+  subjectTitle: string;
+  month: number;
+  year: number;
+  facultyName: string;
+  totalConducted: number;
+  totalStudents: number;
+  classAveragePct: number;
+  status: "DRAFT" | "SUBMITTED_TO_HOD" | "HOD_APPROVED" | "ADEAN_APPROVED" | "REJECTED_BY_HOD" | "REJECTED_BY_ADEAN";
+  submittedAt: string | null;
+  hodName: string | null;
+  hodActionAt: string | null;
+  hodRemarks: string | null;
+  adeanName: string | null;
+  adeanActionAt: string | null;
+  adeanRemarks: string | null;
+  students: MonthlyStudentSummary[];
+}
+
+export interface AttendanceBatchSummaryItem {
+  batchId: string;
+  deptKey: string;
+  semester: number;
+  subjectCode: string;
+  subjectTitle: string;
+  month: number;
+  year: number;
+  facultyName: string;
+  totalConducted: number;
+  totalStudents: number;
+  classAveragePct: number;
+  status: "DRAFT" | "SUBMITTED_TO_HOD" | "HOD_APPROVED" | "ADEAN_APPROVED" | "REJECTED_BY_HOD" | "REJECTED_BY_ADEAN";
+  submittedAt: string | null;
+  hodName: string | null;
+  hodActionAt: string | null;
+  adeanName: string | null;
+  adeanActionAt: string | null;
+}
+
+export interface AttendanceMonthBreakdown {
+  month: number;
+  year: number;
+  monthName: string;
+  conducted: number;
+  attended: number;
+  absent: number;
+  od: number;
+  percentage: number;
+}
+
+export interface StudentSubjectAttendance {
+  subjectCode: string;
+  subjectTitle: string;
+  facultyName: string;
+  totalConducted: number;
+  totalAttended: number;
+  totalAbsent: number;
+  totalOd: number;
+  percentage: number;
+  eligibilityStatus: "ELIGIBLE" | "CONDONATION" | "SHORTAGE";
+  monthlyBreakdown: AttendanceMonthBreakdown[];
+}
+
+export interface StudentAttendanceOverview {
+  regNo: string;
+  studentName: string;
+  semester: number;
+  deptKey: string;
+  overallPercentage: number;
+  totalConducted: number;
+  totalAttended: number;
+  totalAbsent: number;
+  totalOd: number;
+  overallEligibility: "ELIGIBLE" | "CONDONATION" | "SHORTAGE";
+  subjects: StudentSubjectAttendance[];
+}
+
+export interface StudentAbsentItem {
+  id: number;
+  subjectCode: string;
+  subjectTitle: string;
+  facultyName: string;
+  attendanceDate: string;
+  dayOfWeek: string;
+  sessionSlot: string;
+  status: string;
+  remark: string;
+}
+
+export interface SubjectAbsentGroup {
+  subjectCode: string;
+  subjectTitle: string;
+  facultyName: string;
+  totalAbsentDays: number;
+  absentDates: StudentAbsentItem[];
+}
+
+export interface StudentAbsentDetailsView {
+  regNo: string;
+  studentName: string;
+  totalAbsentCount: number;
+  subjectsAffected: number;
+  subjectGroups: SubjectAbsentGroup[];
+  allAbsents: StudentAbsentItem[];
+}
+
+export const attendanceApi = {
+  async getAvailableSubjects(semester?: number): Promise<AttendanceSubjectOption[]> {
+    return (await apiClient.get<AttendanceSubjectOption[]>("/attendance/faculty/subjects", { params: { semester } })).data;
+  },
+  async getStudentRoster(deptKey?: string, semester?: number): Promise<AttendanceStudentRosterItem[]> {
+    return (await apiClient.get<AttendanceStudentRosterItem[]>("/attendance/faculty/students", { params: { deptKey, semester } })).data;
+  },
+  async getDailyAttendance(subjectCode: string, date: string, sessionSlot?: string): Promise<AttendanceRecordItem[]> {
+    return (await apiClient.get<AttendanceRecordItem[]>("/attendance/daily", { params: { subjectCode, date, sessionSlot } })).data;
+  },
+  async saveDailyAttendance(payload: {
+    deptKey: string;
+    semester: number;
+    subjectCode: string;
+    date: string;
+    sessionSlot: string;
+    records: { regNo: string; status: string; remark?: string }[];
+  }): Promise<MonthlyBatchDetail> {
+    return (await apiClient.post<MonthlyBatchDetail>("/attendance/daily", payload)).data;
+  },
+  async getMonthlyBatch(params?: {
+    batchId?: string;
+    deptKey?: string;
+    semester?: number;
+    subjectCode?: string;
+    year?: number;
+    month?: number;
+  }): Promise<MonthlyBatchDetail> {
+    return (await apiClient.get<MonthlyBatchDetail>("/attendance/monthly/batch", { params })).data;
+  },
+  async submitMonthlyBatch(batchId: string): Promise<MonthlyBatchDetail> {
+    return (await apiClient.post<MonthlyBatchDetail>("/attendance/monthly/submit", null, { params: { batchId } })).data;
+  },
+  async getHodBatches(deptKey?: string, status?: string): Promise<AttendanceBatchSummaryItem[]> {
+    return (await apiClient.get<AttendanceBatchSummaryItem[]>("/attendance/hod/batches", { params: { deptKey, status } })).data;
+  },
+  async hodReviewBatch(payload: { batchId: string; action: "APPROVE" | "REJECT"; remarks?: string }): Promise<MonthlyBatchDetail> {
+    return (await apiClient.post<MonthlyBatchDetail>("/attendance/hod/review", payload)).data;
+  },
+  async getAdeanBatches(deptKey?: string, status?: string): Promise<AttendanceBatchSummaryItem[]> {
+    return (await apiClient.get<AttendanceBatchSummaryItem[]>("/attendance/adean/batches", { params: { deptKey, status } })).data;
+  },
+  async adeanReviewBatch(payload: { batchId: string; action: "APPROVE" | "REJECT"; remarks?: string }): Promise<MonthlyBatchDetail> {
+    return (await apiClient.post<MonthlyBatchDetail>("/attendance/adean/review", payload)).data;
+  },
+  async getStudentOverview(regNo?: string): Promise<StudentAttendanceOverview> {
+    return (await apiClient.get<StudentAttendanceOverview>("/attendance/student/overview", { params: { regNo } })).data;
+  },
+  async getStudentAbsentDetails(regNo?: string, subjectCode?: string): Promise<StudentAbsentDetailsView> {
+    return (await apiClient.get<StudentAbsentDetailsView>("/attendance/student/absent-details", { params: { regNo, subjectCode } })).data;
+  },
+};
+
+

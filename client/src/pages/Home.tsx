@@ -35,6 +35,13 @@ import { HodAnalytics } from "../components/hodAnalytics/HodAnalytics";
 import { CoAssessment } from "../components/CoAssessment";
 import { StudentExitSurvey } from "../components/StudentExitSurvey";
 import { startSharedStore } from "../services/sharedStore";
+import { MentoringModule } from "../components/MentoringModule";
+import { CourseMaterialModule } from "../components/CourseMaterialModule";
+import { ReportsDownloadCenter } from "../components/ReportsDownloadCenter";
+import { FacultyAttendanceModule } from "../components/attendance/FacultyAttendanceModule";
+import { HodAttendanceModule } from "../components/attendance/HodAttendanceModule";
+import { StudentAttendanceModule } from "../components/attendance/StudentAttendanceModule";
+import { StudentAbsentDetailsModule } from "../components/attendance/StudentAbsentDetailsModule";
 import {
   Activity,
   AlertCircle,
@@ -50,6 +57,8 @@ import {
   Building2,
   Calendar,
   CalendarDays,
+  CalendarCheck,
+  CalendarX,
   Check,
   CheckCircle2,
   CheckSquare,
@@ -156,7 +165,11 @@ type PageKey =
   | "my-class"
   | "leave"
   | "logbook"
-  | "my-performance";
+  | "my-performance"
+  | "mentoring"
+  | "course-materials"
+  | "attendance"
+  | "absent-details";
 
 interface NavItem {
   key: PageKey;
@@ -225,6 +238,10 @@ const roleNav: Record<Role, NavItem[]> = {
     { key: "paper-correction", label: "Paper Correction", icon: FileText },
     { key: "hall-allotment", label: "Hall Allotment", icon: LayoutDashboard },
     { key: "question-paper", label: "Question Papers", icon: FileCheck },
+    { key: "attendance", label: "Attendance", icon: CalendarCheck },
+    { key: "course-materials", label: "Course Materials", icon: BookOpen },
+    { key: "mentoring", label: "Mentoring", icon: UsersRound },
+    { key: "reports", label: "Report Download", icon: Download },
     // ERP: My Class appears only for a class in-charge (see AppShell)
     { key: "my-class", label: "My Class", icon: UsersRound },
     { key: "logbook", label: "Logbook", icon: NotebookPen },
@@ -1083,6 +1100,200 @@ function FacultyDashboard({ onNavigate }: { onNavigate: (page: PageKey) => void 
 
 
 
+function StudentListView({
+  students,
+  department,
+}: {
+  students: HodOverviewDTO["students"];
+  department: string;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedYear, setSelectedYear] = useState("All");
+  const [selectedSection, setSelectedSection] = useState("All");
+
+  const filteredStudents = students.filter((s) => {
+    const matchesQuery =
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.reg.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesYear = selectedYear === "All" || s.year === selectedYear;
+    const matchesSection = selectedSection === "All" || s.section === selectedSection;
+    return matchesQuery && matchesYear && matchesSection;
+  });
+
+  const totalCount = students.length;
+  const y1Count = students.filter((s) => s.year === "1st Year").length;
+  const y2Count = students.filter((s) => s.year === "2nd Year").length;
+  const y3Count = students.filter((s) => s.year === "3rd Year").length;
+  const y4Count = students.filter((s) => s.year === "4th Year").length;
+
+  const handleExport = () => {
+    const rows = filteredStudents.map((s, idx) => ({
+      "S.No": idx + 1,
+      "Register Number": s.reg,
+      "Student Name": s.name,
+      "Academic Year": s.year,
+      "Semester": s.sem,
+      "Section / Category": s.section,
+      "Department": department,
+      "Enrollment Status": "Active / Enrolled",
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Enrolled Students");
+    XLSX.writeFile(workbook, `${department.replace(/[\s/]+/g, "_")}_Student_List.xlsx`);
+  };
+
+  return (
+    <div className="bg-white rounded-[2.25rem] p-6 sm:p-9 shadow-sm border border-slate-200 space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 pb-5">
+        <div>
+          <span className="bg-[#D4A72C]/15 text-[#8A6410] text-[10px] font-black uppercase tracking-wider px-3.5 py-1 rounded-full inline-block border border-[#D4A72C]/30">
+            📋 ENROLLED STUDENT DIRECTORY
+          </span>
+          <h3 className="text-xl font-black text-[#0B192C] mt-1 tracking-tight">
+            Department Student List
+          </h3>
+          <p className="text-xs text-slate-500 font-medium mt-0.5">
+            Complete roster and academic directory of students enrolled in {department}.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0B192C] text-[#D4A72C] text-xs font-bold hover:bg-[#152744] transition shadow-sm"
+          >
+            <Download size={14} />
+            <span>Export Roster (Excel)</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Summary KPI Badges */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="bg-[#F8F5EE] border border-slate-200 rounded-2xl p-3.5 text-center">
+          <p className="text-[10px] font-extrabold uppercase text-slate-500 tracking-wider">Total Enrolled</p>
+          <p className="text-xl font-black text-[#0B192C] mt-0.5">{totalCount}</p>
+        </div>
+        <div className="bg-amber-50/60 border border-amber-200/70 rounded-2xl p-3.5 text-center">
+          <p className="text-[10px] font-extrabold uppercase text-amber-800 tracking-wider">1st Year</p>
+          <p className="text-xl font-black text-amber-900 mt-0.5">{y1Count}</p>
+        </div>
+        <div className="bg-sky-50/60 border border-sky-200/70 rounded-2xl p-3.5 text-center">
+          <p className="text-[10px] font-extrabold uppercase text-sky-800 tracking-wider">2nd Year</p>
+          <p className="text-xl font-black text-sky-900 mt-0.5">{y2Count}</p>
+        </div>
+        <div className="bg-emerald-50/60 border border-emerald-200/70 rounded-2xl p-3.5 text-center">
+          <p className="text-[10px] font-extrabold uppercase text-emerald-800 tracking-wider">3rd Year</p>
+          <p className="text-xl font-black text-emerald-900 mt-0.5">{y3Count}</p>
+        </div>
+        <div className="bg-purple-50/60 border border-purple-200/70 rounded-2xl p-3.5 text-center">
+          <p className="text-[10px] font-extrabold uppercase text-purple-800 tracking-wider">4th Year</p>
+          <p className="text-xl font-black text-purple-900 mt-0.5">{y4Count}</p>
+        </div>
+      </div>
+
+      {/* Search Bar & Filter Controls */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by student name or register number..."
+            className="h-10 w-full rounded-xl border border-slate-200 bg-[#F8F5EE]/60 pl-9 pr-3 text-xs font-semibold focus:border-[#0B192C] focus:bg-white focus:outline-none transition"
+          />
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <label className="text-[11px] font-bold text-slate-500 uppercase">Year:</label>
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-[#0B192C] focus:outline-none"
+          >
+            <option value="All">All Years</option>
+            <option value="1st Year">1st Year</option>
+            <option value="2nd Year">2nd Year</option>
+            <option value="3rd Year">3rd Year</option>
+            <option value="4th Year">4th Year</option>
+          </select>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <label className="text-[11px] font-bold text-slate-500 uppercase">Category:</label>
+          <select
+            value={selectedSection}
+            onChange={(e) => setSelectedSection(e.target.value)}
+            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800 focus:border-[#0B192C] focus:outline-none"
+          >
+            <option value="All">All Categories</option>
+            <option value="Regular">Regular</option>
+            <option value="Lateral">Lateral</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Student List Table */}
+      <div className="overflow-auto rounded-2xl border border-slate-200 max-h-[70vh]">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-[#0B192C] text-white font-extrabold uppercase tracking-wider text-[11px] sticky top-0 z-20">
+            <tr>
+              <th className="px-4 py-3.5 text-center w-14">S.NO</th>
+              <th className="px-5 py-3.5">STUDENT NAME</th>
+              <th className="px-4 py-3.5">REGISTER NUMBER</th>
+              <th className="px-4 py-3.5">ACADEMIC YEAR</th>
+              <th className="px-4 py-3.5">SEMESTER</th>
+              <th className="px-4 py-3.5">SECTION / CATEGORY</th>
+              <th className="px-5 py-3.5 text-right">ENROLLMENT STATUS</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
+            {filteredStudents.map((st, idx) => (
+              <tr key={st.reg} className="hover:bg-slate-50 transition">
+                <td className="px-4 py-3.5 text-center text-slate-400 font-mono text-xs">{idx + 1}</td>
+                <td className="px-5 py-3.5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[#0B192C] text-[#D4A72C] flex items-center justify-center font-bold text-xs shrink-0">
+                      {st.name.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-extrabold text-slate-900">{st.name}</p>
+                      <p className="text-[10px] text-slate-400 font-medium">{department}</p>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3.5">
+                  <span className="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
+                    {st.reg}
+                  </span>
+                </td>
+                <td className="px-4 py-3.5 font-bold text-slate-800">{st.year}</td>
+                <td className="px-4 py-3.5 text-slate-600">{st.sem}</td>
+                <td className="px-4 py-3.5 text-slate-600 font-bold">{st.section}</td>
+                <td className="px-5 py-3.5 text-right">
+                  <span className="inline-block px-3 py-1 rounded-full text-xs font-black border bg-emerald-100 text-emerald-800 border-emerald-200">
+                    ENROLLED
+                  </span>
+                </td>
+              </tr>
+            ))}
+            {filteredStudents.length === 0 && (
+              <tr>
+                <td colSpan={7} className="py-8 text-center text-xs text-slate-500 font-medium">
+                  No enrolled students match the search query or selected filters.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function StudentResultView({ students }: { students: HodOverviewDTO["students"] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedYear, setSelectedYear] = useState("All");
@@ -1233,7 +1444,7 @@ function HodPortalDashboard({
   department?: string;
 }) {
   const kvellSealLogo = "/kvell-logo.png";
-  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "markEntry" | "internals" | "hallAllotment" | "studentResult" | "questionPapers" | "markApprovals" | "notifications" | "leaveApprovals" | "myLeave" | "classIncharge" | "logbook" | "facultyPerformance">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "markEntry" | "internals" | "hallAllotment" | "studentResult" | "questionPapers" | "markApprovals" | "notifications" | "leaveApprovals" | "myLeave" | "classIncharge" | "logbook" | "facultyPerformance" | "studentList" | "courseMaterials" | "mentoring" | "attendance" | "reports">("dashboard");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [deanBroadcastNotifs, setDeanBroadcastNotifs] = useState<DeanExamNotification[]>(() => safeLoadNotifications());
   const [pendingFacultyQpCount, setPendingFacultyQpCount] = useState<number>(() => {
@@ -1289,6 +1500,7 @@ function HodPortalDashboard({
     <PortalShell
       navItems={[
         { key: "dashboard", label: "Dashboard", icon: BarChart3 },
+        { key: "studentList", label: "Student List", icon: UsersRound },
         { key: "analytics", label: "Analytics", icon: PieChart },
         { key: "markEntry", label: "Mark Entry", icon: PenLine },
         { key: "internals", label: "Internal Mark Entry", icon: ClipboardCheck },
@@ -1302,6 +1514,10 @@ function HodPortalDashboard({
         { key: "myLeave", label: "My Leave", icon: CalendarDays },
         { key: "logbook", label: "Subject Allocation & Completion", icon: NotebookPen },
         { key: "facultyPerformance", label: "Faculty Performance", icon: BarChart3 },
+        { key: "attendance", label: "Attendance Approval", icon: CalendarCheck },
+        { key: "courseMaterials", label: "Course Materials", icon: BookOpen },
+        { key: "mentoring", label: "Mentoring System", icon: UsersRound },
+        { key: "reports", label: "Report Download", icon: Download },
       ]}
       active={activeTab}
       onNavigate={(k) => setActiveTab(k as typeof activeTab)}
@@ -1316,7 +1532,8 @@ function HodPortalDashboard({
       bannerUser={hodName}
       bannerUserSub={authApi.currentUser()?.username ?? ""}
       onBellLink={(link) =>
-        link === "mark-approvals" ? setActiveTab("markApprovals")
+        link === "mentoring" ? setActiveTab("mentoring")
+          : link === "mark-approvals" ? setActiveTab("markApprovals")
           : link === "question-paper" ? setActiveTab("questionPapers") : undefined
       }
       onLogout={onLogout}
@@ -1587,6 +1804,19 @@ function HodPortalDashboard({
             </div>
           </div>
           </div>
+        ) : activeTab === "studentList" ? (
+          <StudentListView students={overview?.students ?? []} department={department} />
+        ) : activeTab === "courseMaterials" ? (
+          <div className="w-full max-w-7xl"><CourseMaterialModule mode="hod" deptKey={authApi.currentUser()?.departmentKey} /></div>
+        ) : activeTab === "mentoring" ? (
+          <div className="w-full max-w-7xl"><MentoringModule mode="hod" deptKey={authApi.currentUser()?.departmentKey} collegeKey={authApi.currentUser()?.collegeKey} /></div>
+        ) : activeTab === "attendance" ? (
+          <div className="w-full max-w-7xl"><HodAttendanceModule deptKey={authApi.currentUser()?.departmentKey || ""} hodName={hodName} /></div>
+        ) : activeTab === "reports" ? (
+          <div className="w-full max-w-7xl">
+            <ReportsDownloadCenter role="HOD" deptKey={authApi.currentUser()?.departmentKey || ""} department={department}
+              collegeKey={authApi.currentUser()?.collegeKey || "engineering"} college={authApi.currentUser()?.collegeName || ""} />
+          </div>
         ) : activeTab === "markEntry" ? (
           /* Tab: the HOD enters answer-script marks like the faculty (any subject of the department) */
           <FacultyMarkEntry />
@@ -1747,6 +1977,20 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
         return <LeaveApply onToast={setToast} />;
       case "my-performance":
         return <MyScorecard />;
+      case "attendance":
+        return <FacultyAttendanceModule />;
+      case "mentoring":
+        return <MentoringModule mode="faculty" deptKey={authApi.currentUser()?.departmentKey} collegeKey={authApi.currentUser()?.collegeKey} />;
+      case "course-materials":
+        return <CourseMaterialModule mode="faculty" deptKey={authApi.currentUser()?.departmentKey} />;
+      case "reports":
+        return (
+          <ReportsDownloadCenter
+            role="Faculty"
+            department={authApi.currentUser()?.departmentName || facultyCollege?.collegeName || ""}
+            college={facultyCollege?.collegeName || authApi.currentUser()?.collegeName || ""}
+          />
+        );
       case "verification":
       case "noticeboard":
         return (
@@ -1956,7 +2200,7 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
               <CircleHelp size={18} />
             </button>
 
-            <NotificationBell />
+            <NotificationBell onLink={(link) => { if (link === "mentoring") navigate("mentoring"); }} />
 
             <div className="hidden h-8 w-px bg-slate-200 sm:block" />
 
@@ -2458,7 +2702,8 @@ function StudentDashboard({
   initialSemester?: number;
   onLogout: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "result" | "internals" | "quizzes" | "subjects" | "fees" | "leave">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "result" | "internals" | "quizzes" | "subjects" | "fees" | "leave" | "attendance" | "absentDetails" | "mentoring" | "materials" | "reports">("dashboard");
+  const [absentSubjectFilter, setAbsentSubjectFilter] = useState<string>("ALL");
   const [currentSemesterNum, setCurrentSemesterNum] = useState<number>(initialSemester);
 
   useEffect(() => {
@@ -2655,7 +2900,12 @@ function StudentDashboard({
       navItems={[
         { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
         { key: "result", label: "Result", icon: FileText },
+        { key: "attendance", label: "Attendance", icon: CalendarCheck },
+        { key: "absentDetails", label: "Absent Details", icon: CalendarX },
         { key: "subjects", label: "My Subjects", icon: BookOpen },
+        { key: "mentoring", label: "My Mentor", icon: UsersRound },
+        { key: "materials", label: "Course Materials", icon: BookOpen },
+        { key: "reports", label: "Reports", icon: Download },
         { key: "internals", label: "Course Exit Survey", icon: ClipboardCheck },
         { key: "quizzes", label: "Online Quiz", icon: CheckSquare },
         { key: "fees", label: "Fees", icon: Wallet },
@@ -2674,7 +2924,7 @@ function StudentDashboard({
       bannerUser={studentName}
       bannerUserSub={studentReg}
       onBellLink={(link) => (link === "result" ? setActiveTab("result") : link === "fees" ? setActiveTab("fees")
-        : link === "leave" ? setActiveTab("leave") : undefined)}
+        : link === "leave" ? setActiveTab("leave") : link === "mentoring" ? setActiveTab("mentoring") : undefined)}
       accountButtons={false}
       onLogout={onLogout}
     >
@@ -2806,6 +3056,23 @@ function StudentDashboard({
 
             </div>
 
+          </div>
+        ) : activeTab === "attendance" ? (
+          <div className="w-full max-w-7xl">
+            <StudentAttendanceModule studentReg={studentReg}
+              onNavigateToAbsentDetails={(subCode) => { setAbsentSubjectFilter(subCode || "ALL"); setActiveTab("absentDetails"); }} />
+          </div>
+        ) : activeTab === "absentDetails" ? (
+          <div className="w-full max-w-7xl"><StudentAbsentDetailsModule studentReg={studentReg} initialSubjectFilter={absentSubjectFilter} /></div>
+        ) : activeTab === "mentoring" ? (
+          <div className="w-full max-w-7xl"><MentoringModule mode="student" deptKey={results?.profile.departmentKey || authApi.currentUser()?.departmentKey} collegeKey={authApi.currentUser()?.collegeKey} /></div>
+        ) : activeTab === "materials" ? (
+          <div className="w-full max-w-7xl"><CourseMaterialModule mode="student" deptKey={results?.profile.departmentKey || authApi.currentUser()?.departmentKey} semester={semNumber} /></div>
+        ) : activeTab === "reports" ? (
+          <div className="w-full max-w-7xl">
+            <ReportsDownloadCenter role="Student" deptKey={results?.profile.departmentKey || authApi.currentUser()?.departmentKey || ""}
+              department={results?.profile.departmentName || ""} collegeKey={authApi.currentUser()?.collegeKey || "engineering"}
+              college={authApi.currentUser()?.collegeName || ""} />
           </div>
         ) : activeTab === "fees" ? (
           <div className="w-full max-w-7xl"><StudentFees onToast={(m) => { setNotificationMsg(m); setTimeout(() => setNotificationMsg(null), 5000); }} /></div>
