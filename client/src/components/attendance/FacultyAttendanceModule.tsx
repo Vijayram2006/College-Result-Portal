@@ -72,6 +72,11 @@ export function FacultyAttendanceModule() {
     }
   }, [userDeptKey]);
 
+  useEffect(() => {
+    const sub = subjects.find((s) => s.code === selectedSubjectCode);
+    if (sub?.deptKey && sub.deptKey !== deptKey) setDeptKey(sub.deptKey);
+  }, [selectedSubjectCode, subjects]);
+
   // Daily entry state
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
@@ -83,8 +88,8 @@ export function FacultyAttendanceModule() {
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
   // Monthly batch state
-  const [selectedMonth, setSelectedMonth] = useState<number>(10);
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [monthlyBatch, setMonthlyBatch] = useState<MonthlyBatchDetail | null>(null);
   const [loadingBatch, setLoadingBatch] = useState<boolean>(false);
   const [submittingBatch, setSubmittingBatch] = useState<boolean>(false);
