@@ -382,6 +382,33 @@ public class HallTicketController {
         return out;
     }
 
+    public record BatchRequest(String dept, String year, Integer semester) {
+    }
+
+    /** "Timetable Batch Generation" tab: the department's tickets for the semester (any academic year). */
+    @GetMapping("/api/admin/hallticket/batch")
+    List<TicketView> legacyBatch(@RequestParam String dept, @RequestParam(required = false) String year,
+                                 @RequestParam Integer semester) {
+        admin();
+        return tickets(null, null, semester, dept, null);
+    }
+
+    /** Same tab: generates with the most recent fixed template that covers the department and semester. */
+    @PostMapping("/api/admin/hallticket/generate")
+    @Transactional
+    Map<String, Object> legacyGenerate(@RequestBody BatchRequest req) {
+        admin();
+        if (req == null || blank(req.dept()) == null || req.semester() == null) throw ApiException.badRequest("Choose the department and the semester");
+        String dept = deptInCollege(req.dept());
+        Map<String, Object> t = db.sql("""
+                        SELECT academic_year, batch, year_label FROM hall_ticket_templates WHERE college_key = ? AND status = 'FIXED'
+                          AND dept_key IN (?, '') AND semester IN (?, 0) ORDER BY (dept_key = ''), (semester = 0), fixed_at DESC LIMIT 1
+                        """).params(departments.college(), dept, req.semester()).query().listOfRows().stream().findFirst()
+                .orElseThrow(() -> ApiException.badRequest("Fix a hall ticket template for this department in the Hall Ticket Workflow tab first"));
+        return generate(new CohortRequest((String) t.get("academic_year"), (String) t.get("batch"), req.semester(), dept, null,
+                blank(req.year()) != null ? req.year().trim() : (String) t.get("year_label"), null, null, null));
+    }
+
     // ================================================================ review and publishing
 
     @GetMapping("/api/admin/hall-tickets/review")
@@ -619,7 +646,7 @@ public class HallTicketController {
         long qid = db.sql("INSERT INTO hall_ticket_queries (hall_ticket_id, reg_no, message) VALUES (?, ?, ?) RETURNING id")
                 .params(ticketId, me.regNo(), msg).query(Long.class).single();
         notifications.notify(Audience.COE, me.deptKey(), null, "Hall ticket query",
-                me.name() + " (" + me.regNo() + ") reported a hall ticket mistake: " + clip(msg, 120), "hall-tickets");
+                me.name() + " (" + me.regNo() + ") reported a hall ticket mistake: " + clip(msg, 120), "/admin/hall-tickets");
         return queriesWhere("q.id = ?", qid).get(0);
     }
 

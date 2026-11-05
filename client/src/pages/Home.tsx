@@ -2208,7 +2208,10 @@ function AppShell({ role, onLogout }: { role: Role; onLogout: () => void }) {
               <CircleHelp size={18} />
             </button>
 
-            <NotificationBell onLink={(link) => { if (link === "mentoring") navigate("mentoring"); }} />
+            <NotificationBell onLink={(link) => {
+                const page = (link === "materials" ? "course-materials" : link) as PageKey;
+                if ((roleNav[role] || []).some((item) => item.key === page)) navigate(page);
+              }} />
 
             <div className="hidden h-8 w-px bg-slate-200 sm:block" />
 

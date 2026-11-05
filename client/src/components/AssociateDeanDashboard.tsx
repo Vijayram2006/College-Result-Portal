@@ -806,6 +806,8 @@ export const AssociateDeanDashboard: React.FC<AssociateDeanDashboardProps> = ({
           subtitle="Question paper review, approval of forwarded marks and the college's results (read only)"
           onBellLink={(link) =>
             link === "mentoring" ? setActiveNav("mentoring")
+              : link === "attendance-approval" ? setActiveNav("attendance-approval")
+              : link === "leave" ? setActiveNav("erp-leave")
               : link === "question-paper" ? setActiveNav("question-paper-review")
                 : link === "mark-approvals" ? setActiveNav("mark-approvals") : undefined
           }
